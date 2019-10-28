@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "sourceMap": true,
+    "strict": true,
+    "module": "commonjs",
+    "target": "es2018",
+    "lib": ["es2018", "esnext.asynciterable"],
+    "baseUrl": ".",
+    "esModuleInterop": true,
+    "paths": {
+      "@src/*": ["src/*"],
+      "__helpers__/*": ["__helpers__/*"]
+    },
+    "typeRoots": ["@types", "node_modules/@types"]
+  },
+  "include": [
+    "src/**/*",
+    "__tests__/**/*",
+    "node_modules/jest-extended/types/**/*.d.ts"
+  ]
+}

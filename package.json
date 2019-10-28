@@ -1,0 +1,78 @@
+{
+  "name": "discours-backend-main",
+  "version": "0.0.0",
+  "description": "Main backend system for Discours project",
+  "main": "index.js",
+  "engines": {
+    "node": "~12.9.0",
+    "npm": "~6.10.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:clean": "npm run clean && npm run build",
+    "watch": "tsc -w",
+    "lint": "npm run lint:tsc && npm run lint:tslint",
+    "lint:tsc": "tsc -p tsconfig.json --noEmit",
+    "lint:tslint": "tslint -c tslint.json -p tsconfig.json --fix",
+    "lint:prettier": "prettier --write \"{src,test}/**/*.ts*\"",
+    "start": "ts-node-dev -T src/main",
+    "commit": "commit-prompt --no-verify",
+    "precommit": "lint-staged",
+    "test": "jest --detectOpenHandles",
+    "test:ci": "jest --detectOpenHandles --coverage",
+    "clean": "rimraf '{src,__tests__,__helpers__}/**/*.js?(x)?(.map)'",
+    "release": "./extra/deployment/release.sh",
+    "docs:readme": "gitdown ./.README.tmp --output-file ./README.md",
+    "predocs:readme": "hercule ./README.source.md -o ./.README.tmp"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Discours/discours-backend.git"
+  },
+  "keywords": [
+    "Discours",
+    "Publishing Platform",
+    "Publishing"
+  ],
+  "author": "goooseman",
+  "license": "MIT",
+  "homepage": "https://github.com/Discours/discours-backend",
+  "devDependencies": {
+    "@types/graphql": "^14.5.0",
+    "@types/jest": "^24.0.20",
+    "@types/node": "^12.11.7",
+    "@types/node-fetch": "^2.5.2",
+    "apollo-cache-inmemory": "^1.6.3",
+    "apollo-client": "^2.6.4",
+    "apollo-link-ws": "^1.0.19",
+    "gitdown": "^3.1.1",
+    "hercule": "^4.1.1",
+    "jest": "^24.0.0",
+    "jest-extended": "^0.11.2",
+    "node-fetch": "^2.6.0",
+    "prettier-config-trucknet-io": "^2.0.1",
+    "rimraf": "^3.0.0",
+    "trucknet-commit": "^1.5.0",
+    "ts-jest": "^24.0.0",
+    "ts-node-dev": "^1.0.0-pre.43",
+    "tslint": "^5.20.0",
+    "tslint-config-trucknet-io": "^1.8.6"
+  },
+  "_moduleAliases": {
+    "@src": "src"
+  },
+  "dependencies": {
+    "apollo-server-express": "^2.9.7",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "graphql": "^14.5.8",
+    "module-alias": "^2.2.2",
+    "pg": "^7.12.1",
+    "reflect-metadata": "^0.1.13",
+    "type-graphql": "^0.17.5",
+    "typedi": "^0.8.0",
+    "typeorm": "^0.2.20",
+    "typeorm-typedi-extensions": "^0.2.3",
+    "typescript": "^3.6.4"
+  }
+}
