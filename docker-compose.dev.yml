@@ -1,0 +1,27 @@
+version: "2"
+services:
+  base:
+    image: node:12.9
+    volumes:
+      - node_modules:/usr/src/service/node_modules
+      - .:/usr/src/service/
+    working_dir: /usr/src/service/
+  start:
+    extends:
+      service: base
+    command: npm start
+    links:
+      - db
+    environment:
+      - POSTGRESQL_URL=postgresql://postgres@db/discours-backend
+    ports:
+      - 4000:4000
+  db:
+    image: postgres:12.0
+    environment:
+      POSTGRES_DB: discours-backend
+  npm:
+    extends:
+      service: base
+volumes:
+  node_modules:
