@@ -1,0 +1,77 @@
+@startuml
+
+!include <tupadr3/common>
+!include <tupadr3/font-awesome/tag>
+!include <tupadr3/font-awesome/newspaper_o>
+!include <tupadr3/font-awesome/paint_brush>
+!include <tupadr3/font-awesome/paint_brush>
+!include <tupadr3/font-awesome/calendar>
+!include <tupadr3/font-awesome/calendar_o>
+!include <tupadr3/font-awesome/music>
+!include <tupadr3/font-awesome/user>
+!include <tupadr3/font-awesome/commenting_o> 
+!include <tupadr3/font-awesome/sticky_note_o> 
+!include <tupadr3/font-awesome/file_image_o> 
+!include <tupadr3/font-awesome/file_audio_o> 
+!include <tupadr3/font-awesome/file_video_o> 
+!include <tupadr3/font-awesome/file_text_o> 
+!include <tupadr3/font-awesome/pencil> 
+!include <tupadr3/font-awesome/pencil_square_o> 
+!include <tupadr3/font-awesome/book> 
+!include <tupadr3/font-awesome/unlock> 
+!include <tupadr3/font-awesome-5/copy> 
+title Discours Backend
+'Colors: https://materialuicolors.co/
+
+!$common_attributes = "\ncreatedAt\nupdatedAt\n"
+!$image_attribute = "\nimage.id\nimage.caption\n"
+!$item_attributes = "\ntitle\nbody\npublishedAt\nisPublished\nrating\nviewsCount\n"
+
+!$article_description = "Article\n" + "Статья\n"+ $image_attribute + $item_attributes + $common_attributes
+
+!$art_description = "Art\nИскусство\n" + $item_attributes + $common_attributes
+!$image_description = "Image\nГалерея\n\nimages.$.url\nimages.$.caption"
+!$music_description = "Music\nМузыка\n" + $image_attribute + "tracks.$.url\ntracks.$.name\ntracks.$.artist"
+!$video_description = "Video\nВидео\n" + $image_attribute + "videos.$.url\nvideos.$.title"
+!$literature_description = "Literature\nЛитература\n" + $image_attribute + "text"
+
+
+FA_NEWSPAPER_O(article, $article_description) #FFF176
+FA_TAG(topic, Topic) #4DD0E1
+FA_PAINT_BRUSH(art, $art_description, node)  {
+  FA_FILE_IMAGE_O(art_image, $image_description) #4DB6AC
+  FA_FILE_AUDIO_O(art_music, $music_description) #81C784
+  FA_FILE_VIDEO_O(art_video, $video_description) #AED581
+  FA_FILE_TEXT_O(art_literature, $literature_description) #DCE775
+} 
+FA_MUSIC(genre, Genre) #64B5F6
+FA_CALENDAR(event, Event) #E57373
+FA_CALENDAR_O(event_type, Event Type) #7986CB
+FA_USER(user, User) {
+  FA_BOOK(reader, Reader) #FFD54F
+  FA_PENCIL(author, Author) #FFB74D
+  FA_PENCIL_SQUARE_O(editor, Editor) #FF8A65
+  FA_UNLOCK(admin, Admin) #FFF176
+}
+FA_COMMENTING_O(comment, Comment) #E0E0E0
+FA_STICKY_NOTE_O(remark, Remark) #90A4AE
+FA5_COPY(series, Series) #4FC3F7
+
+article--->topic
+article-->user
+article->comment
+article->remark
+remark-->comment
+comment-->user
+comment->comment
+
+series-->article
+
+art--->topic
+art->genre
+art-->user
+
+event--->topic
+event->event_type
+
+@enduml
