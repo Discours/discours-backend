@@ -1,6 +1,7 @@
 import "module-alias/register"; // tslint:disable-line: no-import-side-effect
 import "reflect-metadata"; // tslint:disable-line: no-import-side-effect
 
+import entities from "@src/core/entities";
 import { authChecker, getUser } from "@src/graphql/auth";
 import resolvers from "@src/graphql/resolvers";
 import { ApolloServer } from "apollo-server-express";
@@ -21,9 +22,11 @@ useContainer(Container);
 export async function startServer(options: IBootstrapOptions) {
   await createConnection({
     type: "postgres",
-    entities: [`${__dirname}/**/model.ts`],
+    entities: entities,
     url: options.postgresqlUrl,
-    migrations: ["src/migration/**/*.ts"]
+    // TODO turn it off and write migrations
+    // https://typeorm.io/#/migrations
+    synchronize: true
   });
 
   const schema = await buildSchema({
