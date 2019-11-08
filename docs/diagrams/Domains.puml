@@ -35,9 +35,10 @@ title Discours Backend
 !$video_description = "Video\nВидео\n" + $image_attribute + "videos.$.url\nvideos.$.title"
 !$literature_description = "Literature\nЛитература\n" + $image_attribute + "text"
 
+!$topic_description = "Topic\nТема\n\ntitle\nis_favorite\ndescription?\nviews_count\nitems_count.articles\nitems_count.art\nitems_count.events\nitems_count.total"
 
 FA_NEWSPAPER_O(article, $article_description) #FFF176
-FA_TAG(topic, Topic) #4DD0E1
+FA_TAG(topic, $topic_description) #4DD0E1
 FA_PAINT_BRUSH(art, $art_description, node)  {
   FA_FILE_IMAGE_O(art_image, $image_description) #4DB6AC
   FA_FILE_AUDIO_O(art_music, $music_description) #81C784
