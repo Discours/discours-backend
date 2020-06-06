@@ -65,7 +65,7 @@
     "@src": "src"
   },
   "dependencies": {
-    "apollo-server-express": "^2.9.7",
+    "apollo-server-express": "^2.14.2",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "graphql": "^14.5.8",
