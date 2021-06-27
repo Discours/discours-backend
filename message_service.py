@@ -11,6 +11,9 @@ from peewee import *
 
 import asyncio
 
+import auth_utils
+
+
 type_defs = load_schema_from_path("schema.graphql")
 
 db = SqliteDatabase('discours.db')
@@ -19,6 +22,16 @@ class User(Model):
 	username = CharField()
 	email = CharField()
 	createdAt = DateTimeField(default=datetime.now)
+	muted = BooleanField(default=False)
+	rating = IntegerField(default=0)
+	# roles = 
+	updatedAt = DateTimeField(default=datetime.now)
+	username = CharField()
+	userpic = CharField(default="")
+	userpicId = CharField(default="")
+	wasOnlineAt = DateTimeField(default=datetime.now)
+	
+	password = CharField()
 
 	class Meta:
 		database = db
@@ -38,7 +51,11 @@ class Message(Model):
 db.connect()
 db.create_tables([User, Message])
 
-#only_user = User.create(username = "admin", email = "knst.kotov@gmail.com")
+#only_user = User.create(
+#	username = "admin",
+#	email = "knst.kotov@gmail.com",
+#	password = auth_utils.password_to_hash("12345")
+#)
 only_user = User.get(User.username == "admin")
 
 
@@ -65,17 +82,43 @@ def resolve_get_messages(_, info, count, page):
 
 mutation = MutationType()
 
+@mutation.field("signIn")
+def resolve_sign_in(_, info, email, password):
+	try:
+		user = User.get(User.email == email)
+	except DoesNotExist as err:
+		return {
+			"status" : False,
+			"error" : "invalid username or password"
+		}
+		
+	if auth_utils.verify_password(password, user.password) :
+		return {
+			"status" : True,
+			"token" : auth_utils.jwt_encode(user)
+		}
+		
+	return {
+		"status" : False,
+		"error" : "invalid username or password"
+	}
+
 @mutation.field("createMessage")
 def resolve_create_message(_, info, input):
+	request = info.context["request"]
+	
 	try:
+		user_id = auth_utils.authorize(request)
+		user = User.get(User.id == user_id)
+		
 		new_message = Message.create(
-			author = only_user,
+			author = user,
 			body = input["body"],
 			replyTo = input.get("replyTo")
 		)
 	except Exception as err:
 		return {
-			"status" : false,
+			"status" : False,
 			"message" : err
 		}
 	
@@ -90,6 +133,17 @@ def resolve_create_message(_, info, input):
 
 @mutation.field("updateMessage")
 def resolve_update_message(_, info, input):
+	request = info.context["request"]
+	
+	try:
+		user_id = auth_utils.authorize(request)
+		user = User.get(User.id == user_id)
+	except Exception as err:
+		return {
+			"status" : False,
+			"message" : err
+		}
+		
 	message_id = input["id"]
 	body = input["body"]
 	
@@ -100,6 +154,12 @@ def resolve_update_message(_, info, input):
 		}
 	
 	updated_message = all_messages[message_id]
+	
+	if updated_message.author != user:
+		return {
+			"status" : False,
+			"error" : "update this message denied"
+		}
 	
 	updated_message.body = body
 	#updated_message.updatedAt = datetime.now
