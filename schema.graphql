@@ -1,28 +1,4 @@
 scalar DateTime
-	
-type User {
-	createdAt: DateTime!
-	email: String
-	emailConfirmed: Boolean
-	id: Int!
-	muted: Boolean
-	rating: Int
-	updatedAt: DateTime!
-	username: String
-	userpic: String
-	userpicId: String
-	wasOnlineAt: DateTime
-}
-
-type Message {
-	author: Int!
-	body: String!
-	createdAt: DateTime!
-	id: Int!
-	replyTo: Int
-	updatedAt: DateTime!
-	visibleForUsers: [Int]
-}
 
 type createMessagePayload {
 	status: Boolean!
@@ -45,18 +21,143 @@ input updateMessageInput {
 	body: String!
 }
 
-type Query {
-	getMessages(count: Int = 100, page: Int = 1): [Message!]!
+type Message {
+    author: Int!
+    visibleForUsers: [Int]
+    body: String!
+    createdAt: DateTime!
+    id: Int!
+    replyTo: Int
+    updatedAt: DateTime!
 }
 
 type Mutation {
-	createMessage(input: MessageInput!): createMessagePayload!
-	updateMessage(input: updateMessageInput!): createMessagePayload!
-	deleteMessage(messageId: Int!): deleteMessagePayload!
+    # message
+    createMessage(input: MessageInput!): createMessagePayload!
+    updateMessage(input: updateMessageInput!): createMessagePayload!
+    deleteMessage(messageId: Int!): deleteMessagePayload!
+
+    # auth
+    confirmEmail(token: String!): Token!
+    invalidateAllTokens: Boolean!
+    invalidateTokenById(id: Int!): Boolean!
+    requestEmailConfirmation: User!
+    requestPasswordReset(email: String!): Boolean!
+    resetPassword(password: String!, token: String!): Token!
+    signIn(email: String!, password: String!): Token! # login
+    signUp(email: String!, password: String!, username: String): User! # register
+
+    # shout
+    createShout(body: String!, replyTo: [Int], title: String, versionOf: [Int], visibleForRoles: [Int], visibleForUsers: [Int]): Message!
+    deleteShout(shoutId: Int!): Message!
+    rateShout(value: Int!): Boolean!
+
+    # profile
+    rateUser(value: Int!): Boolean!
+    updateOnlineStatus: Boolean!
+    updateUsername(username: String!): User!
+
+    # proposal
+    createProposal(shout: Int!, range: String!): Boolean!
+    updateProposal(proposal: Int!, body: String!): Boolean!
+    removeProposal(proposal: Int!)
+    approveProposal(proposal: Int!): Boolean!
+}
+
+type Query {
+    # auth
+    getCurrentUser: User!
+    logout: [Boolean!]
+    getTokens: [Token!]!
+    isUsernameFree(username: String!): Boolean!
+
+    # profile
+    getUserById(id: Int!): User!
+    getUserRating(shout: Int): Int!
+    getOnline: [User!]!
+
+    # message
+    getMessages(count: Int = 100, page: Int = 1): [Message!]!
+    
+    # shout
+    getShoutRating(shout: Int): Int!
+    shoutsByAuthor(author: Int): [Shout]!
+    shoutsByReplyTo(shout: Int): [Shout]!
+    shoutsByTags(tags: [String]): [Shout]!
+    shoutsByTime(time: DateTime): [Shout]!
+    topAuthors: [User]!
+    topShouts: [Shout]!
+
+    # proposal
+    getShoutProposals(shout: Int): [Proposal]!
+}
+
+type Role {
+    id: Int!
+    name: String!
+}
+
+type Shout {
+    author: Int!
+    body: String!
+    createdAt: DateTime!
+    deletedAt: DateTime
+    deletedBy: Int
+    id: Int!
+    rating: Int
+    published: DateTime! # if there is no published field - it is not published
+    replyTo: Int # another shout
+    tags: [String]
+    title: String
+    updatedAt: DateTime!
+    versionOf: Int
+    visibleForRoles: [Role]!
+    visibleForUsers: [Int]
+}
+
+type Proposal {
+    body: String!
+    shout: Int!
+    range: String # full / 0:2340
+    author: Int!
+    createdAt: DateTime!
 }
 
 type Subscription {
-	messageCreated: Message!
-	messageUpdated: Message!
-	messageDeleted: Message!
+    profileUpdate(user_id: Int!): User!
+    chatUpdate(user_id: Int!): Message!
+    onlineUpdate: [User!]! # userlist
+    shoutUpdate(shout_id: Int!): Shout!
+}
+
+type Token {
+    createdAt: DateTime!
+    expiresAt: DateTime
+    id: Int!
+    ownerId: Int!
+    usedAt: DateTime
+    value: String!
+}
+
+type User {
+    createdAt: DateTime!
+    email: String
+    emailConfirmed: Boolean
+    id: Int!
+    muted: Boolean
+    rating: Int
+    roles: [Role!]!
+    updatedAt: DateTime!
+    username: String
+    userpic: String
+    userpicId: String
+    wasOnlineAt: DateTime
+}
+
+type Like {
+    author: Int!
+    id: Int!
+    shout: Int
+    user: Int
+    value: Int!
 }
