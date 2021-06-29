@@ -6,12 +6,12 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 
-from authority.authenticate import JWTAuthenticate
+from auth.authenticate import JWTAuthenticate
 from redis import redis
 from resolvers.base import resolvers
 
 import_module('resolvers')
-schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)
+schema = make_executable_schema(load_schema_from_path("schema/"), resolvers)
 
 middleware = [Middleware(AuthenticationMiddleware, backend=JWTAuthenticate())]
 

@@ -60,7 +60,7 @@ type Mutation {
     # proposal
     createProposal(shout: Int!, range: String!): Boolean!
     updateProposal(proposal: Int!, body: String!): Boolean!
-    removeProposal(proposal: Int!)
+    removeProposal(proposal: Int!): Boolean!
     approveProposal(proposal: Int!): Boolean!
 }
 

@@ -3,7 +3,7 @@ from datetime import datetime
 import jwt
 
 from settings import JWT_ALGORITHM, JWT_SECRET_KEY
-from validations import PayLoad, User
+from auth.validations import PayLoad, User
 
 
 class Token:

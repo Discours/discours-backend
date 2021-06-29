@@ -1,3 +1,3 @@
-from resolvers.login import get_user, login, logout, register
+from resolvers.auth import sign_in, sign_out, register
 
-__all__ = ["get_user", "login", "logout", "register"]
+__all__ = ["sign_in", "sign_out", "register"]

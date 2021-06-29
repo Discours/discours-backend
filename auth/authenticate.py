@@ -56,9 +56,8 @@ class JWTAuthenticate(AuthenticationBackend):
         if JWT_AUTH_HEADER not in request.headers:
             return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-        auth = request.headers[JWT_AUTH_HEADER]
+        token = request.headers[JWT_AUTH_HEADER]
         try:
-            scheme, token = auth.split()
             payload = await _Authenticate.verify(token)
         except Exception as exc:
             return AuthCredentials(scopes=[], error_message=str(exc)), AuthUser(user_id=None)

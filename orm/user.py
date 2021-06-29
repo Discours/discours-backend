@@ -9,11 +9,11 @@ from orm.base import Base
 class User(Base):
     __tablename__ = 'user'
 
-    name: str = Column(String, nullable=False, comment="Name")
+    email: str = Column(String, nullable=False)
+    username: str = Column(String, nullable=False, comment="Name")
     password: str = Column(String, nullable=False, comment="Password")
-    # phone: str = Column(String, comment="Phone")
-    # age: int = Column(Integer, comment="Age")
-    role_id: int = Column(ForeignKey("role.id"), nullable=False, comment="Role")
+
+    role_id: int = Column(ForeignKey("role.id"), nullable=True, comment="Role")
 
     @classmethod
     def get_permission(cls, user_id):

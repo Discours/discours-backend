@@ -1,0 +1,46 @@
+
+type Role {
+  id: Int!
+  name: String!
+}
+
+type User {
+  createdAt: DateTime!
+  email: String
+  emailConfirmed: Boolean
+  id: Int!
+  muted: Boolean
+  rating: Int
+  roles: [Role!]!
+  updatedAt: DateTime!
+  username: String
+  userpic: String
+  userpicId: String
+  wasOnlineAt: DateTime
+}
+
+input registerUserInput {
+	email: String!
+	username: String!
+	password: String!
+}
+
+type signInPayload {
+	status: Boolean!
+	error: String
+	token: String
+}
+
+type signOutPayload {
+	status: Boolean!
+	error: String
+}
+
+type  Query{
+	signIn(id: Int!, password: String!): signInPayload!
+	signOut: signOutPayload!
+}
+
+type Mutation{
+	registerUser(input: registerUserInput!): User!
+}

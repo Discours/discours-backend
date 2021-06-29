@@ -2,7 +2,7 @@ from auth.password import Password
 from exceptions import InvalidPassword, ObjectNotExist
 from orm import User as OrmUser
 from orm.base import global_session
-from validations import User
+from auth.validations import User
 
 
 class Identity:

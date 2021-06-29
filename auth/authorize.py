@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from auth.token import Token
 from redis import redis
 from settings import JWT_LIFE_SPAN
-from validations import User
+from auth.validations import User
 
 
 class Authorize:
@@ -30,7 +30,7 @@ class Authorize:
         except:  # noqa
             pass
         else:
-            await redis.execute("DEL", f"{payload.id}-{token}")
+            await redis.execute("DEL", f"{payload.user_id}-{token}")
         return True
 
     @staticmethod
