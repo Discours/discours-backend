@@ -9,17 +9,17 @@ Tech stack:
 
 # Local development
 
-Install redis first, then start
+Install redis and pipenv first
 
 '''
-brew install redis
+brew install redis pipenv
 brew services start redis
 '''
 
 Then run API server
 
 '''
-pip3 install -r requirements.txt
+pipenv shell
 python3 server.py
 '''
 
