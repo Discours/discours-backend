@@ -11,17 +11,17 @@ Tech stack:
 
 Install redis and pipenv first
 
-'''
+```
 brew install redis pipenv
 brew services start redis
-'''
+```
 
 Then run API server
 
-'''
+```
 pipenv shell
 python3 server.py
-'''
+```
 
 # With Docker
 
