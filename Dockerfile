@@ -1,9 +1,12 @@
 FROM python:3.9
 
-WORKDIR /home/ruicore/auth
+RUN pip3 install pipenv
 
-COPY . /home/ruicore/auth
+WORKDIR /usr/src/app
 
-RUN pip3 install --upgrade pip && pip3 install -r requirements.txt
+COPY Pipfile ./
+COPY Pipfile.lock ./
 
-LABEL ruicore="hrui835@gmail.com" version="v.0.0.1"
+RUN set -ex && pipenv install --deploy --system
+
+COPY . .
