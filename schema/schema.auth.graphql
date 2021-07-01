@@ -35,12 +35,3 @@ type signOutPayload {
 	status: Boolean!
 	error: String
 }
-
-type  Query{
-	signIn(id: Int!, password: String!): signInPayload!
-	signOut: signOutPayload!
-}
-
-type Mutation{
-	registerUser(input: registerUserInput!): User!
-}

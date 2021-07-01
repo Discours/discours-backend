@@ -1,0 +1,31 @@
+
+type Message {
+	author: Int!
+	body: String!
+	createdAt: DateTime!
+	id: Int!
+	replyTo: Int
+	updatedAt: DateTime!
+	visibleForUsers: [Int]
+}
+
+type createMessagePayload {
+	status: Boolean!
+	error: String
+	message: Message
+}
+
+type deleteMessagePayload {
+	status: Boolean!
+	error: String
+}
+
+input MessageInput {
+	body: String!
+	replyTo: Int
+}
+
+input updateMessageInput {
+	id: Int!
+	body: String!
+}

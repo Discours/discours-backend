@@ -1,27 +1,88 @@
-from orm import message, user
+from orm import Message, User
+from orm.base import global_session
 
-from ariadne import ObjectType, convert_kwargs_to_snake_case
+from resolvers.base import mutation, query
 
-query = ObjectType("Query")
+from auth.authenticate import login_required
 
+@mutation.field("createMessage")
+@login_required
+async def create_message(_, info, input):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+	
+	new_message = Message.create(
+		author = user_id,
+		body = input["body"],
+		replyTo = input.get("replyTo")
+		)
+	
+	return {
+		"status": True,
+		"message" : new_message
+	}
 
-@query.field("messages")
-@convert_kwargs_to_snake_case
-async def resolve_messages(obj, info, user_id):
-    def filter_by_userid(message):
-        return message["sender_id"] == user_id or \
-            message["recipient_id"] == user_id
+@query.field("getMessages")
+@login_required
+async def get_messages(_, info, count, page):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+	
+	messages = global_session.query(Message).filter(Message.author == user_id)
+	
+	return messages
 
-    user_messages = filter(filter_by_userid, messages)
-    return {
-        "success": True,
-        "messages": user_messages
-    }
+def check_and_get_message(message_id, user_id) :
+	message = global_session.query(Message).filter(Message.id == message_id).first()
+	
+	if not message :
+		raise Exception("invalid id")
+	
+	if message.author != user_id :
+		raise Exception("access denied")
+	
+	return message
 
+@mutation.field("updateMessage")
+@login_required
+async def update_message(_, info, input):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+	message_id = input["id"]
+	
+	try:
+		message = check_and_get_message(message_id, user_id)
+	except Exception as err:
+		return {
+			"status" : False,
+			"error" : err
+		}
+	
+	message.body = input["body"]
+	global_session.commit()
+	
+	return {
+		"status" : True,
+		"message" : message
+	}
 
-@query.field("userId")
-@convert_kwargs_to_snake_case
-async def resolve_user_id(obj, info, username):
-    user = users.get(username)
-    if user:
-        return user["user_id"]
+@mutation.field("deleteMessage")
+@login_required
+async def delete_message(_, info, id):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+	
+	try:
+		message = check_and_get_message(id, user_id)
+	except Exception as err:
+		return {
+			"status" : False,
+			"error" : err
+		}
+	
+	global_session.delete(message)
+	global_session.commit()
+	
+	return {
+		"status" : True
+	}
