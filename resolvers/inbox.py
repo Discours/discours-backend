@@ -1,9 +1,15 @@
 from orm import Message, User
 from orm.base import global_session
 
-from resolvers.base import mutation, query
+from resolvers.base import mutation, query, subscription
 
 from auth.authenticate import login_required
+
+import asyncio
+
+new_message_queue = asyncio.Queue()
+updated_message_queue = asyncio.Queue()
+deleted_message_queue = asyncio.Queue()
 
 @mutation.field("createMessage")
 @login_required
@@ -16,6 +22,8 @@ async def create_message(_, info, input):
 		body = input["body"],
 		replyTo = input.get("replyTo")
 		)
+	
+	new_message_queue.put_nowait(new_message)
 	
 	return {
 		"status": True,
@@ -61,6 +69,8 @@ async def update_message(_, info, input):
 	message.body = input["body"]
 	global_session.commit()
 	
+	updated_message_queue.put_nowait(message)
+	
 	return {
 		"status" : True,
 		"message" : message
@@ -83,6 +93,33 @@ async def delete_message(_, info, id):
 	global_session.delete(message)
 	global_session.commit()
 	
+	deleted_message_queue.put_nowait(message)
+	
 	return {
 		"status" : True
 	}
+
+
+@subscription.source("messageCreated")
+async def new_message_generator(obj, info):
+	while True:
+		new_message = await new_message_queue.get()
+		yield new_message
+
+@subscription.source("messageUpdated")
+async def updated_message_generator(obj, info):
+	while True:
+		message = await updated_message_queue.get()
+		yield message
+
+@subscription.source("messageDeleted")
+async def deleted_message_generator(obj, info):
+	while True:
+		message = await deleted_message_queue.get()
+		yield new_message
+
+@subscription.field("messageCreated")
+@subscription.field("messageUpdated")
+@subscription.field("messageDeleted")
+def message_resolver(message, info):
+	return message
