@@ -6,9 +6,9 @@ __all__ = [
     "sign_out",
     "register",
     # TODO: "reset_password_code",
-    # TODO: "reset_password_confirm"
+    # TODO: "reset_password_confirm",
     "create_message",
     "delete_message",
     "get_messages",
-    "update_message"
+    "update_messages"
     ]
