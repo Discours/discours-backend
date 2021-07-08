@@ -7,9 +7,13 @@ from auth.authenticate import login_required
 
 import asyncio
 
-new_message_queue = asyncio.Queue()
-updated_message_queue = asyncio.Queue()
-deleted_message_queue = asyncio.Queue()
+
+class MessageQueue:
+	
+	new_message = asyncio.Queue()
+	updated_message = asyncio.Queue()
+	deleted_message = asyncio.Queue()
+
 
 @mutation.field("createMessage")
 @login_required
@@ -23,7 +27,7 @@ async def create_message(_, info, input):
 		replyTo = input.get("replyTo")
 		)
 	
-	new_message_queue.put_nowait(new_message)
+	MessageQueue.new_message.put_nowait(new_message)
 	
 	return {
 		"status": True,
@@ -69,7 +73,7 @@ async def update_message(_, info, input):
 	message.body = input["body"]
 	global_session.commit()
 	
-	updated_message_queue.put_nowait(message)
+	MessageQueue.updated_message.put_nowait(message)
 	
 	return {
 		"status" : True,
@@ -93,7 +97,7 @@ async def delete_message(_, info, id):
 	global_session.delete(message)
 	global_session.commit()
 	
-	deleted_message_queue.put_nowait(message)
+	MessageQueue.deleted_message.put_nowait(message)
 	
 	return {
 		"status" : True
@@ -103,19 +107,19 @@ async def delete_message(_, info, id):
 @subscription.source("messageCreated")
 async def new_message_generator(obj, info):
 	while True:
-		new_message = await new_message_queue.get()
+		new_message = await MessageQueue.new_message.get()
 		yield new_message
 
 @subscription.source("messageUpdated")
 async def updated_message_generator(obj, info):
 	while True:
-		message = await updated_message_queue.get()
+		message = await MessageQueue.updated_message.get()
 		yield message
 
 @subscription.source("messageDeleted")
 async def deleted_message_generator(obj, info):
 	while True:
-		message = await deleted_message_queue.get()
+		message = await MessageQueue.deleted_message.get()
 		yield new_message
 
 @subscription.field("messageCreated")
