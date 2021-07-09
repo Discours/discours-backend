@@ -6,12 +6,20 @@ from auth.validations import User
 
 
 class Identity:
-    @staticmethod
-    def identity(user_id: int, password: str) -> User:
-        user = global_session.query(OrmUser).filter_by(id=user_id).first()
-        if not user:
-            raise ObjectNotExist("User does not exist")
-        user = User(**user.dict())
-        if not Password.verify(password, user.password):
-            raise InvalidPassword("Wrong user password")
-        return user
+	@staticmethod
+	def identity(user_id: int, password: str) -> User:
+		user = global_session.query(OrmUser).filter_by(id=user_id).first()
+		if not user:
+			raise ObjectNotExist("User does not exist")
+		user = User(**user.dict())
+		if not Password.verify(password, user.password):
+			raise InvalidPassword("Wrong user password")
+		return user
+	
+	@staticmethod
+	def identity_oauth(oauth_id, input) -> User:
+		user = global_session.query(OrmUser).filter_by(oauth_id=oauth_id).first()
+		if not user:
+			user = OrmUser.create(**input)
+		user = User(**user.dict())
+		return user
