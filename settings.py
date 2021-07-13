@@ -1,6 +1,6 @@
 from pathlib import Path
 
-PORT = 24579
+PORT = 8081
 
 SQLITE_URI = Path(__file__).parent / "database.sqlite3"
 JWT_ALGORITHM = "HS256"
