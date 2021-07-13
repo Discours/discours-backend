@@ -14,7 +14,7 @@ from redis import redis
 from resolvers.base import resolvers
 
 import_module('resolvers')
-schema = make_executable_schema(load_schema_from_path("schema/"), resolvers)
+schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)
 
 middleware = [
 	Middleware(AuthenticationMiddleware, backend=JWTAuthenticate()),
