@@ -6,3 +6,6 @@ sqlalchemy
 uvicorn
 pydantic
 passlib
+itsdangerous
+authlib
+httpx

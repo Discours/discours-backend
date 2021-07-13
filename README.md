@@ -16,11 +16,17 @@ brew install redis pipenv
 brew services start redis
 ```
 
+Create certificate files
+
+```sh
+./create_crt.sh
+```
+
 Then run API server
 
 ```
-pipenv shell
-python3 server.py
+pipenv install
+pipenv run python3 server.py
 ```
 
 # With Docker
