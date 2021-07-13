@@ -132,3 +132,8 @@ temp.*
 
 *.sqlite3
 dump.rdb
+
+*.crt
+*.key
+
+Pipfil*
