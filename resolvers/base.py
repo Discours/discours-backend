@@ -1,6 +1,15 @@
-from ariadne import MutationType, QueryType
+from ariadne import MutationType, QueryType, SubscriptionType, ScalarType
 
 query = QueryType()
 mutation = MutationType()
+subscription = SubscriptionType()
 
-resolvers = [query, mutation]
+
+datetime_scalar = ScalarType("DateTime")
+
+@datetime_scalar.serializer
+def serialize_datetime(value):
+	return value.isoformat()
+
+
+resolvers = [query, mutation, subscription, datetime_scalar]

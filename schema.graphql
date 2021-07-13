@@ -64,8 +64,6 @@ type Mutation {
   requestEmailConfirmation: User!
   requestPasswordReset(email: String!): Boolean!
   resetPassword(password: String!, token: String!): Token!
-  signIn(email: String!, password: String!): Token!
-  # signUp(email: String!, password: String!, username: String): User!
   registerUser(input: registerUserInput!): User!
 
   # shout
@@ -136,7 +134,9 @@ type Proposal {
 
 type Subscription {
   messageCreated: Message!
+  messageUpdated: Message!
   messageDeleted: Message!
+  
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!

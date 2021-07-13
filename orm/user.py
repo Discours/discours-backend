@@ -11,9 +11,11 @@ class User(Base):
 
     email: str = Column(String, nullable=False)
     username: str = Column(String, nullable=False, comment="Name")
-    password: str = Column(String, nullable=False, comment="Password")
+    password: str = Column(String, nullable=True, comment="Password")
 
     role_id: int = Column(ForeignKey("role.id"), nullable=True, comment="Role")
+    
+    oauth_id: str = Column(String, nullable=True)
 
     @classmethod
     def get_permission(cls, user_id):
