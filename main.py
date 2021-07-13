@@ -29,7 +29,7 @@ async def shutdown():
     await redis.disconnect()
     
 routes = [
-    Route("/oauth", endpoint=oauth_login),
+    Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/authorize", endpoint=oauth_authorize)
 ]
 
