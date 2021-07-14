@@ -79,11 +79,12 @@ type Mutation {
 
 type Query {
   # auth / user
-	signIn(id: Int!, password: String!): signInPayload!
+	signIn(email: String!, password: String!): signInPayload!
 	signOut: ResultPayload!
-  getCurrentUser: User!
-  getTokens: [Token!]!
-  isUsernameFree(username: String!): Boolean!
+	getCurrentUser: User!
+	
+	isEmailFree(email: String!): Boolean!
+
   getOnline: [User!]!
   getUserById(id: Int!): User!
   getUserRating(shout: Int): Int!
