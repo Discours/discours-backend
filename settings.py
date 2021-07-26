@@ -3,7 +3,7 @@ from os import environ
 
 PORT = 80
 
-DB_URI = environ.get("DB_URI") or "postgresql://postgres:postgres@localhost/discours"
+DB_URL = environ.get("DB_URL") or "postgresql://postgres:postgres@localhost/discours"
 JWT_ALGORITHM = "HS256"
 JWT_SECRET_KEY = "8f1bd7696ffb482d8486dfbc6e7d16dd-secret-key"
 JWT_LIFE_SPAN = 24 * 60 * 60  # seconds
