@@ -5,9 +5,9 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.schema import Table
 
-from settings import SQLITE_URI
+from settings import DB_URI
 
-engine = create_engine(f'sqlite:///{SQLITE_URI}', convert_unicode=True, echo=False)
+engine = create_engine(DB_URI, convert_unicode=True, echo=False)
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 global_session = Session()
 

@@ -15,6 +15,7 @@ SQLAlchemy = "*"
 itsdangerous = "*"
 authlib = "*"
 httpx = "*"
+psycopg2 = "*"
 
 [dev-packages]
 
