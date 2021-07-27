@@ -3,6 +3,18 @@ from orm.base import global_session
 
 from resolvers.base import mutation, query, subscription
 
+@query.field("topShouts")
+async def top_shouts(_, info: GraphQLResolveInfo):
+    # TODO: implement top shouts 
+    pass
+
+
+@query.field("topAuthors")
+async def top_shouts(_, info: GraphQLResolveInfo):
+    # TODO: implement top authors 
+    pass
+
+
 # TODO: debug me
 @mutation.field("createShout")
 @login_required
