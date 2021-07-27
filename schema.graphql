@@ -165,11 +165,11 @@ type Shout {
 }
 
 type Topic {
-  slug: String
+  slug: String! # ID
+  createdBy: Int! # User
   original: String
   parents: [String] # NOTE: topic can have parent topics
   children: [String] # and children
-  createdBy: User!
   createdAt: DateTime!
 }
 
