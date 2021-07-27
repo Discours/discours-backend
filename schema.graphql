@@ -1,34 +1,11 @@
 scalar DateTime
 
+################################### Inputs
+
 input registerUserInput {
 	email: String!
 	username: String!
 	password: String!
-}
-
-type signInPayload {
-	status: Boolean!
-	error: String
-	token: String
-}
-
-type ResultPayload {
-	status: Boolean!
-	error: String
-}
-
-type Like {
-  author: Int!
-  id: Int!
-  shout: Int
-  user: Int
-  value: Int!
-}
-
-type createMessagePayload {
-	status: Boolean!
-	error: String
-	message: Message
 }
 
 input MessageInput {
@@ -41,15 +18,26 @@ input updateMessageInput {
 	body: String!
 }
 
-type Message {
-  author: Int!
-  body: String!
-  createdAt: DateTime!
-  id: Int!
-  replyTo: Int
-  updatedAt: DateTime!
-  visibleForUsers: [Int]
+################################### Payloads
+
+type signInPayload {
+	status: Boolean!
+	error: String
+	token: String
 }
+
+type ResultPayload {
+	status: Boolean!
+	error: String
+}
+
+type createMessagePayload {
+	status: Boolean!
+	error: String
+	message: Message
+}
+
+################################### Mutation
 
 type Mutation {
   # message
@@ -77,6 +65,8 @@ type Mutation {
   updateUsername(username: String!): User!
 }
 
+################################### Query
+
 type Query {
   # auth / user
 	signIn(email: String!, password: String!): signInPayload!
@@ -102,36 +92,7 @@ type Query {
   topShouts: [Shout]!
 }
 
-type Role {
-  id: Int!
-  name: String!
-}
-
-type Shout {
-  author: Int!
-  body: String!
-  createdAt: DateTime!
-  deletedAt: DateTime
-  deletedBy: Int
-  id: Int!
-  rating: Int
-  published: DateTime! # if there is no published field - it is not published
-  replyTo: Int # another shout
-  tags: [String]
-  title: String
-  updatedAt: DateTime!
-  versionOf: Int
-  visibleForRoles: [Role]!
-  visibleForUsers: [Int]
-}
-
-type Proposal {
-  body: String!
-  shout: Int!
-  range: String # full / 0:2340
-  author: Int!
-  createdAt: DateTime!
-}
+############################################ Subscription
 
 type Subscription {
   messageCreated: Message!
@@ -143,13 +104,11 @@ type Subscription {
   userUpdated: User!
 }
 
-type Token {
-  createdAt: DateTime!
-  expiresAt: DateTime
+############################################ Entities
+
+type Role {
   id: Int!
-  ownerId: Int!
-  usedAt: DateTime
-  value: String!
+  name: String!
 }
 
 type User {
@@ -165,4 +124,73 @@ type User {
   userpic: String
   userpicId: String
   wasOnlineAt: DateTime
+}
+
+type Message {
+  author: Int!
+  body: String!
+  createdAt: DateTime!
+  id: Int!
+  replyTo: Int
+  updatedAt: DateTime!
+  visibleForUsers: [Int]
+}
+
+
+# is publication
+type Shout {
+  id: Int! # TODO: replace with string? slugs-like-this
+  slug: String
+  author: Int!
+  body: String!
+  createdAt: DateTime!
+  deletedAt: DateTime
+  deletedBy: Int
+  rating: Int
+  published: DateTime! # if there is no published field - it is not published
+  replyTo: Int # another shout
+  tags: [String] # actual values
+  topics: [String] # topics-slugs
+  title: String
+  updatedAt: DateTime!
+  versionOf: Int
+  visibleForRoles: [Role]!
+  visibleForUsers: [Int]
+}
+
+type Topic {
+  slug: String
+  original: String
+  parents: [String] # NOTE: topic can have parent topics
+  children: [String] # and children
+  createdBy: User!
+  createdAt: DateTime!
+}
+
+# TODO: resolvers to add/remove topics from publication
+
+
+type Proposal {
+  body: String!
+  shout: Int!
+  range: String # full / 0:2340
+  author: Int!
+  createdAt: DateTime!
+}
+
+type Token {
+  createdAt: DateTime!
+  expiresAt: DateTime
+  id: Int!
+  ownerId: Int!
+  usedAt: DateTime
+  value: String!
+}
+
+type Like {
+  author: Int!
+  id: Int!
+  shout: Int
+  user: Int
+  value: Int!
 }
