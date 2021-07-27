@@ -131,3 +131,6 @@ dmypy.json
 temp.*
 
 *.sqlite3
+
+discours.key
+discours.crt
