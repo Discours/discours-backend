@@ -37,6 +37,12 @@ type createMessagePayload {
 	message: Message
 }
 
+type createShoutPayload {
+	status: Boolean!
+	error: String
+	shout: Shout
+}
+
 ################################### Mutation
 
 type Mutation {
@@ -55,8 +61,8 @@ type Mutation {
   registerUser(input: registerUserInput!): User!
 
   # shout
-  createShout(body: String!, replyTo: [Int], title: String, versionOf: [Int], visibleForRoles: [Int], visibleForUsers: [Int]): Message!
-  deleteShout(shoutId: Int!): Message!
+  createShout(): Shout!
+  deleteShout(shoutId: Int!): Boolean!
   rateShout(value: Int!): Boolean!
 
   # profile
