@@ -113,8 +113,8 @@ type Subscription {
 ############################################ Entities
 
 type Role {
-  id: Int!
   name: String!
+  desc: String
 }
 
 type User {
@@ -142,25 +142,25 @@ type Message {
   visibleForUsers: [Int]
 }
 
-
 # is publication
 type Shout {
-  id: Int! # TODO: replace with string? slugs-like-this
-  slug: String
+  id: Int!
+  org: String!
+  slug: String!
   author: Int!
   body: String!
   createdAt: DateTime!
+  updatedAt: DateTime!
   deletedAt: DateTime
   deletedBy: Int
   rating: Int
-  published: DateTime! # if there is no published field - it is not published
+  published: DateTime # if there is no published field - it is not published
   replyTo: Int # another shout
   tags: [String] # actual values
-  topics: [String] # topics-slugs
+  topics: [String] # topic-slugs
   title: String
-  updatedAt: DateTime!
   versionOf: Int
-  visibleForRoles: [Role]!
+  visibleForRoles: [String]! # role ids are strings
   visibleForUsers: [Int]
 }
 
