@@ -4,7 +4,7 @@ scalar DateTime
 
 input registerUserInput {
 	email: String!
-	username: String!
+	username: String
 	password: String!
 }
 
@@ -113,7 +113,10 @@ type Subscription {
 ############################################ Entities
 
 type Role {
+  id: Int!
   name: String!
+  org: String!
+  level: Int! # 1-8
   desc: String
 }
 
@@ -139,7 +142,7 @@ type Message {
   id: Int!
   replyTo: Int
   updatedAt: DateTime!
-  visibleForUsers: [Int]
+  visibleForUsers: [Int]!
 }
 
 # is publication
@@ -160,17 +163,17 @@ type Shout {
   topics: [String] # topic-slugs
   title: String
   versionOf: Int
-  visibleForRoles: [String]! # role ids are strings
+  visibleForRoles: [String] # role ids are strings
   visibleForUsers: [Int]
 }
 
 type Topic {
   slug: String! # ID
   createdBy: Int! # User
-  original: String
+  createdAt: DateTime!
+  value: String
   parents: [String] # NOTE: topic can have parent topics
   children: [String] # and children
-  createdAt: DateTime!
 }
 
 # TODO: resolvers to add/remove topics from publication
@@ -196,7 +199,7 @@ type Token {
 type Like {
   author: Int!
   id: Int!
+  value: Int!
   shout: Int
   user: Int
-  value: Int!
 }
