@@ -2,12 +2,11 @@ FROM python:3.8
 
 EXPOSE 80
 
-RUN pip3 install pip
+RUN /usr/local/bin/python -m pip install --upgrade pip
 
 WORKDIR /usr/src/app
 
-COPY Pipfile ./
-COPY Pipfile.lock ./
+COPY requirements.txt ./
 
 RUN set -ex && pip install -r requirements.txt
 
