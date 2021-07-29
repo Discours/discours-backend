@@ -9,3 +9,4 @@ passlib
 itsdangerous
 authlib
 httpx
+psycopg2

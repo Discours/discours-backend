@@ -9,7 +9,7 @@ WORKDIR /usr/src/app
 COPY Pipfile ./
 COPY Pipfile.lock ./
 
-RUN set -ex && pip install
+RUN set -ex && pip install -r requirements.txt
 
 COPY . .
 
