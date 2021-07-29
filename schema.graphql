@@ -61,7 +61,7 @@ type Mutation {
   registerUser(input: registerUserInput!): User!
 
   # shout
-  createShout(): Shout!
+  createShout: Shout!
   deleteShout(shoutId: Int!): Boolean!
   rateShout(value: Int!): Boolean!
 
