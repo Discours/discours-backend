@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+aioredis = "*"
+ariadne = "*"
+starlette = "*"
+uvicorn = "*"
+pydantic = "*"
+passlib = "*"
+PyJWT = "*"
+SQLAlchemy = "*"
+itsdangerous = "*"
+authlib = "*"
+httpx = "*"
+psycopg2 = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"

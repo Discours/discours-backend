@@ -4,14 +4,14 @@ from starlette.responses import PlainTextResponse
 from auth.authorize import Authorize
 from auth.identity import Identity
 
-import os
+from settings import OAUTH_CLIENTS
 
 oauth = OAuth()
 
 oauth.register(
 	name='facebook',
-	client_id=os.environ.get("FACEBOOK_CLIENT_ID"),
-	client_secret=os.environ.get("FACEBOOK_CLIENT_SECRET"),
+	client_id=OAUTH_CLIENTS["FACEBOOK"]["id"],
+	client_secret=OAUTH_CLIENTS["FACEBOOK"]["key"],
 	access_token_url='https://graph.facebook.com/v11.0/oauth/access_token',
 	access_token_params=None,
 	authorize_url='https://www.facebook.com/v11.0/dialog/oauth',
@@ -22,8 +22,8 @@ oauth.register(
 
 oauth.register(
 	name='github',
-	client_id=os.environ.get("GITHUB_CLIENT_ID"),
-	client_secret=os.environ.get("GITHUB_CLIENT_SECRET"),
+	client_id=OAUTH_CLIENTS["GITHUB"]["id"],
+	client_secret=OAUTH_CLIENTS["GITHUB"]["key"],
 	access_token_url='https://github.com/login/oauth/access_token',
 	access_token_params=None,
 	authorize_url='https://github.com/login/oauth/authorize',
@@ -34,8 +34,8 @@ oauth.register(
 
 oauth.register(
 	name='google',
-	client_id=os.environ.get("GOOGLE_CLIENT_ID"),
-	client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+	client_id=OAUTH_CLIENTS["GOOGLE"]["id"],
+	client_secret=OAUTH_CLIENTS["GOOGLE"]["key"],
 	access_token_url='https://oauth2.googleapis.com/token',
 	access_token_params=None,
 	authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
@@ -63,6 +63,6 @@ async def oauth_authorize(request):
 		"email" : profile["email"],
 		"username" : profile["name"]
 	}
-	user = Identity.identity_oauth(oauth_id=oauth_id, input=user_input)
+	user = Identity.identity_oauth(user_input)
 	token = await Authorize.authorize(user, device="pc", auto_delete=False)
 	return PlainTextResponse(token)

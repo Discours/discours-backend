@@ -7,4 +7,4 @@ openssl req -newkey rsa:4096 \
             -nodes \
             -out discours.crt \
             -keyout discours.key \
-            -subj "/C=RU/ST=Moscow/L=Moscow/O=Discours/OU=Site/CN=10.0.0.187"
+            -subj "/C=RU/ST=Moscow/L=Moscow/O=Discours/OU=Site/CN=test-api.discours.io"

@@ -131,9 +131,6 @@ dmypy.json
 temp.*
 
 *.sqlite3
-dump.rdb
 
-*.crt
-*.key
-
-Pipfil*
+discours.key
+discours.crt

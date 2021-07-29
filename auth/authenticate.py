@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Optional, Tuple
 
 from graphql import GraphQLResolveInfo
-import jwt
+from jwt import DecodeError, ExpiredSignatureError
 from starlette.authentication import AuthenticationBackend
 from starlette.requests import HTTPConnection
 
@@ -29,14 +29,14 @@ class _Authenticate:
         """
         try:
             payload = Token.decode(token)
-        except exceptions.ExpiredSignatureError:
+        except ExpiredSignatureError:
             payload = Token.decode(token, verify_exp=False)
             if not await cls.exists(payload.user_id, token):
                 raise InvalidToken("Login expired, please login again")
             if payload.device == "mobile":  # noqa
                 "we cat set mobile token to be valid forever"
                 return payload
-        except exceptions.JWTDecodeError as e:
+        except DecodeError as e:
             raise InvalidToken("token format error") from e
         else:
             if not await cls.exists(payload.user_id, token):
@@ -73,5 +73,4 @@ def login_required(func):
         if not auth.logged_in:
             raise OperationNotAllowed(auth.error_message or "Please login")
         return await func(parent, info, *args, **kwargs)
-
     return wrap

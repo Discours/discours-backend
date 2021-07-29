@@ -1,6 +1,6 @@
 from typing import List
 
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, relationship
 
 from orm import Permission
 from orm.base import Base
@@ -13,8 +13,8 @@ class User(Base):
     username: str = Column(String, nullable=False, comment="Name")
     password: str = Column(String, nullable=True, comment="Password")
 
-    role_id: int = Column(ForeignKey("role.id"), nullable=True, comment="Role")
-    
+    # role_id: list = Column(ForeignKey("role.id"), nullable=True, comment="Roles")
+    # roles = relationship("Role") TODO: one to many, see schema.graphql
     oauth_id: str = Column(String, nullable=True)
 
     @classmethod

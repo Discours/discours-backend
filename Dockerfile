@@ -1,4 +1,6 @@
-FROM python:3.9
+FROM python:3.8
+
+EXPOSE 80
 
 RUN pip3 install pip
 
@@ -10,3 +12,5 @@ COPY Pipfile.lock ./
 RUN set -ex && pip install
 
 COPY . .
+
+CMD ["python", "server.py"]

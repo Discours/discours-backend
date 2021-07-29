@@ -19,13 +19,17 @@ async def register(*_, input: dict = None) -> User:
 
 
 @query.field("signIn")
-async def sign_in(_, info: GraphQLResolveInfo, id: int, password: str):
+async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
+	orm_user = global_session.query(User).filter(User.email == email).first()
+	if orm_user is None:
+		return {"status" : False, "error" : "invalid email"}
+
 	try:
 		device = info.context["request"].headers['device']
 	except KeyError:
 		device = "pc"
 	auto_delete = False if device == "mobile" else True
-	user = Identity.identity(user_id=id, password=password)
+	user = Identity.identity(user_id=orm_user.id, password=password)
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
 	return {"status" : True, "token" : token}
 
@@ -38,9 +42,16 @@ async def sign_out(_, info: GraphQLResolveInfo):
 	return {"status" : status}
 
 
-#@query.field("getUser")
-#@login_required
-async def get_user(*_, id: int):
-	return global_session.query(User).filter(User.id == id).first()
+@query.field("getCurrentUser")
+@login_required
+async def get_user(_, info):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+	return global_session.query(User).filter(User.id == user_id).first()
+
+@query.field("isEmailFree")
+async def is_email_free(_, info, email):
+	user = global_session.query(User).filter(User.email == email).first()
+	return user is None
 
 
