@@ -5,7 +5,7 @@ scalar DateTime
 type ResultPayload {
 	status: Boolean!
 	error: String
-	token: String | Token
+	token: String
   user: User
 	message: Message
 	shout: Shout
