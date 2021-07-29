@@ -26,8 +26,7 @@ type Mutation {
   invalidateTokenById(id: Int!): Boolean!
   requestEmailConfirmation: User!
   requestPasswordReset(email: String!): Boolean!
-  signUp(email: String!, password: String!): ResultPayload!
-	signIn(email: String!, password: String!): ResultPayload!
+  registerUser(email: String!, password: String!): ResultPayload!
 
   # shout
   createShout: ResultPayload!
@@ -45,6 +44,7 @@ type Mutation {
 type Query {
   # auth / user
 	isEmailFree(email: String!): ResultPayload!
+	signIn(email: String!, password: String!): ResultPayload!
 	signOut: ResultPayload!
 	getCurrentUser: ResultPayload!
   getUserById(id: Int!): ResultPayload!
