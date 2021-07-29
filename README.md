@@ -26,13 +26,10 @@ Then run API server
 
 ```
 pipenv install
-pipenv run python3 server.py
+pipenv run python server.py
 ```
 
-# With Docker
-
-TODO
-
+Also see `Dockerfile`
 
 # How to do an authorized request 
 
