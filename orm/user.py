@@ -1,6 +1,6 @@
 from typing import List
 
-from sqlalchemy import Column, Integer, String #, relationship
+from sqlalchemy import Column, Integer, String, ForeignKey #, relationship
 
 from orm import Permission
 from orm.base import Base
