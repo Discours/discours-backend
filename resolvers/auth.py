@@ -14,9 +14,9 @@ from settings import JWT_AUTH_HEADER
 @mutation.field("registerUser")
 async def register(*_, email: str, password: str) -> User:
 	inp = { "email": email, "password": password, "username": email.split("@")[0] }
-	create_user = CreateUser(inp)
+	create_user = CreateUser(**inp)
 	create_user.password = Password.encode(create_user.password)
-	user = User.create(**create_user)
+	user = User.create(**create_user.dict())
 	# if not password: # TODO: send confirmation email
 	token = await Authorize.authorize(user)
 	return {"status": True, "user": user, "token": token }
