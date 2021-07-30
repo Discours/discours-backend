@@ -98,7 +98,6 @@ type User {
   updatedAt: DateTime!
   username: String
   userpic: String
-  userpicId: String
   wasOnlineAt: DateTime
 }
 
