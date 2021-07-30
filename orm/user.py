@@ -10,7 +10,7 @@ class User(Base):
     __tablename__ = 'user'
 
     email: str = Column(String, nullable=False)
-    username: str = Column(String, nullable=True, comment="Name")
+    username: str = Column(String, nullable=False, comment="Name")
     password: str = Column(String, nullable=True, comment="Password")
 
     role_id: list = Column(ForeignKey("role.id"), nullable=True, comment="Role")
