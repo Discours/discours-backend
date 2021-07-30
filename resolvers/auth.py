@@ -12,7 +12,7 @@ from resolvers.base import mutation, query
 from settings import JWT_AUTH_HEADER
 
 @mutation.field("registerUser")
-async def register(*_, input: dict = None) -> User:
+async def register(*_, email: str, password: str) -> User:
 	create_user = CreateUser(**input)
 	create_user.username = create_user.email
 	create_user.password = Password.encode(create_user.password)
