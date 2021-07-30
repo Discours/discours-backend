@@ -11,16 +11,27 @@ from resolvers.base import mutation, query
 
 from settings import JWT_AUTH_HEADER
 
+@mutation.field("confirmEmail")
+async def confirm(*_, token):
+	token = await Authorize.authorize(user)
+	return { "status": True, "token": token }
+
 @mutation.field("registerUser")
-async def register(*_, email: str, password: str) -> User:
+async def register(*_, email: str, password: str):
 	inp = { "email": email, "password": password}
 	create_user = CreateUser(**inp)
 	create_user.password = Password.encode(create_user.password)
 	create_user.username = email.split('@')[0]
 	user = User.create(**create_user.dict())
-	# if not password: # TODO: send confirmation email
-	token = await Authorize.authorize(user)
-	return {"status": True, "user": user, "token": token }
+	if not password: 
+		# 	sendAuthEmail(]token)
+		# TODO: User.password === None and User.emailConfirmed = залогиненный пользователь
+		# без пароля не возвращаем, а высылаем токен на почту
+		# 
+		return { "status": True, "user": user }
+	else:
+		token = await Authorize.authorize(user)
+		return {"status": True, "user": user, "token": token }
 
 
 @query.field("signIn")

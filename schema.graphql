@@ -20,12 +20,12 @@ type Mutation {
 	deleteMessage(messageId: Int!): ResultPayload!
 
   # auth
-  resetPassword(password: String!, token: String!): Token!
-  confirmEmail(token: String!): Token!
-  invalidateAllTokens: Boolean!
-  invalidateTokenById(id: Int!): Boolean!
-  requestEmailConfirmation: User!
-  requestPasswordReset(email: String!): Boolean!
+  # resetPassword(password: String!, token: String!): Token!
+  confirmEmail(token: String!): ResultPayload!
+  # invalidateAllTokens: Boolean!
+  # invalidateTokenById(id: Int!): Boolean!
+  # requestEmailConfirmation: User!
+  # requestPasswordReset(email: String!): Boolean!
   registerUser(email: String!, password: String!): ResultPayload!
 
   # shout
@@ -34,9 +34,9 @@ type Mutation {
   rateShout(value: Int!): ResultPayload!
 
   # profile
-  rateUser(value: Int!): ResultPayload!
-  updateOnlineStatus: ResultPayload!
-  updateUsername(username: String!): ResultPayload!
+  # rateUser(value: Int!): ResultPayload!
+  # updateOnlineStatus: ResultPayload!
+  # updateUsername(username: String!): ResultPayload!
 }
 
 ################################### Query
@@ -47,22 +47,22 @@ type Query {
 	signIn(email: String!, password: String!): ResultPayload!
 	signOut: ResultPayload!
 	getCurrentUser: ResultPayload!
-  getUserById(id: Int!): ResultPayload!
-  getUserRating(shout: Int): Int!
+  # getUserById(id: Int!): ResultPayload!
+  # getUserRating(shout: Int): Int!
 
   # messages
   getMessages(count: Int = 100, page: Int = 1): [Message!]!
 
   # shouts
-  getShoutRating(shout: Int): Int!
-  shoutsByAuthor(author: Int): [Shout]!
-  shoutsByReplyTo(shout: Int): [Shout]!
-  shoutsByTags(tags: [String]): [Shout]!
-  shoutsByTime(time: DateTime): [Shout]!
+  # getShoutRating(shout: Int): Int!
+  # shoutsByAuthor(author: Int): [Shout]!
+  # shoutsByReplyTo(shout: Int): [Shout]!
+  # shoutsByTags(tags: [String]): [Shout]!
+  # shoutsByTime(time: DateTime): [Shout]!
 
-  getOnlineUsers: [User!]!
-  topAuthors: [User]!
-  topShouts: [Shout]!
+  # getOnlineUsers: [User!]!
+  # topAuthors: [User]!
+  # topShouts: [Shout]!
 }
 
 ############################################ Subscription
