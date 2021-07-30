@@ -16,8 +16,9 @@ async def register(*_, input: dict = None) -> User:
 	create_user = CreateUser(**input)
 	create_user.username = create_user.email
 	create_user.password = Password.encode(create_user.password)
-	user = User.create(**create_user.dict())
-	return {"status": True, "user": user }
+	user = User.create({ "email": create_user.email, "password": create_user.password})
+	token = await Authorize.authorize(user)
+	return {"status": True, "user": user, "token": token }
 
 
 @query.field("signIn")
