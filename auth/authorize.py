@@ -37,3 +37,13 @@ class Authorize:
     async def revoke_all(user: User):
         tokens = await redis.execute("KEYS", f"{user.id}-*")
         await redis.execute("DEL", *tokens)
+
+    @staticmethod
+    async def confirm(token: str) -> str:
+        try:
+            # NOTE: auth_token and email_token are different
+            payload = Token.decode(token) # TODO: check to decode here the proper way
+            auth_token = self.authorize(payload.user)
+            return auth_token
+        except:
+            pass
