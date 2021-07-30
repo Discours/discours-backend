@@ -9,15 +9,15 @@ from settings import DB_URL
 from orm._retry import RetryingQuery
 
 # engine = create_engine(DB_URL, convert_unicode=True, echo=False)
-engine = sqlalchemy.create_engine(connection_string,
+engine = create_engine(connection_string,
                                       pool_size=10,
                                       max_overflow=2,
                                       pool_recycle=300,
                                       pool_pre_ping=True,
                                       pool_use_lifo=True)
 
-sqlalchemy.orm.sessionmaker(bind=engine, query_cls=RetryingQuery)
-Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Session = sessionmaker(autocommit=False, autoflush=False, bind=engine, query_cls=RetryingQuery)
+#Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 global_session = Session()
 
 T = TypeVar("T")
