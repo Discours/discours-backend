@@ -11,7 +11,7 @@ from orm._retry import RetryingQuery
 # engine = create_engine(DB_URL, convert_unicode=True, echo=False)
 engine = create_engine(DB_URL, 
                         convert_unicode=True, 
-                        echo=False
+                        echo=False,
                         pool_size=10,
                         max_overflow=2,
                         pool_recycle=300,
