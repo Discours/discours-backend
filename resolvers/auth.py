@@ -17,8 +17,7 @@ async def register(*_, email: str, password: str) -> User:
 	create_user = CreateUser(inp)
 	create_user.password = Password.encode(create_user.password)
 	user = User.create(**create_user)
-	if not password:
-		# TODO: send confirmation email
+	# if not password: # TODO: send confirmation email
 	token = await Authorize.authorize(user)
 	return {"status": True, "user": user, "token": token }
 
