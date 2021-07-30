@@ -16,6 +16,7 @@ async def confirm(*_, confirm_token):
 	auth_token, user = await Authorize.confirm(confirm_token)
 	if auth_token:
 		user.emailConfirmed = True
+		user.save()
 		return { "status": True, "token": auth_token }
 	else:
 		return { "status": False, "error": "Email not confirmed"}
