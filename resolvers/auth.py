@@ -13,10 +13,12 @@ from settings import JWT_AUTH_HEADER
 
 @mutation.field("registerUser")
 async def register(*_, email: str, password: str) -> User:
-	create_user = CreateUser({ "email": email, "password": password})
-	create_user.username = create_user.email.split("@")[0]
+	inp = { "email": email, "password": password, "username": email.split("@")[0] }
+	create_user = CreateUser(inp)
 	create_user.password = Password.encode(create_user.password)
-	user = User.create({ "email": create_user.email, "password": create_user.password})
+	user = User.create(**create_user)
+	if not password:
+		# TODO: send confirmation email
 	token = await Authorize.authorize(user)
 	return {"status": True, "user": user, "token": token }
 
@@ -31,7 +33,7 @@ async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
 		device = info.context["request"].headers['device']
 	except KeyError:
 		device = "pc"
-	auto_delete = False if device == "mobile" else True
+	auto_delete = False if device == "mobile" else True # why autodelete with mobile?
 	user = Identity.identity(user_id=orm_user.id, password=password)
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
 	return {"status" : True, "token" : token, "user": user}
