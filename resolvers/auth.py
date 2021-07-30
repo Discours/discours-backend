@@ -1,5 +1,5 @@
 from graphql import GraphQLResolveInfo
-
+from datetime import datetime, timedelta
 from auth.authenticate import login_required
 from auth.authorize import Authorize
 from auth.identity import Identity
@@ -12,24 +12,30 @@ from resolvers.base import mutation, query
 from settings import JWT_AUTH_HEADER
 
 @mutation.field("confirmEmail")
-async def confirm(*_, token):
-	token = await Authorize.authorize(user)
-	return { "status": True, "token": token }
+async def confirm(*_, confirm_token):
+	auth_token, user = await Authorize.confirm(confirm_token)
+	if auth_token:
+		user.emailConfirmed = True
+		return { "status": True, "token": auth_token }
+	else:
+		return { "status": False, "error": "Email not confirmed"}
+
 
 @mutation.field("registerUser")
-async def register(*_, email: str, password: str):
+async def register(*_, email: str, password: str = ""):
 	inp = { "email": email, "password": password}
 	create_user = CreateUser(**inp)
-	create_user.password = Password.encode(create_user.password)
 	create_user.username = email.split('@')[0]
-	user = User.create(**create_user.dict())
-	if not password: 
-		# 	sendAuthEmail(]token)
-		# TODO: User.password === None and User.emailConfirmed = залогиненный пользователь
+	if not password:
+		# NOTE: 1 hour confirm_token expire
+		confirm_token = Token.encode(create_user, datetime.now() + timedelta(hours = 1) , "email")
+		# TODO:	sendAuthEmail(confirm_token)
 		# без пароля не возвращаем, а высылаем токен на почту
 		# 
 		return { "status": True, "user": user }
 	else:
+		create_user.password = Password.encode(create_user.password)
+		user = User.create(**create_user.dict())
 		token = await Authorize.authorize(user)
 		return {"status": True, "user": user, "token": token }
 

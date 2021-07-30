@@ -39,11 +39,11 @@ class Authorize:
         await redis.execute("DEL", *tokens)
 
     @staticmethod
-    async def confirm(token: str) -> str:
+    async def confirm(token: str) -> str, User:
         try:
             # NOTE: auth_token and email_token are different
             payload = Token.decode(token) # TODO: check to decode here the proper way
             auth_token = self.authorize(payload.user)
-            return auth_token
+            return auth_token, payload.user
         except:
             pass
