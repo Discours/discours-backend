@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.schema import Table
 
 from settings import DB_URL
-from _retry import RetryingQuery
+from orm._retry import RetryingQuery
 
 # engine = create_engine(DB_URL, convert_unicode=True, echo=False)
 engine = sqlalchemy.create_engine(connection_string,
