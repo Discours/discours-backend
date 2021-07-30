@@ -15,7 +15,8 @@ from settings import JWT_AUTH_HEADER
 async def register(*_, input: dict = None) -> User:
 	create_user = CreateUser(**input)
 	create_user.password = Password.encode(create_user.password)
-	return User.create(**create_user.dict())
+	user = User.create(**create_user.dict())
+	return {"status": True, "user": user }
 
 
 @query.field("signIn")
@@ -31,7 +32,7 @@ async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
 	auto_delete = False if device == "mobile" else True
 	user = Identity.identity(user_id=orm_user.id, password=password)
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
-	return {"status" : True, "token" : token}
+	return {"status" : True, "token" : token, "user": user}
 
 
 @query.field("signOut")
@@ -47,11 +48,12 @@ async def sign_out(_, info: GraphQLResolveInfo):
 async def get_user(_, info):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
-	return global_session.query(User).filter(User.id == user_id).first()
+	user = global_session.query(User).filter(User.id == user_id).first()
+	return { "status": True, "user": user }
 
 @query.field("isEmailFree")
 async def is_email_free(_, info, email):
 	user = global_session.query(User).filter(User.email == email).first()
-	return user is None
+	return { "status": user is None }
 
 
