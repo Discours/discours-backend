@@ -13,9 +13,9 @@ passlib = "*"
 PyJWT = "*"
 SQLAlchemy = "*"
 itsdangerous = "*"
-authlib = "*"
 httpx = "*"
 psycopg2 = "*"
+Authlib = "*"
 
 [dev-packages]
 
