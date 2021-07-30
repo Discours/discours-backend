@@ -21,7 +21,7 @@ class PayLoad(BaseModel):
 
 class CreateUser(BaseModel):
     email: Text
-    # username: Optional[Text]
+    username: Optional[Text]
     # age: Optional[int]
     # phone: Optional[Text]
     password: Optional[Text]
