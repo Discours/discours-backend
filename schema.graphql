@@ -2,6 +2,28 @@ scalar DateTime
 
 ################################### Payload
 
+interface ErrorInterface {
+	message: String!
+}
+
+type ApiError implements ErrorInterface {
+	message: String!
+}
+
+type SignInOk {
+	token: String!
+	user: User!
+}
+
+union SignInResult = ApiError | SignInOk
+
+type RegisterUserOk {
+	token: String
+	user: User!
+}
+
+union RegisterUserResult = ApiError | RegisterUserOk
+
 type ResultPayload {
 	status: Boolean!
 	error: String
@@ -26,7 +48,7 @@ type Mutation {
   # invalidateTokenById(id: Int!): Boolean!
   # requestEmailConfirmation: User!
   # requestPasswordReset(email: String!): Boolean!
-  registerUser(email: String!, password: String!): ResultPayload!
+  registerUser(email: String!, password: String!): RegisterUserResult!
 
   # shout
   createShout: ResultPayload!
@@ -44,7 +66,7 @@ type Mutation {
 type Query {
   # auth / user
 	isEmailFree(email: String!): ResultPayload!
-	signIn(email: String!, password: String!): ResultPayload!
+	signIn(email: String!, password: String!): SignInResult!
 	signOut: ResultPayload!
 	getCurrentUser: ResultPayload!
   # getUserById(id: Int!): ResultPayload!

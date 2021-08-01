@@ -7,7 +7,8 @@ from auth.password import Password
 from auth.validations import CreateUser
 from orm import User
 from orm.base import global_session
-from resolvers.base import mutation, query
+from resolvers.base import mutation, query, sign_in_result, register_user_result, ApiError
+from exceptions import InvalidPassword
 
 from settings import JWT_AUTH_HEADER
 
@@ -33,28 +34,45 @@ async def register(*_, email: str, password: str = ""):
 		# TODO:	sendAuthEmail(confirm_token)
 		# без пароля не возвращаем, а высылаем токен на почту
 		# 
-		return { "status": True, "user": user }
+		return { "user": user }
 	else:
 		create_user.password = Password.encode(create_user.password)
 		user = User.create(**create_user.dict())
 		token = await Authorize.authorize(user)
-		return {"status": True, "user": user, "token": token }
+		return {"user": user, "token": token }
+
+@register_user_result.type_resolver
+def resolve_register_user_result(obj, *_):
+	if isinstance(obj, ApiError):
+		return "ApiError"
+	return "RegisterUserOk"
 
 
 @query.field("signIn")
 async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
 	orm_user = global_session.query(User).filter(User.email == email).first()
 	if orm_user is None:
-		return {"status" : False, "error" : "invalid email"}
+		return ApiError("invalid email")
 
 	try:
 		device = info.context["request"].headers['device']
 	except KeyError:
 		device = "pc"
 	auto_delete = False if device == "mobile" else True # why autodelete with mobile?
-	user = Identity.identity(user_id=orm_user.id, password=password)
+
+	try:
+		user = Identity.identity(user_id=orm_user.id, password=password)
+	except InvalidPassword:
+		return ApiError("invalid password")
+	
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
-	return {"status" : True, "token" : token, "user": user}
+	return {"token" : token, "user": user}
+
+@sign_in_result.type_resolver
+def resolve_sign_in_result(obj, *_):
+	if isinstance(obj, ApiError):
+		return "ApiError"
+	return "SignInOk"
 
 
 @query.field("signOut")
@@ -77,5 +95,3 @@ async def get_user(_, info):
 async def is_email_free(_, info, email):
 	user = global_session.query(User).filter(User.email == email).first()
 	return { "status": user is None }
-
-
