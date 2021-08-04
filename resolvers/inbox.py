@@ -17,22 +17,19 @@ class MessageQueue:
 
 @mutation.field("createMessage")
 @login_required
-async def create_message(_, info, input):
+async def create_message(_, info, body, replyTo = None):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	
 	new_message = Message.create(
 		author = user_id,
-		body = input["body"],
-		replyTo = input.get("replyTo")
+		body = body,
+		replyTo = replyTo
 		)
 	
 	MessageQueue.new_message.put_nowait(new_message)
 	
-	return {
-		"status": True,
-		"message" : new_message
-	}
+	return {"message" : new_message}
 
 @query.field("getMessages")
 @login_required
@@ -57,28 +54,21 @@ def check_and_get_message(message_id, user_id) :
 
 @mutation.field("updateMessage")
 @login_required
-async def update_message(_, info, input):
+async def update_message(_, info, id, body):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
-	message_id = input["id"]
 	
 	try:
-		message = check_and_get_message(message_id, user_id)
+		message = check_and_get_message(id, user_id)
 	except Exception as err:
-		return {
-			"status" : False,
-			"error" : err
-		}
+		return {"error" : err}
 	
-	message.body = input["body"]
+	message.body = body
 	global_session.commit()
 	
 	MessageQueue.updated_message.put_nowait(message)
 	
-	return {
-		"status" : True,
-		"message" : message
-	}
+	return {"message" : message}
 
 @mutation.field("deleteMessage")
 @login_required
@@ -89,19 +79,14 @@ async def delete_message(_, info, id):
 	try:
 		message = check_and_get_message(id, user_id)
 	except Exception as err:
-		return {
-			"status" : False,
-			"error" : err
-		}
+		return {"error" : err}
 	
 	global_session.delete(message)
 	global_session.commit()
 	
 	MessageQueue.deleted_message.put_nowait(message)
 	
-	return {
-		"status" : True
-	}
+	return {}
 
 
 @subscription.source("messageCreated")

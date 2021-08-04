@@ -2,34 +2,28 @@ scalar DateTime
 
 ################################### Payload
 
-interface ErrorInterface {
-	message: String!
+type Result {
+	error: String
 }
 
-type ApiError implements ErrorInterface {
-	message: String!
-}
-
-type SignInOk {
-	token: String!
-	user: User!
-}
-
-union SignInResult = ApiError | SignInOk
-
-type RegisterUserOk {
-	token: String
-	user: User!
-}
-
-union RegisterUserResult = ApiError | RegisterUserOk
-
-type ResultPayload {
-	status: Boolean!
+type SignInResult {
 	error: String
 	token: String
-  user: User
+	user: User
+}
+
+type UserResult {
+	error: String
+	user: User
+}
+
+type MessageResult {
+	error: String
 	message: Message
+}
+
+type ShoutResult {
+	error: String
 	shout: Shout
 }
 
@@ -37,23 +31,23 @@ type ResultPayload {
 
 type Mutation {
   # message
-	createMessage(body: String!, replyTo: Int): ResultPayload!
-	updateMessage(id: Int!, body: String!): ResultPayload!
-	deleteMessage(messageId: Int!): ResultPayload!
+	createMessage(body: String!, replyTo: Int): MessageResult!
+	updateMessage(id: Int!, body: String!): MessageResult!
+	deleteMessage(messageId: Int!): Result!
 
   # auth
   # resetPassword(password: String!, token: String!): Token!
-  confirmEmail(token: String!): ResultPayload!
+  confirmEmail(token: String!): SignInResult!
   # invalidateAllTokens: Boolean!
   # invalidateTokenById(id: Int!): Boolean!
   # requestEmailConfirmation: User!
   # requestPasswordReset(email: String!): Boolean!
-  registerUser(email: String!, password: String!): RegisterUserResult!
+  registerUser(email: String!, password: String!): SignInResult!
 
   # shout
-  createShout: ResultPayload!
-  deleteShout(shoutId: Int!): ResultPayload!
-  rateShout(value: Int!): ResultPayload!
+  createShout: ShoutResult!
+  deleteShout(shoutId: Int!): Result!
+  rateShout(value: Int!): Result!
 
   # profile
   # rateUser(value: Int!): ResultPayload!
@@ -65,10 +59,10 @@ type Mutation {
 
 type Query {
   # auth / user
-	isEmailFree(email: String!): ResultPayload!
+	isEmailFree(email: String!): Boolean!
 	signIn(email: String!, password: String!): SignInResult!
-	signOut: ResultPayload!
-	getCurrentUser: ResultPayload!
+	signOut: Result!
+	getCurrentUser: UserResult!
   # getUserById(id: Int!): ResultPayload!
   # getUserRating(shout: Int): Int!
 

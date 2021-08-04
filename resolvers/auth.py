@@ -7,7 +7,7 @@ from auth.password import Password
 from auth.validations import CreateUser
 from orm import User
 from orm.base import global_session
-from resolvers.base import mutation, query, sign_in_result, register_user_result, ApiError
+from resolvers.base import mutation, query
 from exceptions import InvalidPassword
 
 from settings import JWT_AUTH_HEADER
@@ -18,9 +18,9 @@ async def confirm(*_, confirm_token):
 	if auth_token:
 		user.emailConfirmed = True
 		user.save()
-		return { "status": True, "token": auth_token }
+		return { "token": auth_token, "user" : user}
 	else:
-		return { "status": False, "error": "Email not confirmed"}
+		return { "error": "Email not confirmed"}
 
 
 @mutation.field("registerUser")
@@ -41,18 +41,12 @@ async def register(*_, email: str, password: str = ""):
 		token = await Authorize.authorize(user)
 		return {"user": user, "token": token }
 
-@register_user_result.type_resolver
-def resolve_register_user_result(obj, *_):
-	if isinstance(obj, ApiError):
-		return "ApiError"
-	return "RegisterUserOk"
-
 
 @query.field("signIn")
 async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
 	orm_user = global_session.query(User).filter(User.email == email).first()
 	if orm_user is None:
-		return ApiError("invalid email")
+		return {"error" : "invalid email"}
 
 	try:
 		device = info.context["request"].headers['device']
@@ -63,16 +57,10 @@ async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
 	try:
 		user = Identity.identity(user_id=orm_user.id, password=password)
 	except InvalidPassword:
-		return ApiError("invalid password")
+		return {"error" : "invalid password"}
 	
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
 	return {"token" : token, "user": user}
-
-@sign_in_result.type_resolver
-def resolve_sign_in_result(obj, *_):
-	if isinstance(obj, ApiError):
-		return "ApiError"
-	return "SignInOk"
 
 
 @query.field("signOut")
@@ -80,8 +68,7 @@ def resolve_sign_in_result(obj, *_):
 async def sign_out(_, info: GraphQLResolveInfo):
 	token = info.context["request"].headers[JWT_AUTH_HEADER]
 	status = await Authorize.revoke(token)
-	return {"status" : status}
-
+	return {}
 
 @query.field("getCurrentUser")
 @login_required
@@ -89,9 +76,9 @@ async def get_user(_, info):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	user = global_session.query(User).filter(User.id == user_id).first()
-	return { "status": True, "user": user }
+	return { "user": user }
 
 @query.field("isEmailFree")
 async def is_email_free(_, info, email):
 	user = global_session.query(User).filter(User.email == email).first()
-	return { "status": user is None }
+	return user is None

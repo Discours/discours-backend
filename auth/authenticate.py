@@ -71,6 +71,6 @@ def login_required(func):
     async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
         auth: AuthCredentials = info.context["request"].auth
         if not auth.logged_in:
-            raise OperationNotAllowed(auth.error_message or "Please login")
+            return {"error" : auth.error_message or "Please login"}
         return await func(parent, info, *args, **kwargs)
     return wrap
