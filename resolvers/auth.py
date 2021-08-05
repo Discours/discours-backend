@@ -6,7 +6,7 @@ from auth.identity import Identity
 from auth.password import Password
 from auth.validations import CreateUser
 from orm import User
-from orm.base import global_session
+from orm.base import local_session
 from resolvers.base import mutation, query
 from exceptions import InvalidPassword
 
@@ -44,7 +44,8 @@ async def register(*_, email: str, password: str = ""):
 
 @query.field("signIn")
 async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
-	orm_user = global_session.query(User).filter(User.email == email).first()
+	with local_session() as session:
+		orm_user = session.query(User).filter(User.email == email).first()
 	if orm_user is None:
 		return {"error" : "invalid email"}
 
@@ -75,10 +76,12 @@ async def sign_out(_, info: GraphQLResolveInfo):
 async def get_user(_, info):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
-	user = global_session.query(User).filter(User.id == user_id).first()
+	with local_session() as session:
+		user = session.query(User).filter(User.id == user_id).first()
 	return { "user": user }
 
 @query.field("isEmailFree")
 async def is_email_free(_, info, email):
-	user = global_session.query(User).filter(User.email == email).first()
+	with local_session() as session:
+		user = session.query(User).filter(User.email == email).first()
 	return user is None

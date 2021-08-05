@@ -4,7 +4,7 @@ from typing import Type
 
 from sqlalchemy import String, Column, ForeignKey, types, UniqueConstraint
 
-from orm.base import Base, REGISTRY, engine, global_session
+from orm.base import Base, REGISTRY, engine
 
 
 class ClassType(types.TypeDecorator):

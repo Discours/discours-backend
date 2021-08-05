@@ -1,5 +1,5 @@
 from orm import Message, User
-from orm.base import global_session
+from orm.base import local_session
 
 from resolvers.base import mutation, query, subscription
 
@@ -37,12 +37,13 @@ async def get_messages(_, info, count, page):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	
-	messages = global_session.query(Message).filter(Message.author == user_id)
+	with local_session() as session:
+		messages = session.query(Message).filter(Message.author == user_id)
 	
 	return messages
 
-def check_and_get_message(message_id, user_id) :
-	message = global_session.query(Message).filter(Message.id == message_id).first()
+def check_and_get_message(message_id, user_id, session) :
+	message = session.query(Message).filter(Message.id == message_id).first()
 	
 	if not message :
 		raise Exception("invalid id")
@@ -58,13 +59,14 @@ async def update_message(_, info, id, body):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	
-	try:
-		message = check_and_get_message(id, user_id)
-	except Exception as err:
-		return {"error" : err}
+	with local_session() as session:
+		try:
+			message = check_and_get_message(id, user_id, session)
+		except Exception as err:
+			return {"error" : err}
 	
-	message.body = body
-	global_session.commit()
+		message.body = body
+		session.commit()
 	
 	MessageQueue.updated_message.put_nowait(message)
 	
@@ -76,13 +78,14 @@ async def delete_message(_, info, id):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	
-	try:
-		message = check_and_get_message(id, user_id)
-	except Exception as err:
-		return {"error" : err}
+	with local_session() as session:
+		try:
+			message = check_and_get_message(id, user_id, session)
+		except Exception as err:
+			return {"error" : err}
 	
-	global_session.delete(message)
-	global_session.commit()
+		session.delete(message)
+		session.commit()
 	
 	MessageQueue.deleted_message.put_nowait(message)
 	
