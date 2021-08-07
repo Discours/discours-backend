@@ -45,9 +45,9 @@ type Mutation {
   registerUser(email: String!, password: String!): SignInResult!
 
   # shout
-  createShout: ShoutResult!
-  deleteShout(shoutId: Int!): Result!
-  rateShout(value: Int!): Result!
+	createShout(body: String!): ShoutResult!
+	deleteShout(shoutId: Int!): Result!
+	rateShout(shoutId: Int!, value: Int!): Result!
 
   # profile
   # rateUser(value: Int!): ResultPayload!
@@ -77,8 +77,8 @@ type Query {
   # shoutsByTime(time: DateTime): [Shout]!
 
   # getOnlineUsers: [User!]!
-  # topAuthors: [User]!
-  # topShouts: [Shout]!
+	topAuthors: [User]!
+	topShouts: [Shout]!
 }
 
 ############################################ Subscription

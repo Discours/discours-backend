@@ -17,3 +17,5 @@ for provider in OAUTH_PROVIDERS:
 		"id" : environ.get(provider + "_OAUTH_ID"),
 		"key" : environ.get(provider + "_OAUTH_KEY")
 	}
+	
+SHOUTS_REPO = "content"
