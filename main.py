@@ -12,6 +12,9 @@ from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
 from redis import redis
 from resolvers.base import resolvers
+from resolvers.zine import GitTask
+
+import asyncio
 
 import_module('resolvers')
 schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)
@@ -22,15 +25,16 @@ middleware = [
 ]
 
 async def start_up():
-    await redis.connect()
+	await redis.connect()
+	git_task = asyncio.create_task(GitTask.git_task_worker())
 
 
 async def shutdown():
-    await redis.disconnect()
-    
+	await redis.disconnect()
+
 routes = [
-    Route("/oauth/{provider}", endpoint=oauth_login),
-    Route("/authorize", endpoint=oauth_authorize)
+	Route("/oauth/{provider}", endpoint=oauth_login),
+	Route("/authorize", endpoint=oauth_authorize)
 ]
 
 app = Starlette(debug=True, on_startup=[start_up], on_shutdown=[shutdown], middleware=middleware, routes=routes)
