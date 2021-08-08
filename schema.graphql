@@ -129,7 +129,6 @@ type Message {
 
 # is publication
 type Shout {
-  id: Int!
   org: String!
   slug: String!
   author: Int!
@@ -140,11 +139,11 @@ type Shout {
   deletedBy: Int
   rating: Int
   published: DateTime # if there is no published field - it is not published
-  replyTo: Int # another shout
+  replyTo: String # another shout
   tags: [String] # actual values
   topics: [String] # topic-slugs
   title: String
-  versionOf: Int
+  versionOf: String
   visibleForRoles: [String] # role ids are strings
   visibleForUsers: [Int]
 }
