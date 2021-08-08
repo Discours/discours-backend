@@ -22,6 +22,19 @@ type MessageResult {
 	message: Message
 }
 
+input ShoutInput {
+	org: String!
+	slug: String!
+	body: String!
+	replyTo: String # another shout
+	tags: [String] # actual values
+	topics: [String] # topic-slugs
+	title: String
+	versionOf: String
+	visibleForRoles: [String] # role ids are strings
+	visibleForUsers: [Int]
+}
+
 type ShoutResult {
 	error: String
 	shout: Shout
@@ -45,9 +58,9 @@ type Mutation {
   registerUser(email: String!, password: String!): SignInResult!
 
   # shout
-	createShout(body: String!): ShoutResult!
-	deleteShout(shoutId: Int!): Result!
-	rateShout(shoutId: Int!, value: Int!): Result!
+	createShout(input: ShoutInput!): ShoutResult!
+	deleteShout(slug: String!): Result!
+	rateShout(slug: String!, value: Int!): Result!
 
   # profile
   # rateUser(value: Int!): ResultPayload!
