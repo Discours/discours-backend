@@ -6,9 +6,9 @@ RUN /usr/local/bin/python -m pip install --upgrade pip
 
 WORKDIR /usr/src/app
 
-COPY Pipfile ./
+COPY requirements.txt ./
 
-RUN set -ex && pip install
+RUN set -ex && pip install -r requirements.txt
 
 COPY . .
 
