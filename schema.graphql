@@ -71,7 +71,7 @@ type Mutation {
   # user profile
   # rateUser(value: Int!): ResultPayload!
   # updateOnlineStatus: ResultPayload!
-  updateProfile(profile: ProfileInput!): ResultPayload!
+  updateProfile(profile: ProfileInput!): Result!
 }
 
 ################################### Query
