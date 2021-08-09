@@ -134,3 +134,4 @@ temp.*
 
 discours.key
 discours.crt
+Pipfile.lock

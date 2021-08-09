@@ -14,7 +14,7 @@ PyJWT = "*"
 SQLAlchemy = "*"
 itsdangerous = "*"
 httpx = "*"
-psycopg2 = "*"
+psycopg2-binary = "*"
 Authlib = "*"
 
 [dev-packages]
