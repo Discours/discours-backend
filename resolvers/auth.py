@@ -43,7 +43,7 @@ async def register(*_, email: str, password: str = ""):
 
 
 @query.field("signIn")
-async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
+async def login(_, info: GraphQLResolveInfo, email: str, password: str):
 	with local_session() as session:
 		orm_user = session.query(User).filter(User.email == email).first()
 	if orm_user is None:
@@ -61,7 +61,7 @@ async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
 		return {"error" : "invalid password"}
 	
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
-	return {"token" : token, "user": user}
+	return {"token" : token, "user": user}}
 
 
 @query.field("signOut")
@@ -69,7 +69,7 @@ async def sign_in(_, info: GraphQLResolveInfo, email: str, password: str):
 async def sign_out(_, info: GraphQLResolveInfo):
 	token = info.context["request"].headers[JWT_AUTH_HEADER]
 	status = await Authorize.revoke(token)
-	return {}
+	return True
 
 @query.field("getCurrentUser")
 @login_required

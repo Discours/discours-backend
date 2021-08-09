@@ -69,8 +69,8 @@ type Mutation {
 	rateShout(slug: String!, value: Int!): Result!
 
   # user profile
-  # rateUser(value: Int!): ResultPayload!
-  # updateOnlineStatus: ResultPayload!
+  # rateUser(value: Int!): Result!
+  # updateOnlineStatus: Result!
   updateProfile(profile: ProfileInput!): Result!
 }
 
