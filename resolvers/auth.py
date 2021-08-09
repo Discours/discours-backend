@@ -61,7 +61,7 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str):
 		return {"error" : "invalid password"}
 	
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
-	return {"token" : token, "user": user}}
+	return {"token" : token, "user": user}
 
 
 @query.field("signOut")
