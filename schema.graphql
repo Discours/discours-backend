@@ -6,7 +6,7 @@ type Result {
 	error: String
 }
 
-type SignInResult {
+type AuthResult {
 	error: String
 	token: String
 	user: User
@@ -35,6 +35,12 @@ input ShoutInput {
 	visibleForUsers: [Int]
 }
 
+input ProfileInput {  
+  email: String
+  username: String
+  userpic: String
+}
+
 type ShoutResult {
 	error: String
 	shout: Shout
@@ -50,33 +56,34 @@ type Mutation {
 
   # auth
   # resetPassword(password: String!, token: String!): Token!
-  confirmEmail(token: String!): SignInResult!
+  confirmEmail(token: String!): AuthResult!
   # invalidateAllTokens: Boolean!
   # invalidateTokenById(id: Int!): Boolean!
   # requestEmailConfirmation: User!
   # requestPasswordReset(email: String!): Boolean!
-  registerUser(email: String!, password: String!): SignInResult!
+  registerUser(email: String!, password: String!): AuthResult!
 
   # shout
 	createShout(input: ShoutInput!): ShoutResult!
 	deleteShout(slug: String!): Result!
 	rateShout(slug: String!, value: Int!): Result!
 
-  # profile
+  # user profile
   # rateUser(value: Int!): ResultPayload!
   # updateOnlineStatus: ResultPayload!
-  # updateUsername(username: String!): ResultPayload!
+  updateProfile(profile: ProfileInput!): ResultPayload!
 }
 
 ################################### Query
 
 type Query {
-  # auth / user
-	isEmailFree(email: String!): Boolean!
-	signIn(email: String!, password: String!): SignInResult!
+  # auth
+	isEmailFree(email: String!): Result!
+	signIn(email: String!, password: String!): AuthResult!
 	signOut: Result!
+  # user profile
 	getCurrentUser: UserResult!
-  # getUserById(id: Int!): ResultPayload!
+  getUserById(id: Int!): UserResult!
   # getUserRating(shout: Int): Int!
 
   # messages
