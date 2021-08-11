@@ -1,11 +1,11 @@
-from passlib.hash import pbkdf2_sha256
+from passlib.hash import bcrypt
 
 
 class Password:
     @staticmethod
     def encode(password: str) -> str:
-        return pbkdf2_sha256.hash(password)
+        return bcrypt.hash(password)
 
     @staticmethod
     def verify(password: str, other: str) -> bool:
-        return pbkdf2_sha256.verify(password, other)
+        return bcrypt.verify(password, other)

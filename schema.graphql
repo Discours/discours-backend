@@ -116,7 +116,6 @@ type Subscription {
 ############################################ Entities
 
 type Role {
-  id: Int!
   name: String!
   org: String!
   level: Int! # 1-8
@@ -124,16 +123,19 @@ type Role {
 }
 
 type User {
-  createdAt: DateTime!
+  username: String! # email
   email: String
+  password: String
+  viewname: String # to display
+  userpic: String
+  links: [String]
   emailConfirmed: Boolean
   id: Int!
   muted: Boolean
   rating: Int
   roles: [Role!]!
+  createdAt: DateTime!
   updatedAt: DateTime!
-  username: String
-  userpic: String
   wasOnlineAt: DateTime
 }
 
