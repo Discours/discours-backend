@@ -163,7 +163,7 @@ type Shout {
   published: DateTime # if there is no published field - it is not published
   replyTo: String # another shout
   tags: [String] # actual values
-  topics: [String] # topic-slugs
+  topics: [String] # topic-slugs, order has matter
   title: String
   versionOf: String
   visibleForRoles: [String] # role ids are strings

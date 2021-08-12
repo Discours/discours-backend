@@ -1,6 +1,6 @@
 FROM python:3.8
 
-EXPOSE 80
+EXPOSE 8080
 
 RUN /usr/local/bin/python -m pip install --upgrade pip
 
