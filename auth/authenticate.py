@@ -63,6 +63,7 @@ class JWTAuthenticate(AuthenticationBackend):
             return AuthCredentials(scopes=[], error_message=str(exc)), AuthUser(user_id=None)
 
         scopes = User.get_permission(user_id=payload.user_id)
+        print(scopes)
         return AuthCredentials(user_id=payload.user_id, scopes=scopes, logged_in=True), AuthUser(user_id=payload.user_id)
 
 

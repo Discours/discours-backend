@@ -1,4 +1,4 @@
-from orm import Shout, User
+from orm import Shout, User, Organization
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -15,10 +15,10 @@ class GitTask:
 
 	queue = asyncio.Queue()
 
-	def __init__(self, input, username, user_email, comment):
+	def __init__(self, input, org, username, user_email, comment):
 		self.slug = input["slug"];
-		self.org = input["org"];
 		self.shout_body = input["body"];
+		self.org = org;
 		self.username = username;
 		self.user_email = user_email;
 		self.comment = comment;
@@ -84,12 +84,19 @@ async def create_shout(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	
+	org_id = org = input["org_id"]
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
+		org = session.query(Organization).filter(Organization.id == org_id).first()
+	
+	if not org:
+		return {
+			"error" : "invalid organization"
+		}
 	
 	new_shout = Shout.create(
 		slug = input["slug"],
-		org = input["org"],
+		org_id = org_id,
 		author_id = user_id,
 		body = input["body"],
 		replyTo = input.get("replyTo"),
@@ -100,6 +107,7 @@ async def create_shout(_, info, input):
 
 	task = GitTask(
 		input,
+		org.name,
 		user.username,
 		user.email,
 		"new shout %s" % (new_shout.slug)
@@ -109,5 +117,30 @@ async def create_shout(_, info, input):
 		"shout" : new_shout
 	}
 
+@mutation.field("updateShout")
+@login_required
+async def update_shout(_, info, shout_id, input):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+
+	with local_session() as session:
+		user = session.query(User).filter(User.id == user_id).first()
+		shout = session.query(Shout).filter(Shout.id == shout_id).first()
+
+	if not shout:
+		return {
+			"error" : "shout not found"
+		}
+
+	if shout.author_id != user_id:
+		scope = info.context["request"].scope
+		if not Resource.shout_id in scope:
+			return {
+				"error" : "access denied"
+			}
+
+	return {
+		"shout" : shout
+	}
 
 # TODO: paginate, get, update, delete

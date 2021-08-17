@@ -12,7 +12,7 @@ class Shout(Base):
 	id = None
 	
 	slug: str = Column(String, primary_key=True)
-	org: str = Column(String, nullable=False)
+	org_id: str = Column(ForeignKey("organization.id"), nullable=False)
 	author_id: str = Column(ForeignKey("user.id"), nullable=False, comment="Author")
 	body: str = Column(String, nullable=False, comment="Body")
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")

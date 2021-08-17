@@ -23,7 +23,7 @@ type MessageResult {
 }
 
 input ShoutInput {
-	org: String!
+	org_id: Int!
 	slug: String!
 	body: String!
 	replyTo: String # another shout
@@ -61,10 +61,11 @@ type Mutation {
   # invalidateTokenById(id: Int!): Boolean!
   # requestEmailConfirmation: User!
   # requestPasswordReset(email: String!): Boolean!
-  registerUser(email: String!, password: String!): AuthResult!
+	registerUser(email: String!, password: String!): AuthResult!
 
   # shout
 	createShout(input: ShoutInput!): ShoutResult!
+	updateShout(input: ShoutInput!): ShoutResult!
 	deleteShout(slug: String!): Result!
 	rateShout(slug: String!, value: Int!): Result!
 
@@ -151,7 +152,7 @@ type Message {
 
 # is publication
 type Shout {
-  org: String!
+  org_id: Int!
   slug: String!
   author: Int!
   body: String!
