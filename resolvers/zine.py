@@ -1,4 +1,4 @@
-from orm import Shout, User, Organization
+from orm import Shout, User, Organization, Resource
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -119,13 +119,16 @@ async def create_shout(_, info, input):
 
 @mutation.field("updateShout")
 @login_required
-async def update_shout(_, info, shout_id, input):
+async def update_shout(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
+	slug = input["slug"]
+	org_id = org = input["org_id"]
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
-		shout = session.query(Shout).filter(Shout.id == shout_id).first()
+		shout = session.query(Shout).filter(Shout.slug == slug).first()
+		org = session.query(Organization).filter(Organization.id == org_id).first()
 
 	if not shout:
 		return {
@@ -133,11 +136,29 @@ async def update_shout(_, info, shout_id, input):
 		}
 
 	if shout.author_id != user_id:
-		scope = info.context["request"].scope
-		if not Resource.shout_id in scope:
+		scopes = auth.scopes
+		print(scopes)
+		if not Resource.shout_id in scopes:
 			return {
 				"error" : "access denied"
 			}
+
+	shout.body = input["body"],
+	shout.replyTo = input.get("replyTo"),
+	shout.versionOf = input.get("versionOf"),
+	shout.tags = input.get("tags"),
+	shout.topics = input.get("topics")
+
+	with local_session() as session:
+		session.commit()
+
+	task = GitTask(
+		input,
+		org.name,
+		user.username,
+		user.email,
+		"update shout %s" % (shout.slug)
+		)
 
 	return {
 		"shout" : shout

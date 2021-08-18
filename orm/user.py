@@ -17,7 +17,7 @@ class UserRole(Base):
 class User(Base):
 	__tablename__ = 'user'
 
-	email: str = Column(String, nullable=False)
+	email: str = Column(String, unique=True, nullable=False)
 	username: str = Column(String, nullable=False, comment="Name")
 	password: str = Column(String, nullable=True, comment="Password")
 
@@ -32,7 +32,9 @@ class User(Base):
 			user = session.query(User).filter(User.id == user_id).first()
 			for role in user.roles:
 				for p in role.permissions:
-					scope[p.resource_id] = p.operation_id
+					if not p.resource_id in scope:
+						scope[p.resource_id] = set()
+					scope[p.resource_id].add(p.operation_id)
 		return scope
 
 
