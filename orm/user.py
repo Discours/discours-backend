@@ -1,19 +1,24 @@
 from typing import List
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, JSON as JSONType
 from sqlalchemy.orm import relationship
 
 from orm import Permission
 from orm.base import Base, local_session
-from orm.rating import Rating
 from orm.notification import UserNotification
+
+class UserRating(Base):
+	__tablename__ = 'user_rating'
+
+	createdBy: int = Column(Integer, ForeignKey("user.id"), primary_key = True)
+	value: int = Column(Integer, nullable=False)
 
 class UserRole(Base):
 	__tablename__ = 'user_role'
 	
 	id: int = Column(Integer, primary_key = True)
-	user_id: int = Column(ForeignKey("user.id"), primary_key = True)
-	role: str = Column(ForeignKey("role.name"), primary_key = True)
+	user_id: int = Column(Integer, ForeignKey("user.id"))
+	role_id str = Column(String, ForeignKey("role.name"))
 
 class User(Base):
 	__tablename__ = 'user'
@@ -30,11 +35,11 @@ class User(Base):
 	emailConfirmed: bool = Column(Boolean, default=False)
 	createdAt: DateTime = Column(DateTime, nullable=False, comment="Created at")
 	wasOnlineAt: DateTime = Column(DateTime, nullable=False, comment="Was online at")
-	links: JSON = Column(JSON, nullable=True, comment="Links")
+	links: JSONType = Column(JSONType, nullable=True, comment="Links")
 	oauth: str = Column(String, nullable=True)
-	notifications = relationship("Notification", secondary=UserNotification.__table__)
-	ratings = relationship("Rating", secondary=Rating.__table__)
-	roles = relationship("Role", secondary=UserRole.__table__)
+	notifications = relationship(lambda: UserNotification)
+	ratings = relationship(lambda: UserRating)
+	roles = relationship(lambda: UserRole)
 
 	@classmethod
 	def get_permission(cls, user_id):

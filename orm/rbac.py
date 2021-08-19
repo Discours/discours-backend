@@ -36,7 +36,7 @@ class Role(Base):
 	name: str = Column(String, nullable=False, unique=True, comment="Role Name")
 	org_id: int = Column(ForeignKey("organization.id", ondelete="CASCADE"), nullable=False, comment="Organization")
 
-	permissions = relationship("Permission")
+	permissions = relationship(lambda: Permission)
 
 class Operation(Base):
 	__tablename__ = 'operation'
@@ -71,7 +71,7 @@ class Permission(Base):
 
 	role_id: int = Column(ForeignKey("role.id", ondelete="CASCADE"), nullable=False, comment="Role")
 	operation_id: int = Column(ForeignKey("operation.id", ondelete="CASCADE"), nullable=False, comment="Operation")
-	resource_id: int = Column(ForeignKey("operation.id", ondelete="CASCADE"), nullable=False, comment="Resource")
+	resource_id: int = Column(ForeignKey("resource.id", ondelete="CASCADE"), nullable=False, comment="Resource")
 
 
 if __name__ == '__main__':

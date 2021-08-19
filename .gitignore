@@ -130,8 +130,8 @@ dmypy.json
 .idea
 temp.*
 
-*.sqlite3
-
 discours.key
 discours.crt
 Pipfile.lock
+
+migration/data

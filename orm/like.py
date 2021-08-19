@@ -11,7 +11,7 @@ class Like(Base):
 
     author_id: str = Column(ForeignKey("user.id"), nullable=False, comment="Author")
     value: str = Column(String, nullable=False, comment="Value")
-    shout: str = Column(ForeignKey("shout.id"), nullable=True, comment="Liked shout")
+    shout: str = Column(String, ForeignKey("shout.slug"), nullable=True, comment="Liked shout slug")
     user: str = Column(ForeignKey("user.id"), nullable=True, comment="Liked user")
 
     # TODO: add resolvers, debug, etc.

@@ -57,9 +57,9 @@ async def oauth_authorize(request):
 	token = await client.authorize_access_token(request)
 	resp = await client.get('user', token=token)
 	profile = resp.json()
-	oauth_id = profile["id"]
+	oauth = profile["id"]
 	user_input = {
-		"oauth_id" : oauth_id,
+		"oauth" : oauth,
 		"email" : profile["email"],
 		"username" : profile["name"]
 	}

@@ -25,12 +25,12 @@ class Identity:
 	def identity_oauth(input) -> User:
 		with local_session() as session:
 			user = session.query(OrmUser).filter(
-				or_(OrmUser.oauth_id == input["oauth_id"], OrmUser.email == input["email"])
+				or_(OrmUser.oauth == input["oauth"], OrmUser.email == input["email"])
 				).first()
 			if not user:
 				user = OrmUser.create(**input)
-			if not user.oauth_id:
-				user.oauth_id = input["oauth_id"]
+			if not user.oauth:
+				user.oauth = input["oauth"]
 				session.commit()
 
 		user = User(**user.dict())
