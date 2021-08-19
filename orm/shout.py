@@ -21,5 +21,6 @@ class Shout(Base):
 	versionOf: str = Column(ForeignKey("shout.slug"), nullable=True)
 	tags: str = Column(String, nullable=True)
 	topics: str = Column(String, nullable=True)
+	views: int = Column(Integer, default=0)
 
 	# TODO: add all the fields

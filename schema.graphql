@@ -55,13 +55,14 @@ type Mutation {
 	deleteMessage(messageId: Int!): Result!
 
   # auth
-  # resetPassword(password: String!, token: String!): Token!
   confirmEmail(token: String!): AuthResult!
+  requestPasswordReset(email: String!): Boolean!
+  confirmPasswordReset(token: String!): Boolean!
+	registerUser(email: String!, password: String!): AuthResult!
+  # updatePassword(password: String!, token: String!): Token!
   # invalidateAllTokens: Boolean!
   # invalidateTokenById(id: Int!): Boolean!
   # requestEmailConfirmation: User!
-  # requestPasswordReset(email: String!): Boolean!
-	registerUser(email: String!, password: String!): AuthResult!
 
   # shout
 	createShout(input: ShoutInput!): ShoutResult!
@@ -123,21 +124,44 @@ type Role {
   desc: String
 }
 
+type Rating {
+  createdBy: String!
+  value: Int!
+}
+
+type Notification {
+  kind: String! # unique primary key
+  template: String!
+  variables: [String]
+}
+
+type UserNotification {
+  id: Int! # primary key
+  user: Int!
+  kind: String! # NotificationTemplate.name
+  values: [String]
+}
+
 type User {
   username: String! # email
+  createdAt: DateTime!
   email: String
   password: String
+  oauth: String # provider:token
   viewname: String # to display
   userpic: String
   links: [String]
-  emailConfirmed: Boolean
+  emailConfirmed: Boolean # should contain all emails too # TODO: pagination here
   id: Int!
   muted: Boolean
   rating: Int
-  roles: [Role!]!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  roles: [Role]
+  updatedAt: DateTime
   wasOnlineAt: DateTime
+  ratings: [Rating]
+  slug: String
+  bio: String
+  notifications: [Int] 
 }
 
 type Message {
@@ -161,6 +185,7 @@ type Shout {
   deletedAt: DateTime
   deletedBy: Int
   rating: Int
+  ratigns: [Rating]
   published: DateTime # if there is no published field - it is not published
   replyTo: String # another shout
   tags: [String] # actual values
@@ -169,6 +194,7 @@ type Shout {
   versionOf: String
   visibleForRoles: [String] # role ids are strings
   visibleForUsers: [Int]
+  views: Int
 }
 
 type Topic {
