@@ -1,7 +1,6 @@
 from typing import Optional
 
 import aioredis
-# from aioredis import ConnectionsPool
 
 from settings import REDIS_URL
 
@@ -14,7 +13,7 @@ class Redis:
     async def connect(self):
         if self._instance is not None:
             return
-        self._instance = await aioredis.from_url(self._uri)# .create_pool(self._uri)
+        self._instance = aioredis.from_url(self._uri, encoding="utf-8")
 
     async def disconnect(self):
         if self._instance is None:
@@ -24,7 +23,7 @@ class Redis:
         self._instance = None
 
     async def execute(self, command, *args, **kwargs):
-        return await self._instance.execute(command, *args, **kwargs, encoding="UTF-8")
+        return await self._instance.execute_command(command, *args, **kwargs)
 
 
 async def test():

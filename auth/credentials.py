@@ -9,7 +9,7 @@ class Permission(BaseModel):
 
 class AuthCredentials(BaseModel):
     user_id: Optional[int] = None
-    scopes: Optional[set] = {}
+    scopes: Optional[dict] = {}
     logged_in: bool = False
     error_message: str = ""
 
