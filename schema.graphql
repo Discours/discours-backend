@@ -3,72 +3,72 @@ scalar DateTime
 ################################### Payload
 
 type Result {
-	error: String
+  error: String
 }
 
 type AuthResult {
-	error: String
-	token: String
-	user: User
+  error: String
+  token: String
+  user: User
 }
 
 type UserResult {
-	error: String
-	user: User
+  error: String
+  user: User
 }
 
 type MessageResult {
-	error: String
-	message: Message
+  error: String
+  message: Message
 }
 
 input ShoutInput {
-	org_id: Int!
-	slug: String!
-	body: String!
-	replyTo: String # another shout
-	tags: [String] # actual values
-	topics: [String] # topic-slugs
-	title: String
-	versionOf: String
-	visibleForRoles: [String] # role ids are strings
-	visibleForUsers: [Int]
+  org_id: Int!
+  slug: String!
+  body: String!
+  replyTo: String # another shout
+  tags: [String] # actual values
+  topics: [String] # topic-slugs
+  title: String
+  versionOf: String
+  visibleForRoles: [String] # role ids are strings
+  visibleForUsers: [Int]
 }
 
-input ProfileInput {  
+input ProfileInput {
   email: String
   username: String
   userpic: String
 }
 
 type ShoutResult {
-	error: String
-	shout: Shout
+  error: String
+  shout: Shout
 }
 
 ################################### Mutation
 
 type Mutation {
   # message
-	createMessage(body: String!, replyTo: Int): MessageResult!
-	updateMessage(id: Int!, body: String!): MessageResult!
-	deleteMessage(messageId: Int!): Result!
+  createMessage(body: String!, replyTo: Int): MessageResult!
+  updateMessage(id: Int!, body: String!): MessageResult!
+  deleteMessage(messageId: Int!): Result!
 
   # auth
   confirmEmail(token: String!): AuthResult!
   requestPasswordReset(email: String!): Boolean!
   confirmPasswordReset(token: String!): Boolean!
-	registerUser(email: String!, password: String!): AuthResult!
+  registerUser(email: String!, password: String!): AuthResult!
   # updatePassword(password: String!, token: String!): Token!
   # invalidateAllTokens: Boolean!
   # invalidateTokenById(id: Int!): Boolean!
   # requestEmailConfirmation: User!
 
   # shout
-	createShout(input: ShoutInput!): ShoutResult!
-	updateShout(input: ShoutInput!): ShoutResult!
-	deleteShout(slug: String!): Result!
-	rateShout(slug: String!, value: Int!): Result!
+  createShout(input: ShoutInput!): ShoutResult!
+  updateShout(input: ShoutInput!): ShoutResult!
+  deleteShout(slug: String!): Result!
+  rateShout(slug: String!, value: Int!): Result!
 
   # user profile
   # rateUser(value: Int!): Result!
@@ -80,11 +80,11 @@ type Mutation {
 
 type Query {
   # auth
-	isEmailFree(email: String!): Result!
-	signIn(email: String!, password: String!): AuthResult!
-	signOut: Result!
+  isEmailFree(email: String!): Result!
+  signIn(email: String!, password: String!): AuthResult!
+  signOut: Result!
   # user profile
-	getCurrentUser: UserResult!
+  getCurrentUser: UserResult!
   getUserById(id: Int!): UserResult!
   # getUserRating(shout: Int): Int!
 
@@ -99,8 +99,8 @@ type Query {
   # shoutsByTime(time: DateTime): [Shout]!
 
   # getOnlineUsers: [User!]!
-	topAuthors: [User]!
-	topShouts: [Shout]!
+  topAuthors: [User]!
+  topShouts: [Shout]!
 }
 
 ############################################ Subscription
@@ -109,7 +109,7 @@ type Subscription {
   messageCreated: Message!
   messageUpdated: Message!
   messageDeleted: Message!
-  
+
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!
@@ -163,7 +163,7 @@ type User {
   ratings: [Rating]
   slug: String
   bio: String
-  notifications: [Int] 
+  notifications: [Int]
 }
 
 type Message {
@@ -214,7 +214,6 @@ type Topic {
 }
 
 # TODO: resolvers to add/remove topics from publication
-
 
 type Proposal {
   body: String!

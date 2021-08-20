@@ -2,10 +2,10 @@
 
 Tech stack:
 
- - pyjwt
- - redis
- - ariadne
- - starlette
+- pyjwt
+- redis
+- ariadne
+- starlette
 
 # Local development
 
@@ -31,6 +31,6 @@ pipenv run python server.py
 
 Also see `Dockerfile`
 
-# How to do an authorized request 
+# How to do an authorized request
 
 Put the header 'Auth' with token from signInQuery or registerQuery.
