@@ -97,7 +97,7 @@ async def create_shout(_, info, input):
 	new_shout = Shout.create(
 		slug = input["slug"],
 		org_id = org_id,
-		author_id = user_id,
+		authors = [user_id, ],
 		body = input["body"],
 		replyTo = input.get("replyTo"),
 		versionOf = input.get("versionOf"),
@@ -135,7 +135,7 @@ async def update_shout(_, info, input):
 			"error" : "shout not found"
 		}
 
-	if shout.author_id != user_id:
+	if shout.authors[0] != user_id:
 		scopes = auth.scopes
 		print(scopes)
 		if not Resource.shout_id in scopes:
