@@ -75,8 +75,6 @@ def migrate(entry):
         r['body'] = '<ShoutVideo src=\"' + entry['media'][0]['youtubeId'] + '\" />'
     elif entry.get('type') == 'Music':
         r['body'] = '<ShoutMusic media={\"' + json.dumps(entry['media']) +'\"} />'
-    else entry.get('type') == 'Image':
-        r['body'] = r['body']
     else:
         r['body'] = '## ' + r['title']
     # TODO: compile md with graymatter

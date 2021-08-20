@@ -26,3 +26,4 @@ class Topic(Base):
 	parents = relationship(lambda: Topic, secondary=Connection, primaryjoin=slug==Connection.c.parent, secondaryjoin=slug==Connection.c.child, viewonly=True)
 	# list of Topics where the current node is the "parent" 
 	children = relationship(lambda: Topic, secondary=Connection, primaryjoin=slug==Connection.c.child, secondaryjoin=slug==Connection.c.parent)
+

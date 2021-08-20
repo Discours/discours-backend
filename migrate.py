@@ -67,5 +67,8 @@ if __name__ == '__main__':
             topics()
             users()
             shouts()
+        elif sys.argv[1] == "bson":
+            import migration.bson2json
+            bson2json.json_tables()
     else:
         print('usage: python migrate.py <all|topics|users|shouts|comments>')
