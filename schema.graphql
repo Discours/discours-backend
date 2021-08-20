@@ -178,24 +178,25 @@ type Message {
 
 # is publication
 type Shout {
-  org_id: Int!
   slug: String!
   authors: [Int!]!
+  body: String!
+  org_id: Int
   cover: String
   layout: String
-  body: String!
   createdAt: DateTime!
-  updatedAt: DateTime!
+  updatedAt: DateTime
   deletedAt: DateTime
   deletedBy: Int
   rating: Int
   ratigns: [Rating]
-  published: Boolean! 
+  published: Boolean
   publishedAt: DateTime # if there is no published field - it is not published
   replyTo: String # another shout
   tags: [String] # actual values
   topics: [String] # topic-slugs, order has matter
   title: String
+  subtitle: String
   versionOf: String
   visibleForRoles: [String] # role ids are strings
   visibleForUsers: [Int]
