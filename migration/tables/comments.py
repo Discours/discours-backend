@@ -31,6 +31,6 @@ def migrate(entry):
         'org': 'discours.io',
         'slug': entry['slug'],
         'createdAt': entry['createdAt'],
-        'body': markdown(entry['body']),
+        'body': markdown.feed(entry['body']),
         'replyTo': entry['']
     }

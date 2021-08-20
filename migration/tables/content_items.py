@@ -1,6 +1,7 @@
 from migration.html2md import Converter
 from dateutil.parser import parse
 from os.path import abspath
+import frontmatter
 import json
 from orm import Shout
 
@@ -70,15 +71,20 @@ def migrate(entry):
     if entry.get('updatedAt') is not None:
         r['updatedAt'] = entry['updatedAt']
     if entry.get('type') == 'Literature':
-        r['body'] = entry['media'][0]['literatureBody']
+        r['body'] = markdown.feed(entry['media'][0]['literatureBody'])
     elif entry.get('type') == 'Video':
         r['body'] = '<ShoutVideo src=\"' + entry['media'][0]['youtubeId'] + '\" />'
     elif entry.get('type') == 'Music':
         r['body'] = '<ShoutMusic media={\"' + json.dumps(entry['media']) +'\"} />'
+    elif entry.get('body') is not None:
+        r['body'] = markdown.feed(entry['body'])
     else:
         r['body'] = '## ' + r['title']
-    # TODO: compile md with graymatter
-    open('migration/content/' + r['slug'] + '.md', 'w').write(mdfile)
+    body = r['body']
+    del r['body']
+    metadata = frontmatter.dumps(r)
+    open('migration/content/' + r['slug'] + '.md', 'w').write(metadata + '\n' + body)
+    r['body'] = body
     shout = Shout.create(**r.copy())
     r['id'] = shout['id']
     return r

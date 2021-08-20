@@ -9,14 +9,14 @@ def users():
     data = json.loads(open('migration/data/users.json').read())
     newdata = {}
     counter = 0
-    try:
-        for entry in data:
-            oid = entry['_id']
-            newdata[oid] = migrateUser(entry)
-            counter += 1
-    except Exception:
-        print(str(counter) + '/' + str(len(data)) + ' users entries were migrated')
-        print('try to remove database first')
+    #try:
+    for entry in data:
+        oid = entry['_id']
+        newdata[oid] = migrateUser(entry)
+        counter += 1
+    #except Exception:
+    #    print(str(counter) + '/' + str(len(data)) + ' users entries were migrated')
+    #    print('try to remove database first')
     open('migration/data/users.dict.json','w').write( json.dumps(newdata, cls=DateTimeEncoder) )
     print(str(counter) + ' users entries were migrated')
 
@@ -47,7 +47,10 @@ def shouts():
         oid = entry['_id']
         newdata[oid] = migrateShout(entry)
         counter += 1
-        
+        print(str(counter) + ': ' + newdata['slug'])
+        if counter > 9:
+            break
+
     open('migration/data/shouts.dict.json','w').write( json.dumps(newdata, cls=DateTimeEncoder) )
     print(str(counter) + ' shouts were migrated')
 

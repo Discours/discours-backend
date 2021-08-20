@@ -1,6 +1,8 @@
-from orm import User
+from orm import User, Role
+import frontmatter
 from dateutil.parser import parse
-
+from migration.html2md import Converter
+markdown = Converter()
 counter = 0
 
 def migrate(entry):
@@ -30,46 +32,46 @@ def migrate(entry):
 
         '''
         res = {}
-        try:
-            res['old_id'] = entry['_id']
-            res['password'] = entry['services']['password'].get('bcrypt', '')
-            res['username'] = entry['emails'][0]['address']
-            res['email'] = res['username']
-            res['wasOnlineAt'] = parse(entry.get('loggedInAt', entry['createdAt']))
-            res['emailConfirmed'] = entry['emails'][0]['verified']
-            res['createdAt'] = parse(entry['createdAt'])
-            res['rating'] = entry['rating'] # number
-            res['roles'] = [] # entry['roles'] # roles without org is for discours.io
-            res['ratings'] = [] # entry['ratings']
-            res['notifications'] = []
-            res['links'] = []
-            res['muted'] = False
-            res['viewname'] = 'anonymous'
-            if entry['profile']:
-                res['slug'] = entry['profile'].get('path')
-                res['userpic'] = entry['profile'].get('image', {'url': ''}).get('url', '')
-                viewname = entry['profile'].get('firstName', '') + ' ' + entry['profile'].get('lastName', '')
-                viewname = entry['profile']['path'] if len(viewname) < 2 else viewname
-                res['viewname'] = viewname
-                fb = entry['profile'].get('facebook', False)
-                if fb:
-                    res['links'].append(fb)
-                vk = entry['profile'].get('vkontakte', False)
-                if vk:
-                    res['links'].append(vk)
-                tr = entry['profile'].get('twitter', False)
-                if tr:
-                    res['links'].append(tr)
-                ws = entry['profile'].get('website', False)
-                if ws:
-                    res['links'].append(ws)
-                if not res['slug']:
-                    res['slug'] = res['links'][0].split('/')[-1]
+        res['old_id'] = entry['_id']
+        res['password'] = entry['services']['password'].get('bcrypt', '')
+        res['username'] = entry['emails'][0]['address']
+        res['email'] = res['username']
+        res['wasOnlineAt'] = parse(entry.get('loggedInAt', entry['createdAt']))
+        res['emailConfirmed'] = entry['emails'][0]['verified']
+        res['createdAt'] = parse(entry['createdAt'])
+        res['rating'] = entry['rating'] # number
+        res['roles'] = [] # entry['roles'] # roles without org is for discours.io
+        res['ratings'] = [] # entry['ratings']
+        res['notifications'] = []
+        res['links'] = []
+        res['muted'] = False
+        res['bio'] = markdown.feed(entry.get('bio', ''))
+        if entry['profile']:
+            res['slug'] = entry['profile'].get('path')
+            res['userpic'] = entry['profile'].get('image', {'url': ''}).get('url', '')
+            fn = entry['profile'].get('firstName', '')
+            ln = entry['profile'].get('lastName', '')
+            viewname = res['slug'] if res['slug'] else 'anonymous'
+            viewname = fn if fn else viewname
+            viewname = (viewname + ' ' + ln) if ln else viewname
+            viewname = entry['profile']['path'] if len(viewname) < 2 else viewname
+            res['viewname'] = viewname
+            fb = entry['profile'].get('facebook', False)
+            if fb:
+                res['links'].append(fb)
+            vk = entry['profile'].get('vkontakte', False)
+            if vk:
+                res['links'].append(vk)
+            tr = entry['profile'].get('twitter', False)
+            if tr:
+                res['links'].append(tr)
+            ws = entry['profile'].get('website', False)
+            if ws:
+                res['links'].append(ws)
             if not res['slug']:
-                res['slug'] = res['email'].split('@')[0]
-        except Exception:
-            print(entry['profile'])
-            raise Exception
+                res['slug'] = res['links'][0].split('/')[-1]
+        if not res['slug']:
+            res['slug'] = res['email'].split('@')[0]
         else:
             old = res['old_id']
             del res['old_id']

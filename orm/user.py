@@ -38,7 +38,7 @@ class User(Base):
 	userpic: str = Column(String, nullable=True, comment="Userpic")
 	viewname: str = Column(String, nullable=True, comment="Display name")
 	rating: int = Column(Integer, nullable=True, comment="Rating")
-	slug: str = Column(String, unique=True, comment="Author's slug")
+	slug: str = Column(String, unique=True, comment="User's slug")
 	muted: bool = Column(Boolean, default=False)
 	emailConfirmed: bool = Column(Boolean, default=False)
 	createdAt: DateTime = Column(DateTime, nullable=False, comment="Created at")

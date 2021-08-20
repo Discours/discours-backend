@@ -127,7 +127,7 @@ type Role {
 }
 
 type Rating {
-  createdBy: String!
+  createdBy: Int!
   value: Int!
 }
 
