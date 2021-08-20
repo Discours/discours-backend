@@ -16,6 +16,8 @@ itsdangerous = "*"
 httpx = "*"
 psycopg2-binary = "*"
 Authlib = "*"
+bson = "*"
+python-frontmatter = "*"
 
 [dev-packages]
 

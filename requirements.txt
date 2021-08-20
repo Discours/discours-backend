@@ -10,3 +10,5 @@ itsdangerous
 authlib
 httpx
 psycopg2-binary
+bson
+python-frontmatter

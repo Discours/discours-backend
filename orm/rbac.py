@@ -2,14 +2,14 @@ import warnings
 
 from typing import Type
 
-from sqlalchemy import String, Column, ForeignKey, types, UniqueConstraint
+from sqlalchemy import String, Integer, Column, ForeignKey, UniqueConstraint, TypeDecorator
 from sqlalchemy.orm import relationship
 
 from orm.base import Base, REGISTRY, engine, local_session
 
 
-class ClassType(types.TypeDecorator):
-	impl = types.String
+class ClassType(TypeDecorator):
+	impl = String
 
 	@property
 	def python_type(self):
@@ -33,7 +33,10 @@ class Organization(Base):
 
 class Role(Base):
 	__tablename__ = 'role'
-	name: str = Column(String, nullable=False, unique=True, comment="Role Name")
+
+	id: int = Column(Integer, primary_key=True)
+	
+	name: str = Column(String, nullable=False, comment="Role Name")
 	org_id: int = Column(ForeignKey("organization.id", ondelete="CASCADE"), nullable=False, comment="Organization")
 
 	permissions = relationship(lambda: Permission)

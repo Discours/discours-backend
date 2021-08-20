@@ -25,7 +25,7 @@ UserRatings = Table("user_ratings",
 UserRoles = Table("user_roles",
 	Base.metadata,
 	Column('user_id', Integer, ForeignKey('user.id')),
-	Column('role', String, ForeignKey('role.name'))
+	Column('role_id', Integer, ForeignKey('role.id'))
 )
 
 class User(Base):

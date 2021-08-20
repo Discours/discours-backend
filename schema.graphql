@@ -118,10 +118,12 @@ type Subscription {
 ############################################ Entities
 
 type Role {
+  id: Int!
   name: String!
-  org: String!
-  level: Int! # 1-8
+  org_id: Int!
+  # level: Int! # 1-8
   desc: String
+  permissions: [Int!]!
 }
 
 type Rating {
