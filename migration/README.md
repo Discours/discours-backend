@@ -26,7 +26,9 @@ bson2json.json_tables() # creates all the needed data json from bson mongodump
 ```sh
 pipenv run python migrate.py users
 ```
-Note: this will create db entries and it is not tolerant to existed unique email.
+
+Note: this will create db entries and it is not tolerant to existed unique
+email.
 
 3. then topics and shouts
 
@@ -35,4 +37,5 @@ pipenv run python migrate.py topics
 pipenv run python migrate.py shouts
 ```
 
-Now you got the *.dict.json files which contain all the data with old and new(!) ids.
+Now you got the \*.dict.json files which contain all the data with old and
+new(!) ids.
