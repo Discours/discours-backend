@@ -17,6 +17,7 @@ Connection = Table('topic_connections',
 class Topic(Base):
 	__tablename__ = 'topic'
 
+	id: int = None
 	slug: str = Column(String, unique = True, nullable = False, primary_key=True)
 	org_id: str = Column(ForeignKey("organization.id"), nullable=False)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")

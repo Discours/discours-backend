@@ -7,11 +7,11 @@ from orm.base import Base
 
 
 class Like(Base):
-    __tablename__ = 'like'
+	__tablename__ = 'like'
 
-    author_id: str = Column(ForeignKey("user.id"), nullable=False, comment="Author")
-    value: str = Column(String, nullable=False, comment="Value")
-    shout: str = Column(String, ForeignKey("shout.slug"), nullable=True, comment="Liked shout slug")
-    user: str = Column(ForeignKey("user.id"), nullable=True, comment="Liked user")
+	id: int = None
+	user_id: str = Column(ForeignKey("user.id"), comment="Author", primary_key = True)
+	shout: str = Column(String, ForeignKey("shout.slug"), comment="Liked shout slug", primary_key = True)
+	value: int = Column(Integer, nullable=False, comment="Value")
 
-    # TODO: add resolvers, debug, etc.
+	# TODO: add resolvers, debug, etc.
