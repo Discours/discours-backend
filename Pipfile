@@ -19,6 +19,7 @@ Authlib = "*"
 bson = "*"
 python-frontmatter = "*"
 bs4 = "*"
+psycopg2 = "*"
 
 [dev-packages]
 

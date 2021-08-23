@@ -20,6 +20,7 @@ ShoutTopics = Table('shout_topics',
 class Shout(Base):
 	__tablename__ = 'shout'
 
+	id = None
 	slug: str = Column(String, primary_key=True)
 	org_id: int = Column(Integer, ForeignKey("organization.id"), nullable=False, comment="Organization")
 	body: str = Column(String, nullable=False, comment="Body")
