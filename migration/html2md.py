@@ -24,6 +24,7 @@ class Converter(HTMLParser):
         self.md_file = ''
         self.code_box = False
         self.div_count = 0
+        self.span_count = 0
         self.code_box_div_num = 0
         self.ol_count = 0
         self.temp_tag = ''
@@ -37,8 +38,23 @@ class Converter(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if self.ignore_data:
             return None
-        elif tag == 'br':
-            self.md_file += '  \n'
+        elif tag == 'sup':
+            self.md_file += '<sup>'
+        elif tag == 'p':
+            self.temp_tag = 'p'
+            self.md_file += '\n'
+        elif tag == 'i':
+            self.temp_tag = 'i'
+            self.md_file += '*'
+        elif tag == 'wbr':
+            self.temp_tag = 'wbr'
+            self.md_file += ''
+        elif tag == 'span':
+            self.temp_tag = 'span'
+            self.span_count += 1
+            self.md_file += ' '
+        elif tag == 'figcaption':
+            self.md_file += ''
         elif tag == 'hr':
             self.md_file += '\n***  \n'
         elif tag == 'title':
@@ -74,7 +90,7 @@ class Converter(HTMLParser):
             elif 'class' in attrs_dict:
                 self.class_div_count = self.div_count
                 self.ignore_div = True
-        elif tag == 'en-codeblock':
+        elif tag == 'pre' or tag == 'code':
             self.code_box = True
             self.md_file += '\n```\n'
         elif tag == 'a':
@@ -94,7 +110,7 @@ class Converter(HTMLParser):
         elif tag == 'img':
             attrs_dict = dict(attrs)
             img_ref = attrs_dict['src']
-            alt_name = attrs_dict['alt'] if 'alt' in attrs_dict else 'Placeholder'
+            alt_name = attrs_dict['alt'] if 'alt' in attrs_dict else 'x'
             if self.is_link:
                 self.related_data.append(img_ref)
                 self.md_file += f'[![{alt_name}]({img_ref})]({self.link_ref})'
@@ -104,6 +120,8 @@ class Converter(HTMLParser):
         elif tag == 'table':
             self.ignore_data = True
             self.table_start = self.getpos()
+        else:
+            print('<' + tag + '>')
 
     def get_rawdata(self, start, stop, offset):
         temp_rawdata = self.rawdata
@@ -114,7 +132,32 @@ class Converter(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag == 'b' or tag == 'strong':
-            self.md_file += '**  \n'
+            self.md_file += '** '
+        elif tag == 'sup':
+            self.md_file += '</sup>'
+        elif tag == 'iframe':
+            self.ignore_data = False
+        elif tag == 'wbr':
+            self.md_file += ''
+        elif tag == 'title':
+            self.md_file += '\n'
+        elif tag == 'h1':
+            self.md_file += '\n'
+        elif tag == 'h2':
+            self.md_file += '\n'
+        elif tag == 'h3':
+            self.md_file += '\n'
+        elif tag == 'h4':
+            self.md_file += '\n'
+        elif tag == 'span':
+            self.span_count -= 1
+            self.md_file += ' '
+        elif tag == 'figcaption':
+            self.md_file += '\n'
+        elif tag == 'i':
+            self.md_file += '* '
+        elif tag == 'p':
+            self.md_file += '\n'
         elif tag == 'div':
             if self.code_box and self.code_box_div_num == self.div_count:
                 self.code_box = False
@@ -124,7 +167,7 @@ class Converter(HTMLParser):
             else:
                 self.md_file += '  \n'
             self.div_count -= 1
-        elif tag == 'en-codeblock':
+        elif tag == 'pre' or tag == 'code':
             self.code_box = False
             self.md_file += '```\n'
         elif tag == 'a':
@@ -144,18 +187,24 @@ class Converter(HTMLParser):
             raw_data = self.get_rawdata(lineno_start, lineno_stop, offset)
             self.md_file += '\n' + raw_data
             self.ignore_data = False
+        else:
+            print('</' + tag + '>')
 
     def handle_startendtag(self, tag, attrs):
         if tag == 'br':
             self.md_file += '  \n'
+        elif tag == 'wbr':
+            self.md_file += ''
         elif tag == 'hr':
             self.md_file += '\n***  \n'
         elif tag == 'img':
             attr_dict = dict(attrs)
-            name = attr_dict['data-filename']
+            name = attr_dict.get('data-filename', 'image')
             img_ref = attr_dict['src']
             self.related_data.append(img_ref)
             self.md_file += f'![{name}]({img_ref})'
+        else:
+            print("<" + tag + " />")
 
     def handle_data(self, data):
         if self.is_link:

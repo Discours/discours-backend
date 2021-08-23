@@ -1,9 +1,16 @@
 from orm import User, Role
 import frontmatter
 from dateutil.parser import parse
-from migration.html2md import Converter
-markdown = Converter()
+from migration.html2text import html2text
+# from migration.html2md import Converter
+# markdown = Converter()
 counter = 0
+
+
+def add(data):
+    data.emailConfirmed = False
+    user = User.create(**data)
+    return user
 
 def migrate(entry):
         '''
@@ -45,10 +52,10 @@ def migrate(entry):
         res['notifications'] = []
         res['links'] = []
         res['muted'] = False
-        res['bio'] = markdown.feed(entry.get('bio', ''))
+        res['bio'] = html2text(entry.get('bio', ''))
         if entry['profile']:
             res['slug'] = entry['profile'].get('path')
-            res['userpic'] = entry['profile'].get('image', {'url': ''}).get('url', '')
+            res['userpic'] = entry['profile'].get('image', {'thumborId': ''}).get('thumborId', '') # adding 'https://assets.discours.io/unsafe/1600x' in web ui
             fn = entry['profile'].get('firstName', '')
             ln = entry['profile'].get('lastName', '')
             viewname = res['slug'] if res['slug'] else 'anonymous'

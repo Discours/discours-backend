@@ -4,7 +4,7 @@ from migration.tables.content_items import migrate as migrateShout
 from migration.tables.content_item_categories import migrate as migrateTopic
 from migration.utils import DateTimeEncoder
 
-def users():
+def users(limit):
     print('migrating users...')
     data = json.loads(open('migration/data/users.json').read())
     newdata = {}
@@ -14,6 +14,8 @@ def users():
         oid = entry['_id']
         newdata[oid] = migrateUser(entry)
         counter += 1
+        if counter > limit:
+            break
     #except Exception:
     #    print(str(counter) + '/' + str(len(data)) + ' users entries were migrated')
     #    print('try to remove database first')
@@ -21,7 +23,7 @@ def users():
     print(str(counter) + ' users entries were migrated')
 
 
-def topics():
+def topics(limit):
     print('migrating topics...')
     data = json.loads(open('migration/data/content_item_categories.json').read())
     newdata = {}
@@ -31,47 +33,57 @@ def topics():
             oid = entry['_id']
             newdata[oid] = migrateTopic(entry)
             counter += 1
+            if counter > limit:
+                break
     except Exception:
         print(str(counter) + '/' + str(len(data)) + ' topics were migrated')
         print('try to remove database first')
     open('migration/data/topics.dict.json','w').write( json.dumps(newdata, cls=DateTimeEncoder) )
     print(str(counter) + ' topics were migrated')
 
-def shouts():
-    print('migrating shouts...')
+def shouts(limit):
+    print('loading shouts...')
     counter = 0
+    discoursAuthor = 0
     data = json.loads(open('migration/data/content_items.json').read())
     newdata = {}
-
+    print(str(len(data)) + ' entries was loaded. now migrating...')
     for entry in data:
         oid = entry['_id']
         newdata[oid] = migrateShout(entry)
         counter += 1
-        print(str(counter) + ': ' + newdata['slug'])
-        if counter > 9:
+        author = newdata[oid]['authors'][0]['slug']
+        if author == 'discours':
+            discoursAuthor += 1
+        line = str(counter) + ': ' + newdata[oid]['slug'] + " @" + author
+        print(line)
+        open('./shouts.id.log','a').write(line + '\n')
+        if counter > limit:
             break
 
     open('migration/data/shouts.dict.json','w').write( json.dumps(newdata, cls=DateTimeEncoder) )
     print(str(counter) + ' shouts were migrated')
+    print(str(discoursAuthor) + ' from them by uknown users')
 
 if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
+        limit = int(sys.argv[2])
         if sys.argv[1] == "users":
-            users()
+            users(limit)
         elif sys.argv[1] == "topics":
-            topics()
+            topics(limit)
         elif sys.argv[1] == "shouts":
-            shouts()
+            shouts(limit)
         elif sys.argv[1] == "comments":
-            # comments()
+            comments(limit)
             pass
         elif sys.argv[1] == "all":
-            topics()
-            users()
-            shouts()
+            topics(limit)
+            users(limit)
+            shouts(limit)
         elif sys.argv[1] == "bson":
             import migration.bson2json
             bson2json.json_tables()
     else:
-        print('usage: python migrate.py <all|topics|users|shouts|comments>')
+        print('usage: python migrate.py <all|topics|users|shouts|comments> <stop_index>')

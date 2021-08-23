@@ -24,6 +24,7 @@ bson2json.json_tables() # creates all the needed data json from bson mongodump
 2. migrate users
 
 ```sh
+pipenv install
 pipenv run python migrate.py users
 ```
 

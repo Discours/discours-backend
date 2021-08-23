@@ -1,10 +1,10 @@
-from html2md import Converter
+# from html2md import Converter
 import datetime
 
-markdown = Converter()
+# markdown = Converter()
 
 def migrate(entry):
-    ```
+    '''
     # is comment
     type Shout {
         org: String!
@@ -25,12 +25,12 @@ def migrate(entry):
         visibleForRoles: [String] # role ids are strings
         visibleForUsers: [Int]
     }
-    ```
+    '''
     # TODO: implement comments migration
     return {
         'org': 'discours.io',
         'slug': entry['slug'],
         'createdAt': entry['createdAt'],
-        'body': markdown.feed(entry['body']),
+        'body': html2text(entry['body']),
         'replyTo': entry['']
     }

@@ -145,23 +145,23 @@ type UserNotification {
 }
 
 type User {
+  id: Int!
   username: String! # email
   createdAt: DateTime!
+  slug: String!
+  viewname: String # to display
   email: String
   password: String
   oauth: String # provider:token
-  viewname: String # to display
   userpic: String
   links: [String]
   emailConfirmed: Boolean # should contain all emails too # TODO: pagination here
-  id: Int!
   muted: Boolean
   rating: Int
   roles: [Role]
   updatedAt: DateTime
   wasOnlineAt: DateTime
   ratings: [Rating]
-  slug: String
   bio: String
   notifications: [Int]
 }

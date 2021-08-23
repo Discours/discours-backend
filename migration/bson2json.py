@@ -5,18 +5,16 @@ import importlib
 
 import DateTimeEncoder from utils
 
-data = {
-    "content_items": [],
-    "content_item_categories": [],
-    "tags": [],
-    "email_subscriptions": [],
-    "users": [],
-    "comments": []
-}
-
 def json_tables():
     print('creating json files at data/')
-
+    data = {
+        "content_items": [],
+        "content_item_categories": [],
+        "tags": [],
+        "email_subscriptions": [],
+        "users": [],
+        "comments": []
+    }
     for table in data.keys():
         lc = []
         with open('data/'+table+'.bson', 'rb') as f:
@@ -27,4 +25,5 @@ def json_tables():
                 lc.append(d)
             data[table] = lc
             open('data/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
+    return data
 
