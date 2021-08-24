@@ -56,7 +56,7 @@ class Operation(Base):
 
 class Resource(Base):
 	__tablename__ = "resource"
-	resource_class: Type[Base] = Column(ClassType, nullable=False, unique=True, comment="Resource class")
+	resource_class: str = Column(String, nullable=False, unique=True, comment="Resource class")
 	name: str = Column(String, nullable=False, unique=True, comment="Resource name")
 
 	@staticmethod

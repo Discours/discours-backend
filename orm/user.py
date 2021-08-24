@@ -1,4 +1,5 @@
 from typing import List
+from datetime import datetime
 
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, Boolean, DateTime, JSON as JSONType
 from sqlalchemy.orm import relationship
@@ -42,8 +43,8 @@ class User(Base):
 	slug: str = Column(String, unique=True, comment="User's slug")
 	muted: bool = Column(Boolean, default=False)
 	emailConfirmed: bool = Column(Boolean, default=False)
-	createdAt: DateTime = Column(DateTime, nullable=False, comment="Created at")
-	wasOnlineAt: DateTime = Column(DateTime, nullable=False, comment="Was online at")
+	createdAt: DateTime = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
+	wasOnlineAt: DateTime = Column(DateTime, nullable=False, default = datetime.now, comment="Was online at")
 	links: JSONType = Column(JSONType, nullable=True, comment="Links")
 	oauth: str = Column(String, nullable=True)
 	notifications = relationship(lambda: UserNotifications)
