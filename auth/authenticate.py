@@ -8,10 +8,11 @@ from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials, AuthUser
 from auth.token import Token
+from auth.authorize import Authorize
 from exceptions import InvalidToken, OperationNotAllowed
 from orm import User
 from redis import redis
-from settings import JWT_AUTH_HEADER
+from settings import JWT_AUTH_HEADER, EMAIL_TOKEN_LIFE_SPAN
 
 
 class _Authenticate:
@@ -68,6 +69,25 @@ class JWTAuthenticate(AuthenticationBackend):
 		scopes = User.get_permission(user_id=payload.user_id)
 		return AuthCredentials(user_id=payload.user_id, scopes=scopes, logged_in=True), AuthUser(user_id=payload.user_id)
 
+class EmailAuthenticate:
+	@staticmethod
+	async def get_email_token(user):
+		token = await Authorize.authorize(
+			user,
+			device="email",
+			life_span=EMAIL_TOKEN_LIFE_SPAN
+			)
+		return token
+
+	@staticmethod
+	async def authenticate(token):
+		payload = await _Authenticate.verify(token)
+		if payload is None:
+			return
+		if payload.device != "email":
+			return;
+		auth_token = Authorize.authorize(payload.user)
+		return (auth_token, payload.user)
 
 def login_required(func):
 	@wraps(func)

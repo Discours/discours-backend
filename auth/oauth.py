@@ -64,5 +64,5 @@ async def oauth_authorize(request):
 		"username" : profile["name"]
 	}
 	user = Identity.identity_oauth(user_input)
-	token = await Authorize.authorize(user, device="pc", auto_delete=False)
+	token = await Authorize.authorize(user, device="pc")
 	return PlainTextResponse(token)
