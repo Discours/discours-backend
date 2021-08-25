@@ -11,6 +11,7 @@ from auth.token import Token
 from auth.authorize import Authorize
 from exceptions import InvalidToken, OperationNotAllowed
 from orm import User
+from orm.base import local_session
 from redis import redis
 from settings import JWT_AUTH_HEADER, EMAIL_TOKEN_LIFE_SPAN
 
@@ -83,11 +84,15 @@ class EmailAuthenticate:
 	async def authenticate(token):
 		payload = await _Authenticate.verify(token)
 		if payload is None:
-			return
+			raise InvalidToken("invalid token")
 		if payload.device != "email":
-			return;
-		auth_token = Authorize.authorize(payload.user)
-		return (auth_token, payload.user)
+			raise InvalidToken("invalid token")
+		with local_session() as session:
+			user = session.query(User).filter_by(id=payload.user_id).first()
+		if not user:
+			raise Exception("user not exist")
+		auth_token = await Authorize.authorize(user)
+		return (auth_token, user)
 
 def login_required(func):
 	@wraps(func)

@@ -10,6 +10,7 @@ from starlette.routing import Route
 
 from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
+from auth.email import email_authorize
 from redis import redis
 from resolvers.base import resolvers
 from resolvers.zine import GitTask
@@ -34,7 +35,8 @@ async def shutdown():
 
 routes = [
 	Route("/oauth/{provider}", endpoint=oauth_login),
-	Route("/authorize", endpoint=oauth_authorize)
+	Route("/oauth_authorize", endpoint=oauth_authorize),
+	Route("/email_authorize", endpoint=email_authorize)
 ]
 
 app = Starlette(debug=True, on_startup=[start_up], on_shutdown=[shutdown], middleware=middleware, routes=routes)
