@@ -4,12 +4,12 @@ from starlette.exceptions import HTTPException
 
 from auth.authenticate import EmailAuthenticate
 
-from settings import MAILGUN_API_KEY, MAILGUN_DOMAIN
+from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN
 
 MAILGUN_API_URL = "https://api.mailgun.net/v3/%s/messages" % (MAILGUN_DOMAIN)
 MAILGUN_FROM = "postmaster <postmaster@%s>" % (MAILGUN_DOMAIN)
 
-AUTH_URL = "https://localhost:8080/email_authorize"
+AUTH_URL = "%s/email_authorize" % (BACKEND_URL)
 
 async def send_auth_email(user):
 	token = await EmailAuthenticate.get_email_token(user)

@@ -41,11 +41,15 @@ async def register(*_, email: str, password: str = ""):
 
 
 @query.field("signIn")
-async def login(_, info: GraphQLResolveInfo, email: str, password: str):
+async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 	with local_session() as session:
 		orm_user = session.query(User).filter(User.email == email).first()
 	if orm_user is None:
 		return {"error" : "invalid email"}
+
+	if not password:
+		await send_auth_email(orm_user)
+		return {"error" : ""}
 
 	try:
 		device = info.context["request"].headers['device']

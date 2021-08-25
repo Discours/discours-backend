@@ -81,7 +81,7 @@ type Mutation {
 type Query {
   # auth
   isEmailFree(email: String!): Result!
-  signIn(email: String!, password: String!): AuthResult!
+  signIn(email: String!, password: String): AuthResult!
   signOut: Result!
   # user profile
   getCurrentUser: UserResult!

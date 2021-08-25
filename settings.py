@@ -3,6 +3,8 @@ from os import environ
 
 PORT = 8080
 
+BACKEND_URL = "https://localhost:8080"
+
 DB_URL = environ.get("DB_URL") or "sqlite:///db.sqlite3"
 JWT_ALGORITHM = "HS256"
 JWT_SECRET_KEY = "8f1bd7696ffb482d8486dfbc6e7d16dd-secret-key"
