@@ -19,6 +19,7 @@ Authlib = "*"
 bson = "*"
 python-frontmatter = "*"
 bs4 = "*"
+transliterate = "*"
 
 [dev-packages]
 

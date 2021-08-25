@@ -179,7 +179,7 @@ type Message {
 # is publication
 type Shout {
   org_id: Int!
-  slug: String!
+  slug: String
   authors: [Int!]!
   cover: String
   layout: String
@@ -196,10 +196,12 @@ type Shout {
   tags: [String] # actual values
   topics: [String] # topic-slugs, order has matter
   title: String
+  subtitle: String
   versionOf: String
   visibleForRoles: [String] # role ids are strings
   visibleForUsers: [Int]
   views: Int
+  old_id: String
 }
 
 type Topic {

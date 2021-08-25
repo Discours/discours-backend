@@ -12,4 +12,4 @@ httpx
 psycopg2-binary
 bson
 python-frontmatter
-bs4
+transliterate

@@ -1,4 +1,4 @@
-# from html2md import Converter
+from html2text import html2text
 import datetime
 
 # markdown = Converter()
@@ -8,7 +8,7 @@ def migrate(entry):
     # is comment
     type Shout {
         org: String!
-        slug: String!
+        slug: String
         author: Int!
         body: String!
         createdAt: DateTime!
@@ -28,7 +28,7 @@ def migrate(entry):
     '''
     # TODO: implement comments migration
     return {
-        'org': 'discours.io',
+        'org_id': 0,
         'slug': entry['slug'],
         'createdAt': entry['createdAt'],
         'body': html2text(entry['body']),

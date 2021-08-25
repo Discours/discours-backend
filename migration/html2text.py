@@ -18,18 +18,10 @@ def has_key(x, y):
     if hasattr(x, 'has_key'): return x.has_key(y)
     else: return y in x
 
-try:
-    import htmlentitydefs
-    import urlparse
-    import HTMLParser
-except ImportError: #Python3
-    import html.entities as htmlentitydefs
-    import urllib.parse as urlparse
-    import html.parser as HTMLParser
-try: #Python3
-    import urllib.request as urllib
-except:
-    import urllib
+import html.entities as htmlentitydefs
+import urllib.parse as urlparse
+import html.parser as HTMLParser
+import urllib.request as urllib
 import optparse, re, sys, codecs, types
 
 try: from textwrap import wrap
@@ -45,11 +37,11 @@ ESCAPE_SNOB = 0
 LINKS_EACH_PARAGRAPH = 0
 
 # Wrap long lines at position. 0 for no wrapping. (Requires Python 2.3.)
-BODY_WIDTH = 78
+BODY_WIDTH = 0
 
 # Don't show internal links (href="#local-anchor") -- corresponding link targets
 # won't be visible in the plain text file anyway.
-SKIP_INTERNAL_LINKS = True
+SKIP_INTERNAL_LINKS = False
 
 # Use inline, rather than reference, formatting for images and links
 INLINE_LINKS = True

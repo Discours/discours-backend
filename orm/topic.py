@@ -8,8 +8,8 @@ from orm.base import Base
 
 Connection = Table('topic_connections',
 	Base.metadata,
-    Column('child', String, ForeignKey('topic.slug')),
-    Column('parent', String, ForeignKey('topic.slug')),
+    Column('child', Integer, ForeignKey('topic.id')),
+    Column('parent', Integer, ForeignKey('topic.id')),
     UniqueConstraint('parent', 'child', name='unique_usage')
 )
 
@@ -17,8 +17,7 @@ Connection = Table('topic_connections',
 class Topic(Base):
 	__tablename__ = 'topic'
 
-	id: int = None
-	slug: str = Column(String, unique = True, nullable = False, primary_key=True)
+	slug: str = Column(String, unique = True, nullable = False)
 	org_id: str = Column(ForeignKey("organization.id"), nullable=False)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	createdBy: str = Column(ForeignKey("user.id"), nullable=False, comment="Author")

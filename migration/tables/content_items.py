@@ -1,16 +1,25 @@
-# from migration.html2md import Converter
 from dateutil.parser import parse
+from orm import User
 from os.path import abspath
 import frontmatter
 import json
 from orm import Shout
 from bs4 import BeautifulSoup
 from migration.html2text import html2text
+from transliterate import translit
+from datetime import datetime
+from sqlalchemy.exc import IntegrityError
+from orm.base import local_session
 
 users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
-users_dict['0'] = {'id': 9999999, 'slug': 'discours', 'viewname': 'Дискурс' }
+users_dict['0'] = {
+    'id': 9999999,
+    'slug': 'discours',
+    'viewname': 'Дискурс',
+    'userpic': 'https://discours.io/images/logo-mini.svg'
+    }
 
-# markdown = Converter()
+ts = datetime.now()
 
 type2layout = {
     'Article': 'article',
@@ -20,7 +29,7 @@ type2layout = {
     'Image': 'image'
 }
 
-def migrate(entry, data=users_dict):
+def migrate(entry, limit=3626, start=0):
     '''  
     type Shout {
         org_id: Int!
@@ -45,21 +54,15 @@ def migrate(entry, data=users_dict):
         views: Int
     }
     '''
-    try:
-        author = data[entry['createdBy']]
-    except KeyError:
-        author = data['0']
-
-    # print(author)
     r = {
             'org_id': 0,
             'layout': type2layout[entry['type']],
             'title': entry['title'],
-            'authors': [ { 'slug': author['slug'], 'name': author['viewname'], 'pic': author.get('userpic', '') }, ],
+            'authors': [],
             'topics': [],
-            'published': entry['published'],
-            'views': entry['views'],
-            'rating': entry['rating'],
+            'published': entry.get('published', False),
+            'views': entry.get('views', 0),
+            'rating': entry.get('rating', 0),
             'ratings': []
         }
     r['slug'] = entry.get('slug', '')
@@ -76,12 +79,8 @@ def migrate(entry, data=users_dict):
         r['cover'] = entry['image']['url']
     if entry.get('thumborId') is not None:
         r['cover'] = 'https://assets.discours.io/unsafe/1600x/' + entry['thumborId']
-    if entry.get('publishedAt') is not None:
-        r['publishedAt'] = entry['publishedAt']
-    if entry.get('createdAt') is not None:
-        r['createdAt'] = entry['createdAt']
     if entry.get('updatedAt') is not None:
-        r['updatedAt'] = entry['updatedAt']
+        r['updatedAt'] = parse(entry['updatedAt'])
     if entry.get('type') == 'Literature':
         media = entry.get('media', '')
         # print(media[0]['literatureBody'])
@@ -91,10 +90,9 @@ def migrate(entry, data=users_dict):
                 print('EMPTY BODY!')
             else:
                 # body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-                #markdown.feed(body_html)
-                body = html2text(body_orig).replace('****', '**')
-                r['body'] = body
-                # r['body2'] = markdown.md_file
+                # body = html2text(body_orig).replace('****', '**')
+                r['old_id'] = entry.get('_id')
+                r['body'] = body_orig
         else:
             print(r['slug'] + ': literature has no media')
     elif entry.get('type') == 'Video':
@@ -105,7 +103,7 @@ def migrate(entry, data=users_dict):
         if videoUrl == '#':
             videoUrl = 'https://vimeo.com/' + vm if vm else '#'
         if videoUrl == '#':
-            print(m)
+            print(entry.get('media', 'NO MEDIA!'))
             # raise Exception
         r['body'] = '<ShoutVideo src=\"' + videoUrl + '\" />' + html2text(m.get('body', '')) # FIXME
     elif entry.get('type') == 'Music':
@@ -113,30 +111,88 @@ def migrate(entry, data=users_dict):
 
     if r.get('body') is None:
         body_orig = entry.get('body', '')
-        # body_html = BeautifulSoup(body_orig, features="html.parser")
-        r['body'] = html2text(body_orig).replace('****', '**')
-        # markdown.feed(body_html)
-        # r['body2'] = markdown.md_file
-    if not r['body']:
-        r['body'] = entry.get('body')
+        body_html = BeautifulSoup(body_orig, features="html.parser")
+        r['body'] = body_html # html2text(body_orig).replace('****', '**')
+        r['old_id'] = entry.get('_id')
+        
+    body = r.get('body')
+    user = None
+    try:
+        userdata = users_dict[entry['createdBy']]
+        slug = userdata['slug']
+        name = userdata['viewname']
+        userpic = userdata['userpic']
+    except KeyError:
+        app = entry.get('application')
+        if app is not None:
+            authordata = {
+                'username': app['email'],
+                'email': app['email'],
+                'viewname': app['name'],
+                'bio': app.get('bio', ''),
+                'emailConfirmed': False,
+                'slug': translit(app['name'], 'ru', reversed=True).replace(' ', '-').lower(),
+                'createdAt': ts,
+                'wasOnlineAt': ts
+            }
+            try:
+                user = User.create(**authordata)
+            except IntegrityError:
+                with local_session() as session:
+                    user = session.query(User).filter(User.email == authordata['email']).first()
+                    if user is None:
+                        user = session.query(User).filter(User.slug == authordata['slug']).first()
+                    
+            slug = user.slug
+            name = user.viewname
+            userpic = user.userpic
+        else:
+            # no application, no author!
+            slug = 'discours'
+            name = 'Дискурс'
+            userpic = 'https://discours.io/images/logo-mini.svg'
+    with local_session() as session:
+        user = session.query(User).filter(User.slug == slug).first()
+    r['authors'].append({
+        'slug': slug,
+        'name': name,
+        'pic': userpic
+    })
+
     metadata = {}
     metadata['title'] = r.get('title')
     metadata['authors'] = r.get('authors')
     if r.get('cover', False):
         metadata['cover'] = r.get('cover')
-    body = r.get('body')
     post = frontmatter.Post(body, **metadata)
     dumped = frontmatter.dumps(post)
-    # raise Exception
 
-    open('migration/content/' + entry['type'].lower() + '/' + r['slug'] + '.md', 'w').write(dumped)
-    # open('migration/content/' + entry['type'].lower() + '/' + r['slug'] + '.my.md', 'w').write(r['body2'])
-    #if body_orig:
-    #    open('migration/content/' + entry['type'].lower() + '/' + r['slug'] + '.html', 'w').write(body_orig)
-    #markdown.related_data = []
-    #markdown.md_file = ''
-    #markdown.reset()
-    r['body'] = dumped
-    # shout = Shout.create(**r.copy())
-    # r['id'] = shout['id']
+    if entry['published']: 
+        if r.get('old_id', None):
+            ext = 'html'
+            content = str(body).replace('<p></p>', '').replace('<p> </p>', '')
+        else:
+            ext = 'md'
+            content = dumped
+        open('migration/content/' + entry['type'].lower() + '/' + r['slug'] + '.' + ext, 'w').write(content)
+
+    try:
+        shout_dict = r.copy()
+        shout_dict['authors'] = [user, ]
+        if entry.get('createdAt') is not None:
+            shout_dict['createdAt'] = parse(entry.get('createdAt'))
+        else:
+            shout_dict['createdAt'] = ts
+        if entry.get('published'):
+            if entry.get('publishedAt') is not None:
+                shout_dict['publishedAt'] = parse(entry.get('publishedAt'))
+            else:
+                shout_dict['publishedAt'] = ts
+        s = Shout.create(**shout_dict)
+        r['id'] = s.id
+    except:
+        r['body'] = 'body moved'
+        print(r)
+        # print(s)
+        raise Exception
     return r

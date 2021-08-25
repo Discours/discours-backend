@@ -24,7 +24,7 @@ class ClassType(TypeDecorator):
 	def process_result_value(self, value, dialect):
 		class_ = REGISTRY.get(value)
 		if class_ is None:
-			warnings.warn(f"Can't find class <{value}>,find it yourself 😊", stacklevel=2)
+			warnings.warn(f"Can't find class <{value}>,find it yourself!", stacklevel=2)
 		return class_
 
 class Organization(Base):

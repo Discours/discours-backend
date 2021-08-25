@@ -48,22 +48,31 @@ def shouts(limit):
     data = json.loads(open('migration/data/content_items.json').read())
     newdata = {}
     print(str(len(data)) + ' entries was loaded. now migrating...')
+    errored = []
+
     for entry in data:
-        oid = entry['_id']
-        newdata[oid] = migrateShout(entry)
-        counter += 1
-        author = newdata[oid]['authors'][0]['slug']
-        if author == 'discours':
-            discoursAuthor += 1
-        line = str(counter) + ': ' + newdata[oid]['slug'] + " @" + author
-        print(line)
-        open('./shouts.id.log','a').write(line + '\n')
-        if counter > limit:
-            break
+        try:
+            oid = entry['_id']
+            newdata[oid] = migrateShout(entry)
+            counter += 1
+            
+            author = newdata[oid]['authors'][0]['slug']
+            if author == 'discours':
+                discoursAuthor += 1
+            line = str(counter) + ': ' + newdata[oid]['slug'] + " @" + str(author)
+            print(line)
+            open('./shouts.id.log','a').write(line + '\n')
+            if counter > limit:
+                break
+        except Exception:
+            print(entry['_id'])
+            errored.append(entry)
+            raise Exception
 
     open('migration/data/shouts.dict.json','w').write( json.dumps(newdata, cls=DateTimeEncoder) )
     print(str(counter) + ' shouts were migrated')
-    print(str(discoursAuthor) + ' from them by uknown users')
+    print(str(discoursAuthor) + ' from them by @discours')
+    print(str(len(errored)) + ' shouts without authors')
 
 if __name__ == '__main__':
     import sys

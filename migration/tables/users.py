@@ -6,13 +6,7 @@ from migration.html2text import html2text
 # markdown = Converter()
 counter = 0
 
-
-def add(data):
-    data.emailConfirmed = False
-    user = User.create(**data)
-    return user
-
-def migrate(entry):
+def migrate(entry, limit=668):
         '''
         
         type User {

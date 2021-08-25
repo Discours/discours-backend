@@ -7,31 +7,46 @@ from orm.base import Base
 
 ShoutAuthors = Table('shout_authors',
 	Base.metadata,
-	Column('shout', String, ForeignKey('shout.slug')),
+	Column('shout', Integer, ForeignKey('shout.id')),
 	Column('user_id', Integer, ForeignKey('user.id'))
 )
 
 ShoutTopics = Table('shout_topics',
 	Base.metadata,
-	Column('shout', String, ForeignKey('shout.slug')),
-	Column('topic', String, ForeignKey('topic.slug'))
+	Column('shout', Integer, ForeignKey('shout.id')),
+	Column('topic', Integer, ForeignKey('topic.id'))
 )
+
+class ShoutRatings(Base):
+	__tablename__ = "user_ratings"
+
+	id = None
+	rater_id = Column(ForeignKey('user.id'), primary_key = True)
+	shout_id = Column(ForeignKey('shout.id'), primary_key = True)
+	value = Column(Integer)
 
 class Shout(Base):
 	__tablename__ = 'shout'
 
-	slug: str = Column(String, primary_key=True)
+	# NOTE: automatic ID here
+
+	slug: str = Column(String, nullable=False, unique=True)
 	org_id: int = Column(Integer, ForeignKey("organization.id"), nullable=False, comment="Organization")
 	body: str = Column(String, nullable=False, comment="Body")
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	updatedAt: str = Column(DateTime, nullable=True, comment="Updated at")
-	replyTo: str = Column(ForeignKey("shout.slug"), nullable=True)
-	versionOf: str = Column(ForeignKey("shout.slug"), nullable=True)
+	replyTo: int = Column(ForeignKey("shout.id"), nullable=True)
+	versionOf: int = Column(ForeignKey("shout.id"), nullable=True)
 	tags: str = Column(String, nullable=True)
 	views: int = Column(Integer, default=0)
 	published: bool = Column(Boolean, default=False)
 	publishedAt: str = Column(DateTime, nullable=True)
 	cover: str = Column(String, nullable = True)
+	title: str = Column(String, nullable = True)
+	subtitle: str = Column(String, nullable = True)
 	layout: str = Column(String, nullable = True)
 	authors = relationship(lambda: User, secondary=ShoutAuthors) # NOTE: multiple authors
 	topics = relationship(lambda: Topic, secondary=ShoutTopics)
+	rating: int = Column(Integer, nullable=True, comment="Rating")
+	ratings = relationship(ShoutRatings, foreign_keys=ShoutRatings.shout_id)
+	old_id: str = Column(String, nullable = True)
