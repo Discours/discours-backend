@@ -11,11 +11,20 @@ MAILGUN_FROM = "postmaster <postmaster@%s>" % (MAILGUN_DOMAIN)
 
 AUTH_URL = "%s/email_authorize" % (BACKEND_URL)
 
+async def send_confirm_email(user):
+	text = "<html><body>To confirm registration follow the <a href='%s'>link</link></body></html>"
+	await send_email(user, text)
+
 async def send_auth_email(user):
+	text = "<html><body>To enter the site follow the <a href='%s'>link</link></body></html>"
+	await send_email(user, text)
+
+async def send_email(user, text):
 	token = await EmailAuthenticate.get_email_token(user)
 
 	to = "%s <%s>" % (user.username, user.email)
-	text = "%s?token=%s" % (AUTH_URL, token)
+	auth_url_with_token = "%s?token=%s" % (AUTH_URL, token)
+	text = text % (auth_url_with_token)
 	response = requests.post(
 		MAILGUN_API_URL,
 		auth = ("api", MAILGUN_API_KEY),
@@ -23,7 +32,7 @@ async def send_auth_email(user):
 			"from": MAILGUN_FROM,
 			"to": to,
 			"subject": "authorize log in",
-			"text": text
+			"html": text
 			}
 		)
 	response.raise_for_status()

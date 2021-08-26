@@ -5,7 +5,7 @@ from auth.authorize import Authorize
 from auth.identity import Identity
 from auth.password import Password
 from auth.validations import CreateUser
-from auth.email import send_auth_email
+from auth.email import send_confirm_email, send_auth_email
 from orm import User
 from orm.base import local_session
 from resolvers.base import mutation, query
@@ -31,7 +31,7 @@ async def register(*_, email: str, password: str = ""):
 	create_user.username = email.split('@')[0]
 	if not password:
 		user = User.create(**create_user.dict())
-		await send_auth_email(user)
+		await send_confirm_email(user)
 		return { "user": user }
 	else:
 		create_user.password = Password.encode(create_user.password)
@@ -49,7 +49,7 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 
 	if not password:
 		await send_auth_email(orm_user)
-		return {"error" : ""}
+		return {}
 
 	try:
 		device = info.context["request"].headers['device']

@@ -67,6 +67,9 @@ class JWTAuthenticate(AuthenticationBackend):
 		if payload is None:
 			return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
+		if not payload.device in ("pc", "mobile"):
+			return AuthCredentials(scopes=[]), AuthUser(user_id=None)
+
 		scopes = User.get_permission(user_id=payload.user_id)
 		return AuthCredentials(user_id=payload.user_id, scopes=scopes, logged_in=True), AuthUser(user_id=payload.user_id)
 
@@ -89,8 +92,11 @@ class EmailAuthenticate:
 			raise InvalidToken("invalid token")
 		with local_session() as session:
 			user = session.query(User).filter_by(id=payload.user_id).first()
-		if not user:
-			raise Exception("user not exist")
+			if not user:
+				raise Exception("user not exist")
+			if not user.emailConfirmed:
+				user.emailConfirmed = True
+				session.commit()
 		auth_token = await Authorize.authorize(user)
 		return (auth_token, user)
 
