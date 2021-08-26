@@ -27,18 +27,14 @@ class ClassType(TypeDecorator):
 			warnings.warn(f"Can't find class <{value}>,find it yourself!", stacklevel=2)
 		return class_
 
-class Organization(Base):
-	__tablename__ = 'organization'
-	name: str = Column(String, nullable=False, unique=True, comment="Organization Name")
-
 class Role(Base):
 	__tablename__ = 'role'
 
-	id: int = Column(Integer, primary_key=True)
-	
+	# id is auto field
+ 
 	name: str = Column(String, nullable=False, comment="Role Name")
-	org_id: int = Column(ForeignKey("organization.id", ondelete="CASCADE"), nullable=False, comment="Organization")
-
+	desc: str = Colulm(String, nullable=True, comment="Role Description")
+	community: int = Column(ForeignKey("community.id", ondelete="CASCADE"), nullable=False, comment="Community")
 	permissions = relationship(lambda: Permission)
 
 class Operation(Base):

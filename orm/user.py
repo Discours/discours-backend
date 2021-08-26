@@ -30,6 +30,12 @@ UserRoles = Table("user_roles",
 	Column('role_id', Integer, ForeignKey('role.id'))
 )
 
+UserTopics = Table("user_topics",
+	Base.metadata,
+	Column('user_id', Integer, ForeignKey('user.id')),
+	Column('topic_id', Integer, ForeignKey('topic.id'))
+)
+
 class User(Base):
 	__tablename__ = "user"
 
@@ -50,6 +56,7 @@ class User(Base):
 	notifications = relationship(lambda: UserNotifications)
 	ratings = relationship(UserRatings, foreign_keys=UserRatings.user_id)
 	roles = relationship(lambda: Role, secondary=UserRoles)
+	topics = relationship(lambda: Topic, secondary=UserTopics)
 
 	@classmethod
 	def get_permission(cls, user_id):

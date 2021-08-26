@@ -31,7 +31,7 @@ class Shout(Base):
 	# NOTE: automatic ID here
 
 	slug: str = Column(String, nullable=False, unique=True)
-	org_id: int = Column(Integer, ForeignKey("organization.id"), nullable=False, comment="Organization")
+	community: int = Column(Integer, ForeignKey("community.id"), nullable=True, comment="Community")
 	body: str = Column(String, nullable=False, comment="Body")
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	updatedAt: str = Column(DateTime, nullable=True, comment="Updated at")

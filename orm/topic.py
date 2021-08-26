@@ -1,8 +1,6 @@
-from typing import List
 from datetime import datetime
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, DateTime, UniqueConstraint
-from sqlalchemy.orm import relationship, backref
-from orm import Permission
+from sqlalchemy.orm import relationship
 from orm.base import Base
 
 
@@ -18,7 +16,6 @@ class Topic(Base):
 	__tablename__ = 'topic'
 
 	slug: str = Column(String, unique = True, nullable = False)
-	org_id: str = Column(ForeignKey("organization.id"), nullable=False)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	createdBy: str = Column(ForeignKey("user.id"), nullable=False, comment="Author")
 	value: str = Column(String, nullable=False, comment="Value")

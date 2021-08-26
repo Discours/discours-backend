@@ -120,8 +120,7 @@ type Subscription {
 type Role {
   id: Int!
   name: String!
-  org_id: Int!
-  # level: Int! # 1-8
+  community: Int!
   desc: String
   permissions: [Int!]!
 }
@@ -164,6 +163,8 @@ type User {
   ratings: [Rating]
   bio: String
   notifications: [Int]
+  topics: [String] # user subscribed topics
+  communities: [Int] # user participating communities
 }
 
 type Message {
@@ -178,21 +179,21 @@ type Message {
 
 # is publication
 type Shout {
-  org_id: Int!
-  slug: String
   authors: [Int!]!
-  cover: String
-  layout: String
+  slug: String!
   body: String!
   createdAt: DateTime!
   updatedAt: DateTime!
+  community: Int
+  cover: String
+  layout: String
   deletedAt: DateTime
   deletedBy: Int
   rating: Int
   ratigns: [Rating]
   published: Boolean!
   publishedAt: DateTime # if there is no published field - it is not published
-  replyTo: String # another shout
+  replyTo: Int # another shout
   tags: [String] # actual values
   topics: [String] # topic-slugs, order has matter
   title: String
@@ -202,6 +203,13 @@ type Shout {
   visibleForUsers: [Int]
   views: Int
   old_id: String
+}
+
+type Community {
+  slug: String!
+  name: String!
+  desc: String
+  pic: String!
 }
 
 type Topic {
@@ -231,12 +239,4 @@ type Token {
   ownerId: Int!
   usedAt: DateTime
   value: String!
-}
-
-type Like {
-  author: Int!
-  id: Int!
-  value: Int!
-  shout: Int
-  user: Int
 }
