@@ -58,7 +58,7 @@ type Mutation {
   confirmEmail(token: String!): AuthResult!
   requestPasswordReset(email: String!): Boolean!
   confirmPasswordReset(token: String!): Boolean!
-  registerUser(email: String!, password: String!): AuthResult!
+  registerUser(email: String!, password: String): AuthResult!
   # updatePassword(password: String!, token: String!): Token!
   # invalidateAllTokens: Boolean!
   # invalidateTokenById(id: Int!): Boolean!
@@ -81,7 +81,7 @@ type Mutation {
 type Query {
   # auth
   isEmailFree(email: String!): Result!
-  signIn(email: String!, password: String!): AuthResult!
+  signIn(email: String!, password: String): AuthResult!
   signOut: Result!
   # user profile
   getCurrentUser: UserResult!

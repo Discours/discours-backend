@@ -8,14 +8,14 @@ from auth.validations import User
 
 class Authorize:
     @staticmethod
-    async def authorize(user: User, device: str = "pc", auto_delete=True) -> str:
+    async def authorize(user: User, device: str = "pc", life_span = JWT_LIFE_SPAN, auto_delete=True) -> str:
         """
         :param user:
         :param device:
         :param auto_delete: Whether the expiration is automatically deleted, the default is True
         :return:
         """
-        exp = datetime.utcnow() + timedelta(seconds=JWT_LIFE_SPAN)
+        exp = datetime.utcnow() + timedelta(seconds=life_span)
         token = Token.encode(user, exp=exp, device=device)
         await redis.execute("SET", f"{user.id}-{token}", "True")
         if auto_delete:
@@ -37,13 +37,3 @@ class Authorize:
     async def revoke_all(user: User):
         tokens = await redis.execute("KEYS", f"{user.id}-*")
         await redis.execute("DEL", *tokens)
-
-    @staticmethod
-    async def confirm(token: str):
-        try:
-            # NOTE: auth_token and email_token are different
-            payload = Token.decode(token) # TODO: check to decode here the proper way
-            auth_token = self.authorize(payload.user)
-            return auth_token, payload.user
-        except:
-            pass

@@ -13,13 +13,15 @@ passlib = "*"
 PyJWT = "*"
 SQLAlchemy = "*"
 itsdangerous = "*"
-httpx = "*"
+httpx = "<0.18.2"
 psycopg2-binary = "*"
 Authlib = "*"
 bson = "*"
 python-frontmatter = "*"
 bs4 = "*"
 transliterate = "*"
+psycopg2 = "*"
+requests = "*"
 
 [dev-packages]
 

@@ -8,10 +8,12 @@ from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials, AuthUser
 from auth.token import Token
+from auth.authorize import Authorize
 from exceptions import InvalidToken, OperationNotAllowed
 from orm import User
+from orm.base import local_session
 from redis import redis
-from settings import JWT_AUTH_HEADER
+from settings import JWT_AUTH_HEADER, EMAIL_TOKEN_LIFE_SPAN
 
 
 class _Authenticate:
@@ -65,9 +67,38 @@ class JWTAuthenticate(AuthenticationBackend):
 		if payload is None:
 			return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
+		if not payload.device in ("pc", "mobile"):
+			return AuthCredentials(scopes=[]), AuthUser(user_id=None)
+
 		scopes = User.get_permission(user_id=payload.user_id)
 		return AuthCredentials(user_id=payload.user_id, scopes=scopes, logged_in=True), AuthUser(user_id=payload.user_id)
 
+class EmailAuthenticate:
+	@staticmethod
+	async def get_email_token(user):
+		token = await Authorize.authorize(
+			user,
+			device="email",
+			life_span=EMAIL_TOKEN_LIFE_SPAN
+			)
+		return token
+
+	@staticmethod
+	async def authenticate(token):
+		payload = await _Authenticate.verify(token)
+		if payload is None:
+			raise InvalidToken("invalid token")
+		if payload.device != "email":
+			raise InvalidToken("invalid token")
+		with local_session() as session:
+			user = session.query(User).filter_by(id=payload.user_id).first()
+			if not user:
+				raise Exception("user not exist")
+			if not user.emailConfirmed:
+				user.emailConfirmed = True
+				session.commit()
+		auth_token = await Authorize.authorize(user)
+		return (auth_token, user)
 
 def login_required(func):
 	@wraps(func)
