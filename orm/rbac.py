@@ -33,7 +33,7 @@ class Role(Base):
 	# id is auto field
  
 	name: str = Column(String, nullable=False, comment="Role Name")
-	desc: str = Colulm(String, nullable=True, comment="Role Description")
+	desc: str = Column(String, nullable=True, comment="Role Description")
 	community: int = Column(ForeignKey("community.id", ondelete="CASCADE"), nullable=False, comment="Community")
 	permissions = relationship(lambda: Permission)
 

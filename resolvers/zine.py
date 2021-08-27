@@ -1,4 +1,4 @@
-from orm import Shout, User, Organization, Resource
+from orm import Shout, User, Community, Resource
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -18,7 +18,7 @@ class GitTask:
 	def __init__(self, input, org, username, user_email, comment):
 		self.slug = input["slug"];
 		self.shout_body = input["body"];
-		self.org = org;
+		self.org = org; #FIXME
 		self.username = username;
 		self.user_email = user_email;
 		self.comment = comment;
@@ -84,19 +84,14 @@ async def create_shout(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	
-	org_id = org = input["org_id"]
+	# org_id = org = input["org_id"]
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
-		org = session.query(Organization).filter(Organization.id == org_id).first()
-	
-	if not org:
-		return {
-			"error" : "invalid organization"
-		}
-	
+		# org = session.query(Organization).filter(Organization.id == org_id).first()
+		
 	new_shout = Shout.create(
 		slug = input["slug"],
-		org_id = org_id,
+		# org_id = org_id,
 		authors = [user_id, ],
 		body = input["body"],
 		replyTo = input.get("replyTo"),
@@ -124,11 +119,11 @@ async def update_shout(_, info, input):
 	user_id = auth.user_id
 
 	slug = input["slug"]
-	org_id = org = input["org_id"]
+	# org_id = org = input["org_id"]
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
 		shout = session.query(Shout).filter(Shout.slug == slug).first()
-		org = session.query(Organization).filter(Organization.id == org_id).first()
+		# org = session.query(Organization).filter(Organization.id == org_id).first()
 
 	if not shout:
 		return {

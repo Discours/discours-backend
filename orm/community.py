@@ -11,7 +11,7 @@ class Community(Base):
 	slug: str = Column(String, unique = True, nullable = False)
     desc: str = Column(String, nullable=False, default='')
     pic: str = Column(String, nullable=False, default='')
-	org_id: str = Column(ForeignKey("organization.id"), nullable=True)
+	# org_id: str = Column(ForeignKey("organization.id"), nullable=True)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	createdBy: str = Column(ForeignKey("user.id"), nullable=False, comment="Creator")
 	
