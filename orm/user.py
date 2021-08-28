@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 from orm import Permission
 from orm.base import Base, local_session
 from orm.rbac import Role
+from orm.topic import Topic
 
 class UserNotifications(Base):
 	__tablename__ = 'user_notifications'
@@ -26,14 +27,14 @@ class UserRatings(Base):
 
 UserRoles = Table("user_roles",
 	Base.metadata,
-	Column('user_id', Integer, ForeignKey('user.id')),
-	Column('role_id', Integer, ForeignKey('role.id'))
+	Column('user_id', Integer, ForeignKey('user.id'), primary_key = True),
+	Column('role_id', Integer, ForeignKey('role.id'), primary_key = True)
 )
 
 UserTopics = Table("user_topics",
 	Base.metadata,
-	Column('user_id', Integer, ForeignKey('user.id')),
-	Column('topic_id', Integer, ForeignKey('topic.id'))
+	Column('user_id', Integer, ForeignKey('user.id'), primary_key = True),
+	Column('topic_id', Integer, ForeignKey('topic.id'), primary_key = True)
 )
 
 class User(Base):

@@ -5,11 +5,12 @@ from sqlalchemy.orm import relationship
 from orm import Permission, User, Topic
 from orm.base import Base
 
-ShoutAuthors = Table('shout_authors',
-	Base.metadata,
-	Column('shout', Integer, ForeignKey('shout.id')),
-	Column('user_id', Integer, ForeignKey('user.id'))
-)
+class ShoutAuthor(Base):
+	__tablename__ = "shout_author"
+	
+	id = None
+	shout = Column(ForeignKey('shout.id'), primary_key = True)
+	user = Column(ForeignKey('user.id'), primary_key = True)
 
 ShoutTopics = Table('shout_topics',
 	Base.metadata,
@@ -45,7 +46,7 @@ class Shout(Base):
 	title: str = Column(String, nullable = True)
 	subtitle: str = Column(String, nullable = True)
 	layout: str = Column(String, nullable = True)
-	authors = relationship(lambda: User, secondary=ShoutAuthors) # NOTE: multiple authors
+	authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__) # NOTE: multiple authors
 	topics = relationship(lambda: Topic, secondary=ShoutTopics)
 	rating: int = Column(Integer, nullable=True, comment="Rating")
 	ratings = relationship(ShoutRatings, foreign_keys=ShoutRatings.shout_id)

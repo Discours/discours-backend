@@ -23,13 +23,13 @@ type MessageResult {
 }
 
 input ShoutInput {
-  org_id: Int!
   slug: String!
   body: String!
   replyTo: String # another shout
   tags: [String] # actual values
   topics: [String] # topic-slugs
   title: String
+  subtitle: String
   versionOf: String
   visibleForRoles: [String] # role ids are strings
   visibleForUsers: [Int]
@@ -66,9 +66,9 @@ type Mutation {
 
   # shout
   createShout(input: ShoutInput!): ShoutResult!
-  updateShout(input: ShoutInput!): ShoutResult!
-  deleteShout(slug: String!): Result!
-  rateShout(slug: String!, value: Int!): Result!
+  updateShout(id: Int!, input: ShoutInput!): ShoutResult!
+  deleteShout(id: Int!): Result!
+  rateShout(id: Int!, value: Int!): Result!
 
   # user profile
   # rateUser(value: Int!): Result!
@@ -179,6 +179,7 @@ type Message {
 
 # is publication
 type Shout {
+  id: Int!
   authors: [Int!]!
   slug: String!
   body: String!

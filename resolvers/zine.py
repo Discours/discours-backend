@@ -1,4 +1,4 @@
-from orm import Shout, User, Community, Resource
+from orm import Shout, ShoutAuthor, User, Community, Resource
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -15,10 +15,9 @@ class GitTask:
 
 	queue = asyncio.Queue()
 
-	def __init__(self, input, org, username, user_email, comment):
+	def __init__(self, input, username, user_email, comment):
 		self.slug = input["slug"];
 		self.shout_body = input["body"];
-		self.org = org; #FIXME
 		self.username = username;
 		self.user_email = user_email;
 		self.comment = comment;
@@ -26,7 +25,7 @@ class GitTask:
 		GitTask.queue.put_nowait(self)
 	
 	def init_repo(self):
-		repo_path = "%s/%s" % (SHOUTS_REPO, self.org)
+		repo_path = "%s" % (SHOUTS_REPO)
 		
 		Path(repo_path).mkdir()
 		
@@ -35,7 +34,7 @@ class GitTask:
 		print(output)
 
 	def execute(self):
-		repo_path = "%s/%s" % (SHOUTS_REPO, self.org)
+		repo_path = "%s" % (SHOUTS_REPO)
 		
 		if not Path(repo_path).exists():
 			self.init_repo()
@@ -84,25 +83,16 @@ async def create_shout(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	
-	# org_id = org = input["org_id"]
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
-		# org = session.query(Organization).filter(Organization.id == org_id).first()
-		
-	new_shout = Shout.create(
-		slug = input["slug"],
-		# org_id = org_id,
-		authors = [user_id, ],
-		body = input["body"],
-		replyTo = input.get("replyTo"),
-		versionOf = input.get("versionOf"),
-		tags = input.get("tags"),
-		topics = input.get("topics")
-		)
+
+	new_shout = Shout.create(**input)
+	ShoutAuthor.create(
+		shout = new_shout.id,
+		user = user_id)
 
 	task = GitTask(
 		input,
-		org.name,
 		user.username,
 		user.email,
 		"new shout %s" % (new_shout.slug)
@@ -114,16 +104,13 @@ async def create_shout(_, info, input):
 
 @mutation.field("updateShout")
 @login_required
-async def update_shout(_, info, input):
+async def update_shout(_, info, id, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
-	slug = input["slug"]
-	# org_id = org = input["org_id"]
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
-		shout = session.query(Shout).filter(Shout.slug == slug).first()
-		# org = session.query(Organization).filter(Organization.id == org_id).first()
+		shout = session.query(Shout).filter(Shout.id == id).first()
 
 	if not shout:
 		return {
@@ -149,7 +136,6 @@ async def update_shout(_, info, input):
 
 	task = GitTask(
 		input,
-		org.name,
 		user.username,
 		user.email,
 		"update shout %s" % (shout.slug)
