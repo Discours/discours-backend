@@ -51,6 +51,12 @@ class Base(declarative_base()):
 			session.commit()
 		return self
 
+	def update(self, input):
+		column_names = self.__table__.columns.keys()
+		for (name, value) in input.items():
+			if name in column_names:
+				setattr(self, name, value)
+
 	def dict(self) -> Dict[str, Any]:
 		column_names = self.__table__.columns.keys()
 		return {c: getattr(self, c) for c in column_names}

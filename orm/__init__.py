@@ -4,7 +4,7 @@ from orm.user import User
 from orm.message import Message
 from orm.topic import Topic
 from orm.notification import Notification
-from orm.shout import Shout, ShoutAuthor
+from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.base import Base, engine
 
 __all__ = ["User", "Role", "Operation", "Permission", "Message", "Shout", "Topic", "Notification"]

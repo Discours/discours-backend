@@ -1,4 +1,4 @@
-from orm import Shout, ShoutAuthor, User, Community, Resource
+from orm import Shout, ShoutAuthor, ShoutTopic, User, Community, Resource
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -8,6 +8,7 @@ from settings import SHOUTS_REPO
 
 import subprocess
 import asyncio
+from datetime import datetime
 
 from pathlib import Path
 
@@ -108,16 +109,17 @@ async def update_shout(_, info, id, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
-	with local_session() as session:
-		user = session.query(User).filter(User.id == user_id).first()
-		shout = session.query(Shout).filter(Shout.id == id).first()
+	session = local_session()
+	user = session.query(User).filter(User.id == user_id).first()
+	shout = session.query(Shout).filter(Shout.id == id).first()
 
 	if not shout:
 		return {
 			"error" : "shout not found"
 		}
 
-	if shout.authors[0] != user_id:
+	authors = [author.id for author in shout.authors]
+	if not user_id in authors:
 		scopes = auth.scopes
 		print(scopes)
 		if not Resource.shout_id in scopes:
@@ -125,14 +127,15 @@ async def update_shout(_, info, id, input):
 				"error" : "access denied"
 			}
 
-	shout.body = input["body"],
-	shout.replyTo = input.get("replyTo"),
-	shout.versionOf = input.get("versionOf"),
-	shout.tags = input.get("tags"),
-	shout.topics = input.get("topics")
+	shout.update(input)
+	shout.updatedAt = datetime.now()
+	session.commit()
+	session.close()
 
-	with local_session() as session:
-		session.commit()
+	for topic in input.get("topics"):
+		ShoutTopic.create(
+			shout = shout.id,
+			topic = topic)
 
 	task = GitTask(
 		input,

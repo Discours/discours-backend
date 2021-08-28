@@ -12,11 +12,12 @@ class ShoutAuthor(Base):
 	shout = Column(ForeignKey('shout.id'), primary_key = True)
 	user = Column(ForeignKey('user.id'), primary_key = True)
 
-ShoutTopics = Table('shout_topics',
-	Base.metadata,
-	Column('shout', Integer, ForeignKey('shout.id')),
-	Column('topic', Integer, ForeignKey('topic.id'))
-)
+class ShoutTopic(Base):
+	__tablename__ = 'shout_topic'
+	
+	id = None
+	shout = Column(ForeignKey('shout.id'), primary_key = True)
+	topic = Column(ForeignKey('topic.id'), primary_key = True)
 
 class ShoutRatings(Base):
 	__tablename__ = "user_ratings"
@@ -47,7 +48,7 @@ class Shout(Base):
 	subtitle: str = Column(String, nullable = True)
 	layout: str = Column(String, nullable = True)
 	authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__) # NOTE: multiple authors
-	topics = relationship(lambda: Topic, secondary=ShoutTopics)
+	topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
 	rating: int = Column(Integer, nullable=True, comment="Rating")
 	ratings = relationship(ShoutRatings, foreign_keys=ShoutRatings.shout_id)
 	old_id: str = Column(String, nullable = True)

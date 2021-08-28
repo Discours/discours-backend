@@ -27,7 +27,7 @@ input ShoutInput {
   body: String!
   replyTo: String # another shout
   tags: [String] # actual values
-  topics: [String] # topic-slugs
+  topics: [Int]
   title: String
   subtitle: String
   versionOf: String
