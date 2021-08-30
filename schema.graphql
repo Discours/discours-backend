@@ -98,9 +98,10 @@ type Query {
   # shoutsByTags(tags: [String]): [Shout]!
   # shoutsByTime(time: DateTime): [Shout]!
 
+  topShoutsByView(limit: Int): [Shout]!
+  topShoutsByRating(limit: Int): [Shout]!
+
   # getOnlineUsers: [User!]!
-  topAuthors: [User]!
-  topShouts: [Shout]!
 }
 
 ############################################ Subscription

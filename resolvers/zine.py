@@ -1,4 +1,4 @@
-from orm import Shout, ShoutAuthor, ShoutTopic, User, Community, Resource
+from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, User, Community, Resource
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -11,6 +11,7 @@ import asyncio
 from datetime import datetime
 
 from pathlib import Path
+from sqlalchemy import select, func, desc
 
 class GitTask:
 
@@ -66,16 +67,23 @@ class GitTask:
 				print("git task worker error = %s" % (err))
 
 
-@query.field("topShouts")
-async def top_shouts(_, info):
-    # TODO: implement top shouts 
-    pass
+@query.field("topShoutsByView")
+async def top_shouts_by_view(_, info, limit):
+	with local_session() as session:
+		shouts = session.query(Shout).order_by(Shout.views.desc()).limit(limit).all()
+	return shouts
 
 
-@query.field("topAuthors")
-async def top_shouts(_, info):
-    # TODO: implement top authors 
-    pass
+@query.field("topShoutsByRating")
+async def top_shouts(_, info, limit):
+	with local_session() as session:
+		stmt = select(Shout, func.sum(ShoutRating.value).label("shout_rating")).\
+			join(ShoutRating).\
+			group_by(Shout.id).\
+			order_by(desc("shout_rating")).\
+			limit(limit)
+		shouts = [row.Shout for row in session.execute(stmt)]
+	return shouts
 
 
 @mutation.field("createShout")
