@@ -1,4 +1,4 @@
-from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, User, Community, Resource
+from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -8,7 +8,7 @@ from settings import SHOUTS_REPO
 
 import subprocess
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pathlib import Path
 from sqlalchemy import select, func, desc
@@ -69,20 +69,37 @@ class GitTask:
 
 @query.field("topShoutsByView")
 async def top_shouts_by_view(_, info, limit):
+	month_ago = datetime.now() - timedelta(days = 30)
 	with local_session() as session:
-		shouts = session.query(Shout).order_by(Shout.views.desc()).limit(limit).all()
+		stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
+			join(ShoutViewByDay).\
+			where(ShoutViewByDay.day > month_ago).\
+			group_by(Shout.id).\
+			order_by(desc("view")).\
+			limit(limit)
+		shouts = []
+		for row in session.execute(stmt):
+			shout = row.Shout
+			shout.view = row.view
+			shouts.append(shout)
 	return shouts
 
 
 @query.field("topShoutsByRating")
 async def top_shouts(_, info, limit):
+	month_ago = datetime.now() - timedelta(days = 30)
 	with local_session() as session:
-		stmt = select(Shout, func.sum(ShoutRating.value).label("shout_rating")).\
+		stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 			join(ShoutRating).\
+			where(ShoutRating.ts > month_ago).\
 			group_by(Shout.id).\
-			order_by(desc("shout_rating")).\
+			order_by(desc("rating")).\
 			limit(limit)
-		shouts = [row.Shout for row in session.execute(stmt)]
+		shouts = []
+		for row in session.execute(stmt):
+			shout = row.Shout
+			shout.rating = row.rating
+			shouts.append(shout)
 	return shouts
 
 

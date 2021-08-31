@@ -20,11 +20,20 @@ class ShoutTopic(Base):
 	topic = Column(ForeignKey('topic.id'), primary_key = True)
 
 class ShoutRating(Base):
-	__tablename__ = "shout_ratings"
+	__tablename__ = "shout_rating"
 
 	id = None
 	rater_id = Column(ForeignKey('user.id'), primary_key = True)
 	shout_id = Column(ForeignKey('shout.id'), primary_key = True)
+	ts: str = Column(DateTime, nullable=False, default = datetime.now, comment="Timestamp")
+	value = Column(Integer)
+
+class ShoutViewByDay(Base):
+	__tablename__ = "shout_view_by_day"
+
+	id = None
+	shout_id = Column(ForeignKey('shout.id'), primary_key = True)
+	day: str = Column(DateTime, primary_key = True, default = datetime.now)
 	value = Column(Integer)
 
 class Shout(Base):
@@ -40,7 +49,6 @@ class Shout(Base):
 	replyTo: int = Column(ForeignKey("shout.id"), nullable=True)
 	versionOf: int = Column(ForeignKey("shout.id"), nullable=True)
 	tags: str = Column(String, nullable=True)
-	views: int = Column(Integer, default=0)
 	published: bool = Column(Boolean, default=False)
 	publishedAt: str = Column(DateTime, nullable=True)
 	cover: str = Column(String, nullable = True)
@@ -49,6 +57,6 @@ class Shout(Base):
 	layout: str = Column(String, nullable = True)
 	authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__) # NOTE: multiple authors
 	topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
-	rating: int = Column(Integer, nullable=True, comment="Rating")
 	ratings = relationship(ShoutRating, foreign_keys=ShoutRating.shout_id)
+	views = relationship(ShoutViewByDay)
 	old_id: str = Column(String, nullable = True)

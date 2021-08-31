@@ -203,7 +203,7 @@ type Shout {
   versionOf: String
   visibleForRoles: [String] # role ids are strings
   visibleForUsers: [Int]
-  views: Int
+  view: Int
   old_id: String
 }
 
