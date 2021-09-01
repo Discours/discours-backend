@@ -157,10 +157,10 @@ type User {
   links: [String]
   emailConfirmed: Boolean # should contain all emails too # TODO: pagination here
   muted: Boolean
-  rating: Int
   roles: [Role]
   updatedAt: DateTime
   wasOnlineAt: DateTime
+  rating: Int
   ratings: [Rating]
   bio: String
   notifications: [Int]
@@ -203,7 +203,7 @@ type Shout {
   versionOf: String
   visibleForRoles: [String] # role ids are strings
   visibleForUsers: [Int]
-  view: Int
+  views: Int
   old_id: String
 }
 
