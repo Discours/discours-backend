@@ -126,7 +126,7 @@ class TopShouts:
 			TopShouts.shouts_by_view = shouts
 
 	@staticmethod
-	async def prepare_shouts_by_author():
+	async def prepare_top_authors():
 		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			shout_with_view = select(Shout.id, func.sum(ShoutViewByDay.value).label("view")).\
@@ -134,28 +134,18 @@ class TopShouts:
 				where(ShoutViewByDay.day > month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("view")).cte()
-			stmt = select(ShoutAuthor.user, ShoutAuthor.shout, shout_with_view.c.view).\
-				join(shout_with_view, ShoutAuthor.shout == shout_with_view.c.id)
-			shout_by_author = {}
+			stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
+				join(shout_with_view, ShoutAuthor.shout == shout_with_view.c.id).\
+				group_by(ShoutAuthor.user).\
+				order_by(desc("view")).\
+				limit(TopShouts.limit)
+			authors = {}
 			for row in session.execute(stmt):
-				user = row.user
-				if user in shout_by_author:
-					(shout_id, view) = shout_by_author[user]
-					if row.view > view:
-						shout_by_author[user] = (row.shout, row.view)
-				else:
-					shout_by_author[user] = (row.shout, row.view)
-			shout_info = {}
-			for user, value in shout_by_author.items():
-				(shout_id, view) = value
-				shout_info[shout_id] = (user, view)
-			shout_ids = shout_info.keys()
-			shouts = session.query(Shout).filter(Shout.id.in_(shout_ids)).all()
-			for shout in shouts:
-				(user, view) = shout_info[shout.id]
-				shout.view = view
+				authors[row.user] = row.view
+			authors_ids = authors.keys()
+			authors = session.query(User).filter(User.id.in_(authors_ids)).all()
 		async with TopShouts.lock:
-			TopShouts.shouts_by_author = shouts
+			TopShouts.top_authors = authors
 
 
 	@staticmethod
@@ -167,7 +157,7 @@ class TopShouts:
 				await TopShouts.prepare_favorites_shouts()
 				await TopShouts.prepare_shouts_by_rating()
 				await TopShouts.prepare_shouts_by_view()
-				await TopShouts.prepare_shouts_by_author()
+				await TopShouts.prepare_top_authors()
 				print("top shouts: update finished")
 			except Exception as err:
 				print("top shouts worker error = %s" % (err))
@@ -192,10 +182,10 @@ async def favorites_shouts(_, info, limit):
 		return TopShouts.favorites_shouts[:limit]
 
 
-@query.field("topShoutsByAuthor")
-async def top_shouts_by_author(_, info, limit):
+@query.field("topAuthors")
+async def top_authors(_, info, limit):
 	async with TopShouts.lock:
-		return TopShouts.shouts_by_author[:limit]
+		return TopShouts.top_authors[:limit]
 
 
 @mutation.field("createShout")

@@ -101,7 +101,7 @@ type Query {
   topShoutsByView(limit: Int): [Shout]!
   topShoutsByRating(limit: Int): [Shout]!
   favoritesShouts(limit: Int): [Shout]!
-  topShoutsByAuthor(limit: Int): [Shout]!
+  topAuthors(limit: Int): [User]!
 
   # getOnlineUsers: [User!]!
 }
