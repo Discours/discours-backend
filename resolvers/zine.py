@@ -173,4 +173,24 @@ async def update_shout(_, info, id, input):
 		"shout" : shout
 	}
 
-# TODO: paginate, get, update, delete
+# TODO: get shout with comments query
+
+@query.field("getShout") 
+async def get_shout(_, info, shout_slug):
+	month_ago = datetime.now() - timedelta(days = 30)
+	with local_session() as session:
+		stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
+			join(ShoutRating).\
+			where(ShoutRating.ts > month_ago).\
+			# where(Shout.replyTo == shout_slug).\
+			# join(ShoutComment)
+			group_by(Shout.id).\
+			order_by(desc("rating")).\
+			limit(limit)
+		shouts = []
+		for row in session.execute(stmt):
+			shout = row.Shout
+			shout.rating = row.rating
+			shout.comments
+			shouts.append(shout)
+	return shout
