@@ -260,14 +260,14 @@ async def update_shout(_, info, id, input):
 
 # TODO: get shout with comments query
 
-@query.field("getShout") 
-async def get_shout(_, info, shout_slug):
+@query.field("getShout")  #FIXME: add shout joined with comments
+async def get_shout(_, info, shout_id):
 	month_ago = datetime.now() - timedelta(days = 30)
 	with local_session() as session:
-		stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
-			join(ShoutRating).\
-			where(ShoutRating.ts > month_ago).\
-			# where(Shout.replyTo == shout_slug).\
+		stmt = select(Comment, func.sum(CommentRating.value).label("rating")).\
+			join(CommentRating).\
+			where(CommentRating.ts > month_ago).\
+			where(Comment.shout == shout_id).\
 			# join(ShoutComment)
 			group_by(Shout.id).\
 			order_by(desc("rating")).\

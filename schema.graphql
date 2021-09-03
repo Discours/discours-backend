@@ -180,6 +180,21 @@ type Message {
   visibleForUsers: [Int]!
 }
 
+type Comment {
+  id: Int!
+  author: Int!
+  body: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  shout: Int!
+  deletedAt: DateTime
+  deletedBy: Int
+  rating: Int
+  ratigns: [Rating]
+  views: Int
+  old_id: String
+}
+
 # is publication
 type Shout {
   id: Int!
