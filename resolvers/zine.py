@@ -67,40 +67,125 @@ class GitTask:
 				print("git task worker error = %s" % (err))
 
 
+class TopShouts:
+	limit = 50
+	period = 60*60 #1 hour
+
+	lock = asyncio.Lock()
+
+	@staticmethod
+	async def prepare_shouts_by_rating():
+		month_ago = datetime.now() - timedelta(days = 30)
+		with local_session() as session:
+			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
+				join(ShoutRating).\
+				where(ShoutRating.ts > month_ago).\
+				group_by(Shout.id).\
+				order_by(desc("rating")).\
+				limit(TopShouts.limit)
+			shouts = []
+			for row in session.execute(stmt):
+				shout = row.Shout
+				shout.rating = row.rating
+				shouts.append(shout)
+		async with TopShouts.lock:
+			TopShouts.shouts_by_rating = shouts
+
+	@staticmethod
+	async def prepare_favorites_shouts():
+		with local_session() as session:
+			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
+				join(ShoutRating).\
+				group_by(Shout.id).\
+				order_by(desc("rating")).\
+				limit(TopShouts.limit)
+			shouts = []
+			for row in session.execute(stmt):
+				shout = row.Shout
+				shout.rating = row.rating
+				shouts.append(shout)
+		async with TopShouts.lock:
+			TopShouts.favorites_shouts = shouts
+
+	@staticmethod
+	async def prepare_shouts_by_view():
+		month_ago = datetime.now() - timedelta(days = 30)
+		with local_session() as session:
+			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
+				join(ShoutViewByDay).\
+				where(ShoutViewByDay.day > month_ago).\
+				group_by(Shout.id).\
+				order_by(desc("view")).\
+				limit(TopShouts.limit)
+			shouts = []
+			for row in session.execute(stmt):
+				shout = row.Shout
+				shout.view = row.view
+				shouts.append(shout)
+		async with TopShouts.lock:
+			TopShouts.shouts_by_view = shouts
+
+	@staticmethod
+	async def prepare_top_authors():
+		month_ago = datetime.now() - timedelta(days = 30)
+		with local_session() as session:
+			shout_with_view = select(Shout.id, func.sum(ShoutViewByDay.value).label("view")).\
+				join(ShoutViewByDay).\
+				where(ShoutViewByDay.day > month_ago).\
+				group_by(Shout.id).\
+				order_by(desc("view")).cte()
+			stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
+				join(shout_with_view, ShoutAuthor.shout == shout_with_view.c.id).\
+				group_by(ShoutAuthor.user).\
+				order_by(desc("view")).\
+				limit(TopShouts.limit)
+			authors = {}
+			for row in session.execute(stmt):
+				authors[row.user] = row.view
+			authors_ids = authors.keys()
+			authors = session.query(User).filter(User.id.in_(authors_ids)).all()
+		async with TopShouts.lock:
+			TopShouts.top_authors = authors
+
+
+	@staticmethod
+	async def worker():
+		print("top shouts worker start")
+		while True:
+			try:
+				print("top shouts: update cache")
+				await TopShouts.prepare_favorites_shouts()
+				await TopShouts.prepare_shouts_by_rating()
+				await TopShouts.prepare_shouts_by_view()
+				await TopShouts.prepare_top_authors()
+				print("top shouts: update finished")
+			except Exception as err:
+				print("top shouts worker error = %s" % (err))
+			await asyncio.sleep(TopShouts.period)
+
+
 @query.field("topShoutsByView")
 async def top_shouts_by_view(_, info, limit):
-	month_ago = datetime.now() - timedelta(days = 30)
-	with local_session() as session:
-		stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
-			join(ShoutViewByDay).\
-			where(ShoutViewByDay.day > month_ago).\
-			group_by(Shout.id).\
-			order_by(desc("view")).\
-			limit(limit)
-		shouts = []
-		for row in session.execute(stmt):
-			shout = row.Shout
-			shout.view = row.view
-			shouts.append(shout)
-	return shouts
+	async with TopShouts.lock:
+		return TopShouts.shouts_by_view[:limit]
 
 
 @query.field("topShoutsByRating")
-async def top_shouts(_, info, limit):
-	month_ago = datetime.now() - timedelta(days = 30)
-	with local_session() as session:
-		stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
-			join(ShoutRating).\
-			where(ShoutRating.ts > month_ago).\
-			group_by(Shout.id).\
-			order_by(desc("rating")).\
-			limit(limit)
-		shouts = []
-		for row in session.execute(stmt):
-			shout = row.Shout
-			shout.rating = row.rating
-			shouts.append(shout)
-	return shouts
+async def top_shouts_by_rating(_, info, limit):
+	async with TopShouts.lock:
+		return TopShouts.shouts_by_rating[:limit]
+
+
+@query.field("favoritesShouts")
+async def favorites_shouts(_, info, limit):
+	async with TopShouts.lock:
+		return TopShouts.favorites_shouts[:limit]
+
+
+@query.field("topAuthors")
+async def top_authors(_, info, limit):
+	async with TopShouts.lock:
+		return TopShouts.top_authors[:limit]
 
 
 @mutation.field("createShout")
