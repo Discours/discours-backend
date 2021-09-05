@@ -2,7 +2,8 @@ from typing import List
 from datetime import datetime
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
-from orm import Permission, User, Topic, Comment
+from orm import Permission, User, Topic
+from orm.comment import Comment
 from orm.base import Base
 
 class ShoutAuthor(Base):
@@ -11,13 +12,13 @@ class ShoutAuthor(Base):
 	id = None
 	shout = Column(ForeignKey('shout.id'), primary_key = True)
 	user = Column(ForeignKey('user.id'), primary_key = True)
-    
+	
 class ShoutViewer(Base):
-    __tablename__ = "shout_viewer"
-    
-    id = None
-    shout = Column(ForeignKey('shout.id'), primary_key = True)
-    user = Column(ForeignKey('user.id'), primary_key = True)
+	__tablename__ = "shout_viewer"
+	
+	id = None
+	shout = Column(ForeignKey('shout.id'), primary_key = True)
+	user = Column(ForeignKey('user.id'), primary_key = True)
 
 class ShoutTopic(Base):
 	__tablename__ = 'shout_topic'

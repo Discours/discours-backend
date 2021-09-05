@@ -6,6 +6,7 @@ from orm.topic import Topic
 from orm.notification import Notification
 from orm.shout import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay
 from orm.base import Base, engine
+from orm.comment import Comment
 
 __all__ = ["User", "Role", "Operation", "Permission", "Message", "Shout", "Topic", "Notification"]
 
