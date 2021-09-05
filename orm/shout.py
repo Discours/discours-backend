@@ -2,7 +2,7 @@ from typing import List
 from datetime import datetime
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
-from orm import Permission, User, Topic
+from orm import Permission, User, Topic, Comment
 from orm.base import Base
 
 class ShoutAuthor(Base):
@@ -11,6 +11,13 @@ class ShoutAuthor(Base):
 	id = None
 	shout = Column(ForeignKey('shout.id'), primary_key = True)
 	user = Column(ForeignKey('user.id'), primary_key = True)
+    
+class ShoutViewer(Base):
+    __tablename__ = "shout_viewer"
+    
+    id = None
+    shout = Column(ForeignKey('shout.id'), primary_key = True)
+    user = Column(ForeignKey('user.id'), primary_key = True)
 
 class ShoutTopic(Base):
 	__tablename__ = 'shout_topic'
@@ -49,14 +56,16 @@ class Shout(Base):
 	replyTo: int = Column(ForeignKey("shout.id"), nullable=True)
 	versionOf: int = Column(ForeignKey("shout.id"), nullable=True)
 	tags: str = Column(String, nullable=True)
-	published: bool = Column(Boolean, default=False)
+	publishedBy: bool = Column(ForeignKey("user.id"), nullable=True)
 	publishedAt: str = Column(DateTime, nullable=True)
 	cover: str = Column(String, nullable = True)
 	title: str = Column(String, nullable = True)
 	subtitle: str = Column(String, nullable = True)
+	comments = relationship(Comment)
 	layout: str = Column(String, nullable = True)
 	authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__) # NOTE: multiple authors
 	topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
 	ratings = relationship(ShoutRating, foreign_keys=ShoutRating.shout_id)
 	views = relationship(ShoutViewByDay)
+	visibleFor = relationship(lambda: User, secondary=ShoutViewer.__tablename__)
 	old_id: str = Column(String, nullable = True)

@@ -83,21 +83,24 @@ type Query {
   isEmailFree(email: String!): Result!
   signIn(email: String!, password: String): AuthResult!
   signOut: Result!
-  # user profile
+
+  # profile
   getCurrentUser: UserResult!
-  getUserById(id: Int!): UserResult!
-  # getUserRating(shout: Int): Int!
+  getUserBySlug(slug: String!): UserResult!
+  # rateUser(shout: Int): Int!
 
   # messages
   getMessages(count: Int = 100, page: Int = 1): [Message!]!
 
   # shouts
+  getShoutBySlug(slug: String!): Shout! # NOTE: with .comments: Comments[]
   # getShoutRating(shout: Int): Int!
   # shoutsByAuthor(author: Int): [Shout]!
   # shoutsByReplyTo(shout: Int): [Shout]!
   # shoutsByTags(tags: [String]): [Shout]!
   # shoutsByTime(time: DateTime): [Shout]!
 
+  # mainpage
   topShoutsByView(limit: Int): [Shout]!
   topShoutsByRating(limit: Int): [Shout]!
   favoritesShouts(limit: Int): [Shout]!
@@ -184,6 +187,7 @@ type Comment {
   id: Int!
   author: Int!
   body: String!
+  replyTo: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
   shout: Int!
@@ -198,29 +202,30 @@ type Comment {
 # is publication
 type Shout {
   id: Int!
-  authors: [Int!]!
   slug: String!
   body: String!
   createdAt: DateTime!
-  updatedAt: DateTime!
-  community: Int
+  authors: [User!]!
+  comments: [Comment]
+  ratigns: [Rating]
+  visibleFor: [User]
+  community: Community
   cover: String
   layout: String
-  deletedAt: DateTime
-  deletedBy: Int
   rating: Int
-  ratigns: [Rating]
-  published: Boolean!
-  publishedAt: DateTime # if there is no published field - it is not published
-  replyTo: Int # another shout
+  views: Int
+  replyTo: Shout
+  versionOf: Shout
   tags: [String] # actual values
   topics: [String] # topic-slugs, order has matter
   title: String
   subtitle: String
-  versionOf: String
-  visibleForRoles: [String] # role ids are strings
-  visibleForUsers: [Int]
-  views: Int
+  updatedAt: DateTime
+  updatedBy: Int # can be user id?
+  deletedAt: DateTime
+  deletedBy: Int 
+  publishedBy: Int # if there is no published field - it is not published
+  publishedAt: DateTime
   old_id: String
 }
 
