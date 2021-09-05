@@ -8,8 +8,10 @@ pydantic
 passlib
 itsdangerous
 authlib
-httpx
+httpx<0.18.2
 psycopg2-binary
 bson
 python-frontmatter
 transliterate
+requests
+bcrypt
