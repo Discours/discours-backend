@@ -260,13 +260,10 @@ async def update_shout(_, info, id, input):
 
 @query.field("getShoutBySlug")  #FIXME: add shout joined with comments
 async def get_shout_by_slug(_, info, slug):
-	# month_ago = datetime.now() - timedelta(days = 30)
 	with local_session() as session:
 		stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 			join(ShoutRating).\
-			# where(ShoutRating.ts > month_ago).\
 			where(Shout.slug == slug).\
-			# TODO: join(Comment) to .comments
 			limit(limit)
 		shouts = []
 		for row in session.execute(stmt):
