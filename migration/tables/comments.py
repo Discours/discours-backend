@@ -5,30 +5,24 @@ import datetime
 
 def migrate(entry):
     '''
-    # is comment
-    type Shout {
-        org: String!
-        slug: String
+    type Comment {
+        id: Int!
         author: Int!
         body: String!
+        replyTo: Int!
         createdAt: DateTime!
-        updatedAt: DateTime!
+        updatedAt: DateTime
+        shout: Int!
         deletedAt: DateTime
         deletedBy: Int
         rating: Int
-        published: DateTime # if there is no published field - it is not published
-        replyTo: String # another shout
-        tags: [String] # actual values
-        topics: [String] # topic-slugs
-        title: String
-        versionOf: String
-        visibleForRoles: [String] # role ids are strings
-        visibleForUsers: [Int]
+        ratigns: [Rating]
+        views: Int
+        old_id: String
     }
     '''
     # TODO: implement comments migration
     return {
-        'org_id': 0,
         'slug': entry['slug'],
         'createdAt': entry['createdAt'],
         'body': html2text(entry['body']),

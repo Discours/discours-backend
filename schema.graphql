@@ -189,7 +189,7 @@ type Comment {
   body: String!
   replyTo: Int!
   createdAt: DateTime!
-  updatedAt: DateTime!
+  updatedAt: DateTime
   shout: Int!
   deletedAt: DateTime
   deletedBy: Int
@@ -223,7 +223,7 @@ type Shout {
   updatedAt: DateTime
   updatedBy: Int # can be user id?
   deletedAt: DateTime
-  deletedBy: Int 
+  deletedBy: Int
   publishedBy: Int # if there is no published field - it is not published
   publishedAt: DateTime
   old_id: String

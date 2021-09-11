@@ -32,7 +32,6 @@ type2layout = {
 def migrate(entry, limit=3626, start=0):
     '''  
     type Shout {
-        org_id: Int!
         slug: String!
         author: Int!
         body: String!
@@ -55,7 +54,6 @@ def migrate(entry, limit=3626, start=0):
     }
     '''
     r = {
-            'org_id': 0,
             'layout': type2layout[entry['type']],
             'title': entry['title'],
             'authors': [],
