@@ -4,8 +4,8 @@
 {{ $listen_port := index $port_map_list 1 }}
 {{ $upstream_port := index $port_map_list 2 }}
 
-{{ $listeners := index $.DOKKU_APP_WEB_LISTENERS 0 | split " " }}
-{{ $listener_list := $listeners | split ":" }}
+{{ $listeners := $.DOKKU_APP_WEB_LISTENERS | split " " }}
+{{ $listener_list := index $listeners 0 | split ":" }}
 {{ $listener_ip := index $listener_list 0 }}
 
 location /graphql {
