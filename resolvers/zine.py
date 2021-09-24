@@ -1,4 +1,5 @@
-from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource
+from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource,\
+	rating_storage, view_storage
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -12,6 +13,7 @@ from datetime import datetime, timedelta
 
 from pathlib import Path
 from sqlalchemy import select, func, desc
+from sqlalchemy.orm import selectinload
 
 class GitTask:
 
@@ -258,17 +260,14 @@ async def update_shout(_, info, id, input):
 		"shout" : shout
 	}
 
-@query.field("getShoutBySlug")  #FIXME: add shout joined with comments
+@query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
 	with local_session() as session:
-		stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
-			join(ShoutRating).\
-			where(Shout.slug == slug).\
-			limit(limit)
-		shouts = []
-		for row in session.execute(stmt):
-			shout = row.Shout
-			shout.rating = row.rating
-			# TODO: shout.comments = 
-			shouts.append(shout)
+		shout = session.query(Shout).\
+			options(selectinload(Shout.authors)).\
+			options(selectinload(Shout.comments)).\
+			options(selectinload(Shout.topics)).\
+			filter(Shout.slug == slug).first()
+	shout.rating = rating_storage.get_rating(shout.id)
+	shout.views = view_storage.get_view(shout.id)
 	return shout

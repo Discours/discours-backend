@@ -6,6 +6,8 @@ from orm import Permission, User, Topic
 from orm.comment import Comment
 from orm.base import Base
 
+from functools import reduce
+
 class ShoutAuthor(Base):
 	__tablename__ = "shout_author"
 	
@@ -36,6 +38,25 @@ class ShoutRating(Base):
 	ts: str = Column(DateTime, nullable=False, default = datetime.now, comment="Timestamp")
 	value = Column(Integer)
 
+class ShoutRatingStorage:
+
+	def __init__(self, session):
+		self.ratings = session.query(ShoutRating).all()
+
+	def get_rating(self, shout_id):
+		shout_ratings = list(filter(lambda x: x.shout_id == shout_id, self.ratings))
+		return reduce((lambda x, y: x + y.value), shout_ratings, 0)
+
+	def update_rating(self, new_rating):
+		rating = next(x for x in self.ratings \
+			if x.rater_id == new_rating.rater_id and x.shout_id == new_rating.shout_id)
+		if rating:
+			rating.value = new_rating.value
+			rating.ts = new_rating.ts
+		else:
+			self.ratings.append(new_rating)
+
+
 class ShoutViewByDay(Base):
 	__tablename__ = "shout_view_by_day"
 
@@ -43,6 +64,18 @@ class ShoutViewByDay(Base):
 	shout_id = Column(ForeignKey('shout.id'), primary_key = True)
 	day: str = Column(DateTime, primary_key = True, default = datetime.now)
 	value = Column(Integer)
+
+class ShoutViewStorage:
+
+	def __init__(self, session):
+		self.views = session.query(ShoutViewByDay).all()
+
+	def get_view(self, shout_id):
+		shout_views = list(filter(lambda x: x.shout_id == shout_id, self.views))
+		return reduce((lambda x, y: x + y.value), shout_views, 0)
+
+	def add_view(self, view):
+		self.views.append(view)
 
 class Shout(Base):
 	__tablename__ = 'shout'
@@ -66,7 +99,5 @@ class Shout(Base):
 	layout: str = Column(String, nullable = True)
 	authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__) # NOTE: multiple authors
 	topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
-	ratings = relationship(ShoutRating, foreign_keys=ShoutRating.shout_id)
-	views = relationship(ShoutViewByDay)
 	visibleFor = relationship(lambda: User, secondary=ShoutViewer.__tablename__)
 	old_id: str = Column(String, nullable = True)
