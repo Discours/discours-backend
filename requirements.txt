@@ -1,6 +1,6 @@
 aioredis
 ariadne
-pyjwt
+pyjwt>=2.0.0
 starlette
 sqlalchemy
 uvicorn
