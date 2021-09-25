@@ -68,7 +68,7 @@ type Mutation {
   createShout(input: ShoutInput!): ShoutResult!
   updateShout(id: Int!, input: ShoutInput!): ShoutResult!
   deleteShout(id: Int!): Result!
-  rateShout(id: Int!, value: Int!): Result!
+  rateShout(shout_id: Int!, value: Int!): Result!
 
   # user profile
   # rateUser(value: Int!): Result!

@@ -7,17 +7,7 @@ from sqlalchemy.sql.schema import Table
 
 from settings import DB_URL
 
-# engine = create_engine(DB_URL, convert_unicode=True, echo=False)
-engine = create_engine(DB_URL, 
-						convert_unicode=True, 
-						echo=False,
-						#pool_size=10,
-						#max_overflow=2,
-						#pool_recycle=300,
-						pool_pre_ping=True,
-						#pool_use_lifo=True
-						future=True
-						)
+engine = create_engine(DB_URL, convert_unicode=True, echo=False)
 
 T = TypeVar("T")
 

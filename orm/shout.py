@@ -35,7 +35,7 @@ class ShoutRating(Base):
 	id = None
 	rater_id = Column(ForeignKey('user.id'), primary_key = True)
 	shout_id = Column(ForeignKey('shout.id'), primary_key = True)
-	ts: str = Column(DateTime, nullable=False, default = datetime.now, comment="Timestamp")
+	ts = Column(DateTime, nullable=False, default = datetime.now, comment="Timestamp")
 	value = Column(Integer)
 
 class ShoutRatingStorage:
@@ -48,8 +48,8 @@ class ShoutRatingStorage:
 		return reduce((lambda x, y: x + y.value), shout_ratings, 0)
 
 	def update_rating(self, new_rating):
-		rating = next(x for x in self.ratings \
-			if x.rater_id == new_rating.rater_id and x.shout_id == new_rating.shout_id)
+		rating = next((x for x in self.ratings \
+			if x.rater_id == new_rating.rater_id and x.shout_id == new_rating.shout_id), None)
 		if rating:
 			rating.value = new_rating.value
 			rating.ts = new_rating.ts

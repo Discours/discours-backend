@@ -12,7 +12,7 @@ import asyncio
 from datetime import datetime, timedelta
 
 from pathlib import Path
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, and_
 from sqlalchemy.orm import selectinload
 
 class GitTask:
@@ -260,13 +260,39 @@ async def update_shout(_, info, id, input):
 		"shout" : shout
 	}
 
+@mutation.field("rateShout")
+@login_required
+async def rate_shout(_, info, shout_id, value):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+
+	with local_session() as session:
+		rating = session.query(ShoutRating).\
+			filter(and_(ShoutRating.rater_id == user_id, ShoutRating.shout_id == shout_id)).first()
+		if rating:
+			rating.value = value;
+			rating.ts = datetime.now()
+			session.commit()
+		else:
+			rating = ShoutRating.create(
+				rater_id = user_id,
+				shout_id = shout_id,
+				value = value
+			)
+
+	rating_storage.update_rating(rating)
+
+	return {"error" : ""}
+
 @query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
+	slug_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
+	slug_fields = set(["authors", "comments", "topics"]).intersection(slug_fields)
+	select_options = [selectinload(getattr(Shout, field)) for field in slug_fields]
+
 	with local_session() as session:
 		shout = session.query(Shout).\
-			options(selectinload(Shout.authors)).\
-			options(selectinload(Shout.comments)).\
-			options(selectinload(Shout.topics)).\
+			options(select_options).\
 			filter(Shout.slug == slug).first()
 	shout.rating = rating_storage.get_rating(shout.id)
 	shout.views = view_storage.get_view(shout.id)
