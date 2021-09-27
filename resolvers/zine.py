@@ -165,6 +165,17 @@ class TopShouts:
 				print("top shouts worker error = %s" % (err))
 			await asyncio.sleep(TopShouts.period)
 
+async def db_flush_worker():
+	print("db flush worker start")
+	while True:
+		try:
+			print("flush changes")
+			with local_session() as session:
+				view_storage.flush_changes(session)
+		except Exception as err:
+			print("db flush worker error = %s" % (err))
+		await asyncio.sleep(30*60)
+
 
 @query.field("topShoutsByView")
 async def top_shouts_by_view(_, info, limit):
@@ -282,6 +293,11 @@ async def rate_shout(_, info, shout_id, value):
 
 	rating_storage.update_rating(rating)
 
+	return {"error" : ""}
+
+@mutation.field("viewShout")
+async def view_shout(_, info, shout_id):
+	view_storage.inc_view(shout_id)
 	return {"error" : ""}
 
 @query.field("getShoutBySlug")
