@@ -1,5 +1,5 @@
 from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource,\
-	rating_storage, ShoutViewStorage
+	ShoutRatingStorage, ShoutViewStorage
 from orm.base import local_session
 
 from resolvers.base import mutation, query
@@ -280,7 +280,7 @@ async def rate_shout(_, info, shout_id, value):
 				value = value
 			)
 
-	rating_storage.update_rating(rating)
+	await ShoutRatingStorage.update_rating(rating)
 
 	return {"error" : ""}
 
@@ -299,6 +299,6 @@ async def get_shout_by_slug(_, info, slug):
 		shout = session.query(Shout).\
 			options(select_options).\
 			filter(Shout.slug == slug).first()
-	shout.rating = rating_storage.get_rating(shout.id)
+	shout.rating = await ShoutRatingStorage.get_rating(shout.id)
 	shout.views = await ShoutViewStorage.get_view(shout.id)
 	return shout

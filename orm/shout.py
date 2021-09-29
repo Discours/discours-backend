@@ -43,21 +43,30 @@ class ShoutRating(Base):
 
 class ShoutRatingStorage:
 
-	def __init__(self, session):
-		self.ratings = session.query(ShoutRating).all()
+	ratings = []
 
-	def get_rating(self, shout_id):
-		shout_ratings = list(filter(lambda x: x.shout_id == shout_id, self.ratings))
+	lock = asyncio.Lock()
+
+	@staticmethod
+	def init(session):
+		ShoutRatingStorage.ratings = session.query(ShoutRating).all()
+
+	@staticmethod
+	async def get_rating(shout_id):
+		async with ShoutRatingStorage.lock:
+			shout_ratings = list(filter(lambda x: x.shout_id == shout_id, ShoutRatingStorage.ratings))
 		return reduce((lambda x, y: x + y.value), shout_ratings, 0)
 
-	def update_rating(self, new_rating):
-		rating = next((x for x in self.ratings \
-			if x.rater_id == new_rating.rater_id and x.shout_id == new_rating.shout_id), None)
-		if rating:
-			rating.value = new_rating.value
-			rating.ts = new_rating.ts
-		else:
-			self.ratings.append(new_rating)
+	@staticmethod
+	async def update_rating(new_rating):
+		async with ShoutRatingStorage.lock:
+			rating = next((x for x in ShoutRatingStorage.ratings \
+				if x.rater_id == new_rating.rater_id and x.shout_id == new_rating.shout_id), None)
+			if rating:
+				rating.value = new_rating.value
+				rating.ts = new_rating.ts
+			else:
+				ShoutRatingStorage.ratings.append(new_rating)
 
 
 class ShoutViewByDay(Base):
