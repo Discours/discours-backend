@@ -17,4 +17,4 @@ Resource.init_table()
 
 with local_session() as session:
 	rating_storage = ShoutRatingStorage(session)
-	view_storage = ShoutViewStorage(session)
+	ShoutViewStorage.init(session)

@@ -13,7 +13,9 @@ from auth.oauth import oauth_login, oauth_authorize
 from auth.email import email_authorize
 from redis import redis
 from resolvers.base import resolvers
-from resolvers.zine import GitTask, TopShouts, db_flush_worker
+from resolvers.zine import GitTask, TopShouts
+
+from orm.shout import ShoutViewStorage
 
 import asyncio
 
@@ -29,7 +31,7 @@ async def start_up():
 	await redis.connect()
 	git_task = asyncio.create_task(GitTask.git_task_worker())
 	top_shouts_task = asyncio.create_task(TopShouts.worker())
-	db_flush_task = asyncio.create_task(db_flush_worker())
+	view_storage_task = asyncio.create_task(ShoutViewStorage.worker())
 
 async def shutdown():
 	await redis.disconnect()
