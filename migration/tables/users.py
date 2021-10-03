@@ -15,7 +15,7 @@ def migrate(entry, limit=668):
             email: String
             password: String
             oauth: String # provider:token
-            viewname: String # to display
+            name: String # to display
             userpic: String
             links: [String]
             emailConfirmed: Boolean # should contain all emails too
@@ -52,11 +52,11 @@ def migrate(entry, limit=668):
             res['userpic'] = entry['profile'].get('image', {'thumborId': ''}).get('thumborId', '') # adding 'https://assets.discours.io/unsafe/1600x' in web ui
             fn = entry['profile'].get('firstName', '')
             ln = entry['profile'].get('lastName', '')
-            viewname = res['slug'] if res['slug'] else 'anonymous'
-            viewname = fn if fn else viewname
-            viewname = (viewname + ' ' + ln) if ln else viewname
-            viewname = entry['profile']['path'] if len(viewname) < 2 else viewname
-            res['viewname'] = viewname
+            name = res['slug'] if res['slug'] else 'anonymous'
+            name = fn if fn else name
+            name = (name + ' ' + ln) if ln else name
+            name = entry['profile']['path'] if len(name) < 2 else name
+            res['name'] = name
             fb = entry['profile'].get('facebook', False)
             if fb:
                 res['links'].append(fb)

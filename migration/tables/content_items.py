@@ -15,7 +15,7 @@ users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
 users_dict['0'] = {
     'id': 9999999,
     'slug': 'discours',
-    'viewname': 'Дискурс',
+    'name': 'Дискурс',
     'userpic': 'https://discours.io/images/logo-mini.svg'
     }
 
@@ -118,7 +118,7 @@ def migrate(entry, limit=3626, start=0):
     try:
         userdata = users_dict[entry['createdBy']]
         slug = userdata['slug']
-        name = userdata['viewname']
+        name = userdata['name']
         userpic = userdata['userpic']
     except KeyError:
         app = entry.get('application')
@@ -126,7 +126,7 @@ def migrate(entry, limit=3626, start=0):
             authordata = {
                 'username': app['email'],
                 'email': app['email'],
-                'viewname': app['name'],
+                'name': app['name'],
                 'bio': app.get('bio', ''),
                 'emailConfirmed': False,
                 'slug': translit(app['name'], 'ru', reversed=True).replace(' ', '-').lower(),
@@ -142,7 +142,7 @@ def migrate(entry, limit=3626, start=0):
                         user = session.query(User).filter(User.slug == authordata['slug']).first()
                     
             slug = user.slug
-            name = user.viewname
+            name = user.name
             userpic = user.userpic
         else:
             # no application, no author!

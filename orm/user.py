@@ -45,7 +45,7 @@ class User(Base):
 	password: str = Column(String, nullable=True, comment="Password")
 	bio: str = Column(String, nullable=True, comment="Bio")
 	userpic: str = Column(String, nullable=True, comment="Userpic")
-	viewname: str = Column(String, nullable=True, comment="Display name")
+	name: str = Column(String, nullable=True, comment="Display name")
 	rating: int = Column(Integer, nullable=True, comment="Rating")
 	slug: str = Column(String, unique=True, comment="User's slug")
 	muted: bool = Column(Boolean, default=False)
