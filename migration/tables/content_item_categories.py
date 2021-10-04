@@ -13,7 +13,7 @@ def migrate(entry):
         'slug': entry['slug'],
         'createdBy': entry['createdBy'], # NOTE: uses an old user id
         'createdAt': entry['createdAt'],
-        'value': entry['title'].lower(),
+        'title': entry['title'].lower(),
         'parents': [],
         'children': [],
         'old_id': entry['_id']

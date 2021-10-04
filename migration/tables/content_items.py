@@ -14,7 +14,7 @@ from orm.base import local_session
 users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
 users_dict['0'] = {
     'id': 9999999,
-    'slug': 'discours',
+    'slug': 'discours.io',
     'name': 'Дискурс',
     'userpic': 'https://discours.io/images/logo-mini.svg'
     }
@@ -56,6 +56,7 @@ def migrate(entry, limit=3626, start=0):
     r = {
             'layout': type2layout[entry['type']],
             'title': entry['title'],
+            'community': 0,
             'authors': [],
             'topics': [],
             'published': entry.get('published', False),
@@ -87,10 +88,9 @@ def migrate(entry, limit=3626, start=0):
             if body_orig == '':
                 print('EMPTY BODY!')
             else:
-                # body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-                # body = html2text(body_orig).replace('****', '**')
+                body_html = str(BeautifulSoup(body_orig, features="html.parser"))
+                r['body'] = html2text(body_html).replace('****', '**')
                 r['old_id'] = entry.get('_id')
-                r['body'] = body_orig
         else:
             print(r['slug'] + ': literature has no media')
     elif entry.get('type') == 'Video':
@@ -109,8 +109,8 @@ def migrate(entry, limit=3626, start=0):
 
     if r.get('body') is None:
         body_orig = entry.get('body', '')
-        body_html = BeautifulSoup(body_orig, features="html.parser")
-        r['body'] = body_html # html2text(body_orig).replace('****', '**')
+        body_html = str(BeautifulSoup(body_orig, features="html.parser"))
+        r['body'] = html2text(body_html).replace('****', '**')
         r['old_id'] = entry.get('_id')
         
     body = r.get('body')
@@ -141,12 +141,12 @@ def migrate(entry, limit=3626, start=0):
                     if user is None:
                         user = session.query(User).filter(User.slug == authordata['slug']).first()
                     
-            slug = user.slug
-            name = user.name
+            slug = user['slug']
+            name = user['name']
             userpic = user.userpic
         else:
             # no application, no author!
-            slug = 'discours'
+            slug = 'discours.io'
             name = 'Дискурс'
             userpic = 'https://discours.io/images/logo-mini.svg'
     with local_session() as session:
@@ -160,19 +160,22 @@ def migrate(entry, limit=3626, start=0):
     metadata = {}
     metadata['title'] = r.get('title')
     metadata['authors'] = r.get('authors')
+    metadata['createdAt'] = entry.get('createdAt', ts)
+    metadata['layout'] = type2layout[entry['type']]
     if r.get('cover', False):
         metadata['cover'] = r.get('cover')
     post = frontmatter.Post(body, **metadata)
     dumped = frontmatter.dumps(post)
 
     if entry['published']: 
-        if r.get('old_id', None):
-            ext = 'html'
-            content = str(body).replace('<p></p>', '').replace('<p> </p>', '')
-        else:
-            ext = 'md'
-            content = dumped
-        open('migration/content/' + entry['type'].lower() + '/' + r['slug'] + '.' + ext, 'w').write(content)
+        #if r.get('old_id', None):
+        #    ext = 'html'
+        #    content = str(body).replace('<p></p>', '').replace('<p> </p>', '')
+        #else:
+        ext = 'md'
+        content = dumped
+        open('migration/content/' + metadata['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
+
 
     try:
         shout_dict = r.copy()
@@ -186,8 +189,15 @@ def migrate(entry, limit=3626, start=0):
                 shout_dict['publishedAt'] = parse(entry.get('publishedAt'))
             else:
                 shout_dict['publishedAt'] = ts
-        s = Shout.create(**shout_dict)
-        r['id'] = s.id
+        del shout_dict['published']
+        del shout_dict['views'] # FIXME
+        del shout_dict['rating'] # FIXME
+        del shout_dict['ratings']
+        try:
+            s = Shout.create(**shout_dict)
+            r['id'] = s.id
+        except:
+            pass
     except:
         r['body'] = 'body moved'
         print(r)

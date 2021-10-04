@@ -9,12 +9,12 @@ def migrate(entry):
         children: [String] # and children
     }
     ```
-    creator = get_new_user_id(entry['cratedBy'])
+    creator = get_new_user_id(entry['createdBy'])
     return {
         'slug': entry['slug'],
         'createdBy': creator_id, # NOTE: uses an old user id
         'createdAt': entry['createdAt'],
-        'value': entry['value'].lower(),
+        'title': entry['value'].lower(),
         'parents': [],
         'children': []
     }

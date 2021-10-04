@@ -135,4 +135,4 @@ discours.crt
 Pipfile.lock
 
 migration/data
-migration/content
+migration/content/**/*.md
