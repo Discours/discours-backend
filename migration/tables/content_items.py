@@ -16,8 +16,9 @@ users_dict['0'] = {
     'id': 9999999,
     'slug': 'discours.io',
     'name': 'Дискурс',
-    'userpic': 'https://discours.io/images/logo-mini.svg'
-    }
+    'userpic': 'https://discours.io/images/logo-mini.svg',
+    'createdAt': '2016-03-05 22:22:00.350000'
+}
 
 ts = datetime.now()
 
@@ -29,8 +30,9 @@ type2layout = {
     'Image': 'image'
 }
 
-def migrate(entry, limit=3626, start=0):
-    '''  
+
+def migrate(entry):
+    '''
     type Shout {
         slug: String!
         author: Int!
@@ -41,7 +43,7 @@ def migrate(entry, limit=3626, start=0):
         deletedBy: Int
         rating: Int
         ratigns: [Rating]
-        published: Bool! 
+        published: Bool!
         publishedAt: DateTime # if there is no published field - it is not published
         replyTo: String # another shout
         tags: [String] # actual values
@@ -53,17 +55,19 @@ def migrate(entry, limit=3626, start=0):
         views: Int
     }
     '''
+    content = ''
     r = {
-            'layout': type2layout[entry['type']],
-            'title': entry['title'],
-            'community': 0,
-            'authors': [],
-            'topics': [],
-            'published': entry.get('published', False),
-            'views': entry.get('views', 0),
-            'rating': entry.get('rating', 0),
-            'ratings': []
-        }
+        'layout': type2layout[entry['type']],
+        'title': entry['title'],
+        'community': 0,
+        'authors': [],
+        'topics': [],
+        'published': entry.get('published', False),
+        'views': entry.get('views', 0),
+        'rating': entry.get('rating', 0),
+        'ratings': [],
+        'createdAt': '2016-03-05 22:22:00.350000'
+    }
     r['slug'] = entry.get('slug', '')
     body_orig = entry.get('body', '')
     if not r['slug'] and entry.get('friendlySlugs') is not None:
@@ -88,7 +92,8 @@ def migrate(entry, limit=3626, start=0):
             if body_orig == '':
                 print('EMPTY BODY!')
             else:
-                body_html = str(BeautifulSoup(body_orig, features="html.parser"))
+                body_html = str(BeautifulSoup(
+                    body_orig, features="html.parser"))
                 r['body'] = html2text(body_html).replace('****', '**')
                 r['old_id'] = entry.get('_id')
         else:
@@ -103,20 +108,20 @@ def migrate(entry, limit=3626, start=0):
         if videoUrl == '#':
             print(entry.get('media', 'NO MEDIA!'))
             # raise Exception
-        r['body'] = '<ShoutVideo src=\"' + videoUrl + '\" />' + html2text(m.get('body', '')) # FIXME
+        r['body'] = '<ShoutVideo src=\"' + videoUrl + \
+            '\" />' + html2text(m.get('body', ''))  # FIXME
     elif entry.get('type') == 'Music':
-        r['body'] = '<ShoutMusic media={\"' + json.dumps(entry['media']) +'\"} />' # FIXME
-
+        r['body'] = '<ShoutMusic media={\"' + \
+            json.dumps(entry['media']) + '\"} />'  # FIXME
     if r.get('body') is None:
         body_orig = entry.get('body', '')
         body_html = str(BeautifulSoup(body_orig, features="html.parser"))
         r['body'] = html2text(body_html).replace('****', '**')
         r['old_id'] = entry.get('_id')
-        
     body = r.get('body')
     user = None
     try:
-        userdata = users_dict[entry['createdBy']]
+        userdata = users_dict.get(entry['createdBy'], users_dict['0'])
         slug = userdata['slug']
         name = userdata['name']
         userpic = userdata['userpic']
@@ -137,10 +142,11 @@ def migrate(entry, limit=3626, start=0):
                 user = User.create(**authordata)
             except IntegrityError:
                 with local_session() as session:
-                    user = session.query(User).filter(User.email == authordata['email']).first()
+                    user = session.query(User).filter(
+                        User.email == authordata['email']).first()
                     if user is None:
-                        user = session.query(User).filter(User.slug == authordata['slug']).first()
-                    
+                        user = session.query(User).filter(
+                            User.slug == authordata['slug']).first()
             slug = user['slug']
             name = user['name']
             userpic = user.userpic
@@ -167,15 +173,15 @@ def migrate(entry, limit=3626, start=0):
     post = frontmatter.Post(body, **metadata)
     dumped = frontmatter.dumps(post)
 
-    if entry['published']: 
-        #if r.get('old_id', None):
+    if entry['published']:
+        # if r.get('old_id', None):
         #    ext = 'html'
         #    content = str(body).replace('<p></p>', '').replace('<p> </p>', '')
-        #else:
+        # else:
         ext = 'md'
         content = dumped
-        open('migration/content/' + metadata['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
-
+        open('migration/content/' +
+             metadata['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
 
     try:
         shout_dict = r.copy()
@@ -190,8 +196,8 @@ def migrate(entry, limit=3626, start=0):
             else:
                 shout_dict['publishedAt'] = ts
         del shout_dict['published']
-        del shout_dict['views'] # FIXME
-        del shout_dict['rating'] # FIXME
+        del shout_dict['views']  # FIXME
+        del shout_dict['rating']  # FIXME
         del shout_dict['ratings']
         try:
             s = Shout.create(**shout_dict)
@@ -203,4 +209,4 @@ def migrate(entry, limit=3626, start=0):
         print(r)
         # print(s)
         raise Exception
-    return r
+    return (r, content)

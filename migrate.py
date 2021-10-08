@@ -1,18 +1,45 @@
+''' cmd managed migration '''
 import json
+import base64
+import re
 from migration.tables.users import migrate as migrateUser
 from migration.tables.content_items import migrate as migrateShout
-from migration.tables.content_item_categories import migrate as migrateTopic
+from migration.tables.content_item_categories import migrate as migrateCategory
+from migration.tables.tags import migrate as migrateTag
 from migration.utils import DateTimeEncoder
 from orm import Community
 
-def users(limit):
+
+IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,(.*?))\)"
+OLD_DATE = '2016-03-05 22:22:00.350000'
+
+
+def extract_images(article):
+    ''' extract b64 encoded images from markdown in article body '''
+    body = article['body']
+    images = []
+    matches = re.finditer(IMG_REGEX, body, re.IGNORECASE | re.MULTILINE)
+    for i, match in enumerate(matches, start=1):
+        ext = match.group(3)
+        link = '/static/upload/image-' + \
+            article['old_id'] + str(i) + '.' + ext
+        img = match.group(4)
+        if img not in images:
+          open('..' + link, 'wb').write(base64.b64decode(img))
+          images.append(img)
+        body = body.replace(match.group(2), link)
+        print(link)
+    article['body'] = body
+    return article
+
+
+def users():
+    ''' migrating users first '''
     print('migrating users...')
-    data = json.loads(open('migration/data/users.json').read())
     newdata = {}
-    exportData = {}
+    data = json.loads(open('migration/data/users.json').read())
     counter = 0
-    # limit = 100
-    #try:
+    export_data = {}
     for entry in data:
         oid = entry['_id']
         user = migrateUser(entry)
@@ -23,96 +50,127 @@ def users(limit):
         del user['emailConfirmed']
         del user['username']
         del user['email']
-        exportData[user['slug']] = user
+        export_data[user['slug']] = user
         counter += 1
-        if counter > limit:
-            break
-    #except Exception:
-    #    print(str(counter) + '/' + str(len(data)) + ' users entries were migrated')
-    #    print('try to remove database first')
-    open('migration/data/users.dict.json','w').write( json.dumps(newdata, cls=DateTimeEncoder) )
-    open('../src/data/authors.json','w').write( json.dumps(exportData, cls=DateTimeEncoder) )
-    print(str(counter) + ' users entries were migrated')
+    export_list = sorted(export_data.items(),
+                        key=lambda item: item[1]['rating'])[-10:]
+    open('migration/data/users.dict.json',
+         'w').write(json.dumps(newdata, cls=DateTimeEncoder))  # NOTE: by old_id
+    open('../src/data/authors.json', 'w').write(json.dumps(dict(export_list),
+                                                           cls=DateTimeEncoder,
+                                                           indent=4,
+                                                           sort_keys=True,
+                                                           ensure_ascii=False))
+    print(str(len(newdata.items())) + ' user accounts were migrated')
+    print(str(len(export_list)) + ' authors were exported')
 
 
 def topics():
+    ''' topics from categories and tags '''
     print('migrating topics...')
-    data = json.loads(open('migration/data/content_item_categories.json').read())
+    cat_data = json.loads(
+        open('migration/data/content_item_categories.json').read())
+    tag_data = json.loads(open('migration/data/tags.json').read())
     newdata = {}
-    exportData = {}
     counter = 0
     try:
-        for entry in data:
-            oid = entry['_id']
-            newdata[oid] = migrateTopic(entry)
-            exportData[entry['slug']] = newdata[oid]
+        for cat in cat_data:
+            topic = migrateCategory(cat)
+            newdata[topic['slug']] = topic
             counter += 1
     except Exception:
-        print(str(counter) + '/' + str(len(data)) + ' topics were migrated')
-        print('try to remove database first')
-    open('migration/data/topics.dict.json','w').write( json.dumps(newdata, cls=DateTimeEncoder) )
-    open('../src/data/topics.json','w').write( json.dumps(exportData, cls=DateTimeEncoder) )
-    print(str(counter) + ' topics were migrated')
+        print('cats exception, try to remove database first')
+    try:
+        for tag in tag_data:
+            topic = migrateTag(tag)
+            newdata[topic['slug']] = topic
+            counter += 1
+    except Exception:
+        print('tags exception, try to remove database first')
+        raise Exception
+    export_list = sorted(newdata.items(), key=lambda item: str(
+        item[1]['createdAt']))[-10:]
+    open('migration/data/topics.dict.json',
+         'w').write(json.dumps(newdata, cls=DateTimeEncoder))
+    open('../src/data/topics.json', 'w').write(json.dumps(dict(export_list),
+                                                          cls=DateTimeEncoder, indent=4, sort_keys=True, ensure_ascii=False))
+    print(str(counter) + ' from ' + str(len(cat_data)) +
+          ' tags and ' + str(len(tag_data)) + ' cats were migrated')
+    print(str(len(export_list)) + ' topics were exported')
 
-def shouts(limit):
+
+def shouts():
+    ''' migrating content items one by one '''
     print('loading shouts...')
     counter = 0
-    discoursAuthor = 0
-    data = json.loads(open('migration/data/content_items.json').read())
+    discours_author = 0
+    content_data = json.loads(open('migration/data/content_items.json').read())
     newdata = {}
-    print(str(len(data)) + ' entries loaded. now migrating...')
+    print(str(len(content_data)) + ' entries loaded. now migrating...')
     errored = []
-    exportData = {}
-    for entry in data:
+    for entry in content_data:
         try:
-            oid = entry['_id']
-            shout = migrateShout(entry)
-            newdata[oid] = shout
-            author = newdata[oid]['authors'][0]['slug']
-            line = str(counter) + ': ' + newdata[oid]['slug'] + " @" + str(author)
-            if shout['layout'] == 'article':
-                counter += 1
-                exportData[shout['slug']] = shout
-                print(line)
-            # counter += 1
+            (shout, content) = migrateShout(entry)
+            newdata[shout['slug']] = shout
+            author = newdata[shout['slug']]['authors'][0]['slug']
+            line = str(counter+1) + ': ' + shout['slug'] + " @" + str(author)
+            print(line)
+            counter += 1
             if author == 'discours.io':
-                discoursAuthor += 1
-            open('./shouts.id.log','a').write(line + '\n')
-            if counter > limit:
-                break
+                discours_author += 1
+            open('./shouts.id.log', 'a').write(line + '\n')
         except Exception:
             print(entry['_id'])
             errored.append(entry)
-            raise Exception
+            raise Exception(" error")
+    try:
+        limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
+    except ValueError:
+        limit = len(content_data)
+    export_list = sorted(newdata.items(
+    ), key=lambda item: item[1]['createdAt'] if item[1]['layout'] == 'article' else OLD_DATE)[:limit]
+    export_clean = {}
+    for slug, a in dict(export_list).items():
+        export_clean[slug] = extract_images(a)
+        open('../content/discours.io/'+slug+'.md', 'w').write(content)
+    open('migration/data/shouts.dict.json',
+         'w').write(json.dumps(newdata, cls=DateTimeEncoder))
+    open('../src/data/articles.json', 'w').write(json.dumps(dict(export_clean),
+                                                            cls=DateTimeEncoder,
+                                                            indent=4,
+                                                            sort_keys=True,
+                                                            ensure_ascii=False))
+    print(str(counter) + '/' + str(len(content_data)) +
+          ' content items were migrated')
+    print(str(len(export_list)) + ' shouts were exported')
+    print(str(discours_author) + ' from them by @discours.io')
 
-    open('migration/data/shouts.dict.json','w').write( json.dumps(newdata, cls=DateTimeEncoder) )
-    open('../src/data/articles.json','w').write( json.dumps(exportData, cls=DateTimeEncoder) )
-    print(str(counter) + ' shouts were migrated')
-    print(str(discoursAuthor) + ' from them by @discours.io')
-    print(str(len(errored)) + ' shouts without authors')
 
 if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
         if sys.argv[1] == "users":
-            users(668)
+            users()
         elif sys.argv[1] == "topics":
             topics()
         elif sys.argv[1] == "shouts":
-            Community.create(**{
-                'slug': 'discours.io',
-                'name': 'Дискурс',
-                'pic': 'https://discours.io/images/logo-min.svg',
-                'createdBy': '0',
-                'createdAt': ts
+            try:
+                Community.create(**{
+                    'slug': 'discours.io',
+                    'name': 'Дискурс',
+                    'pic': 'https://discours.io/images/logo-min.svg',
+                    'createdBy': '0',
+                    'createdAt': OLD_DATE
                 })
-            shouts(3626)
+            except Exception:
+                pass
+            shouts()
         elif sys.argv[1] == "all":
+            users()
             topics()
-            users(668)
-            shouts(3626)
+            shouts()
         elif sys.argv[1] == "bson":
-            import migration.bson2json
+            from migration import bson2json
             bson2json.json_tables()
     else:
-        print('usage: python migrate.py <all|topics|users|shouts|comments>')
+        print('usage: python migrate.py <bson|all|topics|users|shouts>')
