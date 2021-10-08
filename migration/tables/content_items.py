@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from orm.base import local_session
 
 users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
+topics_dict = json.loads(open(abspath('migration/data/topics.dict.json')).read()) # old_id keyed
 users_dict['0'] = {
     'id': 9999999,
     'slug': 'discours.io',
@@ -30,6 +31,16 @@ type2layout = {
     'Image': 'image'
 }
 
+
+def get_metadata(r):
+    metadata = {}
+    metadata['title'] = r.get('title')
+    metadata['authors'] = r.get('authors')
+    metadata['createdAt'] = r.get('createdAt', ts)
+    metadata['layout'] = r['layout']
+    if r.get('cover', False):
+        metadata['cover'] = r.get('cover')
+    return metadata
 
 def migrate(entry):
     '''
@@ -66,7 +77,7 @@ def migrate(entry):
         'views': entry.get('views', 0),
         'rating': entry.get('rating', 0),
         'ratings': [],
-        'createdAt': '2016-03-05 22:22:00.350000'
+        'createdAt': entry.get('createdAt', '2016-03-05 22:22:00.350000')
     }
     r['slug'] = entry.get('slug', '')
     body_orig = entry.get('body', '')
@@ -78,6 +89,10 @@ def migrate(entry):
         print('NO SLUG ERROR')
         # print(entry)
         raise Exception
+    try:
+      r['topics'].append(topics_dict[entry['category']]['slug'])
+    except Exception:
+      print(entry['category'])
     if entry.get('image') is not None:
         r['cover'] = entry['image']['url']
     if entry.get('thumborId') is not None:
@@ -99,16 +114,16 @@ def migrate(entry):
         else:
             print(r['slug'] + ': literature has no media')
     elif entry.get('type') == 'Video':
-        m = entry['media'][0]
-        yt = m.get('youtubeId', '')
-        vm = m.get('vimeoId', '')
-        videoUrl = 'https://www.youtube.com/watch?v=' + yt if yt else '#'
-        if videoUrl == '#':
-            videoUrl = 'https://vimeo.com/' + vm if vm else '#'
-        if videoUrl == '#':
-            print(entry.get('media', 'NO MEDIA!'))
-            # raise Exception
-        r['body'] = '<ShoutVideo src=\"' + videoUrl + \
+      m = entry['media'][0]
+      yt = m.get('youtubeId', '')
+      vm = m.get('vimeoId', '')
+      video_url = 'https://www.youtube.com/watch?v=' + yt if yt else '#'
+      if video_url == '#':
+          video_url = 'https://vimeo.com/' + vm if vm else '#'
+      if video_url == '#':
+          print(entry.get('media', 'NO MEDIA!'))
+          # raise Exception
+      r['body'] = '<ShoutVideo src=\"' + video_url + \
             '\" />' + html2text(m.get('body', ''))  # FIXME
     elif entry.get('type') == 'Music':
         r['body'] = '<ShoutMusic media={\"' + \
@@ -163,15 +178,10 @@ def migrate(entry):
         'pic': userpic
     })
 
-    metadata = {}
-    metadata['title'] = r.get('title')
-    metadata['authors'] = r.get('authors')
-    metadata['createdAt'] = entry.get('createdAt', ts)
-    metadata['layout'] = type2layout[entry['type']]
-    if r.get('cover', False):
-        metadata['cover'] = r.get('cover')
-    post = frontmatter.Post(body, **metadata)
-    dumped = frontmatter.dumps(post)
+    r['layout'] = type2layout[entry['type']]
+
+    metadata = get_metadata(r)
+    content = frontmatter.dumps(frontmatter.Post(body, **metadata))
 
     if entry['published']:
         # if r.get('old_id', None):
@@ -179,15 +189,13 @@ def migrate(entry):
         #    content = str(body).replace('<p></p>', '').replace('<p> </p>', '')
         # else:
         ext = 'md'
-        content = dumped
         open('migration/content/' +
-             metadata['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
-
+             r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
     try:
         shout_dict = r.copy()
         shout_dict['authors'] = [user, ]
         if entry.get('createdAt') is not None:
-            shout_dict['createdAt'] = parse(entry.get('createdAt'))
+            shout_dict['createdAt'] = parse(r.get('createdAt'))
         else:
             shout_dict['createdAt'] = ts
         if entry.get('published'):
@@ -196,9 +204,9 @@ def migrate(entry):
             else:
                 shout_dict['publishedAt'] = ts
         del shout_dict['published']
-        del shout_dict['views']  # FIXME
-        del shout_dict['rating']  # FIXME
-        del shout_dict['ratings']
+        # del shout_dict['views']
+        # del shout_dict['rating']
+        del shout_dict['ratings'] # FIXME
         try:
             s = Shout.create(**shout_dict)
             r['id'] = s.id
@@ -209,4 +217,4 @@ def migrate(entry):
         print(r)
         # print(s)
         raise Exception
-    return (r, content)
+    return r

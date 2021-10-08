@@ -3,10 +3,10 @@ import datetime
 import json
 import importlib
 
-import DateTimeEncoder from utils
+from migration.utils import DateTimeEncoder
 
 def json_tables():
-    print('creating json files at data/')
+    print('creating json files at migration/data/')
     data = {
         "content_items": [],
         "content_item_categories": [],
@@ -17,13 +17,13 @@ def json_tables():
     }
     for table in data.keys():
         lc = []
-        with open('data/'+table+'.bson', 'rb') as f:
+        with open('migration/data/'+table+'.bson', 'rb') as f:
             bs = f.read()
             base = 0
             while base < len(bs):
                 base, d = bson.decode_document(bs, base)
                 lc.append(d)
             data[table] = lc
-            open('data/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
+            open('migration/data/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
     return data
 

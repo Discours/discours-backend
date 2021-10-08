@@ -2,8 +2,9 @@
 import json
 import base64
 import re
+import frontmatter
 from migration.tables.users import migrate as migrateUser
-from migration.tables.content_items import migrate as migrateShout
+from migration.tables.content_items import get_metadata, migrate as migrateShout
 from migration.tables.content_item_categories import migrate as migrateCategory
 from migration.tables.tags import migrate as migrateTag
 from migration.utils import DateTimeEncoder
@@ -70,16 +71,19 @@ def topics():
     print('migrating topics...')
     cat_data = json.loads(
         open('migration/data/content_item_categories.json').read())
-    tag_data = json.loads(open('migration/data/tags.json').read())
-    newdata = {}
+    # tag_data = json.loads(open('migration/data/tags.json').read())
+    new_data = {}
+    old_data = {}
     counter = 0
     try:
         for cat in cat_data:
             topic = migrateCategory(cat)
-            newdata[topic['slug']] = topic
+            old_data[topic['old_id']] = topic
+            new_data[topic['slug']] = topic
             counter += 1
     except Exception:
         print('cats exception, try to remove database first')
+    '''
     try:
         for tag in tag_data:
             topic = migrateTag(tag)
@@ -88,14 +92,19 @@ def topics():
     except Exception:
         print('tags exception, try to remove database first')
         raise Exception
-    export_list = sorted(newdata.items(), key=lambda item: str(
-        item[1]['createdAt']))[-10:]
+    '''
+    export_list = sorted(new_data.items(), key=lambda item: str(
+        item[1]['createdAt']))
     open('migration/data/topics.dict.json',
-         'w').write(json.dumps(newdata, cls=DateTimeEncoder))
+         'w').write(json.dumps(old_data, cls=DateTimeEncoder))
     open('../src/data/topics.json', 'w').write(json.dumps(dict(export_list),
-                                                          cls=DateTimeEncoder, indent=4, sort_keys=True, ensure_ascii=False))
+                                                          cls=DateTimeEncoder,
+                                                          indent=4,
+                                                          sort_keys=True,
+                                                          ensure_ascii=False))
     print(str(counter) + ' from ' + str(len(cat_data)) +
-          ' tags and ' + str(len(tag_data)) + ' cats were migrated')
+          #' tags and ' + str(len(tag_data)) +
+          ' cats were migrated')
     print(str(len(export_list)) + ' topics were exported')
 
 
@@ -110,7 +119,7 @@ def shouts():
     errored = []
     for entry in content_data:
         try:
-            (shout, content) = migrateShout(entry)
+            shout = migrateShout(entry)
             newdata[shout['slug']] = shout
             author = newdata[shout['slug']]['authors'][0]['slug']
             line = str(counter+1) + ': ' + shout['slug'] + " @" + str(author)
@@ -127,12 +136,14 @@ def shouts():
         limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
     except ValueError:
         limit = len(content_data)
-    export_list = sorted(newdata.items(
-    ), key=lambda item: item[1]['createdAt'] if item[1]['layout'] == 'article' else OLD_DATE)[:limit]
+    export_list = [i for i in newdata.items() if i[1]['layout'] == 'article' and i[1]['published']]
+    export_list = sorted(export_list, key=lambda item: item[1]['createdAt'] or OLD_DATE, reverse=True)[:limit]
     export_clean = {}
-    for slug, a in dict(export_list).items():
-        export_clean[slug] = extract_images(a)
-        open('../content/discours.io/'+slug+'.md', 'w').write(content)
+    for (slug, a) in export_list:
+        export_clean[a['slug']] = extract_images(a)
+        metadata = get_metadata(a)
+        content = frontmatter.dumps(frontmatter.Post(a['body'], **metadata))
+        open('../content/discours.io/'+a['slug']+'.md', 'w').write(content)
     open('migration/data/shouts.dict.json',
          'w').write(json.dumps(newdata, cls=DateTimeEncoder))
     open('../src/data/articles.json', 'w').write(json.dumps(dict(export_clean),
