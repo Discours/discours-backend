@@ -15,7 +15,7 @@ users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
 topics_dict = json.loads(open(abspath('migration/data/topics.dict.json')).read()) # old_id keyed
 users_dict['0'] = {
     'id': 9999999,
-    'slug': 'discours.io',
+    'slug': 'discours',
     'name': 'Дискурс',
     'userpic': 'https://discours.io/images/logo-mini.svg',
     'createdAt': '2016-03-05 22:22:00.350000'
@@ -109,7 +109,7 @@ def migrate(entry):
             else:
                 body_html = str(BeautifulSoup(
                     body_orig, features="html.parser"))
-                r['body'] = html2text(body_html).replace('****', '**')
+                r['body'] = body_html # html2text(body_html).replace('****', '**')
                 r['old_id'] = entry.get('_id')
         else:
             print(r['slug'] + ': literature has no media')
@@ -131,7 +131,7 @@ def migrate(entry):
     if r.get('body') is None:
         body_orig = entry.get('body', '')
         body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-        r['body'] = html2text(body_html).replace('****', '**')
+        r['body'] = body_html # html2text(body_html).replace('****', '**')
         r['old_id'] = entry.get('_id')
     body = r.get('body')
     user = None
@@ -167,7 +167,7 @@ def migrate(entry):
             userpic = user.userpic
         else:
             # no application, no author!
-            slug = 'discours.io'
+            slug = 'discours'
             name = 'Дискурс'
             userpic = 'https://discours.io/images/logo-mini.svg'
     with local_session() as session:

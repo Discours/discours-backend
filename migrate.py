@@ -114,6 +114,7 @@ def shouts():
     counter = 0
     discours_author = 0
     content_data = json.loads(open('migration/data/content_items.json').read())
+    content_dict = { x['_id']:x for x in content_data }
     newdata = {}
     print(str(len(content_data)) + ' entries loaded. now migrating...')
     errored = []
@@ -125,7 +126,7 @@ def shouts():
             line = str(counter+1) + ': ' + shout['slug'] + " @" + str(author)
             print(line)
             counter += 1
-            if author == 'discours.io':
+            if author == 'discours':
                 discours_author += 1
             open('./shouts.id.log', 'a').write(line + '\n')
         except Exception:
@@ -136,25 +137,35 @@ def shouts():
         limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
     except ValueError:
         limit = len(content_data)
-    export_list = [i for i in newdata.items() if i[1]['layout'] == 'article' and i[1]['published']]
-    export_list = sorted(export_list, key=lambda item: item[1]['createdAt'] or OLD_DATE, reverse=True)[:limit]
-    export_clean = {}
-    for (slug, a) in export_list:
-        export_clean[a['slug']] = extract_images(a)
-        metadata = get_metadata(a)
-        content = frontmatter.dumps(frontmatter.Post(a['body'], **metadata))
-        open('../content/discours.io/'+a['slug']+'.md', 'w').write(content)
     open('migration/data/shouts.dict.json',
          'w').write(json.dumps(newdata, cls=DateTimeEncoder))
+    print(str(counter) + '/' + str(len(content_data)) +
+          ' content items were migrated')
+    print(str(discours_author) + ' from them by @discours')
+
+def export_shouts(limit):
+    print('reading json...')
+    newdata = json.loads(open('migration/data/shouts.dict.json', 'r').read())
+    print(str(len(newdata.keys())) + ' loaded')
+    export_list = [i for i in newdata.items() if i[1]['layout'] == 'article' and i[1]['published']]
+    export_list = sorted(export_list, key=lambda item: item[1]['createdAt'] or OLD_DATE, reverse=True)
+    print(str(len(export_list)) + ' filtered')
+    export_list = export_list[:limit or len(export_list)]
+    export_clean = {}
+    for (slug, article) in export_list:
+        if article['layout'] == 'article':
+            export_clean[article['slug']] = extract_images(article)
+            metadata = get_metadata(article)
+            content = frontmatter.dumps(frontmatter.Post(article['body'], **metadata))
+            open('../content/discours.io/'+slug+'.md', 'w').write(content)
+            # print(slug)
+            # open('../content/discours.io/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
     open('../src/data/articles.json', 'w').write(json.dumps(dict(export_clean),
                                                             cls=DateTimeEncoder,
                                                             indent=4,
                                                             sort_keys=True,
                                                             ensure_ascii=False))
-    print(str(counter) + '/' + str(len(content_data)) +
-          ' content items were migrated')
-    print(str(len(export_list)) + ' shouts were exported')
-    print(str(discours_author) + ' from them by @discours.io')
+    print(str(len(export_clean.items())) + ' exported')
 
 
 if __name__ == '__main__':
@@ -176,6 +187,9 @@ if __name__ == '__main__':
             except Exception:
                 pass
             shouts()
+        elif sys.argv[1] == "export_shouts":
+          limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+          export_shouts(limit)
         elif sys.argv[1] == "all":
             users()
             topics()

@@ -463,7 +463,7 @@ class HTML2Text(HTMLParser.HTMLParser):
             if start:
                 if has_key(attrs, 'href') and not (self.skip_internal_links and attrs['href'].startswith('#')):
                     self.astack.append(attrs)
-                    self.maybe_automatic_link = attrs['href']
+                    self.maybe_automatic_link = attrs['href'][:2000]
                 else:
                     self.astack.append(None)
             else:
