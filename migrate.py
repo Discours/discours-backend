@@ -146,14 +146,24 @@ def shouts():
 def export_shouts(limit):
     print('reading json...')
     newdata = json.loads(open('migration/data/shouts.dict.json', 'r').read())
-    print(str(len(newdata.keys())) + ' loaded')
+    print(str(len(newdata.keys())) + ' shouts loaded')
+
+    users_old = json.loads(open('migration/data/users.dict.json').read())
+    export_authors = json.loads(open('../src/data/authors.json').read())
+    print(str(len(export_authors.items())) + ' pre-exported authors loaded')
+    users_slug = { u['slug']: u for old_id, u in users_old.items()}
+    print(str(len(users_slug.items())) + ' users loaded')
+
     export_list = [i for i in newdata.items() if i[1]['layout'] == 'article' and i[1]['published']]
     export_list = sorted(export_list, key=lambda item: item[1]['createdAt'] or OLD_DATE, reverse=True)
     print(str(len(export_list)) + ' filtered')
+
     export_list = export_list[:limit or len(export_list)]
     export_clean = {}
     for (slug, article) in export_list:
         if article['layout'] == 'article':
+            for author in article['authors']:
+              export_authors[author['slug']] = users_slug[author['slug']]
             export_clean[article['slug']] = extract_images(article)
             metadata = get_metadata(article)
             content = frontmatter.dumps(frontmatter.Post(article['body'], **metadata))
@@ -165,7 +175,13 @@ def export_shouts(limit):
                                                             indent=4,
                                                             sort_keys=True,
                                                             ensure_ascii=False))
-    print(str(len(export_clean.items())) + ' exported')
+    print(str(len(export_clean.items())) + ' articles exported')
+    open('../src/data/authors.json', 'w').write(json.dumps(export_authors,
+                                                           cls=DateTimeEncoder,
+                                                           indent=4,
+                                                           sort_keys=True,
+                                                           ensure_ascii=False))
+    print(str(len(export_authors.items())) + ' total authors exported')
 
 
 if __name__ == '__main__':

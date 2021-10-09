@@ -11,6 +11,8 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from orm.base import local_session
 
+comments_data = json.loads(open(abspath('migration/data/comments.json')).read())
+comments_dict = { x['_id']: x for x in comments_data }
 users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
 topics_dict = json.loads(open(abspath('migration/data/topics.dict.json')).read()) # old_id keyed
 users_dict['0'] = {
@@ -77,6 +79,7 @@ def migrate(entry):
         'views': entry.get('views', 0),
         'rating': entry.get('rating', 0),
         'ratings': [],
+        'comments': entry.get('comments', []),
         'createdAt': entry.get('createdAt', '2016-03-05 22:22:00.350000')
     }
     r['slug'] = entry.get('slug', '')
@@ -184,37 +187,60 @@ def migrate(entry):
     content = frontmatter.dumps(frontmatter.Post(body, **metadata))
 
     if entry['published']:
-        # if r.get('old_id', None):
-        #    ext = 'html'
-        #    content = str(body).replace('<p></p>', '').replace('<p> </p>', '')
-        # else:
         ext = 'md'
         open('migration/content/' +
              r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
-    try:
-        shout_dict = r.copy()
-        shout_dict['authors'] = [user, ]
-        if entry.get('createdAt') is not None:
-            shout_dict['createdAt'] = parse(r.get('createdAt'))
-        else:
-            shout_dict['createdAt'] = ts
-        if entry.get('published'):
-            if entry.get('publishedAt') is not None:
-                shout_dict['publishedAt'] = parse(entry.get('publishedAt'))
-            else:
-                shout_dict['publishedAt'] = ts
-        del shout_dict['published']
-        # del shout_dict['views']
-        # del shout_dict['rating']
-        del shout_dict['ratings'] # FIXME
         try:
-            s = Shout.create(**shout_dict)
-            r['id'] = s.id
-        except:
-            pass
-    except:
-        r['body'] = 'body moved'
-        print(r)
-        # print(s)
-        raise Exception
+            shout_dict = r.copy()
+            shout_dict['authors'] = [user, ]
+            if entry.get('createdAt') is not None:
+                shout_dict['createdAt'] = parse(r.get('createdAt'))
+            else:
+                shout_dict['createdAt'] = ts
+            if entry.get('published'):
+                if entry.get('publishedAt') is not None:
+                    shout_dict['publishedAt'] = parse(entry.get('publishedAt'))
+                else:
+                    shout_dict['publishedAt'] = ts
+            del shout_dict['published']
+
+            shout_dict['comments'] = []
+            for cid in r['comments']:
+              comment = comments_dict[cid]
+              comment_ratings = []
+              for cr in comment['ratings']:
+                comment_ratings.append({
+                  'value': cr['value'],
+                  'createdBy': users_dict[cr['createdBy']],
+                  'createdAt': cr['createdAt'] or ts})
+              shout_dict['comments'].append({
+                'old_id': comment['_id'],
+                'old_thread': comment['thread'], # TODO: old_thread to replyTo logix
+                'createdBy': users_dict[comment['createdBy']],
+                'createdAt': comment['createdAt'] or ts,
+                'body': html2text(comment['body']),
+                'shout': shout_dict['old_id'],
+                'rating': comment['rating'],
+                'ratings': comment_ratings
+            })
+
+            shout_dict['ratings'] = []
+            for rating in r['ratings']:
+              shout_dict['ratings'].append({
+                'value': rating['value'],
+                'createdBy': users_dict[rating['createdBy']],
+                'createdAt': r['createdAt'] or ts})
+
+            try:
+                del shout_dict['views'] # FIXME
+                del shout_dict['rating'] # FIXME
+                del shout_dict['ratings'] # FIXME
+                # del shout_dict['comments']
+                s = Shout.create(**shout_dict) # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
+                r['id'] = s.id
+            except Exception as e:
+              pass # raise e
+        except Exception as e:
+            if not r['body']: r['body'] = 'body moved'
+            raise e
     return r
