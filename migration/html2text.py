@@ -395,8 +395,21 @@ class HTML2Text(HTMLParser.HTMLParser):
                 self.inheader = True
                 self.o(hn(tag)*"#" + ' ')
             else:
+                if attrs.get('id', False): self.o('{#' + attrs.get['id'] + '}')
                 self.inheader = False
                 return # prevent redundant emphasis marks on headers
+            
+        if tag == 'span' and 'class' in attrs:
+            if attrs['class'] == 'highlight':
+                if start:
+                    self.o('`')
+                else:
+                    self.o('`')
+            elif attrs['class'] == 'lead':
+                if start:
+                    self.o(self.strong_mark)
+                else:
+                    self.o(self.strong_mark)
 
         if tag in ['p', 'div']:
             if self.google_doc:
