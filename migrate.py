@@ -114,7 +114,7 @@ def shouts():
     counter = 0
     discours_author = 0
     content_data = json.loads(open('migration/data/content_items.json').read())
-    content_dict = { x['_id']:x for x in content_data }
+    # content_dict = { x['_id']:x for x in content_data }
     newdata = {}
     print(str(len(content_data)) + ' entries loaded. now migrating...')
     errored = []
@@ -147,7 +147,8 @@ def export_shouts(limit):
     print('reading json...')
     newdata = json.loads(open('migration/data/shouts.dict.json', 'r').read())
     print(str(len(newdata.keys())) + ' shouts loaded')
-
+    content_data = json.loads(open('migration/data/content_items.json').read())
+    content_dict = { x['_id']:x for x in content_data }
     users_old = json.loads(open('migration/data/users.dict.json').read())
     export_authors = json.loads(open('../src/data/authors.json').read())
     print(str(len(export_authors.items())) + ' pre-exported authors loaded')
@@ -169,7 +170,7 @@ def export_shouts(limit):
             content = frontmatter.dumps(frontmatter.Post(article['body'], **metadata))
             open('../content/discours.io/'+slug+'.md', 'w').write(content)
             # print(slug)
-            # open('../content/discours.io/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
+            open('../content/discours.io/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
     open('../src/data/articles.json', 'w').write(json.dumps(dict(export_clean),
                                                             cls=DateTimeEncoder,
                                                             indent=4,
@@ -183,6 +184,33 @@ def export_shouts(limit):
                                                            ensure_ascii=False))
     print(str(len(export_authors.items())) + ' total authors exported')
 
+def export_slug(slug):
+    shouts_dict = json.loads(open('migration/data/shouts.dict.json').read())
+    print(str(len(shouts_dict.items())) + ' shouts loaded')
+    users_old = json.loads(open('migration/data/users.dict.json').read())
+    print(str(len(users_old.items())) + ' users loaded')
+    users_dict = { x[1]['slug']:x for x in users_old.items() }
+    exported_authors = json.loads(open('../src/data/authors.json').read())
+    print(str(len(exported_authors.items())) + ' authors were exported before')
+    exported_articles = json.loads(open('../src/data/articles.json').read())
+    print(str(len(exported_articles.items())) + ' articles were exported before')
+    shout = shouts_dict.get(slug, None)
+    author = users_dict.get(shout['authors'][0]['slug'], None)
+    exported_authors.update({shout['authors'][0]['slug']: author})
+    exported_articles.update({shout['slug']: shout})
+    print(shout)
+    open('../src/data/articles.json', 'w').write(json.dumps(exported_articles,
+                                                           cls=DateTimeEncoder,
+                                                           indent=4,
+                                                           sort_keys=True,
+                                                           ensure_ascii=False))
+    open('../src/data/authors.json', 'w').write(json.dumps(exported_authors,
+                                                           cls=DateTimeEncoder,
+                                                           indent=4,
+                                                           sort_keys=True,
+                                                           ensure_ascii=False))
+    print('exported.')
+    
 
 if __name__ == '__main__':
     import sys
@@ -213,5 +241,7 @@ if __name__ == '__main__':
         elif sys.argv[1] == "bson":
             from migration import bson2json
             bson2json.json_tables()
+        elif sys.argv[1] == 'slug':
+            export_slug(sys.argv[2])
     else:
-        print('usage: python migrate.py <bson|all|topics|users|shouts>')
+        print('usage: python migrate.py <bson|slug|topics|users|shouts|export_shouts [num]|slug [str]|all>')
