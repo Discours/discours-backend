@@ -112,7 +112,7 @@ def migrate(entry):
             else:
                 body_html = str(BeautifulSoup(
                     body_orig, features="html.parser"))
-                r['body'] = body_html # html2text(body_html).replace('****', '**')
+                r['body'] = html2text(body_html).replace('****', '**')
                 r['old_id'] = entry.get('_id')
         else:
             print(r['slug'] + ': literature has no media')
@@ -134,7 +134,7 @@ def migrate(entry):
     if r.get('body') is None:
         body_orig = entry.get('body', '')
         body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-        r['body'] = body_html # html2text(body_html).replace('****', '**')
+        r['body'] = html2text(body_html).replace('****', '**')
         r['old_id'] = entry.get('_id')
     body = r.get('body')
     user = None
@@ -178,7 +178,7 @@ def migrate(entry):
     r['authors'].append({
         'slug': slug,
         'name': name,
-        'pic': userpic
+        'userpic': userpic
     })
 
     r['layout'] = type2layout[entry['type']]
