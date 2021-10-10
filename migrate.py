@@ -142,6 +142,34 @@ def shouts():
     print(str(counter) + '/' + str(len(content_data)) +
           ' content items were migrated')
     print(str(discours_author) + ' from them by @discours')
+    
+def comments():
+    ''' migrating comments on content items one by one '''
+    comments_data = json.loads(open('migration/data/comments.json').read())
+    print(str(len(comments_data)) + ' comments loaded')
+    comments_by_post = {}
+    for comment in comments_data:
+        p = comment['contentItem']
+        comments_by_post[p] = comments_by_post.get(p, [])
+        comments_by_post[p].append(comment)
+    export_articles = json.loads(open('../src/data/articles.json').read())
+    print(str(len(export_articles.items())) + ' articles were exported')
+    export_comments = {}
+    c = 0
+    for article in export_articles:
+        print(article['slug'])
+        print( comments_by_post.get(article['slug'], '') )
+        print( export_comments[article['slug']] ) # = comments_by_post.get(article['slug'])
+        c += len(export_comments[article['slug']])
+    print(str(len(export_comments.items())) + ' articles with comments')
+    open('../src/data/coments.json', 'w').write(json.dumps(dict(export_comments),
+                                                            cls=DateTimeEncoder,
+                                                            indent=4,
+                                                            sort_keys=True,
+                                                            ensure_ascii=False))
+    print(str(c) + ' comments were exported')
+        
+        
 
 def export_shouts(limit):
     print('reading json...')
@@ -182,6 +210,7 @@ def export_shouts(limit):
                                                            indent=4,
                                                            sort_keys=True,
                                                            ensure_ascii=False))
+    comments()
     print(str(len(export_authors.items())) + ' total authors exported')
 
 def export_slug(slug):
@@ -209,6 +238,7 @@ def export_slug(slug):
                                                            indent=4,
                                                            sort_keys=True,
                                                            ensure_ascii=False))
+    comments()
     print('exported.')
     
 
@@ -219,6 +249,8 @@ if __name__ == '__main__':
             users()
         elif sys.argv[1] == "topics":
             topics()
+        elif sys.argv[1] == "comments":
+            comments()
         elif sys.argv[1] == "shouts":
             try:
                 Community.create(**{
