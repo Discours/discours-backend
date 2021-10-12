@@ -230,6 +230,9 @@ class HTML2Text(HTMLParser.HTMLParser):
         self.abbr_data = None  # last inner HTML (for abbr being defined)
         self.abbr_list = {}  # stack of abbreviations to write later
         self.baseurl = baseurl
+        self.header_id = None
+        self.span_hightlight = False
+        self.span_lead = False
 
         try: del unifiable_n[name2cp('nbsp')]
         except KeyError: pass
@@ -261,7 +264,8 @@ class HTML2Text(HTMLParser.HTMLParser):
         else:
             nbsp = u' '
         self.outtext = self.outtext.replace(u'&nbsp_place_holder;', nbsp)
-
+        self.outtext = self.outtext.replace('\n** **\n', '')
+        self.outtext = self.outtext.replace('====', '')
         return self.outtext
 
     def handle_charref(self, c):
@@ -390,26 +394,34 @@ class HTML2Text(HTMLParser.HTMLParser):
                     parent_style = self.tag_stack[-1][2]
 
         if hn(tag):
-            self.p()
             if start:
+                self.p()
                 self.inheader = True
                 self.o(hn(tag)*"#" + ' ')
+                self.header_id = attrs.get('id')
             else:
-                if attrs.get('id', False): self.o('{#' + attrs.get['id'] + '}')
+                if self.header_id: 
+                    self.o(' {#' + self.header_id + '}')
+                    self.header_id = None
+                self.p()
                 self.inheader = False
                 return # prevent redundant emphasis marks on headers
             
-        if tag == 'span' and 'class' in attrs:
-            if attrs['class'] == 'highlight':
-                if start:
+        if tag == 'span':
+            if start and 'class' in attrs:
+                    if attrs['class'] == 'highlight':
+                        self.o('`') # NOTE: same as <code>
+                        self.span_hightlight = True
+                    elif attrs['class'] == 'lead':
+                        self.o('==') # NOTE: but CriticMarkup uses {== ==}
+                        self.span_lead = True
+            else:
+                if self.span_hightlight:
                     self.o('`')
-                else:
-                    self.o('`')
-            elif attrs['class'] == 'lead':
-                if start:
-                    self.o(self.strong_mark)
-                else:
-                    self.o(self.strong_mark)
+                    self.span_hightlight = False
+                elif self.span_lead:
+                    self.o('==')
+                    self.span_lead = False
 
         if tag in ['p', 'div']:
             if self.google_doc:
@@ -581,86 +593,87 @@ class HTML2Text(HTMLParser.HTMLParser):
         if self.abbr_data is not None:
             self.abbr_data += data
 
-        if not self.quiet:
-            if self.google_doc:
-                # prevent white space immediately after 'begin emphasis' marks ('**' and '_')
-                lstripped_data = data.lstrip()
-                if self.drop_white_space and not (self.pre or self.code):
-                    data = lstripped_data
-                if lstripped_data != '':
-                    self.drop_white_space = 0
-
-            if puredata and not self.pre:
+        # if not self.quiet:
+        # if self.google_doc:
+        # prevent white space immediately after 'begin emphasis' marks ('**' and '_')
+        lstripped_data = data.lstrip()
+        if self.drop_white_space and not (self.pre or self.code or self.span_hightlight or self.span_lead):
+            data = lstripped_data   
+            if puredata: # and not self.pre:
                 data = re.sub('\s+', ' ', data)
                 if data and data[0] == ' ':
                     self.space = 1
                     data = data[1:]
-            if not data and not force: return
+        if lstripped_data != '':
+            self.drop_white_space = 0
 
-            if self.startpre:
-                #self.out(" :") #TODO: not output when already one there
-                if not data.startswith("\n"):  # <pre>stuff...
-                    data = "\n" + data
+        if not data and not force: return
 
-            bq = (">" * self.blockquote)
-            if not (force and data and data[0] == ">") and self.blockquote: bq += " "
+        if self.startpre:
+            #self.out(" :") #TODO: not output when already one there
+            if not data.startswith("\n"):  # <pre>stuff...
+                data = "\n" + data
 
-            if self.pre:
-                if not self.list:
-                    bq += "    "
-                #else: list content is already partially indented
-                for i in range(len(self.list)):
-                    bq += "    "
-                data = data.replace("\n", "\n"+bq)
+        bq = (">" * self.blockquote)
+        if not (force and data and data[0] == ">") and self.blockquote: bq += " "
 
-            if self.startpre:
-                self.startpre = 0
-                if self.list:
-                    data = data.lstrip("\n") # use existing initial indentation
+        if self.pre:
+            if not self.list:
+                bq += "    "
+            #else: list content is already partially indented
+            for i in range(len(self.list)):
+                bq += "    "
+            data = data.replace("\n", "\n"+bq)
 
-            if self.start:
-                self.space = 0
-                self.p_p = 0
-                self.start = 0
+        if self.startpre:
+            self.startpre = 0
+            if self.list:
+                data = data.lstrip("\n") # use existing initial indentation
 
-            if force == 'end':
-                # It's the end.
-                self.p_p = 0
-                self.out("\n")
-                self.space = 0
-
-            if self.p_p:
-                self.out((self.br_toggle+'\n'+bq)*self.p_p)
-                self.space = 0
-                self.br_toggle = ''
-
-            if self.space:
-                if not self.lastWasNL: self.out(' ')
-                self.space = 0
-
-            if self.a and ((self.p_p == 2 and self.links_each_paragraph) or force == "end"):
-                if force == "end": self.out("\n")
-
-                newa = []
-                for link in self.a:
-                    if self.outcount > link['outcount']:
-                        self.out("   ["+ str(link['count']) +"]: " + urlparse.urljoin(self.baseurl, link['href']))
-                        if has_key(link, 'title'): self.out(" ("+link['title']+")")
-                        self.out("\n")
-                    else:
-                        newa.append(link)
-
-                if self.a != newa: self.out("\n") # Don't need an extra line when nothing was done.
-
-                self.a = newa
-
-            if self.abbr_list and force == "end":
-                for abbr, definition in self.abbr_list.items():
-                    self.out("  *[" + abbr + "]: " + definition + "\n")
-
+        if self.start:
+            self.space = 0
             self.p_p = 0
-            self.out(data)
-            self.outcount += 1
+            self.start = 0
+
+        if force == 'end':
+            # It's the end.
+            self.p_p = 0
+            self.out("\n")
+            self.space = 0
+
+        if self.p_p:
+            self.out((self.br_toggle+'\n'+bq)*self.p_p)
+            self.space = 0
+            self.br_toggle = ''
+
+        if self.space:
+            if not self.lastWasNL: self.out(' ')
+            self.space = 0
+
+        if self.a and ((self.p_p == 2 and self.links_each_paragraph) or force == "end"):
+            if force == "end": self.out("\n")
+
+            newa = []
+            for link in self.a:
+                if self.outcount > link['outcount']:
+                    self.out("   ["+ str(link['count']) +"]: " + urlparse.urljoin(self.baseurl, link['href']))
+                    if has_key(link, 'title'): self.out(" ("+link['title']+")")
+                    self.out("\n")
+                else:
+                    newa.append(link)
+
+            if self.a != newa: self.out("\n") # Don't need an extra line when nothing was done.
+
+            self.a = newa
+
+        if self.abbr_list and force == "end":
+            for abbr, definition in self.abbr_list.items():
+                self.out("  *[" + abbr + "]: " + definition + "\n")
+        data.replace('\u200b', '')
+        data.replace('\xa0', ' ')
+        self.p_p = 0
+        self.out(data)
+        self.outcount += 1
 
     def handle_data(self, data):
         if r'\/script>' in data: self.quiet -= 1
@@ -775,8 +788,8 @@ md_dash_matcher = re.compile(r"""
     ^
     (\s*)
     (-)
-    (?=\s|\-)     # followed by whitespace (bullet list, or spaced out hr)
-                  # or another dash (header or hr)
+    (?=\s|\-)   # followed by whitespace (bullet list, or spaced out hr)
+                # or another dash (header or hr)
     """, flags=re.MULTILINE | re.VERBOSE)
 slash_chars = r'\`*_{}[]()#+-.!'
 md_backslash_matcher = re.compile(r'''
@@ -839,8 +852,7 @@ def escape_md_section(text, snob=False):
 def main():
     baseurl = ''
 
-    p = optparse.OptionParser('%prog [(filename|url) [encoding]]',
-                              version='%prog ' + __version__)
+    p = optparse.OptionParser('%prog [(filename|url) [encoding]]', version='%prog ' + __version__)
     p.add_option("--ignore-emphasis", dest="ignore_emphasis", action="store_true",
         default=IGNORE_EMPHASIS, help="don't include any formatting for emphasis")
     p.add_option("--ignore-links", dest="ignore_links", action="store_true",
