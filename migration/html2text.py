@@ -265,6 +265,9 @@ class HTML2Text(HTMLParser.HTMLParser):
             nbsp = u' '
         self.outtext = self.outtext.replace(u'&nbsp_place_holder;', nbsp)
         self.outtext = self.outtext.replace('\n** **\n', '')
+        self.outtext = self.outtext.replace('\u200b', '')
+        self.outtext = self.outtext.replace('\x0a', ' ')
+        self.outtext = self.outtext.replace('\n\n', '\n')
         self.outtext = self.outtext.replace('====', '')
         return self.outtext
 
@@ -415,7 +418,7 @@ class HTML2Text(HTMLParser.HTMLParser):
                     elif attrs['class'] == 'lead':
                         self.o('==') # NOTE: but CriticMarkup uses {== ==}
                         self.span_lead = True
-            else:
+            elif self.:
                 if self.span_hightlight:
                     self.o('`')
                     self.span_hightlight = False
@@ -669,8 +672,6 @@ class HTML2Text(HTMLParser.HTMLParser):
         if self.abbr_list and force == "end":
             for abbr, definition in self.abbr_list.items():
                 self.out("  *[" + abbr + "]: " + definition + "\n")
-        data.replace('\u200b', '')
-        data.replace('\xa0', ' ')
         self.p_p = 0
         self.out(data)
         self.outcount += 1
