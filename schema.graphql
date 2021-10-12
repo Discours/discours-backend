@@ -161,7 +161,7 @@ type User {
   oauth: String # provider:token
   userpic: String
   links: [String]
-  emailConfirmed: Boolean # should contain all emails too # TODO: pagination here
+  emailConfirmed: Boolean # should contain all emails too
   muted: Boolean
   roles: [Role]
   updatedAt: DateTime
@@ -172,6 +172,7 @@ type User {
   notifications: [Int]
   topics: [String] # user subscribed topics
   communities: [Int] # user participating communities
+  old_id: String
 }
 
 type Message {
@@ -198,6 +199,7 @@ type Comment {
   ratigns: [Rating]
   views: Int
   old_id: String
+  deleted: Boolean
 }
 
 # is publication
@@ -210,7 +212,7 @@ type Shout {
   comments: [Comment]
   ratigns: [Rating]
   visibleFor: [User]
-  community: Community
+  community: Int
   cover: String
   layout: String
   rating: Int
