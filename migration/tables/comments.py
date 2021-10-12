@@ -1,7 +1,7 @@
-import datetime
+from dateutil.parser import parse as date_parse
 import json
 from os.path import abspath
-from orm import Shout
+from orm import Shout, Comment, CommentRating, User
 from orm.base import local_session
 from migration.html2text import html2text
 
@@ -46,14 +46,32 @@ def migrate(entry):
     '''
     with local_session() as session:
         shout_id = session.query(Shout).filter(Shout.old_id == entry['_id']).first()
-        return {
+        author_dict = users_dict[entry['createdBy']]
+        print(author_dict)
+        author_id = author_dict['id']
+        comment_dict = {
             'old_id': entry['_id'],
-            'old_thread': entry['thread'],
-            'createdBy': users_dict[entry['createdBy']],
-            'createdAt': entry['createdAt'],
+            'author': author_id,
+            'createdAt': date_parse(entry['createdAt']),
             'body': html2text(entry['body']),
-            'shout': shout_id,
-            'rating': entry['rating'],
-            'ratings': [] # TODO: ratings in comments
+            'shout': shout_id
         }
-    return None
+        if 'rating' in entry:
+          comment_dict['rating'] = entry['rating']
+        if 'deleted' in entry:
+          comment_dict['deleted'] = entry['deleted']
+        if 'thread' in entry:
+          comment_dict['old_thread'] = entry['thread']
+        print(entry.keys())
+        comment = Comment.create(**comment_dict)
+        
+        for comment_rating_old in entry.get('ratings',[]):
+            rater_id = session.query(User).filter(User.old_id == comment_rating_old['createdBy']).first()
+            comment_rating_dict = {
+                'value': cr['value'],
+                'createdBy': rater_id,
+                'createdAt': date_parse(comment_rating_old['createdAt']) or ts
+            }
+            comment_rating = CommentRating.create(**comment_rating_dict)
+            comment['ratings'].append(comment_rating)
+        return comment

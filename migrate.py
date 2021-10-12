@@ -26,8 +26,8 @@ def extract_images(article):
             article['old_id'] + str(i) + '.' + ext
         img = match.group(4)
         if img not in images:
-          open('..' + link, 'wb').write(base64.b64decode(img))
-          images.append(img)
+            open('..' + link, 'wb').write(base64.b64decode(img))
+            images.append(img)
         body = body.replace(match.group(2), link)
         print(link)
     article['body'] = body
@@ -55,13 +55,12 @@ def users():
         counter += 1
     export_list = sorted(export_data.items(),
                         key=lambda item: item[1]['rating'])[-10:]
-    open('migration/data/users.dict.json',
-         'w').write(json.dumps(newdata, cls=DateTimeEncoder))  # NOTE: by old_id
+    open('migration/data/users.dict.json', 'w').write(json.dumps(newdata, cls=DateTimeEncoder))  # NOTE: by old_id
     open('../src/data/authors.json', 'w').write(json.dumps(dict(export_list),
-                                                           cls=DateTimeEncoder,
-                                                           indent=4,
-                                                           sort_keys=True,
-                                                           ensure_ascii=False))
+                                                            cls=DateTimeEncoder,
+                                                            indent=4,
+                                                            sort_keys=True,
+                                                            ensure_ascii=False))
     print(str(len(newdata.items())) + ' user accounts were migrated')
     print(str(len(export_list)) + ' authors were exported')
 
@@ -96,15 +95,14 @@ def topics():
     export_list = sorted(new_data.items(), key=lambda item: str(
         item[1]['createdAt']))
     open('migration/data/topics.dict.json',
-         'w').write(json.dumps(old_data, cls=DateTimeEncoder))
+        'w').write(json.dumps(old_data, cls=DateTimeEncoder))
     open('../src/data/topics.json', 'w').write(json.dumps(dict(export_list),
-                                                          cls=DateTimeEncoder,
-                                                          indent=4,
-                                                          sort_keys=True,
-                                                          ensure_ascii=False))
-    print(str(counter) + ' from ' + str(len(cat_data)) +
-          #' tags and ' + str(len(tag_data)) +
-          ' cats were migrated')
+                                                        cls=DateTimeEncoder,
+                                                        indent=4,
+                                                        sort_keys=True,
+                                                        ensure_ascii=False))
+    print(str(counter) + ' from ' + str(len(cat_data)) + ' cats were migrated')
+    #' tags and ' + str(len(tag_data)) +
     print(str(len(export_list)) + ' topics were exported')
 
 
@@ -114,7 +112,7 @@ def shouts():
     counter = 0
     discours_author = 0
     content_data = json.loads(open('migration/data/content_items.json').read())
-    # content_dict = { x['_id']:x for x in content_data }
+    content_dict = { x['_id']:x for x in content_data }
     newdata = {}
     print(str(len(content_data)) + ' entries loaded. now migrating...')
     errored = []
@@ -129,18 +127,18 @@ def shouts():
             if author == 'discours':
                 discours_author += 1
             open('./shouts.id.log', 'a').write(line + '\n')
-        except Exception:
+        except Exception as e:
             print(entry['_id'])
             errored.append(entry)
-            raise Exception(" error")
+            raise e
     try:
         limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
     except ValueError:
         limit = len(content_data)
     open('migration/data/shouts.dict.json',
-         'w').write(json.dumps(newdata, cls=DateTimeEncoder))
+        'w').write(json.dumps(newdata, cls=DateTimeEncoder))
     print(str(counter) + '/' + str(len(content_data)) +
-          ' content items were migrated')
+        ' content items were migrated')
     print(str(discours_author) + ' from them by @discours')
     
 def comments():
@@ -156,13 +154,13 @@ def comments():
     print(str(len(export_articles.items())) + ' articles were exported')
     export_comments = {}
     c = 0
-    for article in export_articles:
-        print(article['slug'])
-        print( comments_by_post.get(article['slug'], '') )
-        print( export_comments[article['slug']] ) # = comments_by_post.get(article['slug'])
-        c += len(export_comments[article['slug']])
-    print(str(len(export_comments.items())) + ' articles with comments')
-    open('../src/data/coments.json', 'w').write(json.dumps(dict(export_comments),
+    for slug, article in export_articles.items():
+        comments = comments_by_post.get(slug, [])
+        if len(comments) > 0:
+            export_comments[slug] = comments
+            c += len(comments)
+    print(str(len(export_comments.items())) + ' after adding those having comments')
+    open('../src/data/comments.json', 'w').write(json.dumps(dict(export_comments),
                                                             cls=DateTimeEncoder,
                                                             indent=4,
                                                             sort_keys=True,
@@ -192,7 +190,7 @@ def export_shouts(limit):
     for (slug, article) in export_list:
         if article['layout'] == 'article':
             for author in article['authors']:
-              export_authors[author['slug']] = users_slug[author['slug']]
+                export_authors[author['slug']] = users_slug[author['slug']]
             export_clean[article['slug']] = extract_images(article)
             metadata = get_metadata(article)
             content = frontmatter.dumps(frontmatter.Post(article['body'], **metadata))
@@ -223,23 +221,28 @@ def export_slug(slug):
     print(str(len(exported_authors.items())) + ' authors were exported before')
     exported_articles = json.loads(open('../src/data/articles.json').read())
     print(str(len(exported_articles.items())) + ' articles were exported before')
-    shout = shouts_dict.get(slug, None)
-    author = users_dict.get(shout['authors'][0]['slug'], None)
-    exported_authors.update({shout['authors'][0]['slug']: author})
-    exported_articles.update({shout['slug']: shout})
-    print(shout)
-    open('../src/data/articles.json', 'w').write(json.dumps(exported_articles,
-                                                           cls=DateTimeEncoder,
-                                                           indent=4,
-                                                           sort_keys=True,
-                                                           ensure_ascii=False))
-    open('../src/data/authors.json', 'w').write(json.dumps(exported_authors,
-                                                           cls=DateTimeEncoder,
-                                                           indent=4,
-                                                           sort_keys=True,
-                                                           ensure_ascii=False))
+    shout = shouts_dict.get(slug, False)
+    if shout:
+        author = users_dict.get(shout['authors'][0]['slug'], None)
+        exported_authors.update({shout['authors'][0]['slug']: author})
+        exported_articles.update({shout['slug']: shout})
+        print(shout)
+        open('../src/data/articles.json', 'w').write(json.dumps(exported_articles,
+                                                            cls=DateTimeEncoder,
+                                                            indent=4,
+                                                            sort_keys=True,
+                                                            ensure_ascii=False))
+        open('../src/data/authors.json', 'w').write(json.dumps(exported_authors,
+                                                            cls=DateTimeEncoder,
+                                                            indent=4,
+                                                            sort_keys=True,
+                                                            ensure_ascii=False))
+    else:
+        print('no old id error!')
+        print(str(len(shouts_dict)) + ' shouts were migrated')
+        print(slug)
     comments()
-    print('exported.')
+    print('finished.')
     
 
 if __name__ == '__main__':

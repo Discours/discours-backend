@@ -1,20 +1,28 @@
 from dateutil.parser import parse
-from orm import User
 from os.path import abspath
 import frontmatter
 import json
-from orm import Shout
+from orm import Shout, Comment, Topic, ShoutRating, User #, TODO: CommentRating
 from bs4 import BeautifulSoup
 from migration.html2text import html2text
+from migration.tables.comments import migrate as migrateComment
 from transliterate import translit
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from orm.base import local_session
 
-comments_data = json.loads(open(abspath('migration/data/comments.json')).read())
-comments_dict = { x['_id']: x for x in comments_data }
 users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
+print(str(len(users_dict.items())) + ' users loaded')
 topics_dict = json.loads(open(abspath('migration/data/topics.dict.json')).read()) # old_id keyed
+print(str(len(topics_dict.items())) + ' topics loaded')
+comments_data = json.loads(open(abspath('migration/data/comments.json')).read())
+print(str(len(comments_data)) + ' comments loaded')
+comments_by_post = {}
+for comment in comments_data:
+    p = comment['contentItem']
+    comments_by_post[p] = comments_by_post.get(p, [])
+    comments_by_post[p].append(comment)
+    
 users_dict['0'] = {
     'id': 9999999,
     'slug': 'discours',
@@ -40,6 +48,7 @@ def get_metadata(r):
     metadata['authors'] = r.get('authors')
     metadata['createdAt'] = r.get('createdAt', ts)
     metadata['layout'] = r['layout']
+    metadata['topics'] = r['topics']
     if r.get('cover', False):
         metadata['cover'] = r.get('cover')
     return metadata
@@ -79,7 +88,7 @@ def migrate(entry):
         'views': entry.get('views', 0),
         'rating': entry.get('rating', 0),
         'ratings': [],
-        'comments': entry.get('comments', []),
+        'comments': [],
         'createdAt': entry.get('createdAt', '2016-03-05 22:22:00.350000')
     }
     r['slug'] = entry.get('slug', '')
@@ -112,8 +121,7 @@ def migrate(entry):
             else:
                 body_html = str(BeautifulSoup(
                     body_orig, features="html.parser"))
-                r['body'] = html2text(body_html).replace('****', '**')
-                r['old_id'] = entry.get('_id')
+                r['body'] = html2text(body_html)
         else:
             print(r['slug'] + ': literature has no media')
     elif entry.get('type') == 'Video':
@@ -134,9 +142,9 @@ def migrate(entry):
     if r.get('body') is None:
         body_orig = entry.get('body', '')
         body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-        r['body'] = html2text(body_html).replace('****', '**')
-        r['old_id'] = entry.get('_id')
-    body = r.get('body')
+        r['body'] = html2text(body_html)
+    body = r.get('body', '')
+    r['old_id'] = entry.get('_id')
     user = None
     try:
         userdata = users_dict.get(entry['createdBy'], users_dict['0'])
@@ -167,7 +175,7 @@ def migrate(entry):
                             User.slug == authordata['slug']).first()
             slug = user['slug']
             name = user['name']
-            userpic = user.userpic
+            userpic = user['userpic']
         else:
             # no application, no author!
             slug = 'discours'
@@ -203,43 +211,55 @@ def migrate(entry):
                 else:
                     shout_dict['publishedAt'] = ts
             del shout_dict['published']
-
-            shout_dict['comments'] = []
-            for cid in r['comments']:
-              comment = comments_dict[cid]
-              comment_ratings = []
-              for cr in comment['ratings']:
-                comment_ratings.append({
-                  'value': cr['value'],
-                  'createdBy': users_dict[cr['createdBy']],
-                  'createdAt': cr['createdAt'] or ts})
-              shout_dict['comments'].append({
-                'old_id': comment['_id'],
-                'old_thread': comment['thread'], # TODO: old_thread to replyTo logix
-                'createdBy': users_dict[comment['createdBy']],
-                'createdAt': comment['createdAt'] or ts,
-                'body': html2text(comment['body']),
-                'shout': shout_dict['old_id'],
-                'rating': comment['rating'],
-                'ratings': comment_ratings
-            })
-
-            shout_dict['ratings'] = []
-            for rating in r['ratings']:
-              shout_dict['ratings'].append({
-                'value': rating['value'],
-                'createdBy': users_dict[rating['createdBy']],
-                'createdAt': r['createdAt'] or ts})
+            
+            # shout comments
+            if entry.get('commentedAt', False):
+                try:
+                    old_comments = comments_by_post.get(shout_dict['old_id'], [])
+                    if len(old_comments) > 0:
+                        shout_dict['comments'] = []
+                        
+                        # migrate comments
+                        for entry in old_comments:
+                            comment = migrateComment(entry)
+                            shout_dict['comments'].append(comment)
+                except KeyError:
+                    print(shout_dict.keys())
+                    raise 'error'
 
             try:
-                del shout_dict['views'] # FIXME
-                del shout_dict['rating'] # FIXME
-                del shout_dict['ratings'] # FIXME
-                # del shout_dict['comments']
-                s = Shout.create(**shout_dict) # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
+                topic_slugs = shout_dict['topics']
+                del shout_dict['topics'] # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
+                del shout_dict['views'] # FIXME: TypeError: 'views' is an invalid keyword argument for Shout
+                del shout_dict['rating'] # FIXME: TypeError: 'rating' is an invalid keyword argument for Shout
+                del shout_dict['ratings']
+                s = Shout.create(**shout_dict) 
                 r['id'] = s.id
+                
+                if len(entry.get('ratings', [])) > 0:
+                    # TODO: adding shout ratings
+                    '''
+                    shout_dict['ratings'] = []
+                    for shout_rating_old in entry['ratings']:
+                        shout_rating = ShoutRating.create(
+                            rater_id = users_dict[shout_rating_old['createdBy']]['id'],
+                            shout_id = s.id,
+                            value = shout_rating_old['value']
+                        )
+                        shout.ratings.append(shout_rating.id)
+                    '''
+                
+                for topic_slug in topic_slugs:
+                    topic_dict = topics_dict.get(topic_slug)
+                    if topic_dict:
+                        topic = Topic.create(**topic_dict)
+                        shout.topics = [ topic, ]
+                        shout.save()
+                    
             except Exception as e:
-              pass # raise e
+              r['error'] = 'db error'
+              # pass
+              raise e
         except Exception as e:
             if not r['body']: r['body'] = 'body moved'
             raise e

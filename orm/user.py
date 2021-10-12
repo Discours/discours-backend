@@ -58,6 +58,7 @@ class User(Base):
 	ratings = relationship(UserRatings, foreign_keys=UserRatings.user_id)
 	roles = relationship(lambda: Role, secondary=UserRoles)
 	topics = relationship(lambda: Topic, secondary=UserTopics)
+	old_id: str = Column(String, nullable = True)
 
 	@classmethod
 	def get_permission(cls, user_id):

@@ -7,9 +7,9 @@ from orm.notification import Notification
 from orm.shout import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay,\
 	ShoutRatingStorage, ShoutViewStorage
 from orm.base import Base, engine, local_session
-from orm.comment import Comment
+from orm.comment import Comment, CommentRating
 
-__all__ = ["User", "Role", "Operation", "Permission", "Message", "Shout", "Topic", "Notification"]
+__all__ = ["User", "Role", "Operation", "Permission", "Message", "Shout", "Topic", "Notification", "ShoutRating", "Comment", "CommentRating"]
 
 Base.metadata.create_all(engine)
 Operation.init_table()
