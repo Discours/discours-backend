@@ -1,12 +1,13 @@
 from dateutil.parser import parse as date_parse
 import json
+import datetime
 from os.path import abspath
 from orm import Shout, Comment, CommentRating, User
 from orm.base import local_session
 from migration.html2text import html2text
 
-users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
-topics_dict = json.loads(open(abspath('migration/data/topics.dict.json')).read()) # old_id keyed
+# users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
+# topics_dict = json.loads(open(abspath('migration/data/topics.dict.json')).read()) # old_id keyed
 
 def migrate(entry):
     '''
@@ -39,39 +40,46 @@ def migrate(entry):
         deletedAt: DateTime
         deletedBy: Int
         rating: Int
-        ratigns: [Rating]
+        ratigns: [CommentRating]
         views: Int
         old_id: String
+        old_thread: String
     }
     '''
     with local_session() as session:
-        shout_id = session.query(Shout).filter(Shout.old_id == entry['_id']).first()
-        author_dict = users_dict[entry['createdBy']]
-        print(author_dict)
-        author_id = author_dict['id']
+        shout = session.query(Shout).filter(Shout.old_id == entry['_id']).first()
+        if not shout: print(entry)
+        assert shout, '=== NO SHOUT IN COMMENT ERROR ==='
+        author = session.query(User).filter(User.old_id == entry['_id']).first()
         comment_dict = {
             'old_id': entry['_id'],
-            'author': author_id,
+            'author': author.id if author else 0,
             'createdAt': date_parse(entry['createdAt']),
             'body': html2text(entry['body']),
-            'shout': shout_id
+            'shout': shout
         }
         if 'rating' in entry:
           comment_dict['rating'] = entry['rating']
-        if 'deleted' in entry:
-          comment_dict['deleted'] = entry['deleted']
+        if entry.get('deleted'):
+          comment_dict['deletedAt'] = entry['updatedAt']
+          comment_dict['deletedBy'] = entry['updatedBy']
         if 'thread' in entry:
           comment_dict['old_thread'] = entry['thread']
-        print(entry.keys())
+        # print(entry.keys())
         comment = Comment.create(**comment_dict)
-        
         for comment_rating_old in entry.get('ratings',[]):
             rater_id = session.query(User).filter(User.old_id == comment_rating_old['createdBy']).first()
             comment_rating_dict = {
-                'value': cr['value'],
-                'createdBy': rater_id,
-                'createdAt': date_parse(comment_rating_old['createdAt']) or ts
+                'value': comment_rating_old['value'],
+                'createdBy': rater_id or 0,
+                'createdAt': comment_rating_old.get('createdAt', datetime.datetime.now()),
+                'comment_id': comment.id
             }
-            comment_rating = CommentRating.create(**comment_rating_dict)
-            comment['ratings'].append(comment_rating)
+            try:
+              comment_rating = CommentRating.create(**comment_rating_dict)
+              # TODO: comment rating append resolver
+              # comment['ratings'].append(comment_rating)
+            except Exception as e:
+              print(comment_rating)
+              pass # raise e
         return comment

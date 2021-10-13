@@ -184,6 +184,7 @@ def migrate(entry):
     with local_session() as session:
         user = session.query(User).filter(User.slug == slug).first()
     r['authors'].append({
+        'id': user.id,
         'slug': slug,
         'name': name,
         'userpic': userpic
@@ -197,7 +198,7 @@ def migrate(entry):
     if entry['published']:
         ext = 'md'
         open('migration/content/' +
-             r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
+            r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
         try:
             shout_dict = r.copy()
             shout_dict['authors'] = [user, ]
@@ -211,21 +212,6 @@ def migrate(entry):
                 else:
                     shout_dict['publishedAt'] = ts
             del shout_dict['published']
-            
-            # shout comments
-            if entry.get('commentedAt', False):
-                try:
-                    old_comments = comments_by_post.get(shout_dict['old_id'], [])
-                    if len(old_comments) > 0:
-                        shout_dict['comments'] = []
-                        
-                        # migrate comments
-                        for entry in old_comments:
-                            comment = migrateComment(entry)
-                            shout_dict['comments'].append(comment)
-                except KeyError:
-                    print(shout_dict.keys())
-                    raise 'error'
 
             try:
                 topic_slugs = shout_dict['topics']
@@ -248,18 +234,18 @@ def migrate(entry):
                         )
                         shout.ratings.append(shout_rating.id)
                     '''
-                
+                # adding topics to created shout
                 for topic_slug in topic_slugs:
-                    topic_dict = topics_dict.get(topic_slug)
-                    if topic_dict:
-                        topic = Topic.create(**topic_dict)
+                        if not topic: 
+                            topic_dict = topics_dict.get(topic_slug)
+                            if topic_dict:
+                                topic = Topic.create(**topic_dict)
                         shout.topics = [ topic, ]
                         shout.save()
-                    
             except Exception as e:
-              r['error'] = 'db error'
-              # pass
-              raise e
+                r['error'] = 'db error'
+                # pass
+                raise e
         except Exception as e:
             if not r['body']: r['body'] = 'body moved'
             raise e

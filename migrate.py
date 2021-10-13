@@ -7,6 +7,7 @@ from migration.tables.users import migrate as migrateUser
 from migration.tables.content_items import get_metadata, migrate as migrateShout
 from migration.tables.content_item_categories import migrate as migrateCategory
 from migration.tables.tags import migrate as migrateTag
+from migration.tables.comments import migrate as migrateComment
 from migration.utils import DateTimeEncoder
 from orm import Community
 
@@ -53,8 +54,7 @@ def users():
         del user['email']
         export_data[user['slug']] = user
         counter += 1
-    export_list = sorted(export_data.items(),
-                        key=lambda item: item[1]['rating'])[-10:]
+    export_list = sorted(export_data.items(), key=lambda item: item[1]['rating'])[-10:]
     open('migration/data/users.dict.json', 'w').write(json.dumps(newdata, cls=DateTimeEncoder))  # NOTE: by old_id
     open('../src/data/authors.json', 'w').write(json.dumps(dict(export_list),
                                                             cls=DateTimeEncoder,
@@ -143,19 +143,35 @@ def shouts():
     
 def comments():
     ''' migrating comments on content items one by one '''
-    comments_data = json.loads(open('migration/data/comments.json').read())
+    content_data = json.loads(open('migration/data/content_items.json').read()) # old content
+    content_dict = { x['_id']: x for x in content_data } # by slug
+    shouts_dict = json.loads(open('migration/data/shouts.dict.json', 'r').read()) # all shouts by slug
+    print(str(len(shouts_dict.keys())) + ' migrated shouts loaded')
+    shouts_old = { x['old_id']: x for slug, x in shouts_dict.items() } # shouts by old_id
+    print(str(len(content_data)) + ' content items loaded')
+    comments_data = json.loads(open('migration/data/comments.json').read()) # by slug
     print(str(len(comments_data)) + ' comments loaded')
     comments_by_post = {}
-    for comment in comments_data:
-        p = comment['contentItem']
-        comments_by_post[p] = comments_by_post.get(p, [])
-        comments_by_post[p].append(comment)
+    # sort comments by old posts ids
+    for old_comment in comments_data:
+        cid = old_comment['contentItem']
+        comments_by_post[cid] = comments_by_post.get(cid, [])
+        comments_by_post[cid].append(old_comment)
+    # migrate comments
+    comments_by_shoutslug = {}
+    for content_item in content_data:
+        old_id = content_item['_id']
+        if content_item.get('commentedAt', False):
+            comments = [ migrateComment(c) for c in comments_by_post.get(old_id, []) ]
+            if comments.length > 0:
+                shout = shouts_old.get(old_id, { 'slug': 'abandoned-comments' })
+                comments_by_shoutslug[shout['slug']] = comments
     export_articles = json.loads(open('../src/data/articles.json').read())
     print(str(len(export_articles.items())) + ' articles were exported')
     export_comments = {}
     c = 0
     for slug, article in export_articles.items():
-        comments = comments_by_post.get(slug, [])
+        comments = comments_by_shoutslug.get(slug, [])
         if len(comments) > 0:
             export_comments[slug] = comments
             c += len(comments)
@@ -171,13 +187,15 @@ def comments():
 
 def export_shouts(limit):
     print('reading json...')
-    newdata = json.loads(open('migration/data/shouts.dict.json', 'r').read())
-    print(str(len(newdata.keys())) + ' shouts loaded')
     content_data = json.loads(open('migration/data/content_items.json').read())
     content_dict = { x['_id']:x for x in content_data }
+    print(str(len(content_data)) + ' content items loaded')
+    newdata = json.loads(open('migration/data/shouts.dict.json', 'r').read())
+    print(str(len(newdata.keys())) + ' migrated shouts loaded')
     users_old = json.loads(open('migration/data/users.dict.json').read())
+    print(str(len(newdata.keys())) + ' migrated users loaded')
     export_authors = json.loads(open('../src/data/authors.json').read())
-    print(str(len(export_authors.items())) + ' pre-exported authors loaded')
+    print(str(len(export_authors.items())) + ' exported authors loaded')
     users_slug = { u['slug']: u for old_id, u in users_old.items()}
     print(str(len(users_slug.items())) + ' users loaded')
 
@@ -204,23 +222,23 @@ def export_shouts(limit):
                                                             ensure_ascii=False))
     print(str(len(export_clean.items())) + ' articles exported')
     open('../src/data/authors.json', 'w').write(json.dumps(export_authors,
-                                                           cls=DateTimeEncoder,
-                                                           indent=4,
-                                                           sort_keys=True,
-                                                           ensure_ascii=False))
+                                                            cls=DateTimeEncoder,
+                                                            indent=4,
+                                                            sort_keys=True,
+                                                            ensure_ascii=False))
     comments()
     print(str(len(export_authors.items())) + ' total authors exported')
 
 def export_slug(slug):
     shouts_dict = json.loads(open('migration/data/shouts.dict.json').read())
-    print(str(len(shouts_dict.items())) + ' shouts loaded')
-    users_old = json.loads(open('migration/data/users.dict.json').read())
-    print(str(len(users_old.items())) + ' users loaded')
+    print(str(len(shouts_dict.items())) + ' migrated shouts loaded')
+    users_old = json.loads(open('migration/data/users.dict.json').read()) # NOTE: this exact file is by old_id
+    print(str(len(users_old.items())) + ' migrated users loaded')
     users_dict = { x[1]['slug']:x for x in users_old.items() }
     exported_authors = json.loads(open('../src/data/authors.json').read())
-    print(str(len(exported_authors.items())) + ' authors were exported before')
+    print(str(len(exported_authors.items())) + ' exported authors loaded')
     exported_articles = json.loads(open('../src/data/articles.json').read())
-    print(str(len(exported_articles.items())) + ' articles were exported before')
+    print(str(len(exported_articles.items())) + ' exported articles loaded')
     shout = shouts_dict.get(slug, False)
     if shout:
         author = users_dict.get(shout['authors'][0]['slug'], None)
@@ -239,7 +257,7 @@ def export_slug(slug):
                                                             ensure_ascii=False))
     else:
         print('no old id error!')
-        print(str(len(shouts_dict)) + ' shouts were migrated')
+        # print(str(len(shouts_dict)) + ' shouts were migrated')
         print(slug)
     comments()
     print('finished.')
@@ -252,8 +270,6 @@ if __name__ == '__main__':
             users()
         elif sys.argv[1] == "topics":
             topics()
-        elif sys.argv[1] == "comments":
-            comments()
         elif sys.argv[1] == "shouts":
             try:
                 Community.create(**{
@@ -266,17 +282,20 @@ if __name__ == '__main__':
             except Exception:
                 pass
             shouts()
+        elif sys.argv[1] == "comments":
+            comments()
         elif sys.argv[1] == "export_shouts":
-          limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
-          export_shouts(limit)
+            limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+            export_shouts(limit)
         elif sys.argv[1] == "all":
             users()
             topics()
             shouts()
+            comments()
         elif sys.argv[1] == "bson":
             from migration import bson2json
             bson2json.json_tables()
         elif sys.argv[1] == 'slug':
             export_slug(sys.argv[2])
     else:
-        print('usage: python migrate.py <bson|slug|topics|users|shouts|export_shouts [num]|slug [str]|all>')
+        print('usage: python migrate.py bson\n.. \ttopics <limit>\n.. \tusers <limit>\n.. \tshouts <limit>\n.. \tcomments\n.. \texport_shouts <limit>\n.. \tslug <slug>\n.. \tall>')

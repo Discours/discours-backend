@@ -388,7 +388,7 @@ class HTML2Text(HTMLParser.HTMLParser):
             parent_style = {}
             if start:
                 if self.tag_stack:
-                  parent_style = self.tag_stack[-1][2]
+                    parent_style = self.tag_stack[-1][2]
                 tag_style = element_style(attrs, self.style_def, parent_style)
                 self.tag_stack.append((tag, attrs, tag_style))
             else:
@@ -418,7 +418,7 @@ class HTML2Text(HTMLParser.HTMLParser):
                     elif attrs['class'] == 'lead':
                         self.o('==') # NOTE: but CriticMarkup uses {== ==}
                         self.span_lead = True
-            elif self.:
+            else:
                 if self.span_hightlight:
                     self.o('`')
                     self.span_hightlight = False
@@ -600,7 +600,7 @@ class HTML2Text(HTMLParser.HTMLParser):
         # if self.google_doc:
         # prevent white space immediately after 'begin emphasis' marks ('**' and '_')
         lstripped_data = data.lstrip()
-        if self.drop_white_space and not (self.pre or self.code or self.span_hightlight or self.span_lead):
+        if self.drop_white_space and not (self.pre or self.code):
             data = lstripped_data   
             if puredata: # and not self.pre:
                 data = re.sub('\s+', ' ', data)

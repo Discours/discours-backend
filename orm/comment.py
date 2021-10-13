@@ -10,9 +10,9 @@ class CommentRating(Base):
 	__tablename__ = "comment_rating"
 
 	id = None
-	rater_id = Column(ForeignKey('user.id'), primary_key = True)
 	comment_id = Column(ForeignKey('comment.id'), primary_key = True)
-	ts: str = Column(DateTime, nullable=False, default = datetime.now, comment="Timestamp")
+	createdBy = Column(ForeignKey('user.id'), primary_key = True)
+	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Timestamp")
 	value = Column(Integer)
 
 class Comment(Base):
@@ -28,7 +28,7 @@ class Comment(Base):
 	rating: int = Column(Integer, nullable=True, comment="Comment Rating")
 	ratings = relationship(CommentRating, foreign_keys=CommentRating.comment_id)
 	old_id: str = Column(String, nullable = True)
-	deleted: bool = Column(Boolean, nullable = True)
+	old_thread: str = Column(String, nullable = True)
 	
 
 	# TODO: work in progress, udpate this code

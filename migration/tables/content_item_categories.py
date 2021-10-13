@@ -9,7 +9,7 @@ def migrate(entry):
         children: [String] # and children
     }
     '''
-    return {
+    topic_dict = {
         'slug': entry['slug'],
         'createdBy': entry['createdBy'], # NOTE: uses an old user id
         'createdAt': entry['createdAt'],
@@ -18,3 +18,10 @@ def migrate(entry):
         'children': [],
         'old_id': entry['_id']
     }
+    
+    with local_session() as session:
+        topic = session.query(Topic).filter(Topic.slug == topic_slug).first()
+        if not topic:
+            topic = Topic.create(**topic_dict)
+            topic_dict['id'] = topic.id
+        return topic_dict

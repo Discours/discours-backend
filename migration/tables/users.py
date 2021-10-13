@@ -81,8 +81,6 @@ def migrate(entry, limit=668):
       res['slug'] = res['email'].split('@')[0]
   else:
       old = res['old_id']
-      del res['old_id']
       user = User.create(**res.copy())
       res['id'] = user.id
-      res['old_id'] = old
       return res

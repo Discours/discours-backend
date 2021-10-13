@@ -152,7 +152,7 @@ type UserNotification {
 
 type User {
   id: Int!
-  username: String! # email
+  username: String! # to login, ex. email
   createdAt: DateTime!
   slug: String!
   name: String # to display
@@ -196,10 +196,18 @@ type Comment {
   deletedAt: DateTime
   deletedBy: Int
   rating: Int
-  ratigns: [Rating]
+  ratigns: [CommentRating]
   views: Int
   old_id: String
-  deleted: Boolean
+  old_thread: String
+}
+
+type CommentRating {
+  id: Int!
+  comment_id: Int!
+  createdBy: Int!
+  createdAt: DateTime!
+  value: Int!
 }
 
 # is publication
