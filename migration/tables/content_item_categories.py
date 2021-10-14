@@ -1,3 +1,7 @@
+from orm.base import local_session
+from orm import Topic
+# from dateutil.parser import parse as date_parse
+
 def migrate(entry):
     '''
     type Topic {
@@ -16,12 +20,15 @@ def migrate(entry):
         'title': entry['title'].lower(),
         'parents': [],
         'children': [],
-        'old_id': entry['_id']
+        'cat_id': entry['_id']
     }
-    
-    with local_session() as session:
-        topic = session.query(Topic).filter(Topic.slug == topic_slug).first()
-        if not topic:
-            topic = Topic.create(**topic_dict)
-            topic_dict['id'] = topic.id
-        return topic_dict
+    try:
+        with local_session() as session:
+            topic = session.query(Topic).filter(Topic.slug == entry['slug']).first()
+            if not topic:
+                topic = Topic.create(**topic_dict)
+                topic_dict['id'] = topic.id
+            return topic_dict
+    except Exception as e:
+        print(e)
+        return {}

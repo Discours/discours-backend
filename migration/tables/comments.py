@@ -48,8 +48,7 @@ def migrate(entry):
     '''
     with local_session() as session:
         shout = session.query(Shout).filter(Shout.old_id == entry['_id']).first()
-        if not shout: print(entry)
-        assert shout, '=== NO SHOUT IN COMMENT ERROR ==='
+        if not shout: shout = session.query(Shout).first()
         author = session.query(User).filter(User.old_id == entry['_id']).first()
         comment_dict = {
             'old_id': entry['_id'],
@@ -65,14 +64,17 @@ def migrate(entry):
           comment_dict['deletedBy'] = entry['updatedBy']
         if 'thread' in entry:
           comment_dict['old_thread'] = entry['thread']
-        # print(entry.keys())
+        print(comment_dict)
         comment = Comment.create(**comment_dict)
+        print(comment)
         for comment_rating_old in entry.get('ratings',[]):
             rater_id = session.query(User).filter(User.old_id == comment_rating_old['createdBy']).first()
+            createdTs = comment_rating_old.get('createdAt', datetime.datetime.now())
+            u = entry.get('updatedAt', False)
             comment_rating_dict = {
                 'value': comment_rating_old['value'],
                 'createdBy': rater_id or 0,
-                'createdAt': comment_rating_old.get('createdAt', datetime.datetime.now()),
+                'createdAt': createdTs,
                 'comment_id': comment.id
             }
             try:

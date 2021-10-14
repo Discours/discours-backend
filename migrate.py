@@ -10,6 +10,7 @@ from migration.tables.tags import migrate as migrateTag
 from migration.tables.comments import migrate as migrateComment
 from migration.utils import DateTimeEncoder
 from orm import Community
+from dateutil.parser import parse as date_parse
 
 
 IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,(.*?))\)"
@@ -68,20 +69,19 @@ def users():
 def topics():
     ''' topics from categories and tags '''
     print('migrating topics...')
-    cat_data = json.loads(
-        open('migration/data/content_item_categories.json').read())
-    # tag_data = json.loads(open('migration/data/tags.json').read())
-    new_data = {}
-    old_data = {}
+    cats_data = json.loads(open('migration/data/content_item_categories.json').read())
+    cat_topics = {}
+    slug_topics = {}
     counter = 0
     try:
-        for cat in cat_data:
+        for cat in cats_data:
             topic = migrateCategory(cat)
-            old_data[topic['old_id']] = topic
-            new_data[topic['slug']] = topic
+            cat_topics[topic['cat_id']] = topic
+            slug_topics[topic['slug']] = topic
             counter += 1
-    except Exception:
+    except Exception as e:
         print('cats exception, try to remove database first')
+        raise e
     '''
     try:
         for tag in tag_data:
@@ -92,17 +92,20 @@ def topics():
         print('tags exception, try to remove database first')
         raise Exception
     '''
-    export_list = sorted(new_data.items(), key=lambda item: str(
+    export_list = sorted(slug_topics.items(), key=lambda item: str(
         item[1]['createdAt']))
-    open('migration/data/topics.dict.json',
-        'w').write(json.dumps(old_data, cls=DateTimeEncoder))
+    open('migration/data/topics.dict.json','w').write(json.dumps(cat_topics,
+                                                        cls=DateTimeEncoder,
+                                                        indent=4,
+                                                        sort_keys=True,
+                                                        ensure_ascii=False))
     open('../src/data/topics.json', 'w').write(json.dumps(dict(export_list),
                                                         cls=DateTimeEncoder,
                                                         indent=4,
                                                         sort_keys=True,
                                                         ensure_ascii=False))
-    print(str(counter) + ' from ' + str(len(cat_data)) + ' cats were migrated')
     #' tags and ' + str(len(tag_data)) +
+    print(str(counter) + ' / ' + str(len(cats_data)) + ' migrated')
     print(str(len(export_list)) + ' topics were exported')
 
 
@@ -277,7 +280,7 @@ if __name__ == '__main__':
                     'name': 'Дискурс',
                     'pic': 'https://discours.io/images/logo-min.svg',
                     'createdBy': '0',
-                    'createdAt': OLD_DATE
+                    'createdAt': date_parse(OLD_DATE)
                 })
             except Exception:
                 pass

@@ -1,4 +1,4 @@
-from dateutil.parser import parse
+from dateutil.parser import parse as date_parse
 from os.path import abspath
 import frontmatter
 import json
@@ -13,10 +13,14 @@ from orm.base import local_session
 
 users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
 print(str(len(users_dict.items())) + ' users loaded')
-topics_dict = json.loads(open(abspath('migration/data/topics.dict.json')).read()) # old_id keyed
-print(str(len(topics_dict.items())) + ' topics loaded')
+
+cats_data = json.loads(open(abspath('migration/data/content_item_categories.json')).read()) # old_id keyed
+cats_dict = { x['_id']: x for x in cats_data }
+print(str(len(cats_data)) + ' categories loaded')
+
 comments_data = json.loads(open(abspath('migration/data/comments.json')).read())
 print(str(len(comments_data)) + ' comments loaded')
+
 comments_by_post = {}
 for comment in comments_data:
     p = comment['contentItem']
@@ -102,15 +106,15 @@ def migrate(entry):
         # print(entry)
         raise Exception
     try:
-      r['topics'].append(topics_dict[entry['category']]['slug'])
+        r['topics'].append(cats_dict[entry['category']]['slug'])
     except Exception:
-      print(entry['category'])
+        print(entry['category'])
     if entry.get('image') is not None:
         r['cover'] = entry['image']['url']
     if entry.get('thumborId') is not None:
         r['cover'] = 'https://assets.discours.io/unsafe/1600x/' + entry['thumborId']
     if entry.get('updatedAt') is not None:
-        r['updatedAt'] = parse(entry['updatedAt'])
+        r['updatedAt'] = date_parse(entry['updatedAt'])
     if entry.get('type') == 'Literature':
         media = entry.get('media', '')
         # print(media[0]['literatureBody'])
@@ -125,16 +129,16 @@ def migrate(entry):
         else:
             print(r['slug'] + ': literature has no media')
     elif entry.get('type') == 'Video':
-      m = entry['media'][0]
-      yt = m.get('youtubeId', '')
-      vm = m.get('vimeoId', '')
-      video_url = 'https://www.youtube.com/watch?v=' + yt if yt else '#'
-      if video_url == '#':
-          video_url = 'https://vimeo.com/' + vm if vm else '#'
-      if video_url == '#':
-          print(entry.get('media', 'NO MEDIA!'))
-          # raise Exception
-      r['body'] = '<ShoutVideo src=\"' + video_url + \
+        m = entry['media'][0]
+        yt = m.get('youtubeId', '')
+        vm = m.get('vimeoId', '')
+        video_url = 'https://www.youtube.com/watch?v=' + yt if yt else '#'
+        if video_url == '#':
+            video_url = 'https://vimeo.com/' + vm if vm else '#'
+        if video_url == '#':
+            print(entry.get('media', 'NO MEDIA!'))
+            # raise Exception
+        r['body'] = '<ShoutVideo src=\"' + video_url + \
             '\" />' + html2text(m.get('body', ''))  # FIXME
     elif entry.get('type') == 'Music':
         r['body'] = '<ShoutMusic media={\"' + \
@@ -214,7 +218,6 @@ def migrate(entry):
             del shout_dict['published']
 
             try:
-                topic_slugs = shout_dict['topics']
                 del shout_dict['topics'] # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
                 del shout_dict['views'] # FIXME: TypeError: 'views' is an invalid keyword argument for Shout
                 del shout_dict['rating'] # FIXME: TypeError: 'rating' is an invalid keyword argument for Shout
@@ -223,8 +226,7 @@ def migrate(entry):
                 r['id'] = s.id
                 
                 if len(entry.get('ratings', [])) > 0:
-                    # TODO: adding shout ratings
-                    '''
+                    # TODO: migrate shout ratings
                     shout_dict['ratings'] = []
                     for shout_rating_old in entry['ratings']:
                         shout_rating = ShoutRating.create(
@@ -232,16 +234,20 @@ def migrate(entry):
                             shout_id = s.id,
                             value = shout_rating_old['value']
                         )
-                        shout.ratings.append(shout_rating.id)
-                    '''
-                # adding topics to created shout
-                for topic_slug in topic_slugs:
+                        s.ratings.append(shout_rating.id)
+                        s.save()
+                # TODO: migrate topics
+                '''
+                with local_session() as session:
+                    for topic_slug in topic_slugs:
+                        topic = session.query(Topic).filter(Topic.slug == topic_slug).first()
                         if not topic: 
-                            topic_dict = topics_dict.get(topic_slug)
+                            topic_dict = migrateCategory()
                             if topic_dict:
                                 topic = Topic.create(**topic_dict)
-                        shout.topics = [ topic, ]
-                        shout.save()
+                        s.topics = [ topic, ]
+                        s.save()
+                '''
             except Exception as e:
                 r['error'] = 'db error'
                 # pass
