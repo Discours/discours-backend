@@ -256,6 +256,7 @@ type Topic {
   createdAt: DateTime!
   parents: [String] # NOTE: topic can have parent topics
   children: [String] # and children
+  cat_id: String
 }
 
 # TODO: resolvers to add/remove topics from publication

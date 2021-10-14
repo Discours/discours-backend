@@ -18,7 +18,10 @@ class Topic(Base):
 	slug: str = Column(String, unique = True, nullable = False)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	createdBy: str = Column(ForeignKey("user.id"), nullable=False, comment="Author")
-	value: str = Column(String, nullable=False, comment="Value")
+	title: str = Column(String, nullable=False, comment="Title")
+	body: str = Column(String, nullable=True, comment="Body")
+	pic: str = Column(String, nullable=True, comment="Picture")
+	cat_id: str = Column(String, nullable=True, comment="Old Category ID")
 	# list of Topics where the current node is the "other party" or "child"
 	parents = relationship(lambda: Topic, secondary=Connection, primaryjoin=slug==Connection.c.parent, secondaryjoin=slug==Connection.c.child, viewonly=True)
 	# list of Topics where the current node is the "parent" 
