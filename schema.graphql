@@ -192,6 +192,7 @@ type Comment {
   replyTo: Int!
   createdAt: DateTime!
   updatedAt: DateTime
+  updatedBy: Int
   shout: Int!
   deletedAt: DateTime
   deletedBy: Int

@@ -22,6 +22,7 @@ class Comment(Base):
 	body: str = Column(String, nullable=False, comment="Comment Body")
 	createdAt = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	updatedAt = Column(DateTime, nullable=True, comment="Updated at")
+	updatedBy = Column(ForeignKey("user.id"), nullable=True, comment="Last Editor")
 	deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
 	deletedBy = Column(ForeignKey("user.id"), nullable=True, comment="Deleted by")
 	shout: int = Column(ForeignKey("shout.id"), nullable=True, comment="Shout ID")

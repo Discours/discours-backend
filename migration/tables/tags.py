@@ -1,18 +1,8 @@
 import json
-
-from os.path import abspath
 from datetime import datetime
-
-users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
-users_dict['0'] = {
-    'id': 9999999,
-    'slug': 'discours.io',
-    'name': 'Дискурс',
-    'userpic': 'https://discours.io/images/logo-mini.svg',
-    'createdAt': '2016-03-05 22:22:00.350000'
-    }
-
-ts = datetime.now()
+from orm.base import local_session
+from orm import Topic
+from dateutil.parser import parse as date_parse
 
 def migrate(entry):
     '''
@@ -25,12 +15,26 @@ def migrate(entry):
         children: [String] # and children
     }
     '''
-    creator = users_dict.get(entry['createdBy'], users_dict['0'])
-    return {
+    if type(entry['createdAt']) == type(''):
+        ts = date_parse(entry['createdAt'])
+    else:
+        ts = datetime.fromtimestamp(entry['createdAt']/1000)
+    topic_dict = {
         'slug': entry['slug'],
-        'createdBy': creator['id'], # NOTE: uses an old user id
-        'createdAt': entry['createdAt'],
+        'createdBy': 0,
+        'createdAt': ts,
         'title': entry['title'].lower(),
         'parents': [],
         'children': []
     }
+    try:
+        with local_session() as session:
+            topic = session.query(Topic).filter(Topic.slug == entry['slug']).first()
+            if not topic: topic = Topic.create(**topic_dict)
+            topic_dict['id'] = topic.id
+    except Exception as e:
+        print(e)
+        raise e
+    
+    topic_dict['tag_id'] = entry['_id']
+    return topic_dict

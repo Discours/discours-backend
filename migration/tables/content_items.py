@@ -1,7 +1,8 @@
 from dateutil.parser import parse as date_parse
-from os.path import abspath
 import frontmatter
 import json
+import sqlite3
+import sqlalchemy
 from orm import Shout, Comment, Topic, ShoutRating, User #, TODO: CommentRating
 from bs4 import BeautifulSoup
 from migration.html2text import html2text
@@ -10,24 +11,8 @@ from transliterate import translit
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from orm.base import local_session
-
-users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
-print(str(len(users_dict.items())) + ' users loaded')
-
-cats_data = json.loads(open(abspath('migration/data/content_item_categories.json')).read()) # old_id keyed
-cats_dict = { x['_id']: x for x in cats_data }
-print(str(len(cats_data)) + ' categories loaded')
-
-comments_data = json.loads(open(abspath('migration/data/comments.json')).read())
-print(str(len(comments_data)) + ' comments loaded')
-
-comments_by_post = {}
-for comment in comments_data:
-    p = comment['contentItem']
-    comments_by_post[p] = comments_by_post.get(p, [])
-    comments_by_post[p].append(comment)
     
-users_dict['0'] = {
+DISCOURS_USER = {
     'id': 9999999,
     'slug': 'discours',
     'name': 'Дискурс',
@@ -57,7 +42,7 @@ def get_metadata(r):
         metadata['cover'] = r.get('cover')
     return metadata
 
-def migrate(entry):
+def migrate(entry, users_by_oid, topics_by_oid):
     '''
     type Shout {
         slug: String!
@@ -92,7 +77,6 @@ def migrate(entry):
         'views': entry.get('views', 0),
         'rating': entry.get('rating', 0),
         'ratings': [],
-        'comments': [],
         'createdAt': entry.get('createdAt', '2016-03-05 22:22:00.350000')
     }
     r['slug'] = entry.get('slug', '')
@@ -106,7 +90,7 @@ def migrate(entry):
         # print(entry)
         raise Exception
     try:
-        r['topics'].append(cats_dict[entry['category']]['slug'])
+        r['topics'].append(topics_by_oid[entry['category']]['slug'])
     except Exception:
         print(entry['category'])
     if entry.get('image') is not None:
@@ -149,110 +133,102 @@ def migrate(entry):
         r['body'] = html2text(body_html)
     body = r.get('body', '')
     r['old_id'] = entry.get('_id')
-    user = None
-    try:
-        userdata = users_dict.get(entry['createdBy'], users_dict['0'])
-        slug = userdata['slug']
-        name = userdata['name']
-        userpic = userdata['userpic']
+    
+    # get author data
+    userdata = {}
+    try: userdata = users_by_oid[entry['createdBy']]
     except KeyError:
         app = entry.get('application')
-        if app is not None:
-            authordata = {
+        if app:
+            userdata = {
                 'username': app['email'],
                 'email': app['email'],
                 'name': app['name'],
                 'bio': app.get('bio', ''),
                 'emailConfirmed': False,
-                'slug': translit(app['name'], 'ru', reversed=True).replace(' ', '-').lower(),
+                'slug': translit(app['name'], 'ru', reversed=True).replace(' ', '-').replace('\'', '').lower(),
                 'createdAt': ts,
                 'wasOnlineAt': ts
             }
-            try:
-                user = User.create(**authordata)
-            except IntegrityError:
-                with local_session() as session:
-                    user = session.query(User).filter(
-                        User.email == authordata['email']).first()
-                    if user is None:
-                        user = session.query(User).filter(
-                            User.slug == authordata['slug']).first()
-            slug = user['slug']
-            name = user['name']
-            userpic = user['userpic']
-        else:
-            # no application, no author!
-            slug = 'discours'
-            name = 'Дискурс'
-            userpic = 'https://discours.io/images/logo-mini.svg'
-    with local_session() as session:
-        user = session.query(User).filter(User.slug == slug).first()
-    r['authors'].append({
-        'id': user.id,
-        'slug': slug,
-        'name': name,
-        'userpic': userpic
-    })
+    if userdata == {}: 
+        userdata = {
+            'name': 'Дискурс',
+            'slug': 'discours',
+            'userpic': 'https://discours.io/image/logo-mini.svg'
+        } 
 
-    r['layout'] = type2layout[entry['type']]
-
-    metadata = get_metadata(r)
-    content = frontmatter.dumps(frontmatter.Post(body, **metadata))
-
+    # set author data
+    shout_dict = r.copy()
+    author = { # a short version for public listings
+        'slug': userdata.get('slug', 'discours'),
+        'name': userdata.get('name', 'Дискурс'),
+        'userpic': userdata.get('userpic', '')
+    }
+    shout_dict['authors'] = [ author, ]
+    
     if entry['published']:
+        metadata = get_metadata(r)
+        content = frontmatter.dumps(frontmatter.Post(body, **metadata))
         ext = 'md'
-        open('migration/content/' +
-            r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
-        try:
-            shout_dict = r.copy()
-            shout_dict['authors'] = [user, ]
-            if entry.get('createdAt') is not None:
-                shout_dict['createdAt'] = parse(r.get('createdAt'))
-            else:
-                shout_dict['createdAt'] = ts
-            if entry.get('published'):
-                if entry.get('publishedAt') is not None:
-                    shout_dict['publishedAt'] = parse(entry.get('publishedAt'))
-                else:
-                    shout_dict['publishedAt'] = ts
-            del shout_dict['published']
+        open('migration/content/' + r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
+    try:
+        shout_dict['createdAt'] = date_parse(r.get('createdAt')) if entry.get('createdAt') else ts
+        shout_dict['publishedAt'] = date_parse(entry.get('publishedAt')) if entry.get('published') else ts
 
+        if entry.get('deletedAt') is not None:
+            shout_dict['deletedAt'] = date_parse(entry.get('deletedAt'))
+            shout_dict['deletedBy'] = entry.get('deletedBy', '0')
+        
+        del shout_dict['published'] # invalid keyword argument for Shout
+        del shout_dict['topics'] # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
+        del shout_dict['views'] # FIXME: TypeError: 'views' is an invalid keyword argument for Shout
+        del shout_dict['rating'] # FIXME: TypeError: 'rating' is an invalid keyword argument for Shout
+        del shout_dict['ratings']
+        
+        # get user
+        
+        user = None
+        email = userdata.get('email')
+        slug = userdata.get('slug')
+        with local_session() as session:
             try:
-                del shout_dict['topics'] # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
-                del shout_dict['views'] # FIXME: TypeError: 'views' is an invalid keyword argument for Shout
-                del shout_dict['rating'] # FIXME: TypeError: 'rating' is an invalid keyword argument for Shout
-                del shout_dict['ratings']
-                s = Shout.create(**shout_dict) 
-                r['id'] = s.id
-                
-                if len(entry.get('ratings', [])) > 0:
-                    # TODO: migrate shout ratings
-                    shout_dict['ratings'] = []
-                    for shout_rating_old in entry['ratings']:
-                        shout_rating = ShoutRating.create(
-                            rater_id = users_dict[shout_rating_old['createdBy']]['id'],
-                            shout_id = s.id,
-                            value = shout_rating_old['value']
-                        )
-                        s.ratings.append(shout_rating.id)
-                        s.save()
-                # TODO: migrate topics
-                '''
-                with local_session() as session:
-                    for topic_slug in topic_slugs:
-                        topic = session.query(Topic).filter(Topic.slug == topic_slug).first()
-                        if not topic: 
-                            topic_dict = migrateCategory()
-                            if topic_dict:
-                                topic = Topic.create(**topic_dict)
-                        s.topics = [ topic, ]
-                        s.save()
-                '''
-            except Exception as e:
-                r['error'] = 'db error'
-                # pass
-                raise e
-        except Exception as e:
-            if not r['body']: r['body'] = 'body moved'
-            raise e
-    return r
+                if email: user = session.query(User).filter(User.email == email).first()
+                if not user and slug: user = session.query(User).filter(User.slug == slug).first()
+                if not user and userdata: user = User.create(**userdata)
+            except:
+                print(userdata)
+        assert user, 'could not get a user'
+        
+        shout_dict['authors'] = [ user, ]
+        try: s = Shout.create(**shout_dict)
+        except Exception as e: raise e
+        
+        with local_session() as session:
+            shout_dict['id'] = s.id
+            # shout ratings
+            shout_dict['ratings'] = []
+            for shout_rating_old in entry.get('ratings',[]):
+                rater = session.query(User).filter(User.old_id == shout_rating_old['createdBy']).first()
+                if rater:
+                    shout_rating_dict = {
+                        'value': shout_rating_old['value'],
+                        'rater_id': rater.id,
+                        'shout_id': s.id
+                    }
+                    cts = shout_rating_old.get('createdAt')
+                    if cts: shout_rating_dict['rater_id'] = date_parse(cts)
+                    try: shout_rating = ShoutRating.create(**shout_rating_dict)
+                    except sqlalchemy.exc.IntegrityError: pass
+                    shout_dict['ratings'].append(shout_rating_dict)
+            # shout topics
+            shout_dict['topics'] = []
+            for topic_slug in r['topics']:
+                topic = session.query(Topic).filter(Topic.slug == topic_slug).first()
+                if not topic:
+                    try: topic = Topic.create(**{ 'slug': topic_slug, 'title': topic_slug })
+                    except Exception as e: raise e
+                shout_dict['topics'].append(topic.slug)
+    except Exception as e:
+        if not shout_dict['body']: r['body'] = 'body moved'
+        raise e
+    return shout_dict # for json

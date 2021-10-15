@@ -6,9 +6,6 @@ from orm import Shout, Comment, CommentRating, User
 from orm.base import local_session
 from migration.html2text import html2text
 
-# users_dict = json.loads(open(abspath('migration/data/users.dict.json')).read())
-# topics_dict = json.loads(open(abspath('migration/data/topics.dict.json')).read()) # old_id keyed
-
 def migrate(entry):
     '''
     {
@@ -55,33 +52,38 @@ def migrate(entry):
             'author': author.id if author else 0,
             'createdAt': date_parse(entry['createdAt']),
             'body': html2text(entry['body']),
-            'shout': shout
+            'shout': shout.id
         }
         if 'rating' in entry:
           comment_dict['rating'] = entry['rating']
         if entry.get('deleted'):
-          comment_dict['deletedAt'] = entry['updatedAt']
-          comment_dict['deletedBy'] = entry['updatedBy']
+          comment_dict['deletedAt'] = date_parse(entry['updatedAt'])
+          comment_dict['deletedBy'] = str(entry['updatedBy'])
+        if entry.get('updatedAt'):
+          comment_dict['updatedAt'] = date_parse(entry['updatedAt'])
+          # comment_dict['updatedBy'] = str(entry.get('updatedBy', 0)) invalid keyword for Comment
         if 'thread' in entry:
           comment_dict['old_thread'] = entry['thread']
-        print(comment_dict)
+        # print(comment_dict)
         comment = Comment.create(**comment_dict)
-        print(comment)
+        comment_dict['id'] = comment.id
+        comment_dict['ratings'] = []
+        # print(comment)
         for comment_rating_old in entry.get('ratings',[]):
-            rater_id = session.query(User).filter(User.old_id == comment_rating_old['createdBy']).first()
-            createdTs = comment_rating_old.get('createdAt', datetime.datetime.now())
-            u = entry.get('updatedAt', False)
-            comment_rating_dict = {
-                'value': comment_rating_old['value'],
-                'createdBy': rater_id or 0,
-                'createdAt': createdTs,
-                'comment_id': comment.id
-            }
-            try:
-              comment_rating = CommentRating.create(**comment_rating_dict)
-              # TODO: comment rating append resolver
-              # comment['ratings'].append(comment_rating)
-            except Exception as e:
-              print(comment_rating)
-              pass # raise e
-        return comment
+            rater = session.query(User).filter(User.old_id == comment_rating_old['createdBy']).first()
+            if rater and comment:
+              comment_rating_dict = {
+                  'value': comment_rating_old['value'],
+                  'createdBy': rater.id,
+                  'comment_id': comment.id
+              }
+              cts = comment_rating_old.get('createdAt')
+              if cts: comment_rating_dict['createdAt'] = date_parse(cts)
+              try:
+                comment_rating = CommentRating.create(**comment_rating_dict)
+                # comment_rating_dict['id'] = comment_rating.id
+                comment_dict['ratings'].append(comment_rating_dict)
+              except Exception as e:
+                print(comment_rating_dict)
+                raise e
+        return comment_dict

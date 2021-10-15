@@ -1,6 +1,6 @@
 from orm.base import local_session
 from orm import Topic
-# from dateutil.parser import parse as date_parse
+from dateutil.parser import parse as date_parse
 
 def migrate(entry):
     '''
@@ -16,7 +16,7 @@ def migrate(entry):
     topic_dict = {
         'slug': entry['slug'],
         'createdBy': entry['createdBy'], # NOTE: uses an old user id
-        'createdAt': entry['createdAt'],
+        'createdAt': date_parse(entry['createdAt']),
         'title': entry['title'].lower(),
         'parents': [],
         'children': [],
@@ -31,4 +31,4 @@ def migrate(entry):
             return topic_dict
     except Exception as e:
         print(e)
-        return {}
+        raise e

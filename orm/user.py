@@ -17,8 +17,8 @@ class UserNotifications(Base):
 	kind: str = Column(String, ForeignKey("notification.kind"))
 	values: JSONType = Column(JSONType, nullable = True) # [ <var1>, .. ]
 
-class UserRatings(Base):
-	__tablename__ = "user_ratings"
+class UserRating(Base):
+	__tablename__ = "user_rating"
 
 	id = None
 	rater_id = Column(ForeignKey('user.id'), primary_key = True)
@@ -55,7 +55,7 @@ class User(Base):
 	links: JSONType = Column(JSONType, nullable=True, comment="Links")
 	oauth: str = Column(String, nullable=True)
 	notifications = relationship(lambda: UserNotifications)
-	ratings = relationship(UserRatings, foreign_keys=UserRatings.user_id)
+	ratings = relationship(UserRating, foreign_keys=UserRating.user_id)
 	roles = relationship(lambda: Role, secondary=UserRoles)
 	topics = relationship(lambda: Topic, secondary=UserTopics)
 	old_id: str = Column(String, nullable = True)
