@@ -49,7 +49,7 @@ if __name__ == '__main__':
     for old_comment in comments_data:
         cid = old_comment['contentItem']
         comments_by_post[cid] = comments_by_post.get(cid, [])
-        if 'deletedAt' not in old_comment:
+        if not old_comment.get('deletedAt', True):
             comments_by_post[cid].append(old_comment)
     print(str(len(comments_by_post.keys())) + ' articles with comments')
 
@@ -299,10 +299,6 @@ if __name__ == '__main__':
             except Exception:
                 pass
             shouts(shouts_by_slug, shouts_by_oid) # NOTE: listens limit
-        elif cmd == "comments":
-            cl = sys.argv[2] if len(sys.argv) > 2 else 10 
-            topCommented = sorted([ c[0] for c in comments_by_post.items()], reverse=True,  key=lambda i: len(i[1]))[-cl:]
-            comments(topCommented, export_comments, export_articles, shouts_by_slug, content_dict)
         elif cmd == "export_shouts":
             export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
         elif cmd == "all":
@@ -310,8 +306,9 @@ if __name__ == '__main__':
             topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
             shouts(content_data, shouts_by_slug, shouts_by_oid)
             cl = sys.argv[2] if len(sys.argv) > 2 else 10 
-            topCommented = sorted([ c[0] for c in comments_by_post.items()], reverse=True,  key=lambda i: len(i[1]))[-cl:]
-            comments(topCommented, export_comments, export_articles, shouts_by_slug, content_dict)
+            topOids = sorted([ c[0] for c in comments_by_post.items()], reverse=True,  key=lambda i: len(i[1]))[-cl:]
+            topSlugs = [ shouts_by_oid[oid]['slug'] for oid in topOids ]
+            comments(topSlugs, export_comments, export_articles, shouts_by_slug, content_dict)
         elif cmd == "bson":
             from migration import bson2json
             bson2json.json_tables()
@@ -324,7 +321,6 @@ if __name__ == '__main__':
             \n.. \ttopics <limit>
             \n.. \tusers <limit>
             \n.. \tshouts <limit>
-            \n.. \tcomments
             \n.. \texport_shouts <limit>
             \n.. \tslug <slug>
             \n.. \tall

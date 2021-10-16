@@ -140,13 +140,14 @@ def migrate(entry, users_by_oid, topics_by_oid):
     except KeyError:
         app = entry.get('application')
         if app:
+            userslug = translit(app['name'], 'ru', reversed=True).replace(' ', '-').replace('\'', '').replace('.', '-').lower()
             userdata = {
                 'username': app['email'],
                 'email': app['email'],
                 'name': app['name'],
                 'bio': app.get('bio', ''),
                 'emailConfirmed': False,
-                'slug': translit(app['name'], 'ru', reversed=True).replace(' ', '-').replace('\'', '').lower(),
+                'slug': userslug,
                 'createdAt': ts,
                 'wasOnlineAt': ts
             }
