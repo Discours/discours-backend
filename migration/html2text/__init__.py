@@ -86,6 +86,9 @@ class HTML2Text(html.parser.HTMLParser):
         self.tag_callback = None
         self.open_quote = config.OPEN_QUOTE  # covered in cli
         self.close_quote = config.CLOSE_QUOTE  # covered in cli
+        self.header_id = None
+        self.span_hightlight = False
+        self.span_lead = False
 
         if out is None:
             self.out = self.outtextf
@@ -347,18 +350,34 @@ class HTML2Text(html.parser.HTMLParser):
                         self.space = False
                         self.o(hn(tag) * "#" + " ")
                         self.o("[")
-                else:
-                    self.p_p = 0  # don't break up link name
-                    self.inheader = False
-                    return  # prevent redundant emphasis marks on headers
+                        self.header_id = attrs.get('id')
             else:
                 self.p()
                 if start:
                     self.inheader = True
                     self.o(hn(tag) * "#" + " ")
+                    if self.header_id: 
+                        self.o(' {#' + self.header_id + '}')
+                        self.header_id = None
                 else:
                     self.inheader = False
                     return  # prevent redundant emphasis marks on headers
+                
+        if tag == 'span':
+            if start and 'class' in attrs:
+                    if attrs['class'] == 'highlight':
+                        self.o('`') # NOTE: same as <code>
+                        self.span_hightlight = True
+                    elif attrs['class'] == 'lead':
+                        self.o('==') # NOTE: but CriticMarkup uses {== ==}
+                        self.span_lead = True
+            else:
+                if self.span_hightlight:
+                    self.o('`')
+                    self.span_hightlight = False
+                elif self.span_lead:
+                    self.o('==')
+                    self.span_lead = False
 
         if tag in ["p", "div"]:
             if self.google_doc:

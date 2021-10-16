@@ -17,7 +17,7 @@ BODY_WIDTH = 78
 
 # Don't show internal links (href="#local-anchor") -- corresponding link
 # targets won't be visible in the plain text file anyway.
-SKIP_INTERNAL_LINKS = True
+SKIP_INTERNAL_LINKS = False
 
 # Use inline, rather than reference, formatting for images and links
 INLINE_LINKS = True
@@ -25,7 +25,6 @@ INLINE_LINKS = True
 # Protect links from line breaks surrounding them with angle brackets (in
 # addition to their square brackets)
 PROTECT_LINKS = False
-# WRAP_LINKS = True
 WRAP_LINKS = True
 
 # Wrap list items.

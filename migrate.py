@@ -21,7 +21,7 @@ if __name__ == '__main__':
     import sys
 
     users_data = json.loads(open('migration/data/users.json').read())
-    users_dict = { x['_id']: x for x in users_data } # by id
+    # users_dict = { x['_id']: x for x in users_data } # by id
     print(str(len(users_data)) + ' users loaded')
     users_by_oid = {}
     users_by_slug = {}
@@ -49,7 +49,8 @@ if __name__ == '__main__':
     for old_comment in comments_data:
         cid = old_comment['contentItem']
         comments_by_post[cid] = comments_by_post.get(cid, [])
-        comments_by_post[cid].append(old_comment)
+        if 'deletedAt' not in old_comment:
+            comments_by_post[cid].append(old_comment)
     print(str(len(comments_by_post.keys())) + ' articles with comments')
 
     export_articles = {} # slug: shout
@@ -77,7 +78,7 @@ if __name__ == '__main__':
         return article
 
 
-    def users():
+    def users(users_by_oid, users_by_slug, users_data):
         ''' migrating users first '''
         # limiting
         limit = len(users_data)
@@ -102,7 +103,7 @@ if __name__ == '__main__':
         print(str(len(users_by_slug.items())) + ' users migrated')
 
 
-    def topics():
+    def topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data):
         ''' topics from categories and tags '''
         # limiting
         limit = len(cats_data) + len(tags_data)
@@ -133,7 +134,7 @@ if __name__ == '__main__':
                                                             sort_keys=True,
                                                             ensure_ascii=False))
 
-    def shouts():
+    def shouts(content_data, shouts_by_slug, shouts_by_oid):
         ''' migrating content items one by one '''
         # limiting
         limit = len(content_data)
@@ -168,7 +169,7 @@ if __name__ == '__main__':
         print(str(counter) + '/' + str(len(content_data)) + ' content items were migrated')
         print(str(discours_author) + ' authored by @discours')
         
-    def export_shouts(shouts_by_slug, export_articles, export_authors):
+    def export_shouts(shouts_by_slug, export_articles, export_authors, content_dict):
         # update what was just migrated or load json again
         if len(export_authors.keys()) == 0:
             export_authors = json.loads(open('../src/data/authors.json').read())
@@ -190,33 +191,33 @@ if __name__ == '__main__':
         
         for (slug, article) in export_list:
             if article['layout'] == 'article':
-                export_slug(slug, export_articles, export_authors)
+                export_slug(slug, export_articles, export_authors, content_dict)
         
-    def export_body(article):
+    def export_body(article, content_dict):
         article = extract_images(article)
         metadata = get_metadata(article)
         content = frontmatter.dumps(frontmatter.Post(article['body'], **metadata))
         open('../content/discours.io/'+slug+'.md', 'w').write(content)
         open('../content/discours.io/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
 
-    def export_slug(slug, export_articles, export_authors):
-        if exported_authors == {}: 
-            exported_authors = json.loads(open('../src/data/authors.json').read())
-            print(str(len(exported_authors.items())) + ' exported authors loaded')
-        if exported_articles == {}:
-            exported_articles = json.loads(open('../src/data/articles.json').read())
-            print(str(len(exported_articles.items())) + ' exported articles loaded')
+    def export_slug(slug, export_articles, export_authors, content_dict):
+        print('exporting %s ' % slug)
+        if export_authors == {}: 
+            export_authors = json.loads(open('../src/data/authors.json').read())
+            print(str(len(export_authors.items())) + ' exported authors loaded')
+        if export_articles == {}:
+            export_articles = json.loads(open('../src/data/articles.json').read())
+            print(str(len(export_articles.items())) + ' exported articles loaded')
             
         shout = shouts_by_slug.get(slug, False)
         assert shout, 'no data error'
         author = users_by_slug.get(shout['authors'][0]['slug'], None)
-        exported_authors.update({shout['authors'][0]['slug']: author})
-        exported_articles.update({shout['slug']: shout})
-        export_body(shout)
+        export_authors.update({shout['authors'][0]['slug']: author})
+        export_articles.update({shout['slug']: shout})
+        export_body(shout, content_dict)
         comments([slug, ])
-        
 
-    def comments(sluglist = []):
+    def comments(sluglist, export_comments, export_articles, shouts_by_slug, content_dict):
         ''' migrating comments on content items one '''
         if len(sluglist) == 0:
             export_articles = json.loads(open('../src/data/articles.json').read())
@@ -224,7 +225,8 @@ if __name__ == '__main__':
             if len(sluglist) == 0: sluglist = list(export_articles.keys())
 
         if len(sluglist) > 0:
-            print('exporting comments for exact articles...')
+            print('exporting comments for: ')
+            print(' '.join(sluglist))
             for slug in sluglist:
                 shout = shouts_by_slug[slug]
                 old_id = shout['old_id']
@@ -282,9 +284,9 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         cmd = sys.argv[1]
         if cmd == "users":
-            users(users_by_oid, users_by_slug, users_data, users_dict)
+            users(users_by_oid, users_by_slug, users_data)
         elif cmd == "topics":
-            topics(topics_by_cat, topics_by_tag, topics_by_slug)
+            topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
         elif cmd == "shouts":
             try:
                 Community.create(**{
@@ -298,19 +300,23 @@ if __name__ == '__main__':
                 pass
             shouts(shouts_by_slug, shouts_by_oid) # NOTE: listens limit
         elif cmd == "comments":
-            comments()
+            cl = sys.argv[2] if len(sys.argv) > 2 else 10 
+            topCommented = sorted([ c[0] for c in comments_by_post.items()], reverse=True,  key=lambda i: len(i[1]))[-cl:]
+            comments(topCommented, export_comments, export_articles, shouts_by_slug, content_dict)
         elif cmd == "export_shouts":
-            export_shouts(shouts_by_slug, export_articles, export_authors)
+            export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
         elif cmd == "all":
-            users()
-            topics()
-            shouts()
-            comments()
+            users(users_by_oid, users_by_slug, users_data)
+            topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
+            shouts(content_data, shouts_by_slug, shouts_by_oid)
+            cl = sys.argv[2] if len(sys.argv) > 2 else 10 
+            topCommented = sorted([ c[0] for c in comments_by_post.items()], reverse=True,  key=lambda i: len(i[1]))[-cl:]
+            comments(topCommented, export_comments, export_articles, shouts_by_slug, content_dict)
         elif cmd == "bson":
             from migration import bson2json
             bson2json.json_tables()
         elif cmd == 'slug':
-            export_slug(sys.argv[2], export_articles, export_authors)
+            export_slug(sys.argv[2], export_articles, export_authors, content_dict)
         export_finish(export_articles, export_authors, export_topics, export_comments)
     else:
         print('''
