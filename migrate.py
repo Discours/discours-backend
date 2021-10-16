@@ -12,6 +12,9 @@ from migration.utils import DateTimeEncoder
 from orm import Community
 from dateutil.parser import parse as date_parse
 
+from orm.base import local_session
+from orm import User
+
 
 IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,(.*?))\)"
 OLD_DATE = '2016-03-05 22:22:00.350000'
@@ -25,6 +28,17 @@ if __name__ == '__main__':
     print(str(len(users_data)) + ' users loaded')
     users_by_oid = {}
     users_by_slug = {}
+
+    with local_session() as session:
+        default_user = session.query(User).filter(User.id == 0).first()
+    if not default_user:
+        default_user = User.create(id = 0, email = "discours@discours.io", username = "discours", slug = "default", old_id = 0)
+
+    user_id_map = {}
+    with local_session() as session:
+        users = session.query(User).all()
+        for user in users:
+            user_id_map[user.old_id] = user.id
 
     tags_data = json.loads(open('migration/data/tags.json').read())
     print(str(len(tags_data)) + ' tags loaded')
@@ -111,12 +125,16 @@ if __name__ == '__main__':
         print('migrating %d topics...' % limit)
         counter = 0
         for cat in cats_data:
-            try: topic = migrateCategory(cat)            
+            old_id = cat["createdBy"]
+            cat["createdBy"] = user_id_map[old_id]
+            try: topic = migrateCategory(cat)
             except Exception as e: raise e
             topics_by_cat[topic['cat_id']] = topic
             topics_by_slug[topic['slug']] = topic
             counter += 1
         for tag in tags_data:
+            old_id = tag["createdBy"]
+            tag["createdBy"] = user_id_map.get(old_id, 0)
             topic = migrateTag(tag)
             topics_by_tag[topic['tag_id']] = topic
             if not topics_by_slug.get(topic['slug']): topics_by_slug[topic['slug']] = topic
@@ -288,17 +306,15 @@ if __name__ == '__main__':
         elif cmd == "topics":
             topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
         elif cmd == "shouts":
-            try:
-                Community.create(**{
-                    'slug': 'discours.io',
-                    'name': 'Дискурс',
-                    'pic': 'https://discours.io/images/logo-min.svg',
-                    'createdBy': '0',
-                    'createdAt': date_parse(OLD_DATE)
-                })
-            except Exception:
-                pass
-            shouts(shouts_by_slug, shouts_by_oid) # NOTE: listens limit
+            Community.create(**{
+                'id' : 0,
+                'slug': 'discours.io',
+                'name': 'Дискурс',
+                'pic': 'https://discours.io/images/logo-min.svg',
+                'createdBy': '0',
+                'createdAt': date_parse(OLD_DATE)
+            })
+            shouts(content_data, shouts_by_slug, shouts_by_oid) # NOTE: listens limit
         elif cmd == "export_shouts":
             export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
         elif cmd == "all":
@@ -314,7 +330,7 @@ if __name__ == '__main__':
             bson2json.json_tables()
         elif cmd == 'slug':
             export_slug(sys.argv[2], export_articles, export_authors, content_dict)
-        export_finish(export_articles, export_authors, export_topics, export_comments)
+        #export_finish(export_articles, export_authors, export_topics, export_comments)
     else:
         print('''
             usage: python migrate.py bson
