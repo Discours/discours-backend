@@ -1,10 +1,12 @@
 from graphql import GraphQLResolveInfo
 from datetime import datetime, timedelta
+from transliterate import translit
+from urllib.parse import quote_plus
+
 from auth.authenticate import login_required
 from auth.authorize import Authorize
 from auth.identity import Identity
 from auth.password import Password
-from auth.validations import CreateUser
 from auth.email import send_confirm_email, send_auth_email
 from orm import User
 from orm.base import local_session
@@ -26,16 +28,22 @@ async def confirm(*_, confirm_token):
 
 @mutation.field("registerUser")
 async def register(*_, email: str, password: str = ""):
-	inp = { "email": email, "password": password}
-	create_user = CreateUser(**inp)
-	create_user.username = email.split('@')[0]
+	with local_session() as session:
+		user = session.query(User).filter(User.email == email).first()
+	if user:
+		return {"error" : "user already exist"}
+
+	user_dict = { "email": email }
+	username = email.split('@')[0]
+	user_dict["username"] = username
+	user_dict["slug"] = quote_plus(translit(username, 'ru', reversed=True).replace('.', '-').lower())
 	if not password:
-		user = User.create(**create_user.dict())
+		user = User.create(**user_dict)
 		await send_confirm_email(user)
 		return { "user": user }
 	else:
-		create_user.password = Password.encode(create_user.password)
-		user = User.create(**create_user.dict())
+		user_dict["password"] = Password.encode(password)
+		user = User.create(**user_dict)
 		token = await Authorize.authorize(user)
 		return {"user": user, "token": token }
 
