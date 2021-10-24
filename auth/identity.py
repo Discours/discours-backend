@@ -9,12 +9,8 @@ from sqlalchemy import or_
 
 class Identity:
 	@staticmethod
-	def identity(user_id: int, password: str) -> User:
-		with local_session() as session:
-			user = session.query(OrmUser).filter_by(id=user_id).first()
-		if not user:
-			raise ObjectNotExist("User does not exist")
-		user = User(**user.dict())
+	def identity(orm_user: OrmUser, password: str) -> User:
+		user = User(**orm_user.dict())
 		if user.password is None:
 			raise InvalidPassword("Wrong user password")
 		if not Password.verify(password, user.password):

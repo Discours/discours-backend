@@ -66,12 +66,12 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 	auto_delete = False if device == "mobile" else True # why autodelete with mobile?
 
 	try:
-		user = Identity.identity(user_id=orm_user.id, password=password)
+		user = Identity.identity(orm_user, password)
 	except InvalidPassword:
 		return {"error" : "invalid password"}
 	
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
-	return {"token" : token, "user": user}
+	return {"token" : token, "user": orm_user}
 
 
 @query.field("signOut")
