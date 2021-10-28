@@ -15,8 +15,8 @@ def migrate(entry):
     '''
     topic_dict = {
         'slug': entry['slug'],
-        'createdBy': entry['createdBy'],
-        'createdAt': date_parse(entry['createdAt']),
+        # 'createdBy': entry['createdBy'],
+        # 'createdAt': date_parse(entry['createdAt']),
         'title': entry['title'].lower(),
         'parents': [],
         'children': [],

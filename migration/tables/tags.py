@@ -21,8 +21,8 @@ def migrate(entry):
         ts = datetime.fromtimestamp(entry['createdAt']/1000)
     topic_dict = {
         'slug': entry['slug'],
-        'createdBy': entry['createdBy'],
-        'createdAt': ts,
+        # 'createdBy': entry['createdBy'],
+        # 'createdAt': ts,
         'title': entry['title'].lower(),
         'parents': [],
         'children': []

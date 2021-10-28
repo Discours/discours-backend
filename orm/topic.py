@@ -11,13 +11,18 @@ Connection = Table('topic_connections',
     UniqueConstraint('parent', 'child', name='unique_usage')
 )
 
+class TopicSubscription(Base):
+	__tablename__ = "topic_subscrptions"
+	
+	id = None
+	topic = Column(ForeignKey('topic.slug'), primary_key = True)
+	user = Column(ForeignKey('user.id'), primary_key = True)
+	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 
 class Topic(Base):
 	__tablename__ = 'topic'
 
 	slug: str = Column(String, unique = True, nullable = False)
-	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
-	createdBy: str = Column(ForeignKey("user.id"), nullable=False, comment="Author")
 	title: str = Column(String, nullable=False, comment="Title")
 	body: str = Column(String, nullable=True, comment="Body")
 	pic: str = Column(String, nullable=True, comment="Picture")
@@ -26,4 +31,5 @@ class Topic(Base):
 	parents = relationship(lambda: Topic, secondary=Connection, primaryjoin=slug==Connection.c.parent, secondaryjoin=slug==Connection.c.child, viewonly=True)
 	# list of Topics where the current node is the "parent" 
 	children = relationship(lambda: Topic, secondary=Connection, primaryjoin=slug==Connection.c.child, secondaryjoin=slug==Connection.c.parent)
+	community = Column(ForeignKey("community.slug"), nullable=True, comment="Community")
 
