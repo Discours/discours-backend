@@ -94,10 +94,27 @@ class TopShouts:
 			TopShouts.shouts_by_rating = shouts
 
 	@staticmethod
-	async def prepare_shouts_by_time():
+	async def prepare_recent_shouts():
+		# TODO: debug recent shoputs resolver
 		month_ago = datetime.now() - timedelta(days = 30)
-		# with local_session() as session:
-		# TODO: select recent shouts
+		with local_session() as session:
+			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
+				join(ShoutViewByDay).\
+				func.sum(ShoutRating.value).label("rating")).\
+				join(ShoutRating).\
+				where(Shouts.createdAt > month_ago).\
+				group_by(Shout.id).\
+				order_by(desc("createdAt")).\
+				limit(TopShouts.limit)
+			shouts = []
+			for row in session.execute(stmt):
+				shout = row.Shout
+				shout.view = row.view
+				shout.rating = row.rating
+				shouts.append(shout)
+		async with TopShouts.lock:
+			TopShouts.shouts_by_view = shouts
+
 
 	@staticmethod
 	async def prepare_favorites_shouts():
@@ -165,6 +182,7 @@ class TopShouts:
 				await TopShouts.prepare_favorites_shouts()
 				await TopShouts.prepare_shouts_by_rating()
 				await TopShouts.prepare_shouts_by_view()
+    			await TopShouts.prepare_recent_shouts()
 				await TopShouts.prepare_top_authors()
 				print("top shouts: update finished")
 			except Exception as err:
