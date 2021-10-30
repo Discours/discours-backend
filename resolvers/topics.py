@@ -22,7 +22,9 @@ async def topics_by_community(_, info, community):
 async def topics_by_author(_, info, author):
 	topics = []
 	with local_session() as session:
-		topics = session.query(Topic).filter(Topic.community == community)
+		author_shouts = session.query(Shout).filter(author in Shout.authors)
+		# TODO: all the topics from author_shouts
+		topics = []
 		return topics
 
 @mutation.field("topicSubscribe")
