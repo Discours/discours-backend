@@ -100,7 +100,7 @@ class TopShouts:
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
-				func.sum(ShoutRating.value).label("rating")).\
+				func.sum(ShoutRating.value).label("rating").\
 				join(ShoutRating).\
 				where(Shouts.createdAt > month_ago).\
 				group_by(Shout.id).\
