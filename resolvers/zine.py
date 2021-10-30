@@ -182,7 +182,7 @@ class TopShouts:
 				await TopShouts.prepare_favorites_shouts()
 				await TopShouts.prepare_shouts_by_rating()
 				await TopShouts.prepare_shouts_by_view()
-    			await TopShouts.prepare_recent_shouts()
+				await TopShouts.prepare_recent_shouts()
 				await TopShouts.prepare_top_authors()
 				print("top shouts: update finished")
 			except Exception as err:
