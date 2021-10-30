@@ -99,10 +99,10 @@ class TopShouts:
 		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			stmt = select(\
-       				Shout,\
-           			func.sum(ShoutViewByDay.value).label("view"),\
-              		func.sum(ShoutRating.value).label("rating")\
-                ).\
+	   				Shout,\
+		   			func.sum(ShoutViewByDay.value).label("view"),\
+			  		func.sum(ShoutRating.value).label("rating")\
+				).\
 				join(ShoutViewByDay).\
 				join(ShoutRating).\
 				where(Shouts.createdAt > month_ago).\
