@@ -94,6 +94,12 @@ class TopShouts:
 			TopShouts.shouts_by_rating = shouts
 
 	@staticmethod
+	async def prepare_shouts_by_time():
+		month_ago = datetime.now() - timedelta(days = 30)
+		with local_session() as session:
+			# TODO: select recent shouts
+
+	@staticmethod
 	async def prepare_favorites_shouts():
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\

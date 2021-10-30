@@ -98,12 +98,12 @@ type Query {
   getMessages(count: Int = 100, page: Int = 1): [Message!]!
 
   # shouts
-  getShoutBySlug(slug: String!): Shout! # NOTE: with .comments: Comments[]
-  # getShoutRating(shout: Int): Int!
-  # shoutsByAuthor(author: Int): [Shout]!
-  # shoutsByReplyTo(shout: Int): [Shout]!
-  # shoutsByTags(tags: [String]): [Shout]!
-  # shoutsByTime(time: DateTime): [Shout]!
+  getShoutBySlug(slug: String!): Shout!
+  # NOTE: with .comments: Comments[]
+  recentShouts(limit: Int): [Shout]!
+  shoutsByTopic(topic: String!, limit: Int!): [Shout]!
+  shoutsByAuthor(author: String!, limit: Int!): [Shout]!
+  shoutsByCommunity(community: String!, limit: Int!): [Shout]!
 
   # mainpage
   topShoutsByView(limit: Int): [Shout]!
