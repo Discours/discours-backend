@@ -105,7 +105,7 @@ class TopShouts:
 				).\
 				join(ShoutViewByDay).\
 				join(ShoutRating).\
-				where(Shouts.createdAt > month_ago).\
+				where(Shout.createdAt > month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("createdAt")).\
 				limit(TopShouts.limit)
@@ -116,11 +116,11 @@ class TopShouts:
 				shout.rating = row.rating
 				shouts.append(shout)
 		async with TopShouts.lock:
-			TopShouts.shouts_by_view = shouts
+			TopShouts.recent_shouts = shouts
 
 
 	@staticmethod
-	async def prepare_favorites_shouts():
+	async def prepare_favorite_shouts():
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 				join(ShoutRating).\
@@ -133,7 +133,7 @@ class TopShouts:
 				shout.rating = row.rating
 				shouts.append(shout)
 		async with TopShouts.lock:
-			TopShouts.favorites_shouts = shouts
+			TopShouts.favorite_shouts = shouts
 
 	@staticmethod
 	async def prepare_shouts_by_view():
@@ -182,10 +182,10 @@ class TopShouts:
 		while True:
 			try:
 				print("top shouts: update cache")
-				await TopShouts.prepare_favorites_shouts()
+				await TopShouts.prepare_favorite_shouts()
+				await TopShouts.prepare_recent_shouts()
 				await TopShouts.prepare_shouts_by_rating()
 				await TopShouts.prepare_shouts_by_view()
-				await TopShouts.prepare_recent_shouts()
 				await TopShouts.prepare_top_authors()
 				print("top shouts: update finished")
 			except Exception as err:
@@ -205,10 +205,15 @@ async def top_shouts_by_rating(_, info, limit):
 		return TopShouts.shouts_by_rating[:limit]
 
 
-@query.field("favoritesShouts")
-async def favorites_shouts(_, info, limit):
+@query.field("favoriteShouts")
+async def favorite_shouts(_, info, limit):
 	async with TopShouts.lock:
-		return TopShouts.favorites_shouts[:limit]
+		return TopShouts.favorite_shouts[:limit]
+
+@query.field("recentShouts")
+async def recent_shouts(_, info, limit):
+	async with TopShouts.lock:
+		return TopShouts.recent_shouts[:limit]
 
 
 @query.field("topAuthors")

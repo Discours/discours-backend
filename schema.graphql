@@ -100,7 +100,6 @@ type Query {
   # shouts
   getShoutBySlug(slug: String!): Shout!
   # NOTE: with .comments: Comments[]
-  recentShouts(limit: Int): [Shout]!
   shoutsByTopic(topic: String!, limit: Int!): [Shout]!
   shoutsByAuthor(author: String!, limit: Int!): [Shout]!
   shoutsByCommunity(community: String!, limit: Int!): [Shout]!
@@ -108,7 +107,8 @@ type Query {
   # mainpage
   topShoutsByView(limit: Int): [Shout]!
   topShoutsByRating(limit: Int): [Shout]!
-  favoritesShouts(limit: Int): [Shout]!
+  favoriteShouts(limit: Int): [Shout]!
+  recentShouts(limit: Int): [Shout]!
   topAuthors(limit: Int): [User]!
 
   # topics
