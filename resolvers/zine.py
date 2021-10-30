@@ -98,9 +98,12 @@ class TopShouts:
 		# TODO: debug recent shoputs resolver
 		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
-			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
+			stmt = select(\
+       				Shout,\
+           			func.sum(ShoutViewByDay.value).label("view"),\
+              		func.sum(ShoutRating.value).label("rating")\
+                ).\
 				join(ShoutViewByDay).\
-				func.sum(ShoutRating.value).label("rating").\
 				join(ShoutRating).\
 				where(Shouts.createdAt > month_ago).\
 				group_by(Shout.id).\
