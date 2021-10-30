@@ -132,6 +132,7 @@ temp.*
 
 discours.key
 discours.crt
+discours.pem
 Pipfile.lock
 
 migration/data
