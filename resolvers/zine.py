@@ -178,18 +178,18 @@ class TopShouts:
 
 	@staticmethod
 	async def worker():
-		print("top shouts worker start")
+		print("shouts cache worker start")
 		while True:
 			try:
-				print("top shouts: update cache")
+				print("shouts cache updating...")
 				await TopShouts.prepare_favorite_shouts()
 				await TopShouts.prepare_recent_shouts()
 				await TopShouts.prepare_shouts_by_rating()
 				await TopShouts.prepare_shouts_by_view()
 				await TopShouts.prepare_top_authors()
-				print("top shouts: update finished")
+				print("shouts cache update finished")
 			except Exception as err:
-				print("top shouts worker error = %s" % (err))
+				print("shouts cache worker error = %s" % (err))
 			await asyncio.sleep(TopShouts.period)
 
 
