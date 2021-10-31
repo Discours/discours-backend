@@ -126,7 +126,7 @@ if __name__ == '__main__':
         counter = 0
         for cat in cats_data:
             old_id = cat["createdBy"]
-            cat["createdBy"] = user_id_map[old_id]
+            # cat["createdBy"] = user_id_map[old_id]
             try: topic = migrateCategory(cat)
             except Exception as e: raise e
             topics_by_cat[topic['cat_id']] = topic
@@ -139,7 +139,7 @@ if __name__ == '__main__':
             topics_by_tag[topic['tag_id']] = topic
             if not topics_by_slug.get(topic['slug']): topics_by_slug[topic['slug']] = topic
             counter += 1
-        export_topics = dict(sorted(topics_by_slug.items(), key=lambda item: str(item[1]['createdAt']))) # NOTE: sorting does not work :)
+        export_topics = dict(topics_by_slug.items()) # sorted(topics_by_slug.items(), key=lambda item: str(item[1]['createdAt']))) # NOTE: sorting does not work :)
         open('migration/data/topics.slug.json','w').write(json.dumps(topics_by_slug,
                                                             cls=DateTimeEncoder,
                                                             indent=4,
