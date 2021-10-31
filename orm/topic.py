@@ -12,7 +12,7 @@ Connection = Table('topic_connections',
 )
 
 class TopicSubscription(Base):
-	__tablename__ = "topic_subscrptions"
+	__tablename__ = "topic_subscription"
 	
 	id = None
 	topic = Column(ForeignKey('topic.slug'), primary_key = True)
