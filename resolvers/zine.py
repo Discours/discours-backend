@@ -76,24 +76,6 @@ class TopShouts:
 	lock = asyncio.Lock()
 
 	@staticmethod
-	async def prepare_shouts_by_rating():
-		with local_session() as session:
-			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
-				join(ShoutRating).\
-				where(ShoutRating.ts > month_ago).\
-				group_by(Shout.id).\
-				order_by(desc("rating")).\
-				limit(TopShouts.limit)
-			shouts = []
-			for row in session.execute(stmt):
-				shout = row.Shout
-				shout.rating = row.rating
-				shout.views = await ShoutViewStorage.get_view(shout.id)
-				shouts.append(shout)
-		async with TopShouts.lock:
-			TopShouts.shouts_by_rating = shouts
-
-	@staticmethod
 	async def prepare_recent_shouts():
 		with local_session() as session:
 			stmt = select(Shout).\
@@ -128,11 +110,13 @@ class TopShouts:
 
 	@staticmethod
 	async def prepare_top_month():
-		# FIXME: filter by month ago
+		# FIXME: test filter by month ago
+		# where(ShoutRating.ts > month_ago).\
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 				join(ShoutRating).\
-				join(ShoutViewByDay).where(ShoutViewByDay.day > month_ago).\
+				join(ShoutViewByDay).\
+				where(ShoutViewByDay.day > TopShouts.month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("rating")).\
 				limit(TopShouts.limit)
@@ -146,11 +130,11 @@ class TopShouts:
 			TopShouts.top_month = shouts
 
 	@staticmethod
-	async def prepare_shouts_by_view():
+	async def prepare_top_viewed():
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > month_ago).\
+				where(ShoutViewByDay.day > TopShouts.month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("view")).\
 				limit(TopShouts.limit)
@@ -161,14 +145,14 @@ class TopShouts:
 				shout.view = row.view
 				shouts.append(shout)
 		async with TopShouts.lock:
-			TopShouts.shouts_by_view = shouts
+			TopShouts.top_viewed = shouts
 
 	@staticmethod
 	async def prepare_top_authors():
 		with local_session() as session:
 			shout_with_view = select(Shout.id, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > month_ago).\
+				where(ShoutViewByDay.day > TopShouts.month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("view")).cte()
 			stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
@@ -193,9 +177,8 @@ class TopShouts:
 				print("shouts cache updating...")
 				await TopShouts.prepare_top_month()
 				await TopShouts.prepare_top_overall()
+				await TopShouts.prepare_top_viewed()
 				await TopShouts.prepare_recent_shouts()
-				await TopShouts.prepare_shouts_by_rating()
-				await TopShouts.prepare_shouts_by_view()
 				await TopShouts.prepare_top_authors()
 				print("shouts cache update finished")
 			except Exception as err:
@@ -203,17 +186,10 @@ class TopShouts:
 			await asyncio.sleep(TopShouts.period)
 
 
-@query.field("topShoutsByView")
-async def top_shouts_by_view(_, info, limit):
+@query.field("topViewed")
+async def top_viewed(_, info, limit):
 	async with TopShouts.lock:
-		return TopShouts.shouts_by_view[:limit]
-
-
-@query.field("topShoutsByRating")
-async def top_shouts_by_rating(_, info, limit):
-	async with TopShouts.lock:
-		return TopShouts.shouts_by_rating[:limit]
-
+		return TopShouts.top_viewed[:limit]
 
 @query.field("topMonth")
 async def top_month(_, info, limit):

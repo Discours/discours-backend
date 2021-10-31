@@ -105,8 +105,7 @@ type Query {
 	shoutsByCommunity(community: String!, limit: Int!): [Shout]!
 
 	# mainpage
-	topShoutsByView(limit: Int): [Shout]!
-	topShoutsByRating(limit: Int): [Shout]!
+	topViewed(limit: Int): [Shout]!
 	topMonth(limit: Int): [Shout]!
 	topOverall(limit: Int): [Shout]!
 	recents(limit: Int): [Shout]!
