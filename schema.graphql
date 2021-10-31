@@ -107,8 +107,8 @@ type Query {
 	# mainpage
 	topShoutsByView(limit: Int): [Shout]!
 	topShoutsByRating(limit: Int): [Shout]!
-	favoriteShouts(limit: Int): [Shout]!
-	recentShouts(limit: Int): [Shout]!
+	favorites(limit: Int): [Shout]!
+	recents(limit: Int): [Shout]!
 	topAuthors(limit: Int): [User]!
 
 	# topics

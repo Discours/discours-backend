@@ -205,12 +205,12 @@ async def top_shouts_by_rating(_, info, limit):
 		return TopShouts.shouts_by_rating[:limit]
 
 
-@query.field("favoriteShouts")
+@query.field("favorites")
 async def favorite_shouts(_, info, limit):
 	async with TopShouts.lock:
 		return TopShouts.favorite_shouts[:limit]
 
-@query.field("recentShouts")
+@query.field("recents")
 async def recent_shouts(_, info, limit):
 	async with TopShouts.lock:
 		return TopShouts.recent_shouts[:limit]
