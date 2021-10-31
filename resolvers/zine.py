@@ -72,12 +72,11 @@ class GitTask:
 class TopShouts:
 	limit = 50
 	period = 60*60 #1 hour
-
+	month_ago = datetime.now() - timedelta(days = 30)
 	lock = asyncio.Lock()
 
 	@staticmethod
 	async def prepare_shouts_by_rating():
-		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 				join(ShoutRating).\
@@ -111,7 +110,7 @@ class TopShouts:
 
 
 	@staticmethod
-	async def prepare_favorite_shouts():
+	async def prepare_top_overall():
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 				join(ShoutRating).\
@@ -125,11 +124,29 @@ class TopShouts:
 				shout.views = await ShoutViewStorage.get_view(shout.id)
 				shouts.append(shout)
 		async with TopShouts.lock:
-			TopShouts.favorite_shouts = shouts
+			TopShouts.top_overall = shouts
+
+	@staticmethod
+	async def prepare_top_month():
+		# FIXME: filter by month ago
+		with local_session() as session:
+			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
+				join(ShoutRating).\
+				join(ShoutViewByDay).where(ShoutViewByDay.day > month_ago).\
+				group_by(Shout.id).\
+				order_by(desc("rating")).\
+				limit(TopShouts.limit)
+			shouts = []
+			for row in session.execute(stmt):
+				shout = row.Shout
+				shout.rating = row.rating
+				shout.views = await ShoutViewStorage.get_view(shout.id)
+				shouts.append(shout)
+		async with TopShouts.lock:
+			TopShouts.top_month = shouts
 
 	@staticmethod
 	async def prepare_shouts_by_view():
-		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
@@ -148,7 +165,6 @@ class TopShouts:
 
 	@staticmethod
 	async def prepare_top_authors():
-		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			shout_with_view = select(Shout.id, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
@@ -175,7 +191,8 @@ class TopShouts:
 		while True:
 			try:
 				print("shouts cache updating...")
-				await TopShouts.prepare_favorite_shouts()
+				await TopShouts.prepare_top_month()
+				await TopShouts.prepare_top_overall()
 				await TopShouts.prepare_recent_shouts()
 				await TopShouts.prepare_shouts_by_rating()
 				await TopShouts.prepare_shouts_by_view()
@@ -198,10 +215,15 @@ async def top_shouts_by_rating(_, info, limit):
 		return TopShouts.shouts_by_rating[:limit]
 
 
-@query.field("favorites")
-async def favorite_shouts(_, info, limit):
+@query.field("topMonth")
+async def top_month(_, info, limit):
 	async with TopShouts.lock:
-		return TopShouts.favorite_shouts[:limit]
+		return TopShouts.top_month[:limit]
+
+@query.field("topOverall")
+async def top_overall(_, info, limit):
+	async with TopShouts.lock:
+		return TopShouts.top_overall[:limit]
 
 @query.field("recents")
 async def recent_shouts(_, info, limit):
