@@ -13,7 +13,7 @@ from auth.oauth import oauth_login, oauth_authorize
 from auth.email import email_authorize
 from redis import redis
 from resolvers.base import resolvers
-from resolvers.zine import GitTask, TopShouts
+from resolvers.zine import GitTask, ShoutsCache
 
 from orm.shout import ShoutViewStorage
 
@@ -30,7 +30,7 @@ middleware = [
 async def start_up():
 	await redis.connect()
 	git_task = asyncio.create_task(GitTask.git_task_worker())
-	top_shouts_task = asyncio.create_task(TopShouts.worker())
+	shouts_cache_task = asyncio.create_task(ShoutsCache.worker())
 	view_storage_task = asyncio.create_task(ShoutViewStorage.worker())
 
 async def shutdown():

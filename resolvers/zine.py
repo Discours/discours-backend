@@ -69,7 +69,7 @@ class GitTask:
 				print("git task worker error = %s" % (err))
 
 
-class TopShouts:
+class ShoutsCache:
 	limit = 50
 	period = 60*60 #1 hour
 	month_ago = datetime.now() - timedelta(days = 30)
@@ -80,15 +80,15 @@ class TopShouts:
 		with local_session() as session:
 			stmt = select(Shout).\
 				order_by(desc("createdAt")).\
-				limit(TopShouts.limit)
+				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = await ShoutRatingStorage.get_rating(shout.id)
 				shout.views = await ShoutViewStorage.get_view(shout.id)
 				shouts.append(shout)
-		async with TopShouts.lock:
-			TopShouts.recent_shouts = shouts
+		async with ShoutsCache.lock:
+			ShoutsCache.recent_shouts = shouts
 
 
 	@staticmethod
@@ -98,15 +98,15 @@ class TopShouts:
 				join(ShoutRating).\
 				group_by(Shout.id).\
 				order_by(desc("rating")).\
-				limit(TopShouts.limit)
+				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = row.rating
 				shout.views = await ShoutViewStorage.get_view(shout.id)
 				shouts.append(shout)
-		async with TopShouts.lock:
-			TopShouts.top_overall = shouts
+		async with ShoutsCache.lock:
+			ShoutsCache.top_overall = shouts
 
 	@staticmethod
 	async def prepare_top_month():
@@ -116,57 +116,57 @@ class TopShouts:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 				join(ShoutRating).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > TopShouts.month_ago).\
+				where(ShoutViewByDay.day > ShoutsCache.month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("rating")).\
-				limit(TopShouts.limit)
+				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = row.rating
 				shout.views = await ShoutViewStorage.get_view(shout.id)
 				shouts.append(shout)
-		async with TopShouts.lock:
-			TopShouts.top_month = shouts
+		async with ShoutsCache.lock:
+			ShoutsCache.top_month = shouts
 
 	@staticmethod
 	async def prepare_top_viewed():
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > TopShouts.month_ago).\
+				where(ShoutViewByDay.day > ShoutsCache.month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("view")).\
-				limit(TopShouts.limit)
+				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = await ShoutRatingStorage.get_rating(shout.id)
 				shout.view = row.view
 				shouts.append(shout)
-		async with TopShouts.lock:
-			TopShouts.top_viewed = shouts
+		async with ShoutsCache.lock:
+			ShoutsCache.top_viewed = shouts
 
 	@staticmethod
 	async def prepare_top_authors():
 		with local_session() as session:
 			shout_with_view = select(Shout.id, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > TopShouts.month_ago).\
+				where(ShoutViewByDay.day > ShoutsCache.month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("view")).cte()
 			stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
 				join(shout_with_view, ShoutAuthor.shout == shout_with_view.c.id).\
 				group_by(ShoutAuthor.user).\
 				order_by(desc("view")).\
-				limit(TopShouts.limit)
+				limit(ShoutsCache.limit)
 			authors = {}
 			for row in session.execute(stmt):
 				authors[row.user] = row.view
 			authors_ids = authors.keys()
 			authors = session.query(User).filter(User.id.in_(authors_ids)).all()
-		async with TopShouts.lock:
-			TopShouts.top_authors = authors
+		async with ShoutsCache.lock:
+			ShoutsCache.top_authors = authors
 
 
 	@staticmethod
@@ -175,42 +175,42 @@ class TopShouts:
 		while True:
 			try:
 				print("shouts cache updating...")
-				await TopShouts.prepare_top_month()
-				await TopShouts.prepare_top_overall()
-				await TopShouts.prepare_top_viewed()
-				await TopShouts.prepare_recent_shouts()
-				await TopShouts.prepare_top_authors()
+				await ShoutsCache.prepare_top_month()
+				await ShoutsCache.prepare_top_overall()
+				await ShoutsCache.prepare_top_viewed()
+				await ShoutsCache.prepare_recent_shouts()
+				await ShoutsCache.prepare_top_authors()
 				print("shouts cache update finished")
 			except Exception as err:
 				print("shouts cache worker error = %s" % (err))
-			await asyncio.sleep(TopShouts.period)
+			await asyncio.sleep(ShoutsCache.period)
 
 
 @query.field("topViewed")
 async def top_viewed(_, info, limit):
-	async with TopShouts.lock:
-		return TopShouts.top_viewed[:limit]
+	async with ShoutsCache.lock:
+		return ShoutsCache.top_viewed[:limit]
 
 @query.field("topMonth")
 async def top_month(_, info, limit):
-	async with TopShouts.lock:
-		return TopShouts.top_month[:limit]
+	async with ShoutsCache.lock:
+		return ShoutsCache.top_month[:limit]
 
 @query.field("topOverall")
 async def top_overall(_, info, limit):
-	async with TopShouts.lock:
-		return TopShouts.top_overall[:limit]
+	async with ShoutsCache.lock:
+		return ShoutsCache.top_overall[:limit]
 
 @query.field("recents")
 async def recent_shouts(_, info, limit):
-	async with TopShouts.lock:
-		return TopShouts.recent_shouts[:limit]
+	async with ShoutsCache.lock:
+		return ShoutsCache.recent_shouts[:limit]
 
 
 @query.field("topAuthors")
 async def top_authors(_, info, limit):
-	async with TopShouts.lock:
-		return TopShouts.top_authors[:limit]
+	async with ShoutsCache.lock:
+		return ShoutsCache.top_authors[:limit]
 
 
 @mutation.field("createShout")
