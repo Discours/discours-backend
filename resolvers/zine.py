@@ -20,11 +20,11 @@ class GitTask:
 	queue = asyncio.Queue()
 
 	def __init__(self, input, username, user_email, comment):
-		self.slug = input["slug"];
-		self.shout_body = input["body"];
-		self.username = username;
-		self.user_email = user_email;
-		self.comment = comment;
+		self.slug = input["slug"]
+		self.shout_body = input["body"]
+		self.username = username
+		self.user_email = user_email
+		self.comment = comment
 
 		GitTask.queue.put_nowait(self)
 	
@@ -99,9 +99,9 @@ class TopShouts:
 		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			stmt = select(\
-	   				Shout,\
-		   			func.sum(ShoutViewByDay.value).label("view"),\
-			  		func.sum(ShoutRating.value).label("rating")\
+					Shout,\
+					func.sum(ShoutViewByDay.value).label("view"),\
+					func.sum(ShoutRating.value).label("rating")\
 				).\
 				join(ShoutViewByDay).\
 				join(ShoutRating).\
