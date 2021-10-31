@@ -89,6 +89,7 @@ class TopShouts:
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = row.rating
+				shout.views = await ShoutViewStorage.get_view(shout.id)
 				shouts.append(shout)
 		async with TopShouts.lock:
 			TopShouts.shouts_by_rating = shouts
@@ -121,6 +122,7 @@ class TopShouts:
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = row.rating
+				shout.views = await ShoutViewStorage.get_view(shout.id)
 				shouts.append(shout)
 		async with TopShouts.lock:
 			TopShouts.favorite_shouts = shouts
@@ -138,6 +140,7 @@ class TopShouts:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
+				shout.rating = await ShoutRatingStorage.get_rating(shout.id)
 				shout.view = row.view
 				shouts.append(shout)
 		async with TopShouts.lock:
