@@ -95,25 +95,15 @@ class TopShouts:
 
 	@staticmethod
 	async def prepare_recent_shouts():
-		# TODO: debug recent shoputs resolver
-		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
-			stmt = select(\
-					Shout,\
-					func.sum(ShoutViewByDay.value).label("view"),\
-					func.sum(ShoutRating.value).label("rating")\
-				).\
-				join(ShoutViewByDay).\
-				join(ShoutRating).\
-				where(Shout.createdAt > month_ago).\
-				group_by(Shout.id).\
+			stmt = select(Shout).\
 				order_by(desc("createdAt")).\
 				limit(TopShouts.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.view = row.view
-				shout.rating = row.rating
+				shout.rating = await ShoutRatingStorage.get_rating(shout.id)
+				shout.views = await ShoutViewStorage.get_view(shout.id)
 				shouts.append(shout)
 		async with TopShouts.lock:
 			TopShouts.recent_shouts = shouts
