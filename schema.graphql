@@ -25,9 +25,9 @@ type MessageResult {
 input ShoutInput {
 	slug: String!
 	body: String!
-	replyTo: String # another shout
-	tags: [String] # actual values
-	topics: [Int]
+	# replyTo: String # another shout
+	# tags: [String] # actual values
+	topics: [String]
 	title: String
 	subtitle: String
 	versionOf: String
@@ -236,7 +236,7 @@ type Shout {
 	layout: String
 	rating: Int
 	views: Int
-	replyTo: Shout
+	# replyTo: Shout
 	versionOf: Shout
 	tags: [String] # actual values
 	topics: [String] # topic-slugs, order has matter
