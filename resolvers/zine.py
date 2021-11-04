@@ -72,7 +72,6 @@ class GitTask:
 class ShoutsCache:
 	limit = 50
 	period = 60*60 #1 hour
-	month_ago = datetime.now() - timedelta(days = 30)
 	lock = asyncio.Lock()
 
 	@staticmethod
@@ -110,13 +109,11 @@ class ShoutsCache:
 
 	@staticmethod
 	async def prepare_top_month():
-		# FIXME: test filter by month ago
-		# where(ShoutRating.ts > month_ago).\
+		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 				join(ShoutRating).\
-				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > ShoutsCache.month_ago).\
+				where(Shout.createdAt > month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("rating")).\
 				limit(ShoutsCache.limit)
@@ -131,28 +128,30 @@ class ShoutsCache:
 
 	@staticmethod
 	async def prepare_top_viewed():
+		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
-			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("view")).\
+			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("views")).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > ShoutsCache.month_ago).\
+				where(ShoutViewByDay.day > month_ago).\
 				group_by(Shout.id).\
-				order_by(desc("view")).\
+				order_by(desc("views")).\
 				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = await ShoutRatingStorage.get_rating(shout.id)
-				shout.view = row.view
+				shout.views = row.views
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.top_viewed = shouts
 
 	@staticmethod
 	async def prepare_top_authors():
+		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			shout_with_view = select(Shout.id, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > ShoutsCache.month_ago).\
+				where(ShoutViewByDay.day > month_ago).\
 				group_by(Shout.id).\
 				order_by(desc("view")).cte()
 			stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
