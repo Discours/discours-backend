@@ -129,7 +129,7 @@ type Subscription {
 	onlineUpdated: [User!]!
 	shoutUpdated: Shout!
 	userUpdated: User!
-	topicUpdated: Shout!
+	topicUpdated(user_id: Int!): Shout!
 }
 
 ############################################ Entities

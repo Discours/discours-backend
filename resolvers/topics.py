@@ -45,3 +45,18 @@ async def topic_unsubscribe(_, info, slug):
 		session.delete(sub)
 		return {} # type Result
 	return { "error": "session error" }
+
+@subscription.source("topicUpdated")
+async def new_shout_generator(obj, info, user_id):
+	with local_session() as session:
+		topics = session.query(TopicSubscription.topic).filter(TopicSubscription.user == user_id).all()
+	#TODO filter new shouts
+	while True:
+		new_shout = {"slug": "slug", "body" : "body"}
+		yield new_shout
+		await asyncio.sleep(30)
+	print("end")
+
+@subscription.field("topicUpdated")
+def shout_resolver(shout, info, user_id):
+	return shout

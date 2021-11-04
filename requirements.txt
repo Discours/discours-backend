@@ -16,3 +16,4 @@ transliterate
 requests
 bcrypt
 bs4
+websockets
