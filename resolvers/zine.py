@@ -78,6 +78,7 @@ class ShoutsCache:
 	async def prepare_recent_shouts():
 		with local_session() as session:
 			stmt = select(Shout).\
+				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				order_by(desc("createdAt")).\
 				limit(ShoutsCache.limit)
 			shouts = []
@@ -94,6 +95,7 @@ class ShoutsCache:
 	async def prepare_top_overall():
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
+				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutRating).\
 				group_by(Shout.id).\
 				order_by(desc("rating")).\
@@ -112,6 +114,7 @@ class ShoutsCache:
 		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
+				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutRating).\
 				where(Shout.createdAt > month_ago).\
 				group_by(Shout.id).\
@@ -131,6 +134,7 @@ class ShoutsCache:
 		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
 			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("views")).\
+				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutViewByDay).\
 				where(ShoutViewByDay.day > month_ago).\
 				group_by(Shout.id).\
