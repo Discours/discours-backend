@@ -10,6 +10,8 @@
 
 location /graphql {
 
+	rewrite  ^/graphql/(.*)  /$1 break;
+
     gzip on;
     gzip_min_length  1100;
     gzip_buffers  4 32k;

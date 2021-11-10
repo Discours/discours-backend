@@ -6,7 +6,7 @@ from urllib.parse import quote_plus
 from auth.authorize import Authorize
 from auth.identity import Identity
 
-from settings import OAUTH_CLIENTS, OAUTH_CALLBACK_URL
+from settings import OAUTH_CLIENTS, BACKEND_URL, OAUTH_CALLBACK_URL
 
 oauth = OAuth()
 
@@ -66,7 +66,7 @@ async def oauth_login(request):
 	provider = request.path_params['provider']
 	request.session['provider'] = provider
 	client = oauth.create_client(provider)
-	redirect_uri = request.url_for('oauth_authorize')
+	redirect_uri = "%s/%s" % (BACKEND_URL, 'oauth_authorize')
 	return await client.authorize_redirect(request, redirect_uri)
 
 async def oauth_authorize(request):
