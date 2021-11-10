@@ -1,10 +1,12 @@
 from authlib.integrations.starlette_client import OAuth
-from starlette.responses import PlainTextResponse
+from starlette.responses import RedirectResponse
+
+from urllib.parse import quote_plus
 
 from auth.authorize import Authorize
 from auth.identity import Identity
 
-from settings import OAUTH_CLIENTS
+from settings import OAUTH_CLIENTS, OAUTH_CALLBACK_URL
 
 oauth = OAuth()
 
@@ -81,4 +83,5 @@ async def oauth_authorize(request):
 	}
 	user = Identity.identity_oauth(user_input)
 	token = await Authorize.authorize(user, device="pc")
-	return PlainTextResponse(token)
+	redirect_uri = "%s?token=%s" % (OAUTH_CALLBACK_URL, quote_plus(token))
+	return RedirectResponse(url = redirect_uri)
