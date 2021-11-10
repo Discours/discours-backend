@@ -27,7 +27,7 @@ input ShoutInput {
 	body: String!
 	# replyTo: String # another shout
 	# tags: [String] # actual values
-	topics: [String]
+	topic_ids: [Int]
 	title: String
 	subtitle: String
 	versionOf: String
@@ -239,7 +239,7 @@ type Shout {
 	# replyTo: Shout
 	versionOf: Shout
 	tags: [String] # actual values
-	topics: [String] # topic-slugs, order has matter
+	topics: [Topic]
 	title: String
 	subtitle: String
 	updatedAt: DateTime

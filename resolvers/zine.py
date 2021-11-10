@@ -188,7 +188,27 @@ class ShoutsCache:
 				print("shouts cache worker error = %s" % (err))
 			await asyncio.sleep(ShoutsCache.period)
 
+class ShoutSubscriptions:
+	lock = asyncio.Lock()
+	subscriptions = []
 
+	@staticmethod
+	async def register_subscription(subs):
+		async with ShoutSubscriptions.lock:
+			ShoutSubscriptions.subscriptions.append(subs)
+	
+	@staticmethod
+	async def del_subscription(subs):
+		async with ShoutSubscriptions.lock:
+			ShoutSubscriptions.subscriptions.remove(subs)
+	
+	@staticmethod
+	async def send_shout(shout):
+		async with ShoutSubscriptions.lock:
+			for subs in ShoutSubscriptions.subscriptions:
+				subs.put_nowait(shout)
+		
+		
 @query.field("topViewed")
 async def top_viewed(_, info, limit):
 	async with ShoutsCache.lock:
@@ -224,11 +244,20 @@ async def create_shout(_, info, input):
 	
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
+	
+	topic_ids = input.get("topic_ids")
+	del input["topic_ids"]
 
 	new_shout = Shout.create(**input)
 	ShoutAuthor.create(
 		shout = new_shout.id,
 		user = user_id)
+	
+	for id in topic_ids:
+		topic = ShoutTopic.create(
+			shout = new_shout.id,
+			topic = id)
+	new_shout.topic_ids = topic_ids
 
 	task = GitTask(
 		input,
@@ -236,6 +265,8 @@ async def create_shout(_, info, input):
 		user.email,
 		"new shout %s" % (new_shout.slug)
 		)
+		
+	await ShoutSubscriptions.send_shout(new_shout)
 
 	return {
 		"shout" : new_shout
