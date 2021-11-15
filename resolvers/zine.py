@@ -79,6 +79,7 @@ class ShoutsCache:
 		with local_session() as session:
 			stmt = select(Shout).\
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
+				where(Shout.publishedAt != None).\
 				order_by(desc("createdAt")).\
 				limit(ShoutsCache.limit)
 			shouts = []
@@ -97,6 +98,7 @@ class ShoutsCache:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutRating).\
+				where(Shout.publishedAt != None).\
 				group_by(Shout.id).\
 				order_by(desc("rating")).\
 				limit(ShoutsCache.limit)
@@ -116,7 +118,7 @@ class ShoutsCache:
 			stmt = select(Shout, func.sum(ShoutRating.value).label("rating")).\
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutRating).\
-				where(Shout.createdAt > month_ago).\
+				where(and_(Shout.createdAt > month_ago, Shout.publishedAt != None)).\
 				group_by(Shout.id).\
 				order_by(desc("rating")).\
 				limit(ShoutsCache.limit)
@@ -136,7 +138,7 @@ class ShoutsCache:
 			stmt = select(Shout, func.sum(ShoutViewByDay.value).label("views")).\
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > month_ago).\
+				where(and_(ShoutViewByDay.day > month_ago, Shout.publishedAt != None)).\
 				group_by(Shout.id).\
 				order_by(desc("views")).\
 				limit(ShoutsCache.limit)
@@ -155,7 +157,7 @@ class ShoutsCache:
 		with local_session() as session:
 			shout_with_view = select(Shout.id, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
-				where(ShoutViewByDay.day > month_ago).\
+				where(and_(ShoutViewByDay.day > month_ago, Shout.publishedAt != None)).\
 				group_by(Shout.id).\
 				order_by(desc("view")).cte()
 			stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
