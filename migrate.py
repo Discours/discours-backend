@@ -9,7 +9,7 @@ from migration.tables.content_item_categories import migrate as migrateCategory
 from migration.tables.tags import migrate as migrateTag
 from migration.tables.comments import migrate as migrateComment
 from migration.utils import DateTimeEncoder
-from orm import Community
+from orm import Community, Topic
 from dateutil.parser import parse as date_parse
 
 from orm.base import local_session
@@ -165,6 +165,13 @@ if __name__ == '__main__':
         # limiting
         try: limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
         except ValueError:  limit = len(content_data)
+        
+        if not topics_by_cat:
+            with local_session() as session:
+                topics = session.query(Topic).all()
+            print("loaded %s topics" % len(topics))
+            for topic in topics:
+                topics_by_cat[topic.cat_id] = topic
 
         for entry in content_data[:limit]:
             try:
@@ -306,14 +313,17 @@ if __name__ == '__main__':
         elif cmd == "topics":
             topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
         elif cmd == "shouts":
-            Community.create(**{
-                'id' : 0,
-                'slug': 'discours.io',
-                'name': 'Дискурс',
-                'pic': 'https://discours.io/images/logo-min.svg',
-                'createdBy': '0',
-                'createdAt': date_parse(OLD_DATE)
-            })
+            with local_session() as session:
+                community = session.query(Community).filter(Community.id == 0).first()
+            if not community:
+                Community.create(**{
+                    'id' : 0,
+                    'slug': 'discours.io',
+                    'name': 'Дискурс',
+                    'pic': 'https://discours.io/images/logo-min.svg',
+                    'createdBy': '0',
+                    'createdAt': date_parse(OLD_DATE)
+                })
             shouts(content_data, shouts_by_slug, shouts_by_oid) # NOTE: listens limit
         elif cmd == "export_shouts":
             export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)

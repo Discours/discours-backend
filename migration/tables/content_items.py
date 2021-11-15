@@ -3,7 +3,7 @@ import frontmatter
 import json
 import sqlite3
 import sqlalchemy
-from orm import Shout, Comment, Topic, ShoutRating, User #, TODO: CommentRating
+from orm import Shout, Comment, Topic, ShoutTopic, ShoutRating, User
 from bs4 import BeautifulSoup
 from migration.html2text import html2text
 from migration.tables.comments import migrate as migrateComment
@@ -37,7 +37,7 @@ def get_metadata(r):
     metadata['authors'] = r.get('authors')
     metadata['createdAt'] = r.get('createdAt', ts)
     metadata['layout'] = r['layout']
-    metadata['topics'] = r['topics']
+    metadata['topics'] = [topic.slug for topic in r['topics']]
     if r.get('cover', False):
         metadata['cover'] = r.get('cover')
     return metadata
@@ -66,6 +66,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
         views: Int
     }
     '''
+    # print(entry)
     content = ''
     r = {
         'layout': type2layout[entry['type']],
@@ -73,7 +74,6 @@ def migrate(entry, users_by_oid, topics_by_oid):
         'community': 0,
         'authors': [],
         'topics': [],
-        'published': entry.get('published', False),
         'views': entry.get('views', 0),
         'rating': entry.get('rating', 0),
         'ratings': [],
@@ -90,9 +90,9 @@ def migrate(entry, users_by_oid, topics_by_oid):
         # print(entry)
         raise Exception
     try:
-        r['topics'].append(topics_by_oid[entry['category']]['slug'])
+        r['topics'].append(topics_by_oid[entry['category']])
     except Exception:
-        print(entry['category'])
+        print("invalid category %s" % (entry['category']))
     if entry.get('image') is not None:
         r['cover'] = entry['image']['url']
     if entry.get('thumborId') is not None:
@@ -174,13 +174,12 @@ def migrate(entry, users_by_oid, topics_by_oid):
         open('migration/content/' + r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
     try:
         shout_dict['createdAt'] = date_parse(r.get('createdAt')) if entry.get('createdAt') else ts
-        shout_dict['publishedAt'] = date_parse(entry.get('publishedAt')) if entry.get('published') else ts
+        shout_dict['publishedAt'] = date_parse(entry.get('publishedAt')) if entry.get('published') else None
 
         if entry.get('deletedAt') is not None:
             shout_dict['deletedAt'] = date_parse(entry.get('deletedAt'))
             shout_dict['deletedBy'] = entry.get('deletedBy', '0')
         
-        del shout_dict['published'] # invalid keyword argument for Shout
         del shout_dict['topics'] # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
         del shout_dict['views'] # FIXME: TypeError: 'views' is an invalid keyword argument for Shout
         del shout_dict['rating'] # FIXME: TypeError: 'rating' is an invalid keyword argument for Shout
@@ -223,11 +222,8 @@ def migrate(entry, users_by_oid, topics_by_oid):
                     shout_dict['ratings'].append(shout_rating_dict)
             # shout topics
             shout_dict['topics'] = []
-            for topic_slug in r['topics']:
-                topic = session.query(Topic).filter(Topic.slug == topic_slug).first()
-                if not topic:
-                    try: topic = Topic.create(**{ 'slug': topic_slug, 'title': topic_slug })
-                    except Exception as e: raise e
+            for topic in r['topics']:
+                ShoutTopic.create(**{ 'shout': s.id, 'topic': topic.id })
                 shout_dict['topics'].append(topic.slug)
     except Exception as e:
         if not shout_dict['body']: r['body'] = 'body moved'
