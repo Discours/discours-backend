@@ -39,6 +39,7 @@ if __name__ == '__main__':
         users = session.query(User).all()
         for user in users:
             user_id_map[user.old_id] = user.id
+            users_by_oid[user.old_id] = vars(user)
 
     tags_data = json.loads(open('migration/data/tags.json').read())
     print(str(len(tags_data)) + ' tags loaded')
