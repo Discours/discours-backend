@@ -326,6 +326,9 @@ if __name__ == '__main__':
                     'createdAt': date_parse(OLD_DATE)
                 })
             shouts(content_data, shouts_by_slug, shouts_by_oid) # NOTE: listens limit
+        elif cmd == "comments":
+            for comment in comments_data:
+                migrateComment(comment)
         elif cmd == "export_shouts":
             export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
         elif cmd == "all":
