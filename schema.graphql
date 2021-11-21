@@ -46,6 +46,11 @@ type ShoutResult {
 	shout: Shout
 }
 
+type CommentResult {
+	error: String
+	comment: Comment
+}
+
 ################################### Mutation
 
 type Mutation {
@@ -79,6 +84,10 @@ type Mutation {
 	# topics
 	topicSubscribe(slug: String!): Result!
 	topicUnsubscribe(slug: String!): Result!
+	
+	createComment(body: String!, shout: Int!, replyTo: Int): CommentResult!
+	updateComment(id: Int!, body: String!): CommentResult!
+	deleteComment(id: Int!): Result!
 }
 
 ################################### Query
@@ -199,7 +208,7 @@ type Comment {
 	id: Int!
 	author: Int!
 	body: String!
-	replyTo: Int!
+	replyTo: Int
 	createdAt: DateTime!
 	updatedAt: DateTime
 	updatedBy: Int
