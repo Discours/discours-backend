@@ -37,7 +37,7 @@ def migrate(entry):
         deletedAt: DateTime
         deletedBy: Int
         rating: Int
-        ratigns: [CommentRating]
+        ratings: [CommentRating]
         views: Int
         old_id: String
         old_thread: String

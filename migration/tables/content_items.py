@@ -53,7 +53,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
         deletedAt: DateTime
         deletedBy: Int
         rating: Int
-        ratigns: [Rating]
+        ratings: [Rating]
         published: Bool!
         publishedAt: DateTime # if there is no published field - it is not published
         replyTo: String # another shout
