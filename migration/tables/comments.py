@@ -36,7 +36,6 @@ def migrate(entry):
         shout: Int!
         deletedAt: DateTime
         deletedBy: Int
-        rating: Int
         ratings: [CommentRating]
         views: Int
         old_id: String
@@ -54,8 +53,9 @@ def migrate(entry):
             'body': html2text(entry['body']),
             'shout': shout.id
         }
-        if 'rating' in entry:
-          comment_dict['rating'] = entry['rating']
+        #TODO save as CommentRating
+        #if 'rating' in entry:
+        #  comment_dict['rating'] = entry['rating']
         if entry.get('deleted'):
           comment_dict['deletedAt'] = date_parse(entry['updatedAt'])
           comment_dict['deletedBy'] = str(entry['updatedBy'])

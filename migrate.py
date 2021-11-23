@@ -118,6 +118,18 @@ def shouts(content_data, shouts_by_slug, shouts_by_oid):
 	try: limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
 	except ValueError:  limit = len(content_data)
 	
+	with local_session() as session:
+		community = session.query(Community).filter(Community.id == 0).first()
+	if not community:
+		Community.create(**{
+			'id' : 0,
+			'slug': 'discours.io',
+			'name': 'Дискурс',
+			'pic': 'https://discours.io/images/logo-min.svg',
+			'createdBy': '0',
+			'createdAt': date_parse(OLD_DATE)
+		})
+	
 	if not topics_by_cat:
 		with local_session() as session:
 			topics = session.query(Topic).all()
@@ -328,17 +340,6 @@ if __name__ == '__main__':
 				elif cmd == "topics":
 					topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
 				elif cmd == "shouts":
-					with local_session() as session:
-						community = session.query(Community).filter(Community.id == 0).first()
-					if not community:
-						Community.create(**{
-							'id' : 0,
-							'slug': 'discours.io',
-							'name': 'Дискурс',
-							'pic': 'https://discours.io/images/logo-min.svg',
-							'createdBy': '0',
-							'createdAt': date_parse(OLD_DATE)
-						})
 					shouts(content_data, shouts_by_slug, shouts_by_oid) # NOTE: listens limit
 				elif cmd == "comments":
 					for comment in comments_data:
@@ -349,10 +350,8 @@ if __name__ == '__main__':
 					users(users_by_oid, users_by_slug, users_data)
 					topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
 					shouts(content_data, shouts_by_slug, shouts_by_oid)
-					cl = sys.argv[2] if len(sys.argv) > 2 else 10 
-					topOids = sorted([ c[0] for c in comments_by_post.items()], reverse=True,  key=lambda i: len(i[1]))[-cl:]
-					topSlugs = [ shouts_by_oid[oid]['slug'] for oid in topOids ]
-					comments(topSlugs, export_comments, export_articles, shouts_by_slug, content_dict)
+					for comment in comments_data:
+						migrateComment(comment)
 				elif cmd == 'slug':
 					export_slug(sys.argv[2], export_articles, export_authors, content_dict)
 				#export_finish(export_articles, export_authors, export_topics, export_comments)
