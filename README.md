@@ -1,4 +1,4 @@
-# discours-backend-next
+# discoursio-api
 
 Tech stack:
 

@@ -37,7 +37,7 @@ def get_metadata(r):
     metadata['authors'] = r.get('authors')
     metadata['createdAt'] = r.get('createdAt', ts)
     metadata['layout'] = r['layout']
-    metadata['topics'] = [topic.slug for topic in r['topics']]
+    metadata['topics'] = [topic['slug'] for topic in r['topics']]
     if r.get('cover', False):
         metadata['cover'] = r.get('cover')
     return metadata
@@ -199,32 +199,34 @@ def migrate(entry, users_by_oid, topics_by_oid):
                 print(userdata)
         assert user, 'could not get a user'
         
-        shout_dict['authors'] = [ user, ]
-        try: s = Shout.create(**shout_dict)
-        except Exception as e: raise e
-        
-        with local_session() as session:
-            shout_dict['id'] = s.id
-            # shout ratings
-            shout_dict['ratings'] = []
-            for shout_rating_old in entry.get('ratings',[]):
-                rater = session.query(User).filter(User.old_id == shout_rating_old['createdBy']).first()
-                if rater:
-                    shout_rating_dict = {
-                        'value': shout_rating_old['value'],
-                        'rater_id': rater.id,
-                        'shout_id': s.id
-                    }
-                    cts = shout_rating_old.get('createdAt')
-                    if cts: shout_rating_dict['rater_id'] = date_parse(cts)
-                    try: shout_rating = ShoutRating.create(**shout_rating_dict)
-                    except sqlalchemy.exc.IntegrityError: pass
-                    shout_dict['ratings'].append(shout_rating_dict)
-            # shout topics
-            shout_dict['topics'] = []
-            for topic in r['topics']:
-                ShoutTopic.create(**{ 'shout': s.id, 'topic': topic.id })
-                shout_dict['topics'].append(topic.slug)
+        shout_dict['authors'] = [ user, ] 
+        try:
+            with local_session() as session:
+                s = Shout.create(**shout_dict)
+                if s:
+                    # shout ratings
+                    shout_dict['ratings'] = []
+                    for shout_rating_old in entry.get('ratings',[]):
+                        rater = session.query(User).filter(User.old_id == shout_rating_old['createdBy']).first()
+                        if rater:
+                            shout_rating_dict = {
+                                'value': shout_rating_old['value'],
+                                'rater_id': rater.id,
+                                'shout_id': s.id
+                            }
+                            cts = shout_rating_old.get('createdAt')
+                            if cts: shout_rating_dict['rater_id'] = date_parse(cts)
+                            try: shout_rating = ShoutRating.create(**shout_rating_dict)
+                            except sqlalchemy.exc.IntegrityError: pass
+                            shout_dict['ratings'].append(shout_rating_dict)
+                    # shout topics
+                    shout_dict['id'] = s.id
+                    shout_dict['topics'] = []
+                    for topic in r['topics']:
+                        ShoutTopic.create(**{ 'shout': s.id, 'topic': topic['id'] })
+                        shout_dict['topics'].append(topic['slug'])
+        except Exception as e: 
+            raise e
     except Exception as e:
         if not shout_dict['body']: r['body'] = 'body moved'
         raise e
