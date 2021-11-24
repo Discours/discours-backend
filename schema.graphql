@@ -211,7 +211,6 @@ type User {
 	updatedAt: DateTime
 	wasOnlineAt: DateTime
 	rating: Int
-	ratings: [Rating]
 	bio: String
 	notifications: [Int]
 	topics: [String] # user subscribed topics
