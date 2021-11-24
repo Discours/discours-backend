@@ -139,6 +139,10 @@ type Query {
 	topicsByAuthor(author: String!): [Topic]!
 
 	# getOnlineUsers: [User!]!
+	
+	# communities
+	getCommunity(slug: String): Community!
+	getCommunities: [Community]!
 }
 
 ############################################ Subscription
