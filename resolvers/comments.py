@@ -55,3 +55,24 @@ async def delete_comment(_, info, id):
 		session.commit()
 
 	return {}
+
+@mutation.field("rateComment")
+@login_required
+async def rate_comment(_, info, id, value):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+	
+	with local_session() as session:
+		rating = session.query(CommentRating).\
+			filter(CommentRating.comment_id == id and CommentRating.createdBy == user_id).first()
+		if rating:
+			rating.value = value
+			session.commit()
+			return {}
+	
+	CommentRating.create(
+		comment_id = id,
+		createdBy = user_id,
+		value = value)
+	
+	return {}
