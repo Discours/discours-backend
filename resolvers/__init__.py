@@ -6,6 +6,7 @@ from resolvers.profile import get_user_by_slug, get_current_user
 from resolvers.topics import topic_subscribe, topic_unsubscribe, topics_by_author, \
     topics_by_community, topics_by_slugs
 from resolvers.comments import create_comment
+from resolvers.community import create_community, delete_community, get_community, get_communities
 
 __all__ = [
     "login",
@@ -30,5 +31,9 @@ __all__ = [
     "topics_by_community",
     "topics_by_author",
     "topic_subscribe",
-    "topic_unsubscribe"
+    "topic_unsubscribe",
+    "create_community",
+    "delete_community",
+    "get_community",
+    "get_communities"
     ]
