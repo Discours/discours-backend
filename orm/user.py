@@ -25,11 +25,12 @@ class UserRating(Base):
 	user_id = Column(ForeignKey('user.id'), primary_key = True)
 	value = Column(Integer)
 
-UserRoles = Table("user_roles",
-	Base.metadata,
-	Column('user_id', Integer, ForeignKey('user.id'), primary_key = True),
-	Column('role_id', Integer, ForeignKey('role.id'), primary_key = True)
-)
+class UserRole(Base):
+	__tablename__ = "user_role"
+
+	id = None
+	user_id = Column(ForeignKey('user.id'), primary_key = True)
+	role_id = Column(ForeignKey('role.id'), primary_key = True)
 
 UserTopics = Table("user_topics",
 	Base.metadata,
@@ -56,7 +57,7 @@ class User(Base):
 	oauth: str = Column(String, nullable=True)
 	notifications = relationship(lambda: UserNotifications)
 	ratings = relationship(UserRating, foreign_keys=UserRating.user_id)
-	roles = relationship(lambda: Role, secondary=UserRoles)
+	roles = relationship(lambda: Role, secondary=UserRole.__tablename__)
 	topics = relationship(lambda: Topic, secondary=UserTopics)
 	old_id: str = Column(String, nullable = True)
 

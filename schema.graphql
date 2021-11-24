@@ -114,6 +114,7 @@ type Query {
 	getCurrentUser: UserResult!
 	getUserBySlug(slug: String!): UserResult!
 	# rateUser(shout: Int): Int!
+	userRoles: [Role]!
 
 	# messages
 	getMessages(count: Int = 100, page: Int = 1): [Message!]!
@@ -153,12 +154,27 @@ type Subscription {
 
 ############################################ Entities
 
+type Resource {
+	id: Int!
+	name: String!
+}
+
+type Operation {
+	id: Int!
+	name: String!
+}
+
+type Permission {
+	operation_id: Int!
+	resource_id: Int!
+}
+
 type Role {
 	id: Int!
 	name: String!
 	community: Int!
 	desc: String
-	permissions: [Int!]!
+	permissions: [Permission!]!
 }
 
 type Rating {
@@ -192,7 +208,6 @@ type User {
 	links: [String]
 	emailConfirmed: Boolean # should contain all emails too
 	muted: Boolean
-	roles: [Role]
 	updatedAt: DateTime
 	wasOnlineAt: DateTime
 	rating: Int

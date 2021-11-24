@@ -1,6 +1,6 @@
 from orm.rbac import Operation, Resource, Permission, Role
 from orm.community import Community
-from orm.user import User, UserRating
+from orm.user import User, UserRating, UserRole
 from orm.message import Message
 from orm.topic import Topic, TopicSubscription
 from orm.notification import Notification
