@@ -22,12 +22,7 @@ async def get_user_by_slug(_, info, slug):
 @query.field("getCurrentUser")
 @login_required
 async def get_current_user(_, info):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-
-	with local_session() as session:
-		user = session.query(User).filter(User.id == user_id).first()
-
+	user = info.context["request"].user
 	return { "user": user }
 
 @query.field("userRoles")
