@@ -20,7 +20,7 @@ async def create_community(_, info, title, desc):
 
 @mutation.field("updateCommunity")
 @login_required
-async def update_community(_, info, id, title, desc):
+async def update_community(_, info, id, title, desc, pic):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
@@ -32,6 +32,7 @@ async def update_community(_, info, id, title, desc):
 			return {"error": "access denied"}
 		community.title = title
 		community.desc = desc
+		community.pic = pic
 		community.updatedAt = datetime.now()
 		
 		session.commit()
@@ -46,9 +47,8 @@ async def delete_community(_, info, id):
 		community = session.query(Community).filter(Community.id == id).first()
 		if not community:
 			return {"error": "invalid community id"}
-		if community.author != user_id:
+		if community.owner != user_id:
 			return {"error": "access denied"}
-
 		community.deletedAt = datetime.now()
 		session.commit()
 
