@@ -1,0 +1,73 @@
+from orm import Community
+from orm.base import local_session
+from resolvers.base import mutation, query, subscription
+from auth.authenticate import login_required
+import asyncio
+from datetime import datetime
+
+@mutation.field("createCommunity")
+@login_required
+async def create_community(_, info, title, desc):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+
+	community = Community.create(
+		title = title,
+		desc = desc
+		)
+
+	return {"community": community}
+
+@mutation.field("updateCommunity")
+@login_required
+async def update_community(_, info, id, title, desc):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+
+	with local_session() as session:
+		community = session.query(Community).filter(Community.id == id).first()
+		if not community:
+			return {"error": "invalid community id"}
+		if community.owner != user_id:
+			return {"error": "access denied"}
+		community.title = title
+		community.desc = desc
+		community.updatedAt = datetime.now()
+		
+		session.commit()
+
+@mutation.field("deleteCommunity")
+@login_required
+async def delete_community(_, info, id):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+
+	with local_session() as session:
+		community = session.query(Community).filter(Community.id == id).first()
+		if not community:
+			return {"error": "invalid community id"}
+		if community.author != user_id:
+			return {"error": "access denied"}
+
+		community.deletedAt = datetime.now()
+		session.commit()
+
+	return {}
+
+@query.field("getCommunity")
+async def get_community(_, info, slug):
+    with local_session() as session:
+        community = session.query(Community).filter(Community.slug == slug).first()
+        if not community:
+			return {"error": "invalid community id"}
+
+	return { community }
+
+@query.field("getCommunities")
+async def get_community(_, info, slugs):
+    with local_session() as session:
+        communities = session.query(Community).filter(Community.slug in slugs)
+        if not community:
+			return {"error": "invalid community id"}
+
+	return { communities }
