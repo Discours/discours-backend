@@ -51,6 +51,17 @@ type CommentResult {
 	comment: Comment
 }
 
+enum MessageStatus {
+	NEW
+	UPDATED
+	DELETED
+}
+
+type MessageWithStatus {
+	status: MessageStatus!
+	message: Message!
+}
+
 ################################### Mutation
 
 type Mutation {
@@ -132,9 +143,7 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
-	messageCreated: Message!
-	messageUpdated: Message!
-	messageDeleted: Message!
+	messageChanged: MessageWithStatus!
 
 	onlineUpdated: [User!]!
 	shoutUpdated: Shout!
