@@ -10,7 +10,7 @@ from auth.credentials import AuthCredentials, AuthUser
 from auth.token import Token
 from auth.authorize import Authorize
 from exceptions import InvalidToken, OperationNotAllowed
-from orm import User
+from orm import User, UserStorage
 from orm.base import local_session
 from redis import redis
 from settings import JWT_AUTH_HEADER, EMAIL_TOKEN_LIFE_SPAN
@@ -70,8 +70,9 @@ class JWTAuthenticate(AuthenticationBackend):
 		if not payload.device in ("pc", "mobile"):
 			return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-		scopes = User.get_permission(user_id=payload.user_id)
-		return AuthCredentials(user_id=payload.user_id, scopes=scopes, logged_in=True), AuthUser(user_id=payload.user_id)
+		user = await UserStorage.get_user(payload.user_id)
+		scopes = user.get_permission()
+		return AuthCredentials(user_id=payload.user_id, scopes=scopes, logged_in=True), user
 
 class EmailAuthenticate:
 	@staticmethod

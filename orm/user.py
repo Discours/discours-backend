@@ -2,12 +2,14 @@ from typing import List
 from datetime import datetime
 
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, Boolean, DateTime, JSON as JSONType
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, selectinload
 
 from orm import Permission
 from orm.base import Base, local_session
 from orm.rbac import Role
 from orm.topic import Topic
+
+import asyncio
 
 class UserNotifications(Base):
 	__tablename__ = 'user_notifications'
@@ -62,16 +64,44 @@ class User(Base):
 	old_id: str = Column(String, nullable = True)
 
 	@classmethod
-	def get_permission(cls, user_id):
+	def get_permission(self):
 		scope = {}
-		with local_session() as session:
-			user = session.query(User).filter(User.id == user_id).first()
-			for role in user.roles:
-				for p in role.permissions:
-					if not p.resource_id in scope:
-						scope[p.resource_id] = set()
-					scope[p.resource_id].add(p.operation_id)
+		#TODO implement RoleStorage
+		#for role in self.roles:
+			# for p in role.permissions:
+				# if not p.resource_id in scope:
+					# scope[p.resource_id] = set()
+				# scope[p.resource_id].add(p.operation_id)
 		return scope
+
+class UserStorage:
+	users = {}
+	lock = asyncio.Lock()
+
+	@staticmethod
+	def init(session):
+		self = UserStorage
+		users = session.query(User).\
+			options(selectinload(User.roles)).all()
+		self.users = dict([(user.id, user) for user in users])
+
+	@staticmethod
+	async def get_user(id):
+		self = UserStorage
+		async with self.lock:
+			return self.users.get(id)
+
+	@staticmethod
+	async def add_user(user):
+		self = UserStorage
+		async with self.lock:
+			self.users[id] = user
+
+	@staticmethod
+	async def del_user(user):
+		self = UserStorage
+		async with self.lock:
+			del self.users[id]
 
 
 if __name__ == "__main__":

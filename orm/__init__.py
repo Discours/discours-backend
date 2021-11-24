@@ -1,6 +1,6 @@
 from orm.rbac import Operation, Resource, Permission, Role
 from orm.community import Community
-from orm.user import User, UserRating, UserRole
+from orm.user import User, UserRating, UserRole, UserStorage
 from orm.message import Message
 from orm.topic import Topic, TopicSubscription
 from orm.notification import Notification
@@ -18,3 +18,4 @@ Resource.init_table()
 with local_session() as session:
 	ShoutRatingStorage.init(session)
 	ShoutViewStorage.init(session)
+	UserStorage.init(session)
