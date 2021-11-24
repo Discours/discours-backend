@@ -56,15 +56,15 @@ async def delete_community(_, info, id):
 
 @query.field("getCommunity")
 async def get_community(_, info, slug):
-    with local_session() as session:
-        community = session.query(Community).filter(Community.slug == slug).first()
-        if not community:
+	with local_session() as session:
+		community = session.query(Community).filter(Community.slug == slug).first()
+		if not community:
 			return {"error": "invalid community id"}
 
 	return { community }
 
 @query.field("getCommunities")
 async def get_communities(_, info):
-    with local_session() as session:
-        communities = session.query(Community)
+	with local_session() as session:
+		communities = session.query(Community)
 		return { communities }
