@@ -109,7 +109,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
             else:
                 body_html = str(BeautifulSoup(
                     body_orig, features="html.parser"))
-                r['body'] = html2text(body_html)
+                r['body'] = body_html # html2text(body_html)
         else:
             print(r['slug'] + ': literature has no media')
     elif entry.get('type') == 'Video':
@@ -130,7 +130,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
     if r.get('body') is None:
         body_orig = entry.get('body', '')
         body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-        r['body'] = html2text(body_html)
+        r['body'] = body_html # html2text(body_html)
     body = r.get('body', '')
     r['old_id'] = entry.get('_id')
     
