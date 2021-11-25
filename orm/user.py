@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, Boolean, DateTime, JSON as JSONType
 from sqlalchemy.orm import relationship, selectinload
 
-from orm import Permission
+from orm import RoleStorage
 from orm.base import Base, local_session
 from orm.rbac import Role
 from orm.topic import Topic
@@ -63,15 +63,14 @@ class User(Base):
 	topics = relationship(lambda: Topic, secondary=UserTopics)
 	old_id: str = Column(String, nullable = True)
 
-	@classmethod
-	def get_permission(self):
+	async def get_permission(self):
 		scope = {}
-		#TODO implement RoleStorage
-		#for role in self.roles:
-			# for p in role.permissions:
-				# if not p.resource_id in scope:
-					# scope[p.resource_id] = set()
-				# scope[p.resource_id].add(p.operation_id)
+		for user_role in self.roles:
+			role = await RoleStorage.get_role(user_role.id)
+			for p in role.permissions:
+				if not p.resource_id in scope:
+					scope[p.resource_id] = set()
+				scope[p.resource_id].add(p.operation_id)
 		return scope
 
 class UserStorage:
@@ -98,7 +97,7 @@ class UserStorage:
 			self.users[id] = user
 
 	@staticmethod
-	async def del_user(user):
+	async def del_user(id):
 		self = UserStorage
 		async with self.lock:
 			del self.users[id]

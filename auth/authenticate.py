@@ -71,7 +71,7 @@ class JWTAuthenticate(AuthenticationBackend):
 			return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
 		user = await UserStorage.get_user(payload.user_id)
-		scopes = user.get_permission()
+		scopes = await user.get_permission()
 		return AuthCredentials(user_id=payload.user_id, scopes=scopes, logged_in=True), user
 
 class EmailAuthenticate:
