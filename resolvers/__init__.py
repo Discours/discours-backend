@@ -2,7 +2,7 @@ from resolvers.auth import login, sign_out, is_email_free, register, confirm
 from resolvers.inbox import create_message, delete_message, update_message, get_messages
 from resolvers.zine import create_shout, get_shout_by_slug, top_month, top_overall, \
     recent_shouts, top_authors, top_viewed
-from resolvers.profile import get_user_by_slug, get_current_user
+from resolvers.profile import get_user_by_slug, get_current_user, authors_by_slugs
 from resolvers.topics import topic_subscribe, topic_unsubscribe, topics_by_author, \
     topics_by_community, topics_by_slugs
 from resolvers.comments import create_comment
@@ -35,5 +35,6 @@ __all__ = [
     "create_community",
     "delete_community",
     "get_community",
-    "get_communities"
+    "get_communities",
+    "authors_by_slugs"
     ]

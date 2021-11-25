@@ -120,8 +120,7 @@ type Query {
 	getMessages(count: Int = 100, page: Int = 1): [Message!]!
 
 	# shouts
-	getShoutBySlug(slug: String!): Shout!
-	# NOTE: with .comments: Comments[]
+	getShoutBySlug(slug: String!): Shout! # NOTE: with .comments: Comments[]
 	shoutsByTopic(topic: String!, limit: Int!): [Shout]!
 	shoutsByAuthor(author: String!, limit: Int!): [Shout]!
 	shoutsByCommunity(community: String!, limit: Int!): [Shout]!
@@ -143,6 +142,9 @@ type Query {
 	# communities
 	getCommunity(slug: String): Community!
 	getCommunities: [Community]!
+
+	# my feed
+	authorsBySlugs(slugs: [String]!): [User]!
 }
 
 ############################################ Subscription

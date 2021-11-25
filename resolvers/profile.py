@@ -25,6 +25,14 @@ async def get_current_user(_, info):
 	user = info.context["request"].user
 	return { "user": user }
 
+@query.field("authorsBySlugs")
+@login_required
+async def authors_by_slugs(_, info, slugs):
+	user = info.context["request"].user
+	with local_session() as session:
+		users = session.query(User).where(User.slug in slugs)
+	return { "authors": users }
+
 @query.field("userRoles")
 @login_required
 async def user_roles(_, info):
