@@ -41,6 +41,12 @@ input ProfileInput {
 	userpic: String
 }
 
+input CommunityInput {
+	title
+	desc
+	pic
+}
+
 type ShoutResult {
 	error: String
 	shout: Shout
@@ -95,14 +101,14 @@ type Mutation {
 	# topics
 	topicSubscribe(slug: String!): Result!
 	topicUnsubscribe(slug: String!): Result!
-	
+
 	createComment(body: String!, shout: Int!, replyTo: Int): CommentResult!
 	updateComment(id: Int!, body: String!): CommentResult!
 	deleteComment(id: Int!): Result!
 	rateComment(id: Int!, value: Int!): Result!
-	
+
 	createCommunity(title: String!, desc: String!): Community!
-	updateCommunity(id: Int!, title: String!, desc: String!, pic: String!): Community!
+	updateCommunity(community: CommunityInput!): Community!
 	deleteCommunity(id: Int!): Result!
 }
 
@@ -142,7 +148,7 @@ type Query {
 	topicsByAuthor(author: String!): [Topic]!
 
 	# getOnlineUsers: [User!]!
-	
+
 	# communities
 	getCommunity(slug: String): Community!
 	getCommunities: [Community]!
