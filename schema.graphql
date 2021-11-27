@@ -143,6 +143,7 @@ type Query {
 	topAuthors(limit: Int): [User]!
 
 	# topics
+	topicsAll: [Topic]!
 	topicsBySlugs(slugs: [String]!): [Topic]!
 	topicsByCommunity(community: String!): [Topic]!
 	topicsByAuthor(author: String!): [Topic]!

@@ -5,6 +5,14 @@ from resolvers.zine import ShoutSubscriptions
 from auth.authenticate import login_required
 import asyncio
 
+
+@query.field("topicsAll")
+async def topics_ball(_, info):
+	topics = []
+	with local_session() as session:
+		topics = session.query(Topic)
+	return topics
+
 @query.field("topicsBySlugs")
 async def topics_by_slugs(_, info, slugs):
 	topics = []

@@ -4,7 +4,7 @@ from resolvers.zine import create_shout, get_shout_by_slug, top_month, top_overa
     recent_shouts, top_authors, top_viewed
 from resolvers.profile import get_user_by_slug, get_current_user, authors_by_slugs
 from resolvers.topics import topic_subscribe, topic_unsubscribe, topics_by_author, \
-    topics_by_community, topics_by_slugs
+    topics_by_community, topics_by_slugs, topics_all
 from resolvers.comments import create_comment
 from resolvers.community import create_community, delete_community, get_community, get_communities
 
@@ -27,6 +27,7 @@ __all__ = [
     "top_month",
     "top_overall",
     "top_viewed",
+    "topics_all",
     "topics_by_slugs",
     "topics_by_community",
     "topics_by_author",
