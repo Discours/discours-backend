@@ -42,9 +42,9 @@ input ProfileInput {
 }
 
 input CommunityInput {
-	title
-	desc
-	pic
+	title: String!
+	desc: String
+	pic: String
 }
 
 type ShoutResult {
