@@ -7,7 +7,7 @@ import asyncio
 
 
 @query.field("topicsAll")
-async def topics_ball(_, info):
+async def topics_all(_, info):
 	topics = []
 	with local_session() as session:
 		topics = session.query(Topic)
