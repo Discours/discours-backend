@@ -247,7 +247,7 @@ type Message {
 
 type Comment {
 	id: Int!
-	author: Int!
+	author: User!
 	body: String!
 	replyTo: Int
 	createdAt: DateTime!
