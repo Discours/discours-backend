@@ -45,7 +45,7 @@ def migrate(entry):
     with local_session() as session:
         shout = session.query(Shout).filter(Shout.old_id == entry['_id']).first()
         if not shout: shout = session.query(Shout).first()
-        author = session.query(User).filter(User.old_id == entry['_id']).first()
+        author = session.query(User).filter(User.old_id == entry['_id']).first() # FIXME
         comment_dict = {
             'old_id': entry['_id'],
             'author': author.id if author else 0,

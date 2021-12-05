@@ -68,10 +68,16 @@ type MessageWithStatus {
 	message: Message!
 }
 
+type ChatRoomResult {
+	messages: [Message]!
+	room: ChatRoom!
+}
+
 ################################### Mutation
 
 type Mutation {
 	# message
+	getRoom(chatRoom: Int!): ChatRoomResult! # TODO: private rooms protection
 	createMessage(body: String!, replyTo: Int): MessageResult!
 	updateMessage(id: Int!, body: String!): MessageResult!
 	deleteMessage(messageId: Int!): Result!
@@ -162,7 +168,7 @@ type Query {
 
 type Subscription {
 	messageChanged: MessageWithStatus!
-
+	chatUpdated: ChatRoomResult!
 	onlineUpdated: [User!]!
 	shoutUpdated: Shout!
 	userUpdated: User!
@@ -237,12 +243,20 @@ type User {
 
 type Message {
 	author: Int!
+	chatRoom: Int!
 	body: String!
 	createdAt: DateTime!
 	id: Int!
 	replyTo: Int
 	updatedAt: DateTime!
 	visibleForUsers: [Int]!
+}
+
+type ChatRoom {
+	id: Int!
+	createdAt: DateTime!
+	updatedAt: DateTime!
+	notes: String
 }
 
 type Comment {

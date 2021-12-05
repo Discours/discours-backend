@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from sqlalchemy import select, func, desc, and_
 from sqlalchemy.orm import selectinload
-import pprint
 
 
 class GitTask:
@@ -353,7 +352,7 @@ async def view_shout(_, info, shout_id):
 @query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
 	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
-	pprint(all_fields)
+	print(all_fields)
 	selected_fields = set(["authors", "comments", "topics"]).intersection(all_fields)
 	select_options = [selectinload(getattr(Shout, field)) for field in selected_fields]
 
