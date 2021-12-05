@@ -24,7 +24,6 @@ bson = "*"
 python-frontmatter = "*"
 bs4 = "*"
 transliterate = "*"
-psycopg2 = "*"
 requests = "*"
 
 [tool.poetry.dev-dependencies]

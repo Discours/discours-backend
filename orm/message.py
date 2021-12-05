@@ -11,7 +11,7 @@ class Message(Base):
     __tablename__ = 'message'
 
     fromUser: int = Column(ForeignKey("user.id"), nullable=False, comment="Sender")
-    chatRoom: int = Column(Integer, nullable=false, comment="Chatroom")
+    chatRoom: int = Column(Integer, nullable=False, comment="Chatroom")
     body: str = Column(String, nullable=False, comment="Body")
     createdAt = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
