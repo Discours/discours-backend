@@ -1,6 +1,7 @@
 from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource,\
-	ShoutRatingStorage, ShoutViewStorage
+	ShoutRatingStorage, ShoutViewStorage, Comment, CommentRating
 from orm.base import local_session
+from orm.user import UserStorage
 
 from resolvers.base import mutation, query
 
@@ -363,3 +364,18 @@ async def get_shout_by_slug(_, info, slug):
 	shout.rating = await ShoutRatingStorage.get_rating(shout.id)
 	shout.views = await ShoutViewStorage.get_view(shout.id)
 	return shout
+
+@query.field("getShoutComments")
+async def get_shout_comments(_, info, shout_id):
+	with local_session() as session:
+		rows = session.query(Comment, func.sum(CommentRating.value).label("rating")).\
+			join(CommentRating).\
+			where(Comment.shout == shout_id).\
+			group_by(Comment.id).all()
+	comments = []
+	for row in rows:
+		comment = row.Comment
+		comment.author = await UserStorage.get_user(comment.author)
+		comment.rating = row.rating
+		comments.append(comment)
+	return comments
