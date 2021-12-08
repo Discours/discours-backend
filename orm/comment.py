@@ -28,8 +28,5 @@ class Comment(Base):
 	shout: int = Column(ForeignKey("shout.id"), nullable=False, comment="Shout ID")
 	replyTo: int = Column(ForeignKey("comment.id"), nullable=True, comment="comment ID")
 	ratings = relationship(CommentRating, foreign_keys=CommentRating.comment_id)
-	old_id: str = Column(String, nullable = True)
-	old_thread: str = Column(String, nullable = True)
-	
 
 	# TODO: work in progress, udpate this code

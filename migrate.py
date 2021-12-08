@@ -9,6 +9,7 @@ from migration.tables.content_items import get_metadata, migrate as migrateShout
 from migration.tables.content_item_categories import migrate as migrateCategory
 from migration.tables.tags import migrate as migrateTag
 from migration.tables.comments import migrate as migrateComment
+from migration.tables.comments import migrate_2stage as migrateComment_2stage
 from migration.utils import DateTimeEncoder
 from orm import Community, Topic
 from dateutil.parser import parse as date_parse
@@ -206,41 +207,16 @@ def export_slug(slug, export_articles, export_authors, content_dict):
 	export_body(shout, content_dict)
 	comments([slug, ])
 
-def comments(sluglist, export_comments, export_articles, shouts_by_slug, content_dict):
-	''' migrating comments on content items one '''
-	if len(sluglist) == 0:
-		export_articles = json.loads(open('../src/data/articles.json').read())
-		print(str(len(export_articles.items())) + ' articles were exported before')
-		if len(sluglist) == 0: sluglist = list(export_articles.keys())
-
-	if len(sluglist) > 0:
-		print('exporting comments for: ')
-		print(' '.join(sluglist))
-		for slug in sluglist:
-			shout = shouts_by_slug[slug]
-			old_id = shout['old_id']
-			content_item = content_dict.get(old_id, {})
-			if content_item.get('commentedAt', False):
-				comments = [ migrateComment(c) for c in comments_by_post.get(old_id, []) ]
-				if len(comments) > 0: 
-					export_comments[slug] = comments
-					sys.stdout.write('.')
-	else:
-
-		print('exporting comments for top 10 commented articles...')
-		comments_by_shoutslug = {}
-		for content_item in content_data:
-			old_id = content_item['_id']
-			if content_item.get('commentedAt', False):
-				comments = [ migrateComment(c) for c in comments_by_post.get(old_id, []) ]
-				if len(comments) > 0:
-					shout = shouts_by_oid.get(old_id, { 'slug': 'abandoned-comments' })
-					comments_by_shoutslug[shout['slug']] = comments
-		
-		top = dict(sorted(comments_by_shoutslug.items(), reverse=True, key=lambda c: len(c[1]))[:10])
-		export_comments.update(top)
-			
-		print(str(len(export_comments.keys())) + ' articls with comments exported\n')
+def comments(comments_data):
+	id_map = {}
+	for comment in comments_data:
+		comment = migrateComment(comment)
+		id = comment.get('id')
+		old_id = comment.get('old_id')
+		id_map[old_id] = id
+	for comment in comments_data:
+		migrateComment_2stage(comment, id_map)
+	print(str(len(id_map)) + ' comments exported')
 
 
 def export_finish(export_articles = {}, export_authors = {}, export_topics = {}, export_comments = {}):
@@ -342,16 +318,14 @@ if __name__ == '__main__':
 				elif cmd == "shouts":
 					shouts(content_data, shouts_by_slug, shouts_by_oid) # NOTE: listens limit
 				elif cmd == "comments":
-					for comment in comments_data:
-						migrateComment(comment)
+					comments(comments_data)
 				elif cmd == "export_shouts":
 					export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
 				elif cmd == "all":
 					users(users_by_oid, users_by_slug, users_data)
 					topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
 					shouts(content_data, shouts_by_slug, shouts_by_oid)
-					for comment in comments_data:
-						migrateComment(comment)
+					comments(comments_data)
 				elif cmd == 'slug':
 					export_slug(sys.argv[2], export_articles, export_authors, content_dict)
 				#export_finish(export_articles, export_authors, export_topics, export_comments)
