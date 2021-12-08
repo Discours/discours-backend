@@ -94,7 +94,7 @@ class UserStorage:
 	async def add_user(user):
 		self = UserStorage
 		async with self.lock:
-			self.users[id] = user
+			self.users[user.id] = user
 
 	@staticmethod
 	async def del_user(id):

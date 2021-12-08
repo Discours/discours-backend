@@ -14,6 +14,8 @@ __all__ = ["User", "Role", "Community", "Operation", "Permission", "Message", "S
 Base.metadata.create_all(engine)
 Operation.init_table()
 Resource.init_table()
+Community.init_table()
+Role.init_table()
 
 with local_session() as session:
 	ShoutRatingStorage.init(session)

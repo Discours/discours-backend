@@ -33,7 +33,7 @@ class Base(declarative_base()):
 	@classmethod
 	def create(cls: Generic[T], **kwargs) -> Generic[T]:
 		instance = cls(**kwargs)
-		return instance.save()
+		return instance.save(session)
 
 	def save(self) -> Generic[T]:
 		with local_session() as session:

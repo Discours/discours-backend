@@ -16,7 +16,7 @@ async def get_user_by_slug(_, info, slug):
 			group_by(User.id).\
 			first()
 	user = row.User
-	user.rating = row.rating
+	user["rating"] = row.rating
 	return { "user": user } # TODO: remove some fields for public
 
 @query.field("getCurrentUser")
@@ -46,3 +46,16 @@ async def user_roles(_, info):
 			where(UserRole.user_id == user_id).all()
 
 	return roles
+
+@mutation.field("updateProfile")
+@login_required
+async def update_profile(_, info, profile):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+
+	with local_session() as session:
+		user = session.query(User).filter(User.id == user_id).first()
+		user.update(profile)
+		session.commit()
+
+	return {}

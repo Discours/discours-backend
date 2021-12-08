@@ -7,6 +7,7 @@ from sqlalchemy import String, Integer, Column, ForeignKey, UniqueConstraint, Ty
 from sqlalchemy.orm import relationship, selectinload
 
 from orm.base import Base, REGISTRY, engine, local_session
+from orm.community import Community
 
 
 class ClassType(TypeDecorator):
@@ -31,12 +32,26 @@ class ClassType(TypeDecorator):
 class Role(Base):
 	__tablename__ = 'role'
 
-	# id is auto field
- 
 	name: str = Column(String, nullable=False, comment="Role Name")
 	desc: str = Column(String, nullable=True, comment="Role Description")
 	community: int = Column(ForeignKey("community.id", ondelete="CASCADE"), nullable=False, comment="Community")
 	permissions = relationship(lambda: Permission)
+
+	@staticmethod
+	def init_table():
+		with local_session() as session:
+			default = session.query(Role).filter(Role.name == "author").first()
+		if default:
+			Role.default_role = default
+			return
+
+		default = Role.create(
+			name = "author",
+			desc = "Role for author",
+			community = Community.default_community.id
+		)
+
+		Role.default_role = default
 
 class Operation(Base):
 	__tablename__ = 'operation'

@@ -36,9 +36,10 @@ input ShoutInput {
 }
 
 input ProfileInput {
-	email: String
-	username: String
+	name: String
 	userpic: String
+	links: [String]
+	bio: String
 }
 
 input CommunityInput {
