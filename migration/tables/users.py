@@ -4,9 +4,7 @@ from dateutil.parser import parse
 from migration.html2text import html2text
 from orm.base import local_session
 
-counter = 0
-
-def migrate(entry, limit=668):
+def migrate(entry):
 	'''
 
 	type User {
@@ -21,7 +19,6 @@ def migrate(entry, limit=668):
 		emailConfirmed: Boolean # should contain all emails too
 		id: Int!
 		muted: Boolean
-		rating: Int
 		roles: [Role]
 		updatedAt: DateTime
 		wasOnlineAt: DateTime
@@ -40,7 +37,6 @@ def migrate(entry, limit=668):
 	res['wasOnlineAt'] = parse(entry.get('loggedInAt', entry['createdAt']))
 	res['emailConfirmed'] = entry['emails'][0]['verified']
 	res['createdAt'] = parse(entry['createdAt'])
-	res['rating'] = entry['rating'] # number
 	res['roles'] = [] # entry['roles'] # roles by community
 	res['ratings'] = [] # entry['ratings']
 	res['notifications'] = []
@@ -89,22 +85,23 @@ def migrate(entry, limit=668):
 	old = res['old_id']
 	user = User.create(**res.copy())
 	res['id'] = user.id
-	res['ratings'] = []
-	for user_rating_old in entry.get('ratings',[]):
-		with local_session() as session: 
-			rater = session.query(User).filter(old == user_rating_old['createdBy']).first()
-			if rater:
-				user_rating_dict = {
-					'value': user_rating_old['value'],
-					'rater_id': rater.id,
-					'user_id': user.id
-				}
-				cts = user_rating_old.get('createdAt')
-				if cts: user_rating_dict['createdAt'] = date_parse(cts)
-				try:
-					user_rating = UserRating.create(**user_rating_dict)
-					res['ratings'].append(user_rating_dict)
-				except Exception as e:
-					print(comment_rating_dict)
-					raise e
+
 	return res
+
+def migrate_2stage(entry, id_map):
+	for rating_entry in entry.get('ratings',[]):
+		rater_old_id = rating_entry['createdBy']
+		rater_id = id_map.get(rater_old_id)
+		if not rater_id:
+			continue
+		old_id = entry['_id']
+		user_rating_dict = {
+			'value': rating_entry['value'],
+			'rater_id': rater_id,
+			'user_id': id_map.get(old_id)
+		}
+		with local_session() as session:
+			try:
+				user_rating = UserRating.create(**user_rating_dict)
+			except Exception as e:
+				print(e)

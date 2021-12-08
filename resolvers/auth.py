@@ -8,7 +8,7 @@ from auth.authorize import Authorize
 from auth.identity import Identity
 from auth.password import Password
 from auth.email import send_confirm_email, send_auth_email
-from orm import User
+from orm import User, UserStorage
 from orm.base import local_session
 from resolvers.base import mutation, query
 from exceptions import InvalidPassword
@@ -40,13 +40,13 @@ async def register(*_, email: str, password: str = ""):
 	if not password:
 		user = User.create(**user_dict)
 		await send_confirm_email(user)
-		UserStorage.add_user(user)
+		await UserStorage.add_user(user)
 		return { "user": user }
 
 	user_dict["password"] = Password.encode(password)
 	user = User.create(**user_dict)
 	token = await Authorize.authorize(user)
-	UserStorage.add_user(user)
+	await UserStorage.add_user(user)
 	return {"user": user, "token": token }
 
 

@@ -5,6 +5,7 @@ import base64
 import re
 import frontmatter
 from migration.tables.users import migrate as migrateUser
+from migration.tables.users import migrate_2stage as migrateUser_2stage
 from migration.tables.content_items import get_metadata, migrate as migrateShout
 from migration.tables.content_item_categories import migrate as migrateCategory
 from migration.tables.tags import migrate as migrateTag
@@ -48,6 +49,7 @@ def users(users_by_oid, users_by_slug, users_data):
 	if len(sys.argv) > 2: limit = int(sys.argv[2])
 	print('migrating %d users...' % limit)
 	counter = 0
+	id_map = {}
 	for entry in users_data:
 		oid = entry['_id']
 		user = migrateUser(entry)
@@ -59,8 +61,10 @@ def users(users_by_oid, users_by_slug, users_data):
 		del user['username']
 		del user['email']
 		users_by_slug[user['slug']] = user # public
+		id_map[user['old_id']] = user['id']
 		counter += 1
-	export_authors = dict(sorted(users_by_slug.items(), key=lambda item: item[1]['rating'])[-10:])
+	for entry in users_data:
+		migrateUser_2stage(entry, id_map)
 	try:
 		open('migration/data/users.old_id.json', 'w').write(json.dumps(users_by_oid, cls=DateTimeEncoder))  # NOTE: by old_id
 		open('migration/data/users.slug.json', 'w').write(json.dumps(users_by_slug, cls=DateTimeEncoder))  # NOTE: by slug
