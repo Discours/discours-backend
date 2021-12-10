@@ -11,6 +11,7 @@ from transliterate import translit
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from orm.base import local_session
+from orm.community import Community
     
 DISCOURS_USER = {
     'id': 9999999,
@@ -71,7 +72,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
     r = {
         'layout': type2layout[entry['type']],
         'title': entry['title'],
-        'community': 0,
+        'community': Community.default_community.id,
         'authors': [],
         'topics': [],
         'views': entry.get('views', 0),

@@ -14,6 +14,7 @@ __all__ = ["User", "Role", "Community", "Operation", "Permission", "Message", "S
 Base.metadata.create_all(engine)
 Operation.init_table()
 Resource.init_table()
+User.init_table()
 Community.init_table()
 Role.init_table()
 

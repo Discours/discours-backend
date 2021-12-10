@@ -122,19 +122,7 @@ def shouts(content_data, shouts_by_slug, shouts_by_oid):
 	# limiting
 	try: limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
 	except ValueError:  limit = len(content_data)
-	
-	with local_session() as session:
-		community = session.query(Community).filter(Community.id == 0).first()
-	if not community:
-		Community.create(**{
-			'id' : 0,
-			'slug': 'discours.io',
-			'name': 'Дискурс',
-			'pic': 'https://discours.io/images/logo-min.svg',
-			'createdBy': '0',
-			'createdAt': date_parse(OLD_DATE)
-		})
-	
+
 	if not topics_by_cat:
 		with local_session() as session:
 			topics = session.query(Topic).all()
@@ -269,11 +257,6 @@ if __name__ == '__main__':
 				print(str(len(users_data)) + ' users loaded')
 				users_by_oid = {}
 				users_by_slug = {}
-
-				with local_session() as session:
-					default_user = session.query(User).filter(User.id == 0).first()
-				if not default_user:
-					default_user = User.create(id = 0, email = "discours@discours.io", username = "discours", slug = "default", old_id = 0)
 
 				user_id_map = {}
 				with local_session() as session:

@@ -18,14 +18,11 @@ class Community(Base):
 	def init_table():
 		with local_session() as session:
 			default = session.query(Community).filter(Community.slug == "default").first()
-		if default:
-			Community.default_community = default
-			return
-
-		default = Community.create(
-			name = "default",
-			slug = "default",
-			createdBy = 0
-		)
+		if not default:
+			default = Community.create(
+				name = "default",
+				slug = "default",
+				createdBy = 0 #TODO: use default user
+			)
 
 		Community.default_community = default

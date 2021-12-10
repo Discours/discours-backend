@@ -4,9 +4,8 @@ from datetime import datetime
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, Boolean, DateTime, JSON as JSONType
 from sqlalchemy.orm import relationship, selectinload
 
-from orm import RoleStorage
 from orm.base import Base, local_session
-from orm.rbac import Role
+from orm.rbac import Role, RoleStorage
 from orm.topic import Topic
 
 import asyncio
@@ -62,6 +61,20 @@ class User(Base):
 	roles = relationship(lambda: Role, secondary=UserRole.__tablename__)
 	topics = relationship(lambda: Topic, secondary=UserTopics)
 	old_id: str = Column(String, nullable = True)
+	
+	@staticmethod
+	def init_table():
+		with local_session() as session:
+			default = session.query(User).filter(User.slug == "default").first()
+		if not default:
+			default = User.create(
+				id = 0,
+				email = "discours@discours.io",
+				username = "discours",
+				slug = "default"
+			)
+
+		User.default_user = default
 
 	async def get_permission(self):
 		scope = {}
