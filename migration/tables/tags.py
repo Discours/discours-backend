@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from orm.base import local_session
-from orm import Topic
+from orm import Topic, Community
 from dateutil.parser import parse as date_parse
 
 def migrate(entry):
@@ -25,7 +25,8 @@ def migrate(entry):
         # 'createdAt': ts,
         'title': entry['title'].lower(),
         'parents': [],
-        'children': []
+        'children': [],
+        'community' : Community.default_community.slug
     }
     try:
         with local_session() as session:
