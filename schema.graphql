@@ -131,7 +131,7 @@ type Query {
 	getCurrentUser: UserResult!
 	getUserBySlug(slug: String!): UserResult!
 	# rateUser(shout: Int): Int!
-	userRoles: [Role]!
+	getUserRoles(slug: String!): [Role]!
 
 	# messages
 	getMessages(count: Int = 100, page: Int = 1): [Message!]!

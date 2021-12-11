@@ -33,17 +33,16 @@ async def authors_by_slugs(_, info, slugs):
 		users = session.query(User).where(User.slug in slugs)
 	return { "authors": users }
 
-@query.field("userRoles")
-@login_required
-async def user_roles(_, info):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
+@query.field("getUserRoles")
+async def get_user_roles(_, info, slug):
 
 	with local_session() as session:
+		user = session.query(User).where(User.slug == slug).first()
+
 		roles = session.query(Role).\
 			options(selectinload(Role.permissions)).\
 			join(UserRole).\
-			where(UserRole.user_id == user_id).all()
+			where(UserRole.user_id == user.id).all()
 
 	return roles
 
