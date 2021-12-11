@@ -1,5 +1,5 @@
 from orm.base import local_session
-from orm import Topic
+from orm import Topic, Community
 from dateutil.parser import parse as date_parse
 
 def migrate(entry):
@@ -20,7 +20,8 @@ def migrate(entry):
         'title': entry['title'].lower(),
         'parents': [],
         'children': [],
-        'cat_id': entry['_id']
+        'cat_id': entry['_id'],
+        'community' : Community.default_community.slug
     }
     try:
         with local_session() as session:
