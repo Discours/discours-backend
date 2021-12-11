@@ -129,7 +129,7 @@ type Query {
 
 	# profile
 	getCurrentUser: UserResult!
-	getUserBySlug(slug: String!): UserResult!
+	getUsersBySlugs(slugs: [String]!): [User]!
 	# rateUser(shout: Int): Int!
 	getUserRoles(slug: String!): [Role]!
 
@@ -161,9 +161,6 @@ type Query {
 	# communities
 	getCommunity(slug: String): Community!
 	getCommunities: [Community]!
-
-	# my feed
-	authorsBySlugs(slugs: [String]!): [User]!
 }
 
 ############################################ Subscription
@@ -203,7 +200,7 @@ type Role {
 }
 
 type Rating {
-	createdBy: Int!
+	rater_id: Int!
 	value: Int!
 }
 
@@ -235,7 +232,7 @@ type User {
 	muted: Boolean
 	updatedAt: DateTime
 	wasOnlineAt: DateTime
-	rating: Int
+	ratings: [Rating]
 	bio: String
 	notifications: [Int]
 	topics: [String] # user subscribed topics
