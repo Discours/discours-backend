@@ -1,4 +1,4 @@
-from orm import Topic, TopicSubscription
+from orm import Topic, TopicSubscription, Shout, User
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
 from resolvers.zine import ShoutSubscriptions
@@ -17,7 +17,7 @@ async def topics_all(_, info):
 async def topics_by_slugs(_, info, slugs):
 	topics = []
 	with local_session() as session:
-		topics = session.query(Topic).filter(Topic.slug in slugs)
+		topics = session.query(Topic).filter(Topic.slug.in_(slugs))
 	return topics
 
 @query.field("topicsByCommunity")
@@ -29,12 +29,13 @@ async def topics_by_community(_, info, community):
 
 @query.field("topicsByAuthor")
 async def topics_by_author(_, info, author):
-	topics = []
+	topics = {}
 	with local_session() as session:
-		author_shouts = session.query(Shout).filter(author in Shout.authors)
-		# TODO: all the topics from author_shouts
-		topics = []
-		return topics
+		shouts = session.query(Shout).\
+			filter(Shout.authors.any(User.slug == author))
+		for shout in shouts:
+			topics.update(dict([(topic.slug, topic) for topic in shout.topics]))
+	return topics.values()
 
 @mutation.field("topicSubscribe")
 @login_required
