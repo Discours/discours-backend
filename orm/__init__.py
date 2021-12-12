@@ -2,7 +2,7 @@ from orm.rbac import Operation, Resource, Permission, Role, RoleStorage
 from orm.community import Community
 from orm.user import User, UserRating, UserRole, UserStorage
 from orm.message import Message
-from orm.topic import Topic, TopicSubscription
+from orm.topic import Topic, TopicSubscription, TopicStorage
 from orm.notification import Notification
 from orm.shout import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay,\
 	ShoutRatingStorage, ShoutViewStorage
@@ -23,3 +23,4 @@ with local_session() as session:
 	ShoutViewStorage.init(session)
 	RoleStorage.init(session)
 	UserStorage.init(session)
+	TopicStorage.init(session)

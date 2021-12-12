@@ -1,41 +1,29 @@
-from orm import Topic, TopicSubscription, Shout, User
+from orm import Topic, TopicSubscription, TopicStorage, Shout, User
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
 from resolvers.zine import ShoutSubscriptions
 from auth.authenticate import login_required
 import asyncio
 
-
-@query.field("topicsAll")
-async def topics_all(_, info):
-	topics = []
-	with local_session() as session:
-		topics = session.query(Topic)
-	return topics
-
 @query.field("topicsBySlugs")
-async def topics_by_slugs(_, info, slugs):
-	topics = []
+async def topics_by_slugs(_, info, slugs = None):
 	with local_session() as session:
-		topics = session.query(Topic).filter(Topic.slug.in_(slugs))
-	return topics
+		return await TopicStorage.get_topics(slugs)
 
 @query.field("topicsByCommunity")
 async def topics_by_community(_, info, community):
-	topics = []
 	with local_session() as session:
-		topics = session.query(Topic).filter(Topic.community == community)
-	return topics
+		return await TopicStorage.get_topics_by_community(community)
 
 @query.field("topicsByAuthor")
 async def topics_by_author(_, info, author):
-	topics = {}
+	slugs = set()
 	with local_session() as session:
 		shouts = session.query(Shout).\
 			filter(Shout.authors.any(User.slug == author))
 		for shout in shouts:
-			topics.update(dict([(topic.slug, topic) for topic in shout.topics]))
-	return topics.values()
+			slugs.update([topic.slug for topic in shout.topics])
+	return await TopicStorage.get_topics(slugs)
 
 @mutation.field("topicSubscribe")
 @login_required
