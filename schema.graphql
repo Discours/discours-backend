@@ -27,7 +27,7 @@ input ShoutInput {
 	body: String!
 	# replyTo: String # another shout
 	# tags: [String] # actual values
-	topic_ids: [Int]
+	topic_slugs: [String]
 	title: String
 	subtitle: String
 	versionOf: String
@@ -74,6 +74,20 @@ type ChatRoomResult {
 	room: ChatRoom!
 }
 
+input TopicInput {
+	slug: String!
+	title: String
+	body: String
+	pic: String
+	children: [String]
+	community: String!
+}
+
+type TopicResult {
+	error: String
+	topic: Topic
+}
+
 ################################### Mutation
 
 type Mutation {
@@ -106,6 +120,8 @@ type Mutation {
 	updateProfile(profile: ProfileInput!): Result!
 
 	# topics
+	createTopic(input: TopicInput!): TopicResult!
+	updateTopic(input: TopicInput!): TopicResult!
 	topicSubscribe(slug: String!): Result!
 	topicUnsubscribe(slug: String!): Result!
 
@@ -324,8 +340,7 @@ type Topic {
 	pic: String
 	parents: [String] # NOTE: topic can have parent topics
 	children: [String] # and children
-	cat_id: String
-	community: String
+	community: String!
 }
 
 # TODO: resolvers to add/remove topics from publication

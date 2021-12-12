@@ -22,7 +22,7 @@ class Topic(Base):
 	title: str = Column(String, nullable=False, comment="Title")
 	body: str = Column(String, nullable=True, comment="Body")
 	pic: str = Column(String, nullable=True, comment="Picture")
-	children = Column(JSONType, nullable=True, comment="list of children topics")
+	children = Column(JSONType, nullable=True, default = [], comment="list of children topics")
 	community = Column(ForeignKey("community.slug"), nullable=False, comment="Community")
 
 class TopicStorage:

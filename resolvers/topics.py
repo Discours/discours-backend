@@ -25,6 +25,33 @@ async def topics_by_author(_, info, author):
 			slugs.update([topic.slug for topic in shout.topics])
 	return await TopicStorage.get_topics(slugs)
 
+@mutation.field("createTopic")
+@login_required
+async def create_topic(_, info, input):
+	new_topic = Topic.create(**input)
+	await TopicStorage.add_topic(new_topic)
+
+	return { "topic" : new_topic }
+
+@mutation.field("updateTopic")
+@login_required
+async def update_topic(_, info, input):
+	slug = input["slug"]
+
+	session = local_session()
+	topic = session.query(Topic).filter(Topic.slug == slug).first()
+
+	if not topic:
+		return { "error" : "topic not found" }
+
+	topic.update(input)
+	session.commit()
+	session.close()
+
+	await TopicStorage.add_topic(topic)
+
+	return { "topic" : topic }
+
 @mutation.field("topicSubscribe")
 @login_required
 async def topic_subscribe(_, info, slug):
@@ -54,7 +81,7 @@ async def new_shout_generator(obj, info, user_id):
 		await ShoutSubscriptions.register_subscription(shouts_queue)
 		while True:
 			shout = await shouts_queue.get()
-			if topics.intersection(set(shout.topic_ids)):
+			if topics.intersection(set(shout.topic_slugs)):
 				yield shout
 	finally:
 		await ShoutSubscriptions.del_subscription(shouts_queue)

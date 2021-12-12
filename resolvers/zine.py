@@ -249,19 +249,19 @@ async def create_shout(_, info, input):
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
 	
-	topic_ids = input.get("topic_ids")
-	del input["topic_ids"]
+	topic_slugs = input.get("topic_slugs")
+	del input["topic_slugs"]
 
 	new_shout = Shout.create(**input)
 	ShoutAuthor.create(
 		shout = new_shout.id,
 		user = user_id)
 	
-	for id in topic_ids:
+	for slug in topic_slugs:
 		topic = ShoutTopic.create(
 			shout = new_shout.id,
-			topic = id)
-	new_shout.topic_ids = topic_ids
+			topic = slug)
+	new_shout.topic_slugs = topic_slugs
 
 	task = GitTask(
 		input,
@@ -305,7 +305,7 @@ async def update_shout(_, info, id, input):
 	session.commit()
 	session.close()
 
-	for topic in input.get("topics"):
+	for topic in input.get("topic_slugs"):
 		ShoutTopic.create(
 			shout = shout.id,
 			topic = topic)
