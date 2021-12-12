@@ -353,7 +353,7 @@ async def view_shout(_, info, shout_id):
 @query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
 	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
-	selected_fields = set(["authors", "comments", "topics"]).intersection(all_fields)
+	selected_fields = set(["authors", "topics"]).intersection(all_fields)
 	select_options = [selectinload(getattr(Shout, field)) for field in selected_fields]
 
 	with local_session() as session:
@@ -367,14 +367,10 @@ async def get_shout_by_slug(_, info, slug):
 @query.field("getShoutComments")
 async def get_shout_comments(_, info, shout_id):
 	with local_session() as session:
-		rows = session.query(Comment, func.sum(CommentRating.value).label("rating")).\
-			join(CommentRating).\
-			where(Comment.shout == shout_id).\
+		comments = session.query(Comment).\
+			options(selectinload(Comment.ratings)).\
+			filter(Comment.shout == shout_id).\
 			group_by(Comment.id).all()
-	comments = []
-	for row in rows:
-		comment = row.Comment
+	for comment in comments:
 		comment.author = await UserStorage.get_user(comment.author)
-		comment.rating = row.rating
-		comments.append(comment)
 	return comments

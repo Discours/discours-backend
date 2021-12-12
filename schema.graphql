@@ -268,7 +268,6 @@ type Comment {
 	shout: Int!
 	deletedAt: DateTime
 	deletedBy: Int
-	rating: Int
 	ratings: [CommentRating]
 	views: Int
 	old_id: String
@@ -290,7 +289,6 @@ type Shout {
 	body: String!
 	createdAt: DateTime!
 	authors: [User!]!
-	comments: [Comment]
 	ratings: [Rating]
 	visibleFor: [User]
 	community: Int
