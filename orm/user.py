@@ -33,12 +33,6 @@ class UserRole(Base):
 	user_id = Column(ForeignKey('user.id'), primary_key = True)
 	role_id = Column(ForeignKey('role.id'), primary_key = True)
 
-UserTopics = Table("user_topics",
-	Base.metadata,
-	Column('user_id', Integer, ForeignKey('user.id'), primary_key = True),
-	Column('topic_id', Integer, ForeignKey('topic.id'), primary_key = True)
-)
-
 class User(Base):
 	__tablename__ = "user"
 
@@ -59,7 +53,6 @@ class User(Base):
 	notifications = relationship(lambda: UserNotifications)
 	ratings = relationship(UserRating, foreign_keys=UserRating.user_id)
 	roles = relationship(lambda: Role, secondary=UserRole.__tablename__)
-	topics = relationship(lambda: Topic, secondary=UserTopics)
 	old_id: str = Column(String, nullable = True)
 	
 	@staticmethod

@@ -30,7 +30,7 @@ class ShoutTopic(Base):
 	
 	id = None
 	shout = Column(ForeignKey('shout.id'), primary_key = True)
-	topic = Column(ForeignKey('topic.id'), primary_key = True)
+	topic = Column(ForeignKey('topic.slug'), primary_key = True)
 
 class ShoutRating(Base):
 	__tablename__ = "shout_rating"

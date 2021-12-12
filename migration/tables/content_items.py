@@ -224,7 +224,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
                     shout_dict['id'] = s.id
                     shout_dict['topics'] = []
                     for topic in r['topics']:
-                        ShoutTopic.create(**{ 'shout': s.id, 'topic': topic['id'] })
+                        ShoutTopic.create(**{ 'shout': s.id, 'topic': topic['slug'] })
                         shout_dict['topics'].append(topic['slug'])
         except Exception as e: 
             raise e

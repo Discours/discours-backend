@@ -9,8 +9,7 @@ def migrate(entry):
         createdBy: Int! # User
         createdAt: DateTime!
         value: String
-        parents: [String] # NOTE: topic can have parent topics
-        children: [String] # and children
+        children: [String] # children topic
     }
     '''
     topic_dict = {
@@ -18,9 +17,7 @@ def migrate(entry):
         # 'createdBy': entry['createdBy'],
         # 'createdAt': date_parse(entry['createdAt']),
         'title': entry['title'].lower(),
-        'parents': [],
         'children': [],
-        'cat_id': entry['_id'],
         'community' : Community.default_community.slug
     }
     try:
@@ -28,8 +25,8 @@ def migrate(entry):
             topic = session.query(Topic).filter(Topic.slug == entry['slug']).first()
             if not topic:
                 topic = Topic.create(**topic_dict)
-                topic_dict['id'] = topic.id
-            return topic_dict
     except Exception as e:
         print(e)
         raise e
+    topic_dict['cat_id'] = entry['_id']
+    return topic_dict

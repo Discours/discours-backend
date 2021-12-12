@@ -235,7 +235,6 @@ type User {
 	ratings: [Rating]
 	bio: String
 	notifications: [Int]
-	topics: [String] # user subscribed topics
 	communities: [Int] # user participating communities
 	old_id: String
 }
