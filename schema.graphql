@@ -170,6 +170,7 @@ type Query {
 	topicsBySlugs(slugs: [String]): [Topic]!
 	topicsByCommunity(community: String!): [Topic]!
 	topicsByAuthor(author: String!): [Topic]!
+	getTopicAuthors(slug: String!, count: Int!, page: Int!): [User]!
 
 	# getOnlineUsers: [User!]!
 

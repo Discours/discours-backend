@@ -1,5 +1,6 @@
 from orm import Topic, TopicSubscription, TopicStorage, Shout, User
-from orm.shout import TopicStat
+from orm.shout import TopicStat, ShoutAuthorStorage
+from orm.user import UserStorage
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
 from resolvers.zine import ShoutSubscriptions
@@ -30,6 +31,17 @@ async def topics_by_author(_, info, author):
 		for shout in shouts:
 			slugs.update([topic.slug for topic in shout.topics])
 	return await TopicStorage.get_topics(slugs)
+
+@query.field("getTopicAuthors")
+async def topics_by_author(_, info, slug, count, page):
+	shouts = await TopicStat.get_shouts(slug)
+	authors = set()
+	for shout in shouts:
+		authors.update(await ShoutAuthorStorage.get_authors(shout))
+	authors = list(authors)
+	authors.sort() #TODO sort by username
+	authors = authors[count * page : count * (page + 1) ]
+	return [await UserStorage.get_user(author) for author in authors]
 
 @mutation.field("createTopic")
 @login_required

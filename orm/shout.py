@@ -158,6 +158,11 @@ class TopicStat:
 			else:
 				self.shouts_by_topic[topic] = [shout]
 
+	async def get_shouts(topic):
+		self = TopicStat
+		async with self.lock:
+			return self.shouts_by_topic.get(topic, [])
+
 	@staticmethod
 	async def get_stat(topic):
 		self = TopicStat
@@ -184,6 +189,44 @@ class TopicStat:
 						await self.load_stat(session)
 			except Exception as err:
 				print("TopicStat worker: error = %s" % (err))
+			await asyncio.sleep(self.period)
+
+class ShoutAuthorStorage:
+	authors_by_shout = {}
+	lock = asyncio.Lock()
+
+	period = 30*60 #sec
+
+	@staticmethod
+	async def load(session):
+		self = ShoutAuthorStorage
+		authors = session.query(ShoutAuthor)
+		for author in authors:
+			user = author.user
+			shout = author.shout
+			if shout in self.authors_by_shout:
+				self.authors_by_shout[shout].append(user)
+			else:
+				self.authors_by_shout[shout] = [user]
+
+	@staticmethod
+	async def get_authors(shout):
+		self = ShoutAuthorStorage
+		async with self.lock:
+			return self.authors_by_shout.get(shout, [])
+
+	@staticmethod
+	async def worker():
+		self = ShoutAuthorStorage
+		print("ShoutAuthorStorage worker start")
+		while True:
+			try:
+				print("ShoutAuthorStorage worker: load stat")
+				with local_session() as session:
+					async with self.lock:
+						await self.load(session)
+			except Exception as err:
+				print("ShoutAuthorStorage worker: error = %s" % (err))
 			await asyncio.sleep(self.period)
 
 class Shout(Base):
