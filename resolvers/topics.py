@@ -1,4 +1,5 @@
 from orm import Topic, TopicSubscription, TopicStorage, Shout, User
+from orm.shout import TopicStat
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
 from resolvers.zine import ShoutSubscriptions
@@ -8,7 +9,12 @@ import asyncio
 @query.field("topicsBySlugs")
 async def topics_by_slugs(_, info, slugs = None):
 	with local_session() as session:
-		return await TopicStorage.get_topics(slugs)
+		topics = await TopicStorage.get_topics(slugs)
+	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
+	if "topicStat" in all_fields:
+		for topic in topics:
+			topic.topicStat = await TopicStat.get_stat(topic.slug)
+	return topics
 
 @query.field("topicsByCommunity")
 async def topics_by_community(_, info, community):

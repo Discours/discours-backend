@@ -331,6 +331,11 @@ type Community {
 	pic: String!
 }
 
+type TopicStat {
+	shouts: Int
+	views: Int
+}
+
 type Topic {
 	slug: String! # ID
 	title: String
@@ -339,6 +344,7 @@ type Topic {
 	parents: [String] # NOTE: topic can have parent topics
 	children: [String] # and children
 	community: String!
+	topicStat: TopicStat
 }
 
 # TODO: resolvers to add/remove topics from publication

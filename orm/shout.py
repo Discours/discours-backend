@@ -140,6 +140,51 @@ class ShoutViewStorage:
 				print("ShoutViewStorage worker: error = %s" % (err))
 			await asyncio.sleep(ShoutViewStorage.period)
 
+class TopicStat:
+	shouts_by_topic = {}
+	lock = asyncio.Lock()
+
+	period = 30*60 #sec
+
+	@staticmethod
+	async def load_stat(session):
+		self = TopicStat
+		shout_topics = session.query(ShoutTopic)
+		for shout_topic in shout_topics:
+			topic = shout_topic.topic
+			shout = shout_topic.shout
+			if topic in self.shouts_by_topic:
+				self.shouts_by_topic[topic].append(shout)
+			else:
+				self.shouts_by_topic[topic] = [shout]
+
+	@staticmethod
+	async def get_stat(topic):
+		self = TopicStat
+		async with self.lock:
+			shouts = self.shouts_by_topic.get(topic, [])
+		stat = { "shouts" : len(shouts) }
+
+		views = 0
+		for shout in shouts:
+			views += await ShoutViewStorage.get_view(shout)
+		stat["views"] = views
+
+		return stat
+
+	@staticmethod
+	async def worker():
+		self = TopicStat
+		print("TopicStat worker start")
+		while True:
+			try:
+				print("TopicStat worker: load stat")
+				with local_session() as session:
+					async with self.lock:
+						await self.load_stat(session)
+			except Exception as err:
+				print("TopicStat worker: error = %s" % (err))
+			await asyncio.sleep(self.period)
 
 class Shout(Base):
 	__tablename__ = 'shout'
