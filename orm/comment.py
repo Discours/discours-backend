@@ -25,7 +25,7 @@ class Comment(Base):
 	updatedBy = Column(ForeignKey("user.id"), nullable=True, comment="Last Editor")
 	deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
 	deletedBy = Column(ForeignKey("user.id"), nullable=True, comment="Deleted by")
-	shout: int = Column(ForeignKey("shout.id"), nullable=False, comment="Shout ID")
+	shout: int = Column(ForeignKey("shout.slug"), nullable=False)
 	replyTo: int = Column(ForeignKey("comment.id"), nullable=True, comment="comment ID")
 	ratings = relationship(CommentRating, foreign_keys=CommentRating.comment_id)
 

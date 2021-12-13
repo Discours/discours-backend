@@ -6,7 +6,7 @@ from orm import Shout, Comment, CommentRating, User
 from orm.base import local_session
 from migration.html2text import html2text
 
-def migrate(entry):
+def migrate(entry, shouts_by_oid):
 	'''
 	{
 	  "_id": "hdtwS8fSyFLxXCgSC",
@@ -40,15 +40,19 @@ def migrate(entry):
 		views: Int
 	}
 	'''
+
+	shout_old_id = entry['contentItem']
+	if not shout_old_id in shouts_by_oid:
+		return
+	shout = shouts_by_oid[shout_old_id]
+
 	with local_session() as session:
-		shout = session.query(Shout).filter(Shout.old_id == entry['contentItem']).first()
-		if not shout: shout = session.query(Shout).first()
 		author = session.query(User).filter(User.old_id == entry['createdBy']).first()
 		comment_dict = {
 			'author': author.id if author else 0,
 			'createdAt': date_parse(entry['createdAt']),
 			'body': html2text(entry['body']),
-			'shout': shout.id
+			'shout': shout["slug"]
 		}
 		if entry.get('deleted'):
 			comment_dict['deletedAt'] = date_parse(entry['updatedAt'])
@@ -86,7 +90,9 @@ def migrate_2stage(entry, id_map):
 	if not old_reply_to:
 		return
 	old_id = entry['_id']
-	id = id_map.get(old_id)
+	if not old_id in id_map:
+		return
+	id = id_map[old_id]
 	with local_session() as session:
 		comment = session.query(Comment).filter(Comment.id == id).first()
 		reply_to = id_map.get(old_reply_to)

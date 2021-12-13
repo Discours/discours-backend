@@ -123,13 +123,6 @@ def shouts(content_data, shouts_by_slug, shouts_by_oid):
 	try: limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
 	except ValueError:  limit = len(content_data)
 
-	if not topics_by_cat:
-		with local_session() as session:
-			topics = session.query(Topic).all()
-		print("loaded %s topics" % len(topics))
-		for topic in topics:
-			topics_by_cat[topic.cat_id] = topic
-
 	for entry in content_data[:limit]:
 		try:
 			shout = migrateShout(entry, users_by_oid, topics_by_cat)
@@ -202,7 +195,9 @@ def export_slug(slug, export_articles, export_authors, content_dict):
 def comments(comments_data):
 	id_map = {}
 	for comment in comments_data:
-		comment = migrateComment(comment)
+		comment = migrateComment(comment, shouts_by_oid)
+		if not comment:
+			continue
 		id = comment.get('id')
 		old_id = comment.get('old_id')
 		id_map[old_id] = id

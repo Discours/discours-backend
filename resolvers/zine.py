@@ -87,8 +87,8 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = await ShoutRatingStorage.get_rating(shout.id)
-				shout.views = await ShoutViewStorage.get_view(shout.id)
+				shout.rating = await ShoutRatingStorage.get_rating(shout.slug)
+				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.recent_shouts = shouts
@@ -101,14 +101,14 @@ class ShoutsCache:
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutRating).\
 				where(Shout.publishedAt != None).\
-				group_by(Shout.id).\
+				group_by(Shout.slug).\
 				order_by(desc("rating")).\
 				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = row.rating
-				shout.views = await ShoutViewStorage.get_view(shout.id)
+				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.top_overall = shouts
@@ -121,14 +121,14 @@ class ShoutsCache:
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutRating).\
 				where(and_(Shout.createdAt > month_ago, Shout.publishedAt != None)).\
-				group_by(Shout.id).\
+				group_by(Shout.slug).\
 				order_by(desc("rating")).\
 				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.rating = row.rating
-				shout.views = await ShoutViewStorage.get_view(shout.id)
+				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.top_month = shouts
@@ -141,13 +141,13 @@ class ShoutsCache:
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(ShoutViewByDay).\
 				where(and_(ShoutViewByDay.day > month_ago, Shout.publishedAt != None)).\
-				group_by(Shout.id).\
+				group_by(Shout.slug).\
 				order_by(desc("views")).\
 				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = await ShoutRatingStorage.get_rating(shout.id)
+				shout.rating = await ShoutRatingStorage.get_rating(shout.slug)
 				shout.views = row.views
 				shouts.append(shout)
 		async with ShoutsCache.lock:
@@ -157,13 +157,13 @@ class ShoutsCache:
 	async def prepare_top_authors():
 		month_ago = datetime.now() - timedelta(days = 30)
 		with local_session() as session:
-			shout_with_view = select(Shout.id, func.sum(ShoutViewByDay.value).label("view")).\
+			shout_with_view = select(Shout.slug, func.sum(ShoutViewByDay.value).label("view")).\
 				join(ShoutViewByDay).\
 				where(and_(ShoutViewByDay.day > month_ago, Shout.publishedAt != None)).\
-				group_by(Shout.id).\
+				group_by(Shout.slug).\
 				order_by(desc("view")).cte()
 			stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
-				join(shout_with_view, ShoutAuthor.shout == shout_with_view.c.id).\
+				join(shout_with_view, ShoutAuthor.shout == shout_with_view.c.slug).\
 				group_by(ShoutAuthor.user).\
 				order_by(desc("view")).\
 				limit(ShoutsCache.limit)
@@ -254,12 +254,12 @@ async def create_shout(_, info, input):
 
 	new_shout = Shout.create(**input)
 	ShoutAuthor.create(
-		shout = new_shout.id,
+		shout = new_shout.slug,
 		user = user_id)
 	
 	for slug in topic_slugs:
 		topic = ShoutTopic.create(
-			shout = new_shout.id,
+			shout = new_shout.slug,
 			topic = slug)
 	new_shout.topic_slugs = topic_slugs
 
@@ -278,13 +278,15 @@ async def create_shout(_, info, input):
 
 @mutation.field("updateShout")
 @login_required
-async def update_shout(_, info, id, input):
+async def update_shout(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
+	slug = input["slug"]
+
 	session = local_session()
 	user = session.query(User).filter(User.id == user_id).first()
-	shout = session.query(Shout).filter(Shout.id == id).first()
+	shout = session.query(Shout).filter(Shout.slug == slug).first()
 
 	if not shout:
 		return {
@@ -305,16 +307,16 @@ async def update_shout(_, info, id, input):
 	session.commit()
 	session.close()
 
-	for topic in input.get("topic_slugs"):
+	for topic in input.get("topic_slugs", []):
 		ShoutTopic.create(
-			shout = shout.id,
+			shout = slug,
 			topic = topic)
 
 	task = GitTask(
 		input,
 		user.username,
 		user.email,
-		"update shout %s" % (shout.slug)
+		"update shout %s" % (slug)
 		)
 
 	return {
@@ -323,21 +325,21 @@ async def update_shout(_, info, id, input):
 
 @mutation.field("rateShout")
 @login_required
-async def rate_shout(_, info, shout_id, value):
+async def rate_shout(_, info, slug, value):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
 	with local_session() as session:
 		rating = session.query(ShoutRating).\
-			filter(and_(ShoutRating.rater_id == user_id, ShoutRating.shout_id == shout_id)).first()
+			filter(and_(ShoutRating.rater == user_id, ShoutRating.shout == slug)).first()
 		if rating:
 			rating.value = value;
 			rating.ts = datetime.now()
 			session.commit()
 		else:
 			rating = ShoutRating.create(
-				rater_id = user_id,
-				shout_id = shout_id,
+				rater = user_id,
+				shout = slug,
 				value = value
 			)
 
@@ -346,8 +348,8 @@ async def rate_shout(_, info, shout_id, value):
 	return {"error" : ""}
 
 @mutation.field("viewShout")
-async def view_shout(_, info, shout_id):
-	await ShoutViewStorage.inc_view(shout_id)
+async def view_shout(_, info, slug):
+	await ShoutViewStorage.inc_view(slug)
 	return {"error" : ""}
 
 @query.field("getShoutBySlug")
@@ -360,16 +362,16 @@ async def get_shout_by_slug(_, info, slug):
 		shout = session.query(Shout).\
 			options(select_options).\
 			filter(Shout.slug == slug).first()
-	shout.rating = await ShoutRatingStorage.get_rating(shout.id)
-	shout.views = await ShoutViewStorage.get_view(shout.id)
+	shout.rating = await ShoutRatingStorage.get_rating(slug)
+	shout.views = await ShoutViewStorage.get_view(slug)
 	return shout
 
 @query.field("getShoutComments")
-async def get_shout_comments(_, info, shout_id):
+async def get_shout_comments(_, info, slug):
 	with local_session() as session:
 		comments = session.query(Comment).\
 			options(selectinload(Comment.ratings)).\
-			filter(Comment.shout == shout_id).\
+			filter(Comment.shout == slug).\
 			group_by(Comment.id).all()
 	for comment in comments:
 		comment.author = await UserStorage.get_user(comment.author)

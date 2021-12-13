@@ -133,7 +133,6 @@ def migrate(entry, users_by_oid, topics_by_oid):
         body_html = str(BeautifulSoup(body_orig, features="html.parser"))
         r['body'] = body_html # html2text(body_html)
     body = r.get('body', '')
-    r['old_id'] = entry.get('_id')
     
     # get author data
     userdata = {}
@@ -212,8 +211,8 @@ def migrate(entry, users_by_oid, topics_by_oid):
                         if rater:
                             shout_rating_dict = {
                                 'value': shout_rating_old['value'],
-                                'rater_id': rater.id,
-                                'shout_id': s.id
+                                'rater': rater.id,
+                                'shout': s.slug
                             }
                             cts = shout_rating_old.get('createdAt')
                             if cts: shout_rating_dict['rater_id'] = date_parse(cts)
@@ -221,14 +220,14 @@ def migrate(entry, users_by_oid, topics_by_oid):
                             except sqlalchemy.exc.IntegrityError: pass
                             shout_dict['ratings'].append(shout_rating_dict)
                     # shout topics
-                    shout_dict['id'] = s.id
                     shout_dict['topics'] = []
                     for topic in r['topics']:
-                        ShoutTopic.create(**{ 'shout': s.id, 'topic': topic['slug'] })
+                        ShoutTopic.create(**{ 'shout': s.slug, 'topic': topic['slug'] })
                         shout_dict['topics'].append(topic['slug'])
         except Exception as e: 
             raise e
     except Exception as e:
         if not shout_dict['body']: r['body'] = 'body moved'
         raise e
+    shout_dict['old_id'] = entry.get('_id')
     return shout_dict # for json

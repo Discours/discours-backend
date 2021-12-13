@@ -109,10 +109,10 @@ type Mutation {
 
 	# shout
 	createShout(input: ShoutInput!): ShoutResult!
-	updateShout(id: Int!, input: ShoutInput!): ShoutResult!
-	deleteShout(id: Int!): Result!
-	rateShout(shout_id: Int!, value: Int!): Result!
-	viewShout(shout_id: Int!): Result!
+	updateShout(input: ShoutInput!): ShoutResult!
+	deleteShout(slug: String!): Result!
+	rateShout(slug: String!, value: Int!): Result!
+	viewShout(slug: String!): Result!
 
 	# user profile
 	# rateUser(value: Int!): Result!
@@ -125,7 +125,7 @@ type Mutation {
 	topicSubscribe(slug: String!): Result!
 	topicUnsubscribe(slug: String!): Result!
 
-	createComment(body: String!, shout: Int!, replyTo: Int): CommentResult!
+	createComment(body: String!, shout: String!, replyTo: Int): CommentResult!
 	updateComment(id: Int!, body: String!): CommentResult!
 	deleteComment(id: Int!): Result!
 	rateComment(id: Int!, value: Int!): Result!
@@ -157,7 +157,7 @@ type Query {
 	shoutsByTopic(topic: String!, limit: Int!): [Shout]!
 	shoutsByAuthor(author: String!, limit: Int!): [Shout]!
 	shoutsByCommunity(community: String!, limit: Int!): [Shout]!
-	getShoutComments(shout_id: Int!): [Comment]!
+	getShoutComments(slug: String!): [Comment]!
 
 	# mainpage
 	topViewed(limit: Int): [Shout]!
@@ -299,7 +299,6 @@ type CommentRating {
 
 # is publication
 type Shout {
-	id: Int!
 	slug: String!
 	body: String!
 	createdAt: DateTime!
@@ -323,7 +322,6 @@ type Shout {
 	deletedBy: Int
 	publishedBy: Int # if there is no published field - it is not published
 	publishedAt: DateTime
-	old_id: String
 }
 
 type Community {
