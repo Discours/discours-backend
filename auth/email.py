@@ -23,7 +23,7 @@ async def send_email(user, text):
 	token = await EmailAuthenticate.get_email_token(user)
 
 	to = "%s <%s>" % (user.username, user.email)
-	auth_url_with_token = "%s?token=%s" % (AUTH_URL, token)
+	auth_url_with_token = "%s/%s" % (AUTH_URL, token)
 	text = text % (auth_url_with_token)
 	response = requests.post(
 		MAILGUN_API_URL,
