@@ -216,7 +216,7 @@ type Role {
 }
 
 type Rating {
-	rater_id: Int!
+	rater: Int!
 	value: Int!
 }
 

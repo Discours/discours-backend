@@ -97,8 +97,8 @@ def migrate_2stage(entry, id_map):
 		old_id = entry['_id']
 		user_rating_dict = {
 			'value': rating_entry['value'],
-			'rater_id': rater_id,
-			'user_id': id_map.get(old_id)
+			'rater': rater_id,
+			'user': id_map.get(old_id)
 		}
 		with local_session() as session:
 			try:

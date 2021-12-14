@@ -87,7 +87,7 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = await ShoutRatingStorage.get_rating(shout.slug)
+				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
 				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
@@ -107,7 +107,7 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = row.rating
+				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
 				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
@@ -127,7 +127,7 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = row.rating
+				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
 				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
@@ -147,7 +147,7 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = await ShoutRatingStorage.get_rating(shout.slug)
+				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
 				shout.views = row.views
 				shouts.append(shout)
 		async with ShoutsCache.lock:
@@ -362,7 +362,12 @@ async def get_shout_by_slug(_, info, slug):
 		shout = session.query(Shout).\
 			options(select_options).\
 			filter(Shout.slug == slug).first()
-	shout.rating = await ShoutRatingStorage.get_rating(slug)
+
+	if not shout:
+		print("shout not exist")
+		return {} #TODO return error field
+
+	shout.ratings = await ShoutRatingStorage.get_ratings(slug)
 	shout.views = await ShoutViewStorage.get_view(slug)
 	return shout
 

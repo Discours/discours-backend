@@ -22,8 +22,8 @@ class UserRating(Base):
 	__tablename__ = "user_rating"
 
 	id = None
-	rater_id = Column(ForeignKey('user.id'), primary_key = True)
-	user_id = Column(ForeignKey('user.id'), primary_key = True)
+	rater = Column(ForeignKey('user.id'), primary_key = True)
+	user = Column(ForeignKey('user.id'), primary_key = True)
 	value = Column(Integer)
 
 class UserRole(Base):
@@ -51,7 +51,7 @@ class User(Base):
 	links: JSONType = Column(JSONType, nullable=True, comment="Links")
 	oauth: str = Column(String, nullable=True)
 	notifications = relationship(lambda: UserNotifications)
-	ratings = relationship(UserRating, foreign_keys=UserRating.user_id)
+	ratings = relationship(UserRating, foreign_keys=UserRating.user)
 	roles = relationship(lambda: Role, secondary=UserRole.__tablename__)
 	old_id: str = Column(String, nullable = True)
 	

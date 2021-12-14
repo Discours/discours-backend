@@ -52,10 +52,16 @@ class ShoutRatingStorage:
 		ShoutRatingStorage.ratings = session.query(ShoutRating).all()
 
 	@staticmethod
-	async def get_rating(shout_slug):
+	async def get_total_rating(shout_slug):
 		async with ShoutRatingStorage.lock:
 			shout_ratings = list(filter(lambda x: x.shout == shout_slug, ShoutRatingStorage.ratings))
 		return reduce((lambda x, y: x + y.value), shout_ratings, 0)
+
+	@staticmethod
+	async def get_ratings(shout_slug):
+		async with ShoutRatingStorage.lock:
+			shout_ratings = list(filter(lambda x: x.shout == shout_slug, ShoutRatingStorage.ratings))
+		return shout_ratings
 
 	@staticmethod
 	async def update_rating(new_rating):
