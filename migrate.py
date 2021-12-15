@@ -74,7 +74,7 @@ def users(users_by_oid, users_by_slug, users_data):
 		print(users_by_oid)
 
 
-def topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data):
+def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
 	''' topics from categories and tags '''
 	# limiting
 	limit = len(cats_data) + len(tags_data)
@@ -86,28 +86,17 @@ def topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_dat
 		# cat["createdBy"] = user_id_map[old_id]
 		try: topic = migrateCategory(cat)
 		except Exception as e: raise e
-		topics_by_cat[topic['cat_id']] = topic
+		topics_by_oid[topic['cat_id']] = topic
 		topics_by_slug[topic['slug']] = topic
 		counter += 1
 	for tag in tags_data:
 		old_id = tag["createdBy"]
 		tag["createdBy"] = user_id_map.get(old_id, 0)
 		topic = migrateTag(tag)
-		topics_by_tag[topic['tag_id']] = topic
+		topics_by_oid[topic['tag_id']] = topic
 		if not topics_by_slug.get(topic['slug']): topics_by_slug[topic['slug']] = topic
 		counter += 1
 	export_topics = dict(topics_by_slug.items()) # sorted(topics_by_slug.items(), key=lambda item: str(item[1]['createdAt']))) # NOTE: sorting does not work :)
-	open('migration/data/topics.slug.json','w').write(json.dumps(topics_by_slug,
-														cls=DateTimeEncoder,
-														indent=4,
-														sort_keys=True,
-														ensure_ascii=False))
-
-	open('migration/data/topics.cat_id.json','w').write(json.dumps(topics_by_cat,
-														cls=DateTimeEncoder,
-														indent=4,
-														sort_keys=True,
-														ensure_ascii=False))
 
 def shouts(content_data, shouts_by_slug, shouts_by_oid):
 	''' migrating content items one by one '''
@@ -125,7 +114,7 @@ def shouts(content_data, shouts_by_slug, shouts_by_oid):
 
 	for entry in content_data[:limit]:
 		try:
-			shout = migrateShout(entry, users_by_oid, topics_by_cat)
+			shout = migrateShout(entry, users_by_oid, topics_by_oid)
 			author = shout['authors'][0]
 			shout['authors'] = [ author.id, ]
 			shouts_by_slug[shout['slug']] = shout
@@ -265,8 +254,7 @@ if __name__ == '__main__':
 
 				cats_data = json.loads(open('migration/data/content_item_categories.json').read())
 				print(str(len(cats_data)) + ' cats loaded')
-				topics_by_cat = {}
-				topics_by_tag = {}
+				topics_by_oid = {}
 				topics_by_slug = {}
 
 				content_data = json.loads(open('migration/data/content_items.json').read())
@@ -296,7 +284,7 @@ if __name__ == '__main__':
 				if cmd == "users":
 					users(users_by_oid, users_by_slug, users_data)
 				elif cmd == "topics":
-					topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
+					topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data)
 				elif cmd == "shouts":
 					shouts(content_data, shouts_by_slug, shouts_by_oid) # NOTE: listens limit
 				elif cmd == "comments":
@@ -305,7 +293,7 @@ if __name__ == '__main__':
 					export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
 				elif cmd == "all":
 					users(users_by_oid, users_by_slug, users_data)
-					topics(export_topics, topics_by_slug, topics_by_cat, topics_by_tag, cats_data, tags_data)
+					topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data)
 					shouts(content_data, shouts_by_slug, shouts_by_oid)
 					comments(comments_data)
 				elif cmd == 'slug':

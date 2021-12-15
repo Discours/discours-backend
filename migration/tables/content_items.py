@@ -89,10 +89,13 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		print('NO SLUG ERROR')
 		# print(entry)
 		raise Exception
-	try:
-		r['topics'].append(topics_by_oid[entry['category']])
-	except Exception:
-		print("invalid category %s" % (entry['category']))
+
+	topic_oids = set(entry['category'])
+	topic_oids.update(entry.get("tags", []))
+	for oid in topic_oids:
+		if oid in topics_by_oid:
+			r['topics'].append(topics_by_oid[oid])
+
 	if entry.get('image') is not None:
 		r['cover'] = entry['image']['url']
 	if entry.get('thumborId') is not None:
@@ -222,8 +225,11 @@ def migrate(entry, users_by_oid, topics_by_oid):
 			# shout topics
 			shout_dict['topics'] = []
 			for topic in r['topics']:
-				ShoutTopic.create(**{ 'shout': s.slug, 'topic': topic['slug'] })
-				shout_dict['topics'].append(topic['slug'])
+				try:
+					ShoutTopic.create(**{ 'shout': s.slug, 'topic': topic['slug'] })
+					shout_dict['topics'].append(topic['slug'])
+				except sqlalchemy.exc.IntegrityError:
+					pass
 
 			views = entry.get('views', 1)
 			ShoutViewByDay.create(
