@@ -85,8 +85,9 @@ class ShoutViewByDay(Base):
 
 class ShoutViewStorage:
 
-	views = []
+	view_by_shout = {}
 	this_day_views = {}
+	to_flush = []
 
 	period = 30*60 #sec
 
@@ -95,43 +96,55 @@ class ShoutViewStorage:
 	@staticmethod
 	def init(session):
 		self = ShoutViewStorage
-		self.views = session.query(ShoutViewByDay).all()
-		for view in self.views:
-			shout_slug = view.shout
-			if not shout_slug in self.this_day_views:
-				self.this_day_views[shout_slug] = view
-			this_day_view = self.this_day_views[shout_slug]
+		views = session.query(ShoutViewByDay).all()
+		for view in views:
+			shout = view.shout
+			value = view.value
+			old_value = self.view_by_shout.get(shout, 0)
+			self.view_by_shout[shout] = old_value + value;
+			if not shout in self.this_day_views:
+				self.this_day_views[shout] = view
+			this_day_view = self.this_day_views[shout]
 			if this_day_view.day < view.day:
-				self.this_day_views[shout_slug] = view
+				self.this_day_views[shout] = view
 
 	@staticmethod
 	async def get_view(shout_slug):
-		async with ShoutViewStorage.lock:
-			shout_views = list(filter(lambda x: x.shout == shout_slug, ShoutViewStorage.views))
-		return reduce((lambda x, y: x + y.value), shout_views, 0)
+		self = ShoutViewStorage
+		async with self.lock:
+			return self.view_by_shout.get(shout_slug, 0)
 
 	@staticmethod
 	async def inc_view(shout_slug):
 		self = ShoutViewStorage
-		async with ShoutViewStorage.lock:
+		async with self.lock:
 			this_day_view = self.this_day_views.get(shout_slug)
 			day_start = datetime.now().replace(hour = 0, minute = 0, second = 0)
 			if not this_day_view or this_day_view.day < day_start:
+				if this_day_view and getattr(this_day_view, "modified", False):
+					self.to_flush.append(this_day_view)
 				this_day_view = ShoutViewByDay.create(shout = shout_slug, value = 1)
 				self.this_day_views[shout_slug] = this_day_view
-				self.views.append(this_day_view)
 			else:
 				this_day_view.value = this_day_view.value + 1
-				this_day_view.modified = True
+
+			this_day_view.modified = True
+
+			old_value = self.view_by_shout.get(shout_slug, 0)
+			self.view_by_shout[shout_slug] = old_value + 1;
 
 	@staticmethod
 	async def flush_changes(session):
-		async with ShoutViewStorage.lock:
-			for view in ShoutViewStorage.this_day_views.values():
+		self = ShoutViewStorage
+		async with self.lock:
+			for view in self.this_day_views.values():
 				if getattr(view, "modified", False):
 					session.add(view)
 					flag_modified(view, "value")
 					view.modified = False
+			for view in self.to_flush:
+				session.add(view)
+			self.to_flush.clear()
 		session.commit()
 
 	@staticmethod
@@ -150,6 +163,7 @@ class TopicStat:
 	shouts_by_topic = {}
 	authors_by_topic = {}
 	subs_by_topic = {}
+	views_by_topic = {}
 	lock = asyncio.Lock()
 
 	period = 30*60 #sec
@@ -172,6 +186,9 @@ class TopicStat:
 			else:
 				self.authors_by_topic[topic] = set(authors)
 
+			old_views = self.views_by_topic.get(topic, 0)
+			self.views_by_topic[topic] = old_views + await ShoutViewStorage.get_view(shout)
+
 		subs = session.query(TopicSubscription)
 		for sub in subs:
 			topic = sub.topic
@@ -192,19 +209,15 @@ class TopicStat:
 		async with self.lock:
 			shouts = self.shouts_by_topic.get(topic, [])
 			subs = self.subs_by_topic.get(topic, [])
-			authors = self.authors_by_topic.get(topic, set())
-		stat = { 
+			authors = self.authors_by_topic.get(topic, [])
+			views = self.views_by_topic.get(topic, 0)
+
+		return  { 
 			"shouts" : len(shouts),
 			"authors" : len(authors),
-			"subscriptions" : len(subs)
+			"subscriptions" : len(subs),
+			"views" : views
 		}
-
-		views = 0
-		for shout in shouts:
-			views += await ShoutViewStorage.get_view(shout)
-		stat["views"] = views
-
-		return stat
 
 	@staticmethod
 	async def worker():
