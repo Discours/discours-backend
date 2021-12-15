@@ -1,5 +1,5 @@
 from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource,\
-	ShoutRatingStorage, ShoutViewStorage, Comment, CommentRating
+	ShoutRatingStorage, ShoutViewStorage, Comment, CommentRating, Topic
 from orm.base import local_session
 from orm.user import UserStorage
 
@@ -383,3 +383,42 @@ async def get_shout_comments(_, info, slug):
 	for comment in comments:
 		comment.author = await UserStorage.get_user(comment.author)
 	return comments
+
+@query.field("shoutsByTopic")
+async def shouts_by_topic(_, info, topic, limit):
+	with local_session() as session:
+		shouts = session.query(Shout).\
+			join(ShoutTopic).\
+			where(ShoutTopic.topic == topic).\
+			order_by(desc(Shout.createdAt)).\
+			limit(limit)
+	return shouts
+
+@query.field("shoutsByAuthor")
+async def shouts_by_author(_, info, author, limit):
+	with local_session() as session:
+		user = session.query(User).\
+			filter(User.slug == author).first()
+		if not user:
+			print("author not exist")
+			return
+
+		shouts = session.query(Shout).\
+			join(ShoutAuthor).\
+			where(ShoutAuthor.user == user.id).\
+			order_by(desc(Shout.createdAt)).\
+			limit(limit)
+	return shouts
+
+@query.field("shoutsByCommunity")
+async def shouts_by_community(_, info, community, limit):
+	with local_session() as session:
+		topics = select(Topic.slug).\
+			where(Topic.community == community).cte()
+
+		shouts = session.query(Shout).\
+			join(ShoutTopic).\
+			where(ShoutTopic.topic.in_(topics)).\
+			order_by(desc(Shout.createdAt)).\
+			limit(limit) #TODO fix limit
+	return shouts
