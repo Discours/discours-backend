@@ -32,8 +32,8 @@ async def start_up():
 	git_task = asyncio.create_task(GitTask.git_task_worker())
 	shouts_cache_task = asyncio.create_task(ShoutsCache.worker())
 	view_storage_task = asyncio.create_task(ShoutViewStorage.worker())
-	topic_stat_task = asyncio.create_task(TopicStat.worker())
 	shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
+	topic_stat_task = asyncio.create_task(TopicStat.worker())
 
 async def shutdown():
 	await redis.disconnect()

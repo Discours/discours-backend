@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import Table, Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.attributes import flag_modified
-from orm import Permission, User, Topic
+from orm import Permission, User, Topic, TopicSubscription
 from orm.comment import Comment
 from orm.base import Base, local_session
 
@@ -148,6 +148,8 @@ class ShoutViewStorage:
 
 class TopicStat:
 	shouts_by_topic = {}
+	authors_by_topic = {}
+	subs_by_topic = {}
 	lock = asyncio.Lock()
 
 	period = 30*60 #sec
@@ -164,6 +166,21 @@ class TopicStat:
 			else:
 				self.shouts_by_topic[topic] = [shout]
 
+			authors = await ShoutAuthorStorage.get_authors(shout)
+			if topic in self.authors_by_topic:
+				self.authors_by_topic[topic].update(authors)
+			else:
+				self.authors_by_topic[topic] = set(authors)
+
+		subs = session.query(TopicSubscription)
+		for sub in subs:
+			topic = sub.topic
+			user = sub.user
+			if topic in self.subs_by_topic:
+				self.subs_by_topic[topic].append(user)
+			else:
+				self.subs_by_topic[topic] = [user]
+
 	async def get_shouts(topic):
 		self = TopicStat
 		async with self.lock:
@@ -174,7 +191,13 @@ class TopicStat:
 		self = TopicStat
 		async with self.lock:
 			shouts = self.shouts_by_topic.get(topic, [])
-		stat = { "shouts" : len(shouts) }
+			subs = self.subs_by_topic.get(topic, [])
+			authors = self.authors_by_topic.get(topic, set())
+		stat = { 
+			"shouts" : len(shouts),
+			"authors" : len(authors),
+			"subscriptions" : len(subs)
+		}
 
 		views = 0
 		for shout in shouts:

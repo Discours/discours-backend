@@ -32,17 +32,6 @@ async def topics_by_author(_, info, author):
 			slugs.update([topic.slug for topic in shout.topics])
 	return await TopicStorage.get_topics(slugs)
 
-@query.field("getTopicAuthors")
-async def topics_by_author(_, info, slug, count, page):
-	shouts = await TopicStat.get_shouts(slug)
-	authors = set()
-	for shout in shouts:
-		authors.update(await ShoutAuthorStorage.get_authors(shout))
-	authors = list(authors)
-	authors.sort() #TODO sort by username
-	authors = authors[count * page : count * (page + 1) ]
-	return [await UserStorage.get_user(author) for author in authors]
-
 @mutation.field("createTopic")
 @login_required
 async def create_topic(_, info, input):
