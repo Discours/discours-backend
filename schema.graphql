@@ -333,8 +333,10 @@ type Community {
 }
 
 type TopicStat {
-	shouts: Int
-	views: Int
+	shouts: Int!
+	views: Int!
+	subscriptions: Int
+	authors: Int
 }
 
 type Topic {
