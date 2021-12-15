@@ -152,28 +152,30 @@ class ShoutsCache:
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.top_viewed = shouts
-
-	@staticmethod
-	async def prepare_top_authors():
-		month_ago = datetime.now() - timedelta(days = 30)
-		with local_session() as session:
-			shout_with_view = select(Shout.slug, func.sum(ShoutViewByDay.value).label("view")).\
-				join(ShoutViewByDay).\
-				where(and_(ShoutViewByDay.day > month_ago, Shout.publishedAt != None)).\
-				group_by(Shout.slug).\
-				order_by(desc("view")).cte()
-			stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
-				join(shout_with_view, ShoutAuthor.shout == shout_with_view.c.slug).\
-				group_by(ShoutAuthor.user).\
-				order_by(desc("view")).\
-				limit(ShoutsCache.limit)
-			authors = {}
-			for row in session.execute(stmt):
-				authors[row.user] = row.view
-			authors_ids = authors.keys()
-			authors = session.query(User).filter(User.id.in_(authors_ids)).all()
-		async with ShoutsCache.lock:
-			ShoutsCache.top_authors = authors
+			
+	'''
+		@staticmethod
+		async def prepare_top_authors():
+			month_ago = datetime.now() - timedelta(days = 30)
+			with local_session() as session:
+				shout_with_view = select(Shout.slug, func.sum(ShoutViewByDay.value).label("view")).\
+					join(ShoutViewByDay).\
+					where(and_(ShoutViewByDay.day > month_ago, Shout.publishedAt != None)).\
+					group_by(Shout.slug).\
+					order_by(desc("view")).cte()
+				stmt = select(ShoutAuthor.user, func.sum(shout_with_view.c.view).label("view")).\
+					join(shout_with_view, ShoutAuthor.shout == shout_with_view.c.slug).\
+					group_by(ShoutAuthor.user).\
+					order_by(desc("view")).\
+					limit(ShoutsCache.limit)
+				authors = {}
+				for row in session.execute(stmt):
+					authors[row.user] = row.view
+				authors_ids = authors.keys()
+				authors = session.query(User).filter(User.id.in_(authors_ids)).all()
+			async with ShoutsCache.lock:
+				ShoutsCache.top_authors = authors
+	'''
 
 
 	@staticmethod
@@ -186,7 +188,7 @@ class ShoutsCache:
 				await ShoutsCache.prepare_top_overall()
 				await ShoutsCache.prepare_top_viewed()
 				await ShoutsCache.prepare_recent_shouts()
-				await ShoutsCache.prepare_top_authors()
+				# await ShoutsCache.prepare_top_authors()
 				print("shouts cache update finished")
 			except Exception as err:
 				print("shouts cache worker error = %s" % (err))
@@ -234,10 +236,10 @@ async def recent_shouts(_, info, limit):
 		return ShoutsCache.recent_shouts[:limit]
 
 
-@query.field("topAuthors")
-async def top_authors(_, info, limit):
-	async with ShoutsCache.lock:
-		return ShoutsCache.top_authors[:limit]
+# @query.field("topAuthors")
+# async def top_authors(_, info, limit):
+#	async with ShoutsCache.lock:
+#		return ShoutsCache.top_authors[:limit]
 
 
 @mutation.field("createShout")
