@@ -293,4 +293,5 @@ class Shout(Base):
 	layout: str = Column(String, nullable = True)
 	authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__) # NOTE: multiple authors
 	topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
+	mainTopic = Column(ForeignKey("topic.slug"), nullable=True)
 	visibleFor = relationship(lambda: User, secondary=ShoutViewer.__tablename__)

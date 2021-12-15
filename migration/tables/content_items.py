@@ -90,7 +90,11 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		# print(entry)
 		raise Exception
 
-	topic_oids = set(entry['category'])
+	category = entry['category']
+	mainTopic = topics_by_oid.get(category)
+	if mainTopic:
+		r['mainTopic'] = mainTopic["slug"]
+	topic_oids = set(category)
 	topic_oids.update(entry.get("tags", []))
 	for oid in topic_oids:
 		if oid in topics_by_oid:
