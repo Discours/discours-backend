@@ -25,7 +25,8 @@ def migrate(entry):
         # 'createdAt': ts,
         'title': entry['title'].lower(),
         'children': [],
-        'community' : Community.default_community.slug
+        'community' : Community.default_community.slug,
+        'body' : entry.get('description')
     }
     try:
         with local_session() as session:
