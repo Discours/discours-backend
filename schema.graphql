@@ -314,6 +314,7 @@ type Shout {
 	versionOf: Shout
 	tags: [String] # actual values
 	topics: [Topic]
+	mainTopic: String
 	title: String
 	subtitle: String
 	updatedAt: DateTime
