@@ -61,10 +61,10 @@ async def get_community(_, info, slug):
 		if not community:
 			return {"error": "invalid community id"}
 
-	return { community }
+	return community
 
 @query.field("getCommunities")
 async def get_communities(_, info):
 	with local_session() as session:
 		communities = session.query(Community)
-		return { communities }
+	return communities
