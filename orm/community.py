@@ -20,8 +20,8 @@ class Community(Base):
 			default = session.query(Community).filter(Community.slug == "default").first()
 		if not default:
 			default = Community.create(
-				name = "default",
-				slug = "default",
+				name = "Дискурс",
+				slug = "discours",
 				createdBy = 0 #TODO: use default user
 			)
 
