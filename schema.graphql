@@ -164,7 +164,6 @@ type Query {
 	topMonth(limit: Int): [Shout]!
 	topOverall(limit: Int): [Shout]!
 	recents(limit: Int): [Shout]!
-	topAuthors(limit: Int): [User]!
 
 	# topics
 	topicsBySlugs(slugs: [String]): [Topic]!
