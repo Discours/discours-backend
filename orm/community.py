@@ -17,7 +17,7 @@ class Community(Base):
 	@staticmethod
 	def init_table():
 		with local_session() as session:
-			default = session.query(Community).filter(Community.slug == "default").first()
+			default = session.query(Community).filter(Community.slug == "discours").first()
 		if not default:
 			default = Community.create(
 				name = "Дискурс",
