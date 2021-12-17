@@ -318,7 +318,7 @@ class Shout(Base):
 	id = None
 
 	slug: str = Column(String, primary_key=True)
-	community: int = Column(Integer, ForeignKey("community.id"), nullable=True, comment="Community")
+	community: int = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
 	body: str = Column(String, nullable=False, comment="Body")
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	updatedAt: str = Column(DateTime, nullable=True, comment="Updated at")

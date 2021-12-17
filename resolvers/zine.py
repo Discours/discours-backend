@@ -35,7 +35,12 @@ class GitTask:
 		
 		Path(repo_path).mkdir()
 		
-		cmd = "cd %s && git init && touch initial && git add initial && git commit -m 'init repo'" % (repo_path)
+		cmd = "cd %s && git init && " \
+			"git config user.name 'discours' && " \
+			"git config user.email 'discours@discours.io' && " \
+			"touch initial && git add initial && " \
+			"git commit -m 'init repo'" \
+			% (repo_path)
 		output = subprocess.check_output(cmd, shell=True)
 		print(output)
 
@@ -45,9 +50,9 @@ class GitTask:
 		if not Path(repo_path).exists():
 			self.init_repo()
 
-		cmd = "cd %s && git checkout master" % (repo_path)
-		output = subprocess.check_output(cmd, shell=True)
-		print(output)
+		#cmd = "cd %s && git checkout master" % (repo_path)
+		#output = subprocess.check_output(cmd, shell=True)
+		#print(output)
 
 		shout_filename = "%s.md" % (self.slug)
 		shout_full_filename = "%s/%s" % (repo_path, shout_filename)
@@ -208,20 +213,20 @@ async def recent_shouts(_, info, limit):
 @mutation.field("createShout")
 @login_required
 async def create_shout(_, info, input):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-	
-	with local_session() as session:
-		user = session.query(User).filter(User.id == user_id).first()
-	
-	topic_slugs = input.get("topic_slugs")
-	del input["topic_slugs"]
+	user = info.context["request"].user
+
+	topic_slugs = input.get("topic_slugs", [])
+	if topic_slugs:
+		del input["topic_slugs"]
 
 	new_shout = Shout.create(**input)
 	ShoutAuthor.create(
 		shout = new_shout.slug,
-		user = user_id)
+		user = user.id)
 	
+	if "mainTopic" in input:
+		topic_slugs.append(input["mainTopic"])
+
 	for slug in topic_slugs:
 		topic = ShoutTopic.create(
 			shout = new_shout.slug,
