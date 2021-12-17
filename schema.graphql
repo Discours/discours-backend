@@ -307,8 +307,6 @@ type Shout {
 	community: Int
 	cover: String
 	layout: String
-	rating: Int
-	views: Int
 	# replyTo: Shout
 	versionOf: Shout
 	tags: [String] # actual values
@@ -322,6 +320,14 @@ type Shout {
 	deletedBy: Int
 	publishedBy: Int # if there is no published field - it is not published
 	publishedAt: DateTime
+
+	stat: ShoutStat
+}
+
+type ShoutStat {
+	views: Int!
+	comments: Int!
+	ratings: Int!
 }
 
 type Community {

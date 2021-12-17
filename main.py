@@ -15,7 +15,7 @@ from redis import redis
 from resolvers.base import resolvers
 from resolvers.zine import GitTask, ShoutsCache
 
-from orm.shout import ShoutViewStorage, TopicStat, ShoutAuthorStorage
+from orm.shout import ShoutViewStorage, TopicStat, ShoutAuthorStorage, CommentStat
 
 import asyncio
 
@@ -34,6 +34,7 @@ async def start_up():
 	view_storage_task = asyncio.create_task(ShoutViewStorage.worker())
 	shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
 	topic_stat_task = asyncio.create_task(TopicStat.worker())
+	comment_stat_task = asyncio.create_task(CommentStat.worker())
 
 async def shutdown():
 	await redis.disconnect()

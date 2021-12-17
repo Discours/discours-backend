@@ -88,7 +88,6 @@ class ShoutsCache:
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
-				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.recent_shouts = shouts
@@ -108,7 +107,6 @@ class ShoutsCache:
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
-				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.top_overall = shouts
@@ -128,7 +126,6 @@ class ShoutsCache:
 			for row in session.execute(stmt):
 				shout = row.Shout
 				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
-				shout.views = await ShoutViewStorage.get_view(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.top_month = shouts
@@ -336,7 +333,6 @@ async def get_shout_by_slug(_, info, slug):
 		return {} #TODO return error field
 
 	shout.ratings = await ShoutRatingStorage.get_ratings(slug)
-	shout.views = await ShoutViewStorage.get_view(slug)
 	return shout
 
 @query.field("getShoutComments")

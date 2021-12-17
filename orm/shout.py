@@ -1,6 +1,6 @@
 from typing import List
 from datetime import datetime, timedelta
-from sqlalchemy import Table, Column, Integer, String, ForeignKey, DateTime, Boolean
+from sqlalchemy import Table, Column, Integer, String, ForeignKey, DateTime, Boolean, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.attributes import flag_modified
 from orm import Permission, User, Topic, TopicSubscription
@@ -204,6 +204,7 @@ class TopicStat:
 			else:
 				self.subs_by_topic[topic] = [user]
 
+	@staticmethod
 	async def get_shouts(topic):
 		self = TopicStat
 		async with self.lock:
@@ -277,6 +278,40 @@ class ShoutAuthorStorage:
 				print("ShoutAuthorStorage worker: error = %s" % (err))
 			await asyncio.sleep(self.period)
 
+class CommentStat:
+	stat_by_topic = {}
+	lock = asyncio.Lock()
+
+	period = 30*60 #sec
+
+	@staticmethod
+	async def load(session):
+		self = CommentStat
+
+		stats = session.query(Comment.shout, func.count(Comment.id).label("count")).\
+			group_by(Comment.shout)
+		self.stat_by_topic = dict([(stat.shout, stat.count) for stat in stats])
+
+	@staticmethod
+	async def get_stat(shout):
+		self = CommentStat
+		async with self.lock:
+			return self.stat_by_topic.get(shout, 0)
+
+	@staticmethod
+	async def worker():
+		self = CommentStat
+		print("CommentStat worker start")
+		while True:
+			try:
+				print("CommentStat worker: load stat")
+				with local_session() as session:
+					async with self.lock:
+						await self.load(session)
+			except Exception as err:
+				print("CommentStat worker: error = %s" % (err))
+			await asyncio.sleep(self.period)
+
 class Shout(Base):
 	__tablename__ = 'shout'
 
@@ -301,3 +336,11 @@ class Shout(Base):
 	topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
 	mainTopic = Column(ForeignKey("topic.slug"), nullable=True)
 	visibleFor = relationship(lambda: User, secondary=ShoutViewer.__tablename__)
+
+	@property
+	async def stat(self):
+		return {
+			"views": await ShoutViewStorage.get_view(self.slug),
+			"comments": await CommentStat.get_stat(self.slug),
+			"ratings": await ShoutRatingStorage.get_total_rating(self.slug)
+		}
