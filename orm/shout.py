@@ -171,6 +171,12 @@ class TopicStat:
 	@staticmethod
 	async def load_stat(session):
 		self = TopicStat
+
+		self.shouts_by_topic = {}
+		self.authors_by_topic = {}
+		self.subs_by_topic = {}
+		self.views_by_topic = {}
+
 		shout_topics = session.query(ShoutTopic)
 		for shout_topic in shout_topics:
 			topic = shout_topic.topic
