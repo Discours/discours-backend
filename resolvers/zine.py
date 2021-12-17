@@ -375,12 +375,13 @@ async def shouts_by_author(_, info, author, limit):
 @query.field("shoutsByCommunity")
 async def shouts_by_community(_, info, community, limit):
 	with local_session() as session:
-		topics = select(Topic.slug).\
-			where(Topic.community == community).cte()
 
-		shouts = session.query(Shout).\
+		#TODO fix postgres high load
+		shouts = session.query(Shout).distinct().\
 			join(ShoutTopic).\
-			where(ShoutTopic.topic.in_(topics)).\
+			where(ShoutTopic.topic.in_(\
+				select(Topic.slug).where(Topic.community == community)\
+			)).\
 			order_by(desc(Shout.createdAt)).\
-			limit(limit) #TODO fix limit
+			limit(limit)
 	return shouts
