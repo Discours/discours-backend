@@ -191,24 +191,24 @@ class ShoutSubscriptions:
 				subs.put_nowait(shout)
 
 @query.field("topViewed")
-async def top_viewed(_, info, limit):
+async def top_viewed(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.top_viewed[:limit]
+		return ShoutsCache.top_viewed[page * size : (page + 1) * size]
 
 @query.field("topMonth")
-async def top_month(_, info, limit):
+async def top_month(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.top_month[:limit]
+		return ShoutsCache.top_month[page * size : (page + 1) * size]
 
 @query.field("topOverall")
-async def top_overall(_, info, limit):
+async def top_overall(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.top_overall[:limit]
+		return ShoutsCache.top_overall[page * size : (page + 1) * size]
 
 @query.field("recents")
-async def recent_shouts(_, info, limit):
+async def recent_shouts(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.recent_shouts[:limit]
+		return ShoutsCache.recent_shouts[page * size : (page + 1) * size]
 
 @mutation.field("createShout")
 @login_required

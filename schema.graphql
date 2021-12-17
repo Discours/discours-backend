@@ -160,10 +160,10 @@ type Query {
 	getShoutComments(slug: String!): [Comment]!
 
 	# mainpage
-	topViewed(limit: Int): [Shout]!
-	topMonth(limit: Int): [Shout]!
-	topOverall(limit: Int): [Shout]!
-	recents(limit: Int): [Shout]!
+	topViewed(page: Int!, size: Int!): [Shout]!
+	topMonth(page: Int!, size: Int!): [Shout]!
+	topOverall(page: Int!, size: Int!): [Shout]!
+	recents(page: Int!, size: Int!): [Shout]!
 
 	# topics
 	topicsBySlugs(slugs: [String]): [Topic]!
