@@ -23,7 +23,7 @@ def migrate(entry):
         'slug': entry['slug'],
         # 'createdBy': entry['createdBy'],
         # 'createdAt': ts,
-        'title': entry['title'].lower(),
+        'title': entry['title'], # .lower(),
         'children': [],
         'community' : Community.default_community.slug,
         'body' : entry.get('description')
