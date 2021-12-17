@@ -82,7 +82,7 @@ class ShoutsCache:
 			stmt = select(Shout).\
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				where(Shout.publishedAt != None).\
-				order_by(desc("createdAt")).\
+				order_by(desc("publishedAt")).\
 				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
@@ -351,8 +351,8 @@ async def shouts_by_topic(_, info, topic, limit):
 	with local_session() as session:
 		shouts = session.query(Shout).\
 			join(ShoutTopic).\
-			where(ShoutTopic.topic == topic).\
-			order_by(desc(Shout.createdAt)).\
+			where(and_(ShoutTopic.topic == topic, Shout.publishedAt != None)).\
+			order_by(desc(Shout.publishedAt)).\
 			limit(limit)
 	return shouts
 
@@ -367,8 +367,8 @@ async def shouts_by_author(_, info, author, limit):
 
 		shouts = session.query(Shout).\
 			join(ShoutAuthor).\
-			where(ShoutAuthor.user == user.id).\
-			order_by(desc(Shout.createdAt)).\
+			where(and_(ShoutAuthor.user == user.id, Shout.publishedAt != None)).\
+			order_by(desc(Shout.publishedAt)).\
 			limit(limit)
 	return shouts
 
@@ -379,9 +379,10 @@ async def shouts_by_community(_, info, community, limit):
 		#TODO fix postgres high load
 		shouts = session.query(Shout).distinct().\
 			join(ShoutTopic).\
-			where(ShoutTopic.topic.in_(\
+			where(and_(Shout.publishedAt != None,\
+				ShoutTopic.topic.in_(\
 				select(Topic.slug).where(Topic.community == community)\
-			)).\
-			order_by(desc(Shout.createdAt)).\
+			))).\
+			order_by(desc(Shout.publishedAt)).\
 			limit(limit)
 	return shouts
