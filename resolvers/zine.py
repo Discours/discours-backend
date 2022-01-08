@@ -352,17 +352,18 @@ async def get_shout_comments(_, info, slug):
 	return comments
 
 @query.field("shoutsByTopic")
-async def shouts_by_topic(_, info, topic, limit):
+async def shouts_by_topic(_, info, topic, page, size):
 	with local_session() as session:
 		shouts = session.query(Shout).\
 			join(ShoutTopic).\
 			where(and_(ShoutTopic.topic == topic, Shout.publishedAt != None)).\
 			order_by(desc(Shout.publishedAt)).\
-			limit(limit)
+			limit(size).\
+			offset(page * size)
 	return shouts
 
 @query.field("shoutsByAuthor")
-async def shouts_by_author(_, info, author, limit):
+async def shouts_by_author(_, info, author, page, size):
 	with local_session() as session:
 		user = session.query(User).\
 			filter(User.slug == author).first()
@@ -374,11 +375,12 @@ async def shouts_by_author(_, info, author, limit):
 			join(ShoutAuthor).\
 			where(and_(ShoutAuthor.user == user.id, Shout.publishedAt != None)).\
 			order_by(desc(Shout.publishedAt)).\
-			limit(limit)
+			limit(size).\
+			offset(page * size)
 	return shouts
 
 @query.field("shoutsByCommunity")
-async def shouts_by_community(_, info, community, limit):
+async def shouts_by_community(_, info, community, page, size):
 	with local_session() as session:
 
 		#TODO fix postgres high load
@@ -389,5 +391,6 @@ async def shouts_by_community(_, info, community, limit):
 				select(Topic.slug).where(Topic.community == community)\
 			))).\
 			order_by(desc(Shout.publishedAt)).\
-			limit(limit)
+			limit(size).\
+			offset(page * size)
 	return shouts
