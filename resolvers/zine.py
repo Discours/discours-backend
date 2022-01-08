@@ -193,22 +193,22 @@ class ShoutSubscriptions:
 @query.field("topViewed")
 async def top_viewed(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.top_viewed[page * size : (page + 1) * size]
+		return ShoutsCache.top_viewed[(page - 1) * size : page * size]
 
 @query.field("topMonth")
 async def top_month(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.top_month[page * size : (page + 1) * size]
+		return ShoutsCache.top_month[(page - 1) * size : page * size]
 
 @query.field("topOverall")
 async def top_overall(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.top_overall[page * size : (page + 1) * size]
+		return ShoutsCache.top_overall[(page - 1) * size : page * size]
 
 @query.field("recents")
 async def recent_shouts(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.recent_shouts[page * size : (page + 1) * size]
+		return ShoutsCache.recent_shouts[(page - 1) * size : page * size]
 
 @mutation.field("createShout")
 @login_required
@@ -353,6 +353,7 @@ async def get_shout_comments(_, info, slug):
 
 @query.field("shoutsByTopic")
 async def shouts_by_topic(_, info, topic, page, size):
+	page = page - 1
 	with local_session() as session:
 		shouts = session.query(Shout).\
 			join(ShoutTopic).\
@@ -364,6 +365,7 @@ async def shouts_by_topic(_, info, topic, page, size):
 
 @query.field("shoutsByAuthor")
 async def shouts_by_author(_, info, author, page, size):
+	page = page - 1
 	with local_session() as session:
 		user = session.query(User).\
 			filter(User.slug == author).first()
@@ -381,8 +383,8 @@ async def shouts_by_author(_, info, author, page, size):
 
 @query.field("shoutsByCommunity")
 async def shouts_by_community(_, info, community, page, size):
+	page = page - 1
 	with local_session() as session:
-
 		#TODO fix postgres high load
 		shouts = session.query(Shout).distinct().\
 			join(ShoutTopic).\
