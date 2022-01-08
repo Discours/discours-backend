@@ -77,7 +77,7 @@ class GitTask:
 
 
 class ShoutsCache:
-	limit = 50
+	limit = 200
 	period = 60*60 #1 hour
 	lock = asyncio.Lock()
 
