@@ -49,7 +49,9 @@ class ShoutRatingStorage:
 
 	@staticmethod
 	def init(session):
-		ShoutRatingStorage.ratings = session.query(ShoutRating).all()
+		#TODO use user slug as rater
+		ShoutRatingStorage.ratings = session.query(ShoutRating.shout, ShoutRating.value, User.slug.label("rater")).\
+			join(User).all()
 
 	@staticmethod
 	async def get_total_rating(shout_slug):

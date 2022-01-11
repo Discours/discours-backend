@@ -218,6 +218,11 @@ type Rating {
 	value: Int!
 }
 
+type ShoutRating {
+	rater: String!
+	value: Int!
+}
+
 type Notification {
 	kind: String! # unique primary key
 	template: String!
@@ -302,7 +307,7 @@ type Shout {
 	body: String!
 	createdAt: DateTime!
 	authors: [User!]!
-	ratings: [Rating]
+	ratings: [ShoutRating]
 	visibleFor: [User]
 	community: Int
 	cover: String

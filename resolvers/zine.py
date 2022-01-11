@@ -297,7 +297,8 @@ async def update_shout(_, info, input):
 @login_required
 async def rate_shout(_, info, slug, value):
 	auth = info.context["request"].auth
-	user_id = auth.user_id
+	user = info.context["request"].user
+	user_id = user.id
 
 	with local_session() as session:
 		rating = session.query(ShoutRating).\
@@ -313,7 +314,13 @@ async def rate_shout(_, info, slug, value):
 				value = value
 			)
 
-	await ShoutRatingStorage.update_rating(rating)
+	rating_dict = {
+		"shout" : shout,
+		"value" : value,
+		"rater" : user.slug
+	}
+
+	await ShoutRatingStorage.update_rating(rating_dict)
 
 	return {"error" : ""}
 
