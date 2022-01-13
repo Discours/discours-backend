@@ -1,6 +1,8 @@
 from functools import wraps
 from typing import Optional, Tuple
 
+from datetime import datetime, timedelta
+
 from graphql import GraphQLResolveInfo
 from jwt import DecodeError, ExpiredSignatureError
 from starlette.authentication import AuthenticationBackend
@@ -8,7 +10,7 @@ from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials, AuthUser
 from auth.token import Token
-from auth.authorize import Authorize
+from auth.authorize import Authorize, TokenStorage
 from exceptions import InvalidToken, OperationNotAllowed
 from orm import User, UserStorage
 from orm.base import local_session
@@ -47,8 +49,7 @@ class _Authenticate:
 
 	@classmethod
 	async def exists(cls, user_id, token):
-		token = await redis.execute("GET", f"{user_id}-{token}")
-		return token is not None
+		return await TokenStorage.exist(f"{user_id}-{token}")
 
 
 class JWTAuthenticate(AuthenticationBackend):
@@ -103,6 +104,28 @@ class EmailAuthenticate:
 				session.commit()
 		auth_token = await Authorize.authorize(user)
 		return (auth_token, user)
+
+class ResetPassword:
+	@staticmethod
+	async def get_reset_token(user):
+		exp = datetime.utcnow() + timedelta(seconds=EMAIL_TOKEN_LIFE_SPAN)
+		token = Token.encode(user, exp=exp, device="pc")
+		await TokenStorage.save(f"{user.id}-reset-{token}", EMAIL_TOKEN_LIFE_SPAN, True)
+		return token
+
+	@staticmethod
+	async def verify(token):
+		try:
+			payload = Token.decode(token)
+		except ExpiredSignatureError:
+			raise InvalidToken("Login expired, please login again")
+		except DecodeError as e:
+			raise InvalidToken("token format error") from e
+		else:
+			if not await TokenStorage.exist(f"{payload.user_id}-reset-{token}"):
+				raise InvalidToken("Login expired, please login again")
+
+		return payload.user_id
 
 def login_required(func):
 	@wraps(func)

@@ -3,15 +3,15 @@ from datetime import datetime, timedelta
 from transliterate import translit
 from urllib.parse import quote_plus
 
-from auth.authenticate import login_required
+from auth.authenticate import login_required, ResetPassword
 from auth.authorize import Authorize
 from auth.identity import Identity
 from auth.password import Password
-from auth.email import send_confirm_email, send_auth_email
+from auth.email import send_confirm_email, send_auth_email, send_reset_password_email
 from orm import User, UserStorage, Role, UserRole
 from orm.base import local_session
 from resolvers.base import mutation, query
-from exceptions import InvalidPassword
+from exceptions import InvalidPassword, InvalidToken
 
 from settings import JWT_AUTH_HEADER
 
@@ -54,6 +54,32 @@ async def register(*_, email: str, password: str = ""):
 	token = await Authorize.authorize(user)
 	return {"user": user, "token": token }
 
+@mutation.field("requestPasswordUpdate")
+async def request_password_update(_, info, email):
+	with local_session() as session:
+		user = session.query(User).filter(User.email == email).first()
+	if not user:
+		return {"error" : "user not exist"}
+
+	await send_reset_password_email(user)
+
+	return {}
+
+@mutation.field("updatePassword")
+async def update_password(_, info, password, token):
+	try:
+		user_id = await ResetPassword.verify(token)
+	except InvalidToken as e:
+		return {"error" : e.message}
+
+	with local_session() as session:
+		user = session.query(User).filter_by(id = user_id).first()
+		if not user:
+			return {"error" : "user not exist"}
+		user.password = Password.encode(password)
+		session.commit()
+
+	return {}
 
 @query.field("signIn")
 async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):

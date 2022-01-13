@@ -99,12 +99,9 @@ type Mutation {
 
 	# auth
 	confirmEmail(token: String!): AuthResult!
-	requestPasswordReset(email: String!): Boolean!
-	confirmPasswordReset(token: String!): Boolean!
 	registerUser(email: String!, password: String): AuthResult!
-	# updatePassword(password: String!, token: String!): Token!
-	# invalidateAllTokens: Boolean!
-	# invalidateTokenById(id: Int!): Boolean!
+	requestPasswordUpdate(email: String!): Result!
+	updatePassword(password: String!, token: String!): Result!
 	# requestEmailConfirmation: User!
 
 	# shout
