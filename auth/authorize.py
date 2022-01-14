@@ -11,7 +11,6 @@ class TokenStorage:
 		await redis.execute("SET", token_key, "True")
 		if auto_delete:
 			expire_at = (datetime.now() + timedelta(seconds=life_span)).timestamp()
-			print(expire_at)
 			await redis.execute("EXPIREAT", token_key, int(expire_at))
 
 	@staticmethod

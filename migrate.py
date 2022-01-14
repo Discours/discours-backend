@@ -61,7 +61,7 @@ def users(users_by_oid, users_by_slug, users_data):
 		del user['username']
 		del user['email']
 		users_by_slug[user['slug']] = user # public
-		id_map[user['old_id']] = user['id']
+		id_map[user['old_id']] = user['slug']
 		counter += 1
 	for entry in users_data:
 		migrateUser_2stage(entry, id_map)

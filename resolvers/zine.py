@@ -298,29 +298,22 @@ async def update_shout(_, info, input):
 async def rate_shout(_, info, slug, value):
 	auth = info.context["request"].auth
 	user = info.context["request"].user
-	user_id = user.id
 
 	with local_session() as session:
 		rating = session.query(ShoutRating).\
-			filter(and_(ShoutRating.rater == user_id, ShoutRating.shout == slug)).first()
+			filter(and_(ShoutRating.rater == user.slug, ShoutRating.shout == slug)).first()
 		if rating:
 			rating.value = value;
 			rating.ts = datetime.now()
 			session.commit()
 		else:
 			rating = ShoutRating.create(
-				rater = user_id,
+				rater = user.slug,
 				shout = slug,
 				value = value
 			)
 
-	rating_dict = {
-		"shout" : shout,
-		"value" : value,
-		"rater" : user.slug
-	}
-
-	await ShoutRatingStorage.update_rating(rating_dict)
+	await ShoutRatingStorage.update_rating(rating)
 
 	return {"error" : ""}
 

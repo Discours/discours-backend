@@ -36,7 +36,7 @@ class ShoutRating(Base):
 	__tablename__ = "shout_rating"
 
 	id = None
-	rater = Column(ForeignKey('user.id'), primary_key = True)
+	rater = Column(ForeignKey('user.slug'), primary_key = True)
 	shout = Column(ForeignKey('shout.slug'), primary_key = True)
 	ts = Column(DateTime, nullable=False, default = datetime.now, comment="Timestamp")
 	value = Column(Integer)
@@ -49,9 +49,7 @@ class ShoutRatingStorage:
 
 	@staticmethod
 	def init(session):
-		#TODO use user slug as rater
-		ShoutRatingStorage.ratings = session.query(ShoutRating.shout, ShoutRating.value, User.slug.label("rater")).\
-			join(User).all()
+		ShoutRatingStorage.ratings = session.query(ShoutRating).all()
 
 	@staticmethod
 	async def get_total_rating(shout_slug):

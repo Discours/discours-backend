@@ -217,11 +217,11 @@ def migrate(entry, users_by_oid, topics_by_oid):
 				if rater:
 					shout_rating_dict = {
 						'value': shout_rating_old['value'],
-						'rater': rater.id,
+						'rater': rater.slug,
 						'shout': s.slug
 					}
 					cts = shout_rating_old.get('createdAt')
-					if cts: shout_rating_dict['rater_id'] = date_parse(cts)
+					if cts: shout_rating_dict['ts'] = date_parse(cts)
 					try: shout_rating = ShoutRating.create(**shout_rating_dict)
 					except sqlalchemy.exc.IntegrityError: pass
 					shout_dict['ratings'].append(shout_rating_dict)

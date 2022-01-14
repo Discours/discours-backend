@@ -71,14 +71,13 @@ def migrate(entry, shouts_by_oid):
 			if rater and comment:
 				comment_rating_dict = {
 					'value': comment_rating_old['value'],
-					'createdBy': rater.id,
+					'createdBy': rater.slug,
 					'comment_id': comment.id
 				}
 				cts = comment_rating_old.get('createdAt')
 				if cts: comment_rating_dict['createdAt'] = date_parse(cts)
 				try:
 					comment_rating = CommentRating.create(**comment_rating_dict)
-					# comment_rating_dict['id'] = comment_rating.id
 					comment_dict['ratings'].append(comment_rating_dict)
 				except Exception as e:
 					print(comment_rating_dict)

@@ -91,13 +91,13 @@ def migrate(entry):
 def migrate_2stage(entry, id_map):
 	for rating_entry in entry.get('ratings',[]):
 		rater_old_id = rating_entry['createdBy']
-		rater_id = id_map.get(rater_old_id)
-		if not rater_id:
+		rater_slug = id_map.get(rater_old_id)
+		if not rater_slug:
 			continue
 		old_id = entry['_id']
 		user_rating_dict = {
 			'value': rating_entry['value'],
-			'rater': rater_id,
+			'rater': rater_slug,
 			'user': id_map.get(old_id)
 		}
 		with local_session() as session:

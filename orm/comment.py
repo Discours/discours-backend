@@ -11,7 +11,7 @@ class CommentRating(Base):
 
 	id = None
 	comment_id = Column(ForeignKey('comment.id'), primary_key = True)
-	createdBy = Column(ForeignKey('user.id'), primary_key = True)
+	createdBy = Column(ForeignKey('user.slug'), primary_key = True)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Timestamp")
 	value = Column(Integer)
 

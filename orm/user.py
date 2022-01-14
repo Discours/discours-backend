@@ -22,8 +22,8 @@ class UserRating(Base):
 	__tablename__ = "user_rating"
 
 	id = None
-	rater = Column(ForeignKey('user.id'), primary_key = True)
-	user = Column(ForeignKey('user.id'), primary_key = True)
+	rater = Column(ForeignKey('user.slug'), primary_key = True)
+	user = Column(ForeignKey('user.slug'), primary_key = True)
 	value = Column(Integer)
 
 class UserRole(Base):
