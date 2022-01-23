@@ -64,19 +64,20 @@ enum MessageStatus {
 	DELETED
 }
 
-type CreateChatResult {
-	chatId: Int
-	error: String
-}
-
 type MessageWithStatus {
 	status: MessageStatus!
 	message: Message!
 }
 
-type ChatRoomResult {
-	messages: [Message]!
-	room: ChatRoom!
+type CreateChatResult {
+	chatId: String
+	error: String
+}
+
+type EnterChatResult {
+	chat: Chat
+	messages: [Message]
+	error: String
 }
 
 input TopicInput {
@@ -97,11 +98,10 @@ type TopicResult {
 
 type Mutation {
 	# message
-	createChat: CreateChatResult!
-	getRoom(chatRoom: Int!): ChatRoomResult! # TODO: private rooms protection
-	createMessage(body: String!, replyTo: Int): MessageResult!
-	updateMessage(id: Int!, body: String!): MessageResult!
-	deleteMessage(messageId: Int!): Result!
+	createChat(description: String): CreateChatResult!
+	createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
+	updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
+	deleteMessage(chatId: String!, messageId: Int!): Result!
 
 	# auth
 	confirmEmail(token: String!): AuthResult!
@@ -178,13 +178,16 @@ type Query {
 	# communities
 	getCommunity(slug: String): Community!
 	getCommunities: [Community]!
+
+	#messages
+	enterChat(chatId: String!): EnterChatResult!
 }
 
 ############################################ Subscription
 
 type Subscription {
 	messageChanged: MessageWithStatus!
-	chatUpdated: ChatRoomResult!
+	chatUpdated: MessageWithStatus!
 	onlineUpdated: [User!]!
 	shoutUpdated: Shout!
 	userUpdated: User!
@@ -267,11 +270,11 @@ type Message {
 	visibleForUsers: [Int]!
 }
 
-type ChatRoom {
+type Chat {
 	id: Int!
 	createdAt: DateTime!
 	updatedAt: DateTime!
-	notes: String
+	description: String
 }
 
 type Comment {

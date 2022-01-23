@@ -5,7 +5,10 @@ from resolvers.base import mutation, query, subscription
 
 from auth.authenticate import login_required
 
-import asyncio
+import asyncio, uuid, json
+from datetime import datetime
+
+from redis import redis
 
 class MessageSubscriptions:
 	lock = asyncio.Lock()
@@ -32,22 +35,58 @@ class MessageResult:
 		self.status = status
 		self.message = message
 
+@mutation.field("createChat")
+@login_required
+async def create_chat(_, info, description):
+	user = info.context["request"].user
+
+	chat_id = uuid.uuid4()
+	chat = {
+		"description" : description,
+		"createdAt" : str(datetime.now),
+		"createdBy" : user.slug,
+		"id" : str(chat_id)
+	}
+
+	await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
+
+	return { "chatId" : chat_id }
+
+@query.field("enterChat")
+@login_required
+async def enter_chat(_, info, chatId):
+	chat = await redis.execute("GET", f"chats/{chatId}")
+	if not chat:
+		return { "error" : "chat not exist" }
+	chat = json.loads(chat)
+
+	messages = await redis.lrange(f"chats/{chatId}/messages", 0, 10)
+	messages = [json.loads(msg) for msg in messages]
+
+	return { 
+		"chat" : chat,
+		"messages" : messages 
+	}
 
 @mutation.field("createMessage")
 @login_required
-async def create_message(_, info, body, replyTo = None):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-	
-	new_message = Message.create(
-		author = user_id,
-		body = body,
-		replyTo = replyTo
-		)
-	
-	result = MessageResult("NEW", new_message)
-	await MessageSubscriptions.put(result)
-	
+async def create_message(_, info, chatId, body, replyTo = None):
+	user = info.context["request"].user
+
+	chat = await redis.execute("GET", f"chats/{chatId}")
+	if not chat:
+		return { "error" : "chat not exist" }
+
+	new_message = {
+		"chatId" : chatId,
+		"author" : user.slug,
+		"body" : body,
+		"replyTo" : replyTo
+	}
+
+	message_id = await redis.execute("LPUSH", f"chats/{chatId}/messages", json.dumps(new_message))
+	new_message["id"] = message_id
+
 	return {"message" : new_message}
 
 @query.field("getMessages")
