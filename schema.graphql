@@ -64,6 +64,11 @@ enum MessageStatus {
 	DELETED
 }
 
+type CreateChatResult {
+	chatId: Int
+	error: String
+}
+
 type MessageWithStatus {
 	status: MessageStatus!
 	message: Message!
@@ -92,6 +97,7 @@ type TopicResult {
 
 type Mutation {
 	# message
+	createChat: CreateChatResult!
 	getRoom(chatRoom: Int!): ChatRoomResult! # TODO: private rooms protection
 	createMessage(body: String!, replyTo: Int): MessageResult!
 	updateMessage(id: Int!, body: String!): MessageResult!
