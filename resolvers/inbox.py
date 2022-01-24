@@ -1,4 +1,4 @@
-from orm import Message, User
+from orm import User
 from orm.base import local_session
 
 from resolvers.base import mutation, query, subscription
