@@ -49,6 +49,7 @@ async def create_chat(_, info, description):
 	}
 
 	await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
+	await redis.execute("SET", f"chats/{chat_id}/next_message_id", 0)
 
 	return { "chatId" : chat_id }
 
@@ -60,8 +61,12 @@ async def enter_chat(_, info, chatId):
 		return { "error" : "chat not exist" }
 	chat = json.loads(chat)
 
-	messages = await redis.lrange(f"chats/{chatId}/messages", 0, 10)
-	messages = [json.loads(msg) for msg in messages]
+	message_ids = await redis.lrange(f"chats/{chatId}/message_ids", 0, 10)
+	messages = []
+	if message_ids:
+		message_keys = [f"chats/{chatId}/messages/{id.decode('UTF-8')}" for id in message_ids]
+		messages = await redis.mget(*message_keys)
+		messages = [json.loads(msg) for msg in messages]
 
 	return { 
 		"chat" : chat,
@@ -77,15 +82,20 @@ async def create_message(_, info, chatId, body, replyTo = None):
 	if not chat:
 		return { "error" : "chat not exist" }
 
+	message_id = await redis.execute("GET", f"chats/{chatId}/next_message_id")
+	message_id = int(message_id)
+
 	new_message = {
 		"chatId" : chatId,
+		"id" : message_id,
 		"author" : user.slug,
 		"body" : body,
 		"replyTo" : replyTo
 	}
 
-	message_id = await redis.execute("LPUSH", f"chats/{chatId}/messages", json.dumps(new_message))
-	new_message["id"] = message_id
+	await redis.execute("SET", f"chats/{chatId}/messages/{message_id}", json.dumps(new_message))
+	await redis.execute("LPUSH", f"chats/{chatId}/message_ids", str(message_id))
+	await redis.execute("SET", f"chats/{chatId}/next_message_id", str(message_id + 1))
 
 	return {"message" : new_message}
 
@@ -113,41 +123,44 @@ def check_and_get_message(message_id, user_id, session) :
 
 @mutation.field("updateMessage")
 @login_required
-async def update_message(_, info, id, body):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-	
-	with local_session() as session:
-		try:
-			message = check_and_get_message(id, user_id, session)
-		except Exception as err:
-			return {"error" : err}
-	
-		message.body = body
-		session.commit()
-	
-	result = MessageResult("UPDATED", message)
-	await MessageSubscriptions.put(result)
-	
+async def update_message(_, info, chatId, id, body):
+	user = info.context["request"].user
+
+	chat = await redis.execute("GET", f"chats/{chatId}")
+	if not chat:
+		return { "error" : "chat not exist" }
+
+	message = await redis.execute("GET", f"chats/{chatId}/messages/{id}")
+	if not message:
+		return { "error" : "message  not exist" }
+
+	message = json.loads(message)
+	message["body"] = body
+
+	await redis.execute("SET", f"chats/{chatId}/messages/{id}", json.dumps(message))
+
+	#result = MessageResult("UPDATED", message)
+	#await MessageSubscriptions.put(result)
+
 	return {"message" : message}
 
 @mutation.field("deleteMessage")
 @login_required
-async def delete_message(_, info, id):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-	
-	with local_session() as session:
-		try:
-			message = check_and_get_message(id, user_id, session)
-		except Exception as err:
-			return {"error" : err}
-	
-		session.delete(message)
-		session.commit()
-	
-	result = MessageResult("DELETED", message)
-	await MessageSubscriptions.put(result)
+async def delete_message(_, info, chatId, id):
+	user = info.context["request"].user
+
+	chat = await redis.execute("GET", f"chats/{chatId}")
+	if not chat:
+		return { "error" : "chat not exist" }
+
+	count = await redis.execute("LREM", f"chats/{chatId}/message_ids", 0, str(id))
+	if count == 0:
+		return { "error" : "message not exist" }
+
+	await redis.execute("DEL", f"chats/{chatId}/messages/{id}")
+
+	#result = MessageResult("DELETED", message)
+	#await MessageSubscriptions.put(result)
 	
 	return {}
 

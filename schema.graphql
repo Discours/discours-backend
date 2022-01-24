@@ -101,7 +101,7 @@ type Mutation {
 	createChat(description: String): CreateChatResult!
 	createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
 	updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
-	deleteMessage(chatId: String!, messageId: Int!): Result!
+	deleteMessage(chatId: String!, id: Int!): Result!
 
 	# auth
 	confirmEmail(token: String!): AuthResult!
