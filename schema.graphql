@@ -64,9 +64,10 @@ enum MessageStatus {
 	DELETED
 }
 
-type MessageWithStatus {
-	status: MessageStatus!
-	message: Message!
+type ChatUpdatedResult {
+	error: String
+	status: MessageStatus
+	message: Message
 }
 
 type CreateChatResult {
@@ -186,7 +187,7 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
-	chatUpdated(chatId: String!): MessageWithStatus!
+	chatUpdated(chatId: String!): ChatUpdatedResult!
 	onlineUpdated: [User!]!
 	shoutUpdated: Shout!
 	userUpdated: User!
@@ -259,7 +260,7 @@ type User {
 }
 
 type Message {
-	author: Int!
+	author: String!
 	chatRoom: Int!
 	body: String!
 	createdAt: DateTime!

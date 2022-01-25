@@ -97,7 +97,8 @@ async def create_message(_, info, chatId, body, replyTo = None):
 		"id" : message_id,
 		"author" : user.slug,
 		"body" : body,
-		"replyTo" : replyTo
+		"replyTo" : replyTo,
+		"createdAt" : datetime.now().isoformat()
 	}
 
 	await redis.execute("SET", f"chats/{chatId}/messages/{message_id}", json.dumps(new_message))
@@ -145,7 +146,11 @@ async def update_message(_, info, chatId, id, body):
 		return { "error" : "message  not exist" }
 
 	message = json.loads(message)
+	if message["author"] != user.slug:
+		return { "error" : "access denied" }
+
 	message["body"] = body
+	message["updatedAt"] = datetime.now().isoformat()
 
 	await redis.execute("SET", f"chats/{chatId}/messages/{id}", json.dumps(message))
 
@@ -167,6 +172,8 @@ async def delete_message(_, info, chatId, id):
 	if not message:
 		return { "error" : "message  not exist" }
 	message = json.loads(message)
+	if message["author"] != user.slug:
+		return { "error" : "access denied" }
 
 	await redis.execute("LREM", f"chats/{chatId}/message_ids", 0, str(id))
 	await redis.execute("DEL", f"chats/{chatId}/messages/{id}")
@@ -176,9 +183,14 @@ async def delete_message(_, info, chatId, id):
 
 	return {}
 
-
 @subscription.source("chatUpdated")
 async def message_generator(obj, info, chatId):
+
+	#TODO: send AUTH header
+	#auth = info.context["request"].auth
+	#if not auth.logged_in:
+	#	yield {"error" : auth.error_message or "Please login"}
+
 	try:
 		subs = MessageSubscription(chatId)
 		await MessageSubscriptions.register_subscription(subs)
