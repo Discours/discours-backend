@@ -86,9 +86,11 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 	with local_session() as session:
 		orm_user = session.query(User).filter(User.email == email).first()
 	if orm_user is None:
+		print(f"signIn {email}: invalid email")
 		return {"error" : "invalid email"}
 
 	if not password:
+		print(f"signIn {email}: send auth email")
 		await send_auth_email(orm_user)
 		return {}
 
@@ -101,9 +103,11 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 	try:
 		user = Identity.identity(orm_user, password)
 	except InvalidPassword:
+		print(f"signIn {email}: invalid password")
 		return {"error" : "invalid password"}
 	
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
+	print(f"signIn {email}: OK")
 	return {"token" : token, "user": orm_user}
 
 
