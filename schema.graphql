@@ -167,7 +167,8 @@ type Query {
 	getUserRoles(slug: String!): [Role]!
 
 	# messages
-	getMessages(count: Int = 100, page: Int = 1): [Message!]!
+	enterChat(chatId: String!, size: Int = 50): EnterChatResult!
+	getMessages(chatId: String!, size: Int!, page: Int!): [Message]!
 
 	# shouts
 	getShoutBySlug(slug: String!): Shout!
@@ -192,9 +193,6 @@ type Query {
 	# communities
 	getCommunity(slug: String): Community!
 	getCommunities: [Community]!
-
-	#messages
-	enterChat(chatId: String!): EnterChatResult!
 }
 
 ############################################ Subscription
