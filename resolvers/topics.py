@@ -7,6 +7,8 @@ from resolvers.zine import ShoutSubscriptions
 from auth.authenticate import login_required
 import asyncio
 
+from sqlalchemy import func, and_
+
 @query.field("topicsBySlugs")
 async def topics_by_slugs(_, info, slugs = None):
 	with local_session() as session:
@@ -62,27 +64,35 @@ async def update_topic(_, info, input):
 @mutation.field("topicSubscribe")
 @login_required
 async def topic_subscribe(_, info, slug):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-	sub = TopicSubscription.create({ user: user_id, topic: slug })
-	return {} # type Result
+	user = info.context["request"].user
+
+	TopicSubscription.create(
+		subscriber = user.slug, 
+		topic = slug)
+
+	return {}
 
 @mutation.field("topicUnsubscribe")
 @login_required
 async def topic_unsubscribe(_, info, slug):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-	sub = session.query(TopicSubscription).filter(TopicSubscription.user == user_id and TopicSubscription.topic == slug).first()
+	user = info.context["request"].user
+
 	with local_session() as session:
+		sub = session.query(TopicSubscription).\
+			filter(and_(TopicSubscription.subscriber == user.slug, TopicSubscription.topic == slug)).\
+			first()
+		if not sub:
+			return { "error" : "subscription not exist" }
 		session.delete(sub)
-		return {} # type Result
-	return { "error": "session error" }
+		session.commit()
+
+	return {}
 
 @subscription.source("topicUpdated")
-async def new_shout_generator(obj, info, user_id):
+async def new_shout_generator(obj, info, user_slug):
 	try:
 		with local_session() as session:
-			topics = session.query(TopicSubscription.topic).filter(TopicSubscription.user == user_id).all()
+			topics = session.query(TopicSubscription.topic).filter(TopicSubscription.subscriber == user_slug).all()
 		topics = set([item.topic for item in topics])
 		shouts_queue = asyncio.Queue()
 		await ShoutSubscriptions.register_subscription(shouts_queue)

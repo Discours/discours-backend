@@ -9,8 +9,8 @@ class TopicSubscription(Base):
 	__tablename__ = "topic_subscription"
 	
 	id = None
+	subscriber = Column(ForeignKey('user.slug'), primary_key = True)
 	topic = Column(ForeignKey('topic.slug'), primary_key = True)
-	user = Column(ForeignKey('user.id'), primary_key = True)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 
 class Topic(Base):
