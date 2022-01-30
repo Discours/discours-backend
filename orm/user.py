@@ -105,6 +105,14 @@ class UserStorage:
 			return self.users.get(id)
 
 	@staticmethod
+	async def get_user_by_slug(slug):
+		self = UserStorage
+		async with self.lock:
+			for user in self.users.values():
+				if user.slug == slug:
+					return user
+
+	@staticmethod
 	async def add_user(user):
 		self = UserStorage
 		async with self.lock:

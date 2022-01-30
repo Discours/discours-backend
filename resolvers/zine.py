@@ -396,3 +396,23 @@ async def shouts_by_community(_, info, community, page, size):
 			limit(size).\
 			offset(page * size)
 	return shouts
+
+@query.field("shoutsByUserRatingOrComment")
+async def shouts_by_user_rating_or_comment(_, info, userSlug, page, size):
+	user = await UserStorage.get_user_by_slug(userSlug)
+	if not user:
+		return
+
+	with local_session() as session:
+		shouts_by_rating = session.query(Shout).\
+			join(ShoutRating).\
+			where(and_(Shout.publishedAt != None, ShoutRating.rater == userSlug))
+		shouts_by_comment = session.query(Shout).\
+			join(Comment).\
+			where(and_(Shout.publishedAt != None, Comment.author == user.id))
+		shouts = shouts_by_rating.union(shouts_by_comment).\
+			order_by(desc(Shout.publishedAt)).\
+			limit(size).\
+			offset( (page - 1) * size)
+
+	return shouts

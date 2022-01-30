@@ -196,6 +196,9 @@ type Query {
 	# communities
 	getCommunity(slug: String): Community!
 	getCommunities: [Community]!
+
+	# shoutsByUserSubscriptions(): [Shout]!
+	shoutsByUserRatingOrComment(userSlug: String!, page: Int!, size: Int!): [Shout]!
 }
 
 ############################################ Subscription
