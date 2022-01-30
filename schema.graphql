@@ -150,6 +150,9 @@ type Mutation {
 	createCommunity(title: String!, desc: String!): Community!
 	updateCommunity(community: CommunityInput!): Community!
 	deleteCommunity(id: Int!): Result!
+
+	authorSubscribe(slug: String!): Result!
+	authorUnsubscribe(slug: String!): Result!
 }
 
 ################################### Query

@@ -33,6 +33,14 @@ class UserRole(Base):
 	user_id = Column(ForeignKey('user.id'), primary_key = True)
 	role_id = Column(ForeignKey('role.id'), primary_key = True)
 
+class AuthorSubscription(Base):
+	__tablename__ = "author_subscription"
+	
+	id = None
+	subscriber = Column(ForeignKey('user.slug'), primary_key = True)
+	author = Column(ForeignKey('user.slug'), primary_key = True)
+	createdAt = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
+
 class User(Base):
 	__tablename__ = "user"
 
