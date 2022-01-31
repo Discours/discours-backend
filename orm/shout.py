@@ -16,7 +16,7 @@ class ShoutAuthor(Base):
 	
 	id = None
 	shout = Column(ForeignKey('shout.slug'), primary_key = True)
-	user = Column(ForeignKey('user.id'), primary_key = True)
+	user = Column(ForeignKey('user.slug'), primary_key = True)
 	
 class ShoutViewer(Base):
 	__tablename__ = "shout_viewer"
@@ -198,7 +198,7 @@ class TopicStat:
 		subs = session.query(TopicSubscription)
 		for sub in subs:
 			topic = sub.topic
-			user = sub.user
+			user = sub.subscriber
 			if topic in self.subs_by_topic:
 				self.subs_by_topic[topic].append(user)
 			else:

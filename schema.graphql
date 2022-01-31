@@ -197,7 +197,7 @@ type Query {
 	getCommunity(slug: String): Community!
 	getCommunities: [Community]!
 
-	# shoutsByUserSubscriptions(): [Shout]!
+	shoutsByUserSubscriptions(userSlug: String!, page: Int!, size: Int!): [Shout]!
 	shoutsByUserRatingOrComment(userSlug: String!, page: Int!, size: Int!): [Shout]!
 	newShoutsWithoutRating(userSlug: String!, size: Int = 10): [Shout]!
 }

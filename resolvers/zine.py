@@ -1,7 +1,8 @@
 from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource,\
 	ShoutRatingStorage, ShoutViewStorage, Comment, CommentRating, Topic
 from orm.base import local_session
-from orm.user import UserStorage
+from orm.user import UserStorage, AuthorSubscription
+from orm.topic import TopicSubscription
 
 from resolvers.base import mutation, query
 
@@ -222,7 +223,7 @@ async def create_shout(_, info, input):
 	new_shout = Shout.create(**input)
 	ShoutAuthor.create(
 		shout = new_shout.slug,
-		user = user.id)
+		user = user.slug)
 	
 	if "mainTopic" in input:
 		topic_slugs.append(input["mainTopic"])
@@ -375,7 +376,7 @@ async def shouts_by_author(_, info, author, page, size):
 
 		shouts = session.query(Shout).\
 			join(ShoutAuthor).\
-			where(and_(ShoutAuthor.user == user.id, Shout.publishedAt != None)).\
+			where(and_(ShoutAuthor.user == author, Shout.publishedAt != None)).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
 			offset(page * size)
@@ -395,6 +396,28 @@ async def shouts_by_community(_, info, community, page, size):
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
 			offset(page * size)
+	return shouts
+
+@query.field("shoutsByUserSubscriptions")
+async def shouts_by_user_subscriptions(_, info, userSlug, page, size):
+	user = await UserStorage.get_user_by_slug(userSlug)
+	if not user:
+		return
+
+	with local_session() as session:
+		shouts_by_topic = session.query(Shout).\
+			join(ShoutTopic).\
+			join(TopicSubscription, ShoutTopic.topic == TopicSubscription.topic).\
+			where(and_(Shout.publishedAt != None, TopicSubscription.subscriber == userSlug))
+		shouts_by_author = session.query(Shout).\
+			join(ShoutAuthor).\
+			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
+			where(and_(Shout.publishedAt != None, AuthorSubscription.subscriber == userSlug))
+		shouts = shouts_by_topic.union(shouts_by_author).\
+			order_by(desc(Shout.publishedAt)).\
+			limit(size).\
+			offset( (page - 1) * size)
+
 	return shouts
 
 @query.field("shoutsByUserRatingOrComment")
