@@ -199,6 +199,7 @@ type Query {
 
 	# shoutsByUserSubscriptions(): [Shout]!
 	shoutsByUserRatingOrComment(userSlug: String!, page: Int!, size: Int!): [Shout]!
+	newShoutsWithoutRating(userSlug: String!, size: Int = 10): [Shout]!
 }
 
 ############################################ Subscription

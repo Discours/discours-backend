@@ -416,3 +416,19 @@ async def shouts_by_user_rating_or_comment(_, info, userSlug, page, size):
 			offset( (page - 1) * size)
 
 	return shouts
+
+@query.field("newShoutsWithoutRating")
+async def new_shouts_without_rating(_, info, userSlug, size):
+	user = await UserStorage.get_user_by_slug(userSlug)
+	if not user:
+		return
+
+	#TODO: postgres heavy load
+	with local_session() as session:
+		shouts = session.query(Shout).distinct().\
+			outerjoin(ShoutRating).\
+			where(and_(Shout.publishedAt != None, ShoutRating.rater != userSlug)).\
+			order_by(desc(Shout.publishedAt)).\
+			limit(size)
+
+	return shouts
