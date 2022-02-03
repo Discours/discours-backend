@@ -3,398 +3,399 @@ scalar DateTime
 ################################### Payload
 
 type Result {
-	error: String
+  error: String
 }
 
 type AuthResult {
-	error: String
-	token: String
-	user: User
+  error: String
+  token: String
+  user: User
 }
 
 type UserResult {
-	error: String
-	user: User
+  error: String
+  user: User
 }
 
 type MessageResult {
-	error: String
-	message: Message
+  error: String
+  message: Message
 }
 
 input ShoutInput {
-	slug: String!
-	body: String!
-	community: Int!
-	mainTopic: String
-	topic_slugs: [String]
-	title: String
-	subtitle: String
-	versionOf: String
-	visibleForRoles: [String] # role ids are strings
-	visibleForUsers: [Int]
+  slug: String!
+  body: String!
+  community: Int!
+  mainTopic: String
+  topic_slugs: [String]
+  title: String
+  subtitle: String
+  versionOf: String
+  visibleForRoles: [String] # role ids are strings
+  visibleForUsers: [Int]
 }
 
 input ProfileInput {
-	name: String
-	userpic: String
-	links: [String]
-	bio: String
+  name: String
+  userpic: String
+  links: [String]
+  bio: String
 }
 
 input CommunityInput {
-	title: String!
-	desc: String
-	pic: String
+  title: String!
+  desc: String
+  pic: String
 }
 
 type ShoutResult {
-	error: String
-	shout: Shout
+  error: String
+  shout: Shout
 }
 
 type CommentResult {
-	error: String
-	comment: Comment
+  error: String
+  comment: Comment
 }
 
 enum MessageStatus {
-	NEW
-	UPDATED
-	DELETED
+  NEW
+  UPDATED
+  DELETED
 }
 
 type ChatUpdatedResult {
-	error: String
-	status: MessageStatus
-	message: Message
+  error: String
+  status: MessageStatus
+  message: Message
 }
 
 type CreateChatResult {
-	chatId: String
-	error: String
+  chatId: String
+  error: String
 }
 
 type EnterChatResult {
-	chat: Chat
-	messages: [Message]
-	error: String
+  chat: Chat
+  messages: [Message]
+  error: String
 }
 
 input TopicInput {
-	slug: String!
-	title: String
-	body: String
-	pic: String
-	children: [String]
-	community: String!
+  slug: String!
+  title: String
+  body: String
+  pic: String
+  children: [String]
+  community: String!
 }
 
 type TopicResult {
-	error: String
-	topic: Topic
+  error: String
+  topic: Topic
 }
 
 enum CommentStatus {
-	NEW
-	UPDATED
-	UPDATED_RATING
-	DELETED
+  NEW
+  UPDATED
+  UPDATED_RATING
+  DELETED
 }
 
 type CommentUpdatedResult {
-	error: String
-	status: CommentStatus
-	comment: Comment
+  error: String
+  status: CommentStatus
+  comment: Comment
 }
 
 ################################### Mutation
 
 type Mutation {
-	# message
-	createChat(description: String): CreateChatResult!
-	createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
-	updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
-	deleteMessage(chatId: String!, id: Int!): Result!
+  # message
+  createChat(description: String): CreateChatResult!
+  createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
+  updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
+  deleteMessage(chatId: String!, id: Int!): Result!
 
-	# auth
-	confirmEmail(token: String!): AuthResult!
-	registerUser(email: String!, password: String): AuthResult!
-	requestPasswordUpdate(email: String!): Result!
-	updatePassword(password: String!, token: String!): Result!
-	# requestEmailConfirmation: User!
+  # auth
+  confirmEmail(token: String!): AuthResult!
+  registerUser(email: String!, password: String): AuthResult!
+  requestPasswordUpdate(email: String!): Result!
+  updatePassword(password: String!, token: String!): Result!
+  # requestEmailConfirmation: User!
 
-	# shout
-	createShout(input: ShoutInput!): ShoutResult!
-	updateShout(input: ShoutInput!): ShoutResult!
-	deleteShout(slug: String!): Result!
-	rateShout(slug: String!, value: Int!): Result!
-	viewShout(slug: String!): Result!
+  # shout
+  createShout(input: ShoutInput!): ShoutResult!
+  updateShout(input: ShoutInput!): ShoutResult!
+  deleteShout(slug: String!): Result!
+  rateShout(slug: String!, value: Int!): Result!
+  viewShout(slug: String!): Result!
 
-	# user profile
-	# rateUser(value: Int!): Result!
-	# updateOnlineStatus: Result!
-	updateProfile(profile: ProfileInput!): Result!
+  # user profile
+  # rateUser(value: Int!): Result!
+  # updateOnlineStatus: Result!
+  updateProfile(profile: ProfileInput!): Result!
 
-	# topics
-	createTopic(input: TopicInput!): TopicResult!
-	updateTopic(input: TopicInput!): TopicResult!
-	topicSubscribe(slug: String!): Result!
-	topicUnsubscribe(slug: String!): Result!
+  # topics
+  createTopic(input: TopicInput!): TopicResult!
+  updateTopic(input: TopicInput!): TopicResult!
+  topicSubscribe(slug: String!): Result!
+  topicUnsubscribe(slug: String!): Result!
 
-	createComment(body: String!, shout: String!, replyTo: Int): CommentResult!
-	updateComment(id: Int!, body: String!): CommentResult!
-	deleteComment(id: Int!): Result!
-	rateComment(id: Int!, value: Int!): Result!
+  createComment(body: String!, shout: String!, replyTo: Int): CommentResult!
+  updateComment(id: Int!, body: String!): CommentResult!
+  deleteComment(id: Int!): Result!
+  rateComment(id: Int!, value: Int!): Result!
 
-	createCommunity(title: String!, desc: String!): Community!
-	updateCommunity(community: CommunityInput!): Community!
-	deleteCommunity(id: Int!): Result!
+  createCommunity(title: String!, desc: String!): Community!
+  updateCommunity(community: CommunityInput!): Community!
+  deleteCommunity(id: Int!): Result!
 
-	authorSubscribe(slug: String!): Result!
-	authorUnsubscribe(slug: String!): Result!
+  authorSubscribe(slug: String!): Result!
+  authorUnsubscribe(slug: String!): Result!
 }
 
 ################################### Query
 
 type Query {
-	# auth
-	isEmailFree(email: String!): Result!
-	signIn(email: String!, password: String): AuthResult!
-	signOut: Result!
+  # auth
+  isEmailFree(email: String!): Result!
+  signIn(email: String!, password: String): AuthResult!
+  signOut: Result!
 
-	# profile
-	getCurrentUser: UserResult!
-	getUsersBySlugs(slugs: [String]!): [User]!
-	# rateUser(shout: Int): Int!
-	getUserRoles(slug: String!): [Role]!
+  # profile
+  getCurrentUser: UserResult!
+  getUsersBySlugs(slugs: [String]!): [User]!
+  # rateUser(shout: Int): Int!
+  getUserRoles(slug: String!): [Role]!
 
-	# messages
-	enterChat(chatId: String!, size: Int = 50): EnterChatResult!
-	getMessages(chatId: String!, size: Int!, page: Int!): [Message]!
+  # messages
+  enterChat(chatId: String!, size: Int = 50): EnterChatResult!
+  getMessages(chatId: String!, size: Int!, page: Int!): [Message]!
 
-	# shouts
-	getShoutBySlug(slug: String!): Shout!
-	shoutsByTopic(topic: String!, page: Int!, size: Int!): [Shout]!
-	shoutsByAuthor(author: String!, page: Int!, size: Int!): [Shout]!
-	shoutsByCommunity(community: String!, page: Int!, size: Int!): [Shout]!
-	getShoutComments(slug: String!): [Comment]!
+  # shouts
+  getShoutBySlug(slug: String!): Shout!
+  shoutsByTopic(topic: String!, page: Int!, size: Int!): [Shout]!
+  shoutsByAuthor(author: String!, page: Int!, size: Int!): [Shout]!
+  shoutsByCommunity(community: String!, page: Int!, size: Int!): [Shout]!
+  getShoutComments(slug: String!): [Comment]!
 
-	# mainpage
-	topViewed(page: Int!, size: Int!): [Shout]!
-	topMonth(page: Int!, size: Int!): [Shout]!
-	topOverall(page: Int!, size: Int!): [Shout]!
-	recents(page: Int!, size: Int!): [Shout]!
+  # mainpage
+  topViewed(page: Int!, size: Int!): [Shout]!
+  topMonth(page: Int!, size: Int!): [Shout]!
+  topOverall(page: Int!, size: Int!): [Shout]!
+  recents(page: Int!, size: Int!): [Shout]!
 
-	# topics
-	topicsBySlugs(slugs: [String]): [Topic]!
-	topicsByCommunity(community: String!): [Topic]!
-	topicsByAuthor(author: String!): [Topic]!
+  # topics
+  topicsBySlugs(slugs: [String]): [Topic]!
+  topicsByCommunity(community: String!): [Topic]!
+  topicsByAuthor(author: String!): [Topic]!
 
-	# getOnlineUsers: [User!]!
+  # getOnlineUsers: [User!]!
 
-	# communities
-	getCommunity(slug: String): Community!
-	getCommunities: [Community]!
+  # communities
+  getCommunity(slug: String): Community!
+  getCommunities: [Community]!
 
-	shoutsSubscribed(page: Int!, size: Int!): [Shout]!
-	shoutsReviewed(page: Int!, size: Int!): [Shout]!
-	shoutsCandidates(size: Int = 10): [Shout]!
+  shoutsSubscribed(page: Int!, size: Int!): [Shout]!
+  shoutsReviewed(page: Int!, size: Int!): [Shout]!
+  shoutsCommented(page: Int!, size: Int!): [Shout]!
+  shoutsCandidates(size: Int = 10): [Shout]!
 }
 
 ############################################ Subscription
 
 type Subscription {
-	chatUpdated(chatId: String!): ChatUpdatedResult!
-	onlineUpdated: [User!]!
-	shoutUpdated: Shout!
-	userUpdated: User!
-	topicUpdated(user_slug: String!): Shout!
-	commentUpdated(shout: String!): CommentUpdatedResult!
+  chatUpdated(chatId: String!): ChatUpdatedResult!
+  onlineUpdated: [User!]!
+  shoutUpdated: Shout!
+  userUpdated: User!
+  topicUpdated(user_slug: String!): Shout!
+  commentUpdated(shout: String!): CommentUpdatedResult!
 }
 
 ############################################ Entities
 
 type Resource {
-	id: Int!
-	name: String!
+  id: Int!
+  name: String!
 }
 
 type Operation {
-	id: Int!
-	name: String!
+  id: Int!
+  name: String!
 }
 
 type Permission {
-	operation_id: Int!
-	resource_id: Int!
+  operation_id: Int!
+  resource_id: Int!
 }
 
 type Role {
-	id: Int!
-	name: String!
-	community: Int!
-	desc: String
-	permissions: [Permission!]!
+  id: Int!
+  name: String!
+  community: Int!
+  desc: String
+  permissions: [Permission!]!
 }
 
 type Rating {
-	rater: String!
-	value: Int!
+  rater: String!
+  value: Int!
 }
 
 type Notification {
-	kind: String! # unique primary key
-	template: String!
-	variables: [String]
+  kind: String! # unique primary key
+  template: String!
+  variables: [String]
 }
 
 type UserNotification {
-	id: Int! # primary key
-	user: Int!
-	kind: String! # NotificationTemplate.name
-	values: [String]
+  id: Int! # primary key
+  user: Int!
+  kind: String! # NotificationTemplate.name
+  values: [String]
 }
 
 type User {
-	id: Int!
-	username: String! # to login, ex. email
-	createdAt: DateTime!
-	slug: String!
-	name: String # to display
-	email: String
-	password: String
-	oauth: String # provider:token
-	userpic: String
-	links: [String]
-	emailConfirmed: Boolean # should contain all emails too
-	muted: Boolean
-	updatedAt: DateTime
-	wasOnlineAt: DateTime
-	ratings: [Rating]
-	bio: String
-	notifications: [Int]
-	communities: [Int] # user participating communities
-	old_id: String
+  id: Int!
+  username: String! # to login, ex. email
+  createdAt: DateTime!
+  slug: String!
+  name: String # to display
+  email: String
+  password: String
+  oauth: String # provider:token
+  userpic: String
+  links: [String]
+  emailConfirmed: Boolean # should contain all emails too
+  muted: Boolean
+  updatedAt: DateTime
+  wasOnlineAt: DateTime
+  ratings: [Rating]
+  bio: String
+  notifications: [Int]
+  communities: [Int] # user participating communities
+  old_id: String
 }
 
 type Message {
-	author: String!
-	chatRoom: Int!
-	body: String!
-	createdAt: DateTime!
-	id: Int!
-	replyTo: Int
-	updatedAt: DateTime!
-	visibleForUsers: [Int]!
+  author: String!
+  chatRoom: Int!
+  body: String!
+  createdAt: DateTime!
+  id: Int!
+  replyTo: Int
+  updatedAt: DateTime!
+  visibleForUsers: [Int]!
 }
 
 type Chat {
-	id: Int!
-	createdAt: DateTime!
-	updatedAt: DateTime!
-	description: String
+  id: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  description: String
 }
 
 type Comment {
-	id: Int!
-	author: User!
-	body: String!
-	replyTo: Int
-	createdAt: DateTime!
-	updatedAt: DateTime
-	updatedBy: Int
-	shout: Int!
-	deletedAt: DateTime
-	deletedBy: Int
-	ratings: [CommentRating]
-	views: Int
-	old_id: String
-	old_thread: String
+  id: Int!
+  author: User!
+  body: String!
+  replyTo: Int
+  createdAt: DateTime!
+  updatedAt: DateTime
+  updatedBy: Int
+  shout: Int!
+  deletedAt: DateTime
+  deletedBy: Int
+  ratings: [CommentRating]
+  views: Int
+  old_id: String
+  old_thread: String
 }
 
 type CommentRating {
-	id: Int!
-	comment_id: Int!
-	createdBy: String!
-	createdAt: DateTime!
-	value: Int!
+  id: Int!
+  comment_id: Int!
+  createdBy: String!
+  createdAt: DateTime!
+  value: Int!
 }
 
 # is publication
 type Shout {
-	slug: String!
-	body: String!
-	createdAt: DateTime!
-	authors: [User!]!
-	ratings: [Rating]
-	visibleFor: [User]
-	community: Int
-	cover: String
-	layout: String
-	# replyTo: Shout
-	versionOf: Shout
-	tags: [String] # actual values
-	topics: [Topic]
-	mainTopic: String
-	title: String
-	subtitle: String
-	updatedAt: DateTime
-	updatedBy: Int # can be user id?
-	deletedAt: DateTime
-	deletedBy: Int
-	publishedBy: Int # if there is no published field - it is not published
-	publishedAt: DateTime
+  slug: String!
+  body: String!
+  createdAt: DateTime!
+  authors: [User!]!
+  ratings: [Rating]
+  visibleFor: [User]
+  community: Int
+  cover: String
+  layout: String
+  # replyTo: Shout
+  versionOf: Shout
+  tags: [String] # actual values
+  topics: [Topic]
+  mainTopic: String
+  title: String
+  subtitle: String
+  updatedAt: DateTime
+  updatedBy: Int # can be user id?
+  deletedAt: DateTime
+  deletedBy: Int
+  publishedBy: Int # if there is no published field - it is not published
+  publishedAt: DateTime
 
-	stat: ShoutStat
+  stat: ShoutStat
 }
 
 type ShoutStat {
-	views: Int!
-	comments: Int!
-	ratings: Int!
+  views: Int!
+  comments: Int!
+  ratings: Int!
 }
 
 type Community {
-	slug: String!
-	name: String!
-	desc: String
-	pic: String!
+  slug: String!
+  name: String!
+  desc: String
+  pic: String!
 }
 
 type TopicStat {
-	shouts: Int!
-	views: Int!
-	subscriptions: Int!
-	authors: Int!
+  shouts: Int!
+  views: Int!
+  subscriptions: Int!
+  authors: Int!
 }
 
 type Topic {
-	slug: String! # ID
-	title: String
-	body: String
-	pic: String
-	parents: [String] # NOTE: topic can have parent topics
-	children: [String] # and children
-	community: String!
-	topicStat: TopicStat
+  slug: String! # ID
+  title: String
+  body: String
+  pic: String
+  parents: [String] # NOTE: topic can have parent topics
+  children: [String] # and children
+  community: String!
+  topicStat: TopicStat
 }
 
 # TODO: resolvers to add/remove topics from publication
 
 type Proposal {
-	body: String!
-	shout: Int!
-	range: String # full / 0:2340
-	author: Int!
-	createdAt: DateTime!
+  body: String!
+  shout: Int!
+  range: String # full / 0:2340
+  author: Int!
+  createdAt: DateTime!
 }
 
 type Token {
-	createdAt: DateTime!
-	expiresAt: DateTime
-	id: Int!
-	ownerId: Int!
-	usedAt: DateTime
-	value: String!
+  createdAt: DateTime!
+  expiresAt: DateTime
+  id: Int!
+  ownerId: Int!
+  usedAt: DateTime
+  value: String!
 }
