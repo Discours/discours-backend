@@ -398,21 +398,17 @@ async def shouts_by_community(_, info, community, page, size):
 			offset(page * size)
 	return shouts
 
-@query.field("shoutsByUserSubscriptions")
-async def shouts_by_user_subscriptions(_, info, userSlug, page, size):
-	user = await UserStorage.get_user_by_slug(userSlug)
-	if not user:
-		return
-
+@query.field("shoutsSubscribed")
+async def shouts_subscribed(_, info, page, size):
 	with local_session() as session:
 		shouts_by_topic = session.query(Shout).\
 			join(ShoutTopic).\
 			join(TopicSubscription, ShoutTopic.topic == TopicSubscription.topic).\
-			where(and_(Shout.publishedAt != None, TopicSubscription.subscriber == userSlug))
+			where(and_(Shout.publishedAt != None, TopicSubscription.subscriber == User.slug))
 		shouts_by_author = session.query(Shout).\
 			join(ShoutAuthor).\
 			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
-			where(and_(Shout.publishedAt != None, AuthorSubscription.subscriber == userSlug))
+			where(and_(Shout.publishedAt != None, AuthorSubscription.subscriber == User.slug))
 		shouts = shouts_by_topic.union(shouts_by_author).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
@@ -420,19 +416,16 @@ async def shouts_by_user_subscriptions(_, info, userSlug, page, size):
 
 	return shouts
 
-@query.field("shoutsByUserRatingOrComment")
-async def shouts_by_user_rating_or_comment(_, info, userSlug, page, size):
-	user = await UserStorage.get_user_by_slug(userSlug)
-	if not user:
-		return
+@query.field("shoutsReviewed")
+async def shouts_reviewed(_, info, page, size):
 
 	with local_session() as session:
 		shouts_by_rating = session.query(Shout).\
 			join(ShoutRating).\
-			where(and_(Shout.publishedAt != None, ShoutRating.rater == userSlug))
+			where(and_(Shout.publishedAt != None, ShoutRating.rater == User.slug))
 		shouts_by_comment = session.query(Shout).\
 			join(Comment).\
-			where(and_(Shout.publishedAt != None, Comment.author == user.id))
+			where(and_(Shout.publishedAt != None, Comment.author == User.id))
 		shouts = shouts_by_rating.union(shouts_by_comment).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
@@ -440,17 +433,13 @@ async def shouts_by_user_rating_or_comment(_, info, userSlug, page, size):
 
 	return shouts
 
-@query.field("newShoutsWithoutRating")
-async def new_shouts_without_rating(_, info, userSlug, size):
-	user = await UserStorage.get_user_by_slug(userSlug)
-	if not user:
-		return
-
+@query.field("shoutsCandidates")
+async def shouts_candidates(_, info, size):
 	#TODO: postgres heavy load
 	with local_session() as session:
 		shouts = session.query(Shout).distinct().\
 			outerjoin(ShoutRating).\
-			where(and_(Shout.publishedAt != None, ShoutRating.rater != userSlug)).\
+			where(and_(Shout.publishedAt != None, ShoutRating.rater != User.slug)).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size)
 
