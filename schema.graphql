@@ -199,7 +199,7 @@ type Query {
 
   shoutsSubscribed(page: Int!, size: Int!): [Shout]!
   shoutsReviewed(page: Int!, size: Int!): [Shout]!
-  shoutsCommented(page: Int!, size: Int!): [Shout]!
+  recentCommented(page: Int!, size: Int!): [Shout]!
   shoutsCandidates(size: Int = 10): [Shout]!
 }
 
