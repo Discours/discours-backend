@@ -1,9 +1,10 @@
 from orm import User, UserRole, Role, UserRating
+from orm.user import AuthorSubscription
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from sqlalchemy.orm import selectinload
 import asyncio
 
@@ -43,6 +44,34 @@ async def update_profile(_, info, profile):
 	with local_session() as session:
 		user = session.query(User).filter(User.id == user_id).first()
 		user.update(profile)
+		session.commit()
+
+	return {}
+
+@mutation.field("authorSubscribe")
+@login_required
+async def author_subscribe(_, info, slug):
+	user = info.context["request"].user
+
+	AuthorSubscription.create(
+		subscriber = user.slug, 
+		author = slug
+	)
+
+	return {}
+
+@mutation.field("authorUnsubscribe")
+@login_required
+async def author_unsubscribe(_, info, slug):
+	user = info.context["request"].user
+
+	with local_session() as session:
+		sub = session.query(AuthorSubscription).\
+			filter(and_(AuthorSubscription.subscriber == user.slug, AuthorSubscription.author == slug)).\
+			first()
+		if not sub:
+			return { "error" : "subscription not exist" }
+		session.delete(sub)
 		session.commit()
 
 	return {}

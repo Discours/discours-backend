@@ -60,20 +60,25 @@ async def create_chat(_, info, description):
 
 	return { "chatId" : chat_id }
 
-@query.field("enterChat")
-@login_required
-async def enter_chat(_, info, chatId):
-	chat = await redis.execute("GET", f"chats/{chatId}")
-	if not chat:
-		return { "error" : "chat not exist" }
-	chat = json.loads(chat)
-
-	message_ids = await redis.lrange(f"chats/{chatId}/message_ids", 0, 10)
+async def load_messages(chatId, size, page):
+	message_ids = await redis.lrange(f"chats/{chatId}/message_ids",
+		size * (page -1), size * page - 1)
 	messages = []
 	if message_ids:
 		message_keys = [f"chats/{chatId}/messages/{id.decode('UTF-8')}" for id in message_ids]
 		messages = await redis.mget(*message_keys)
 		messages = [json.loads(msg) for msg in messages]
+	return messages
+
+@query.field("enterChat")
+@login_required
+async def enter_chat(_, info, chatId, size):
+	chat = await redis.execute("GET", f"chats/{chatId}")
+	if not chat:
+		return { "error" : "chat not exist" }
+	chat = json.loads(chat)
+
+	messages = await load_messages(chatId, size, 1)
 
 	return { 
 		"chat" : chat,
@@ -112,25 +117,14 @@ async def create_message(_, info, chatId, body, replyTo = None):
 
 @query.field("getMessages")
 @login_required
-async def get_messages(_, info, count, page):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-	
-	with local_session() as session:
-		messages = session.query(Message).filter(Message.author == user_id)
-	
-	return messages
+async def get_messages(_, info, chatId, size, page):
+	chat = await redis.execute("GET", f"chats/{chatId}")
+	if not chat:
+		return { "error" : "chat not exist" }
 
-def check_and_get_message(message_id, user_id, session) :
-	message = session.query(Message).filter(Message.id == message_id).first()
-	
-	if not message :
-		raise Exception("invalid id")
-	
-	if message.author != user_id :
-		raise Exception("access denied")
-	
-	return message
+	messages = await load_messages(chatId, size, page)
+
+	return messages
 
 @mutation.field("updateMessage")
 @login_required

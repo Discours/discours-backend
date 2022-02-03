@@ -95,6 +95,19 @@ type TopicResult {
 	topic: Topic
 }
 
+enum CommentStatus {
+	NEW
+	UPDATED
+	UPDATED_RATING
+	DELETED
+}
+
+type CommentUpdatedResult {
+	error: String
+	status: CommentStatus
+	comment: Comment
+}
+
 ################################### Mutation
 
 type Mutation {
@@ -137,6 +150,9 @@ type Mutation {
 	createCommunity(title: String!, desc: String!): Community!
 	updateCommunity(community: CommunityInput!): Community!
 	deleteCommunity(id: Int!): Result!
+
+	authorSubscribe(slug: String!): Result!
+	authorUnsubscribe(slug: String!): Result!
 }
 
 ################################### Query
@@ -154,7 +170,8 @@ type Query {
 	getUserRoles(slug: String!): [Role]!
 
 	# messages
-	getMessages(count: Int = 100, page: Int = 1): [Message!]!
+	enterChat(chatId: String!, size: Int = 50): EnterChatResult!
+	getMessages(chatId: String!, size: Int!, page: Int!): [Message]!
 
 	# shouts
 	getShoutBySlug(slug: String!): Shout!
@@ -180,8 +197,9 @@ type Query {
 	getCommunity(slug: String): Community!
 	getCommunities: [Community]!
 
-	#messages
-	enterChat(chatId: String!): EnterChatResult!
+	shoutsByUserSubscriptions(userSlug: String!, page: Int!, size: Int!): [Shout]!
+	shoutsByUserRatingOrComment(userSlug: String!, page: Int!, size: Int!): [Shout]!
+	newShoutsWithoutRating(userSlug: String!, size: Int = 10): [Shout]!
 }
 
 ############################################ Subscription
@@ -191,7 +209,8 @@ type Subscription {
 	onlineUpdated: [User!]!
 	shoutUpdated: Shout!
 	userUpdated: User!
-	topicUpdated(user_id: Int!): Shout!
+	topicUpdated(user_slug: String!): Shout!
+	commentUpdated(shout: String!): CommentUpdatedResult!
 }
 
 ############################################ Entities
