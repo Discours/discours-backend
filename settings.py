@@ -4,7 +4,7 @@ from os import environ
 PORT = 8080
 
 BACKEND_URL = environ.get("BACKEND_URL") or "https://localhost:8080"
-OAUTH_CALLBACK_URL = environ.get("OAUTH_CALLBACK_URL") or "https://localhost:8080/authorized"
+OAUTH_CALLBACK_URL = environ.get("OAUTH_CALLBACK_URL") or "https://localhost:8080/auth/key-"
 RESET_PWD_URL = environ.get("RESET_PWD_URL") or "https://localhost:8080/reset_pwd"
 
 DB_URL = environ.get("DATABASE_URL") or environ.get("DB_URL") or "sqlite:///db.sqlite3"
