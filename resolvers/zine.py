@@ -98,15 +98,15 @@ class ShoutsCache:
 		async with ShoutsCache.lock:
 			ShoutsCache.recent_shouts = shouts
 
-	# TODO: DEBUG ME
 	@staticmethod
 	async def prepare_recent_commented():
 		with local_session() as session:
-			stmt = select(Shout).\
+			stmt = select(Shout, func.max(Comment.createdAt).label("commentCreatedAt")).\
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
 				join(Comment).\
-				where(and_(Shout.publishedAt != None, Comment.publishedAt == User.id)).\
-				order_by(desc("publishedAt")).\
+				where(and_(Shout.publishedAt != None, Comment.deletedAt == None)).\
+				group_by(Shout.slug).\
+				order_by(desc("commentCreatedAt")).\
 				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
@@ -114,7 +114,7 @@ class ShoutsCache:
 				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
-			ShoutsCache.recent_shouts = shouts
+			ShoutsCache.recent_commented = shouts
 
 
 	@staticmethod
