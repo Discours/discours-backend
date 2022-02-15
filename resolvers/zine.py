@@ -423,16 +423,18 @@ async def shouts_by_community(_, info, community, page, size):
 	return shouts
 
 @query.field("shoutsSubscribed")
+@login_required
 async def shouts_subscribed(_, info, page, size):
+	user = info.context["request"].user
 	with local_session() as session:
 		shouts_by_topic = session.query(Shout).\
 			join(ShoutTopic).\
 			join(TopicSubscription, ShoutTopic.topic == TopicSubscription.topic).\
-			where(and_(Shout.publishedAt != None, TopicSubscription.subscriber == User.slug))
+			where(and_(Shout.publishedAt != None, TopicSubscription.subscriber == user.slug))
 		shouts_by_author = session.query(Shout).\
 			join(ShoutAuthor).\
 			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
-			where(and_(Shout.publishedAt != None, AuthorSubscription.subscriber == User.slug))
+			where(and_(Shout.publishedAt != None, AuthorSubscription.subscriber == user.slug))
 		shouts = shouts_by_topic.union(shouts_by_author).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
@@ -441,15 +443,16 @@ async def shouts_subscribed(_, info, page, size):
 	return shouts
 
 @query.field("shoutsReviewed")
+@login_required
 async def shouts_reviewed(_, info, page, size):
-
+	user = info.context["request"].user
 	with local_session() as session:
 		shouts_by_rating = session.query(Shout).\
 			join(ShoutRating).\
-			where(and_(Shout.publishedAt != None, ShoutRating.rater == User.slug))
+			where(and_(Shout.publishedAt != None, ShoutRating.rater == user.slug))
 		shouts_by_comment = session.query(Shout).\
 			join(Comment).\
-			where(and_(Shout.publishedAt != None, Comment.author == User.id))
+			where(and_(Shout.publishedAt != None, Comment.author == user.id))
 		shouts = shouts_by_rating.union(shouts_by_comment).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
@@ -458,12 +461,14 @@ async def shouts_reviewed(_, info, page, size):
 	return shouts
 
 @query.field("shoutsCandidates")
+@login_required
 async def shouts_candidates(_, info, size):
+	user = info.context["request"].user
 	#TODO: postgres heavy load
 	with local_session() as session:
 		shouts = session.query(Shout).distinct().\
 			outerjoin(ShoutRating).\
-			where(and_(Shout.publishedAt != None, ShoutRating.rater != User.slug)).\
+			where(and_(Shout.publishedAt != None, ShoutRating.rater != user.slug)).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size)
 
