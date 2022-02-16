@@ -132,7 +132,7 @@ type Mutation {
   viewShout(slug: String!): Result!
 
   # user profile
-  # rateUser(value: Int!): Result!
+  rateUser(slug: String!, value: Int!): Result!
   # updateOnlineStatus: Result!
   updateProfile(profile: ProfileInput!): Result!
 
@@ -166,7 +166,6 @@ type Query {
   # profile
   getCurrentUser: UserResult!
   getUsersBySlugs(slugs: [String]!): [User]!
-  # rateUser(shout: Int): Int!
   getUserRoles(slug: String!): [Role]!
   userComments(slug: String!, page: Int!, size: Int!): [Comment]!
   userSubscriptions(slug: String!): [User]!

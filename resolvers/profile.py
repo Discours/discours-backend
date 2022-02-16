@@ -81,6 +81,29 @@ async def user_subscribers(_, info, slug):
 			where(AuthorSubscription.author == slug)
 	return users
 
+@mutation.field("rateUser")
+@login_required
+async def rate_user(_, info, slug, value):
+	user = info.context["request"].user
+
+	with local_session() as session:
+		rating = session.query(UserRating).\
+			filter(and_(UserRating.rater == user.slug, UserRating.user == slug)).\
+			first()
+
+		if rating:
+			rating.value = value
+			session.commit()
+			return {}
+
+	UserRating.create(
+		rater = user.slug, 
+		user = slug,
+		value = value
+	)
+
+	return {}
+
 @mutation.field("authorSubscribe")
 @login_required
 async def author_subscribe(_, info, slug):
