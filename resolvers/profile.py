@@ -1,10 +1,11 @@
 from orm import User, UserRole, Role, UserRating
-from orm.user import AuthorSubscription
+from orm.user import AuthorSubscription, UserStorage
+from orm.comment import Comment
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, desc
 from sqlalchemy.orm import selectinload
 import asyncio
 
@@ -47,6 +48,22 @@ async def update_profile(_, info, profile):
 		session.commit()
 
 	return {}
+
+@query.field("userComments")
+async def user_comments(_, info, slug, page, size):
+	user = await UserStorage.get_user_by_slug(slug)
+	if not user:
+		return
+
+	page = page - 1
+	with local_session() as session:
+		comments = session.query(Comment).\
+			filter(Comment.author == user.id).\
+			order_by(desc(Comment.createdAt)).\
+			limit(size).\
+			offset(page * size)
+
+	return comments
 
 @mutation.field("authorSubscribe")
 @login_required
