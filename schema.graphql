@@ -169,6 +169,8 @@ type Query {
   # rateUser(shout: Int): Int!
   getUserRoles(slug: String!): [Role]!
   userComments(slug: String!, page: Int!, size: Int!): [Comment]!
+  userSubscriptions(slug: String!): [User]!
+  userSubscribers(slug: String!): [User]!
 
   # messages
   enterChat(chatId: String!, size: Int = 50): EnterChatResult!

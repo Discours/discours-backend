@@ -65,6 +65,22 @@ async def user_comments(_, info, slug, page, size):
 
 	return comments
 
+@query.field("userSubscriptions")
+async def user_subscriptions(_, info, slug):
+	with local_session() as session:
+		users = session.query(User).\
+			join(AuthorSubscription, User.slug == AuthorSubscription.author).\
+			where(AuthorSubscription.subscriber == slug)
+	return users
+
+@query.field("userSubscribers")
+async def user_subscribers(_, info, slug):
+	with local_session() as session:
+		users = session.query(User).\
+			join(AuthorSubscription, User.slug == AuthorSubscription.subscriber).\
+			where(AuthorSubscription.author == slug)
+	return users
+
 @mutation.field("authorSubscribe")
 @login_required
 async def author_subscribe(_, info, slug):
