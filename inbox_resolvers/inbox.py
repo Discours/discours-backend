@@ -1,7 +1,7 @@
 from orm import User
 from orm.base import local_session
 
-from resolvers.base import mutation, query, subscription
+from resolvers_base import mutation, query, subscription
 
 from auth.authenticate import login_required
 

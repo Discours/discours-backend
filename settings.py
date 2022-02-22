@@ -2,6 +2,7 @@ from pathlib import Path
 from os import environ
 
 PORT = 8080
+INBOX_SERVICE_PORT = 8081
 
 BACKEND_URL = environ.get("BACKEND_URL") or "https://localhost:8080"
 OAUTH_CALLBACK_URL = environ.get("OAUTH_CALLBACK_URL") or "https://localhost:8080/auth/key-"

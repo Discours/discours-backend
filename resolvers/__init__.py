@@ -1,5 +1,4 @@
 from resolvers.auth import login, sign_out, is_email_free, register, confirm
-from resolvers.inbox import create_message, delete_message, update_message, get_messages
 from resolvers.zine import create_shout, get_shout_by_slug, top_month, top_overall, \
     recent_shouts, top_viewed, shouts_by_author, shouts_by_topic, \
         shouts_candidates, shouts_reviewed, shouts_subscribed
@@ -16,10 +15,6 @@ __all__ = [
     "confirm",
     # TODO: "reset_password_code",
     # TODO: "reset_password_confirm",
-    "create_message",
-    "delete_message",
-    "get_messages",
-    "update_messages",
     "create_shout",
     "get_current_user",
     "get_users_by_slugs",
