@@ -170,6 +170,7 @@ type Query {
   userComments(slug: String!, page: Int!, size: Int!): [Comment]!
   userSubscriptions(slug: String!): [User]!
   userSubscribers(slug: String!): [User]!
+  userSubscribedTopics(slug: String!): [Topic]!
 
   # messages
   enterChat(chatId: String!, size: Int = 50): EnterChatResult!

@@ -2,6 +2,7 @@ from orm import User, UserRole, Role, UserRating
 from orm.user import AuthorSubscription, UserStorage
 from orm.comment import Comment
 from orm.base import local_session
+from orm.topic import Topic, TopicSubscription
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 
@@ -80,6 +81,14 @@ async def user_subscribers(_, info, slug):
 			join(AuthorSubscription, User.slug == AuthorSubscription.subscriber).\
 			where(AuthorSubscription.author == slug)
 	return users
+
+@query.field("userSubscribedTopics")
+async def user_subscribed_topics(_, info, slug):
+	with local_session() as session:
+		topics = session.query(Topic).\
+			join(TopicSubscription).\
+			where(TopicSubscription.subscriber == slug)
+	return topics
 
 @mutation.field("rateUser")
 @login_required
