@@ -125,7 +125,7 @@ type Mutation {
 
 type Query {
   # auth
-  isEmailFree(email: String!): Result!
+  isEmailFree(email: String!): Boolean!
   signIn(email: String!, password: String): AuthResult!
   signOut: Result!
 
