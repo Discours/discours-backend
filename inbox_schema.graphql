@@ -42,6 +42,8 @@ type Mutation {
   createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
   updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
   deleteMessage(chatId: String!, id: Int!): Result!
+
+  markAsRead(chatId: String!, ids: [Int]!): Result!
 }
 
 ################################### Query

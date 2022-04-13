@@ -42,6 +42,22 @@ class MessageResult:
 		self.status = status
 		self.message = message
 
+async def add_user_to_chat(user_slug, chat_id, chat = None):
+	chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
+	if not chats:
+		chats = set()
+	else:
+		chats = set(json.loads(chats))
+	chats.add(str(chat_id))
+	chats = list(chats)
+	await redis.execute("SET", f"chats_by_user/{user_slug}", json.dumps(chats))
+
+	if chat:
+		users = set(chat["users"])
+		users.add(user_slug)
+		chat["users"] = list(users)
+		await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
+
 @mutation.field("createChat")
 @login_required
 async def create_chat(_, info, description):
@@ -52,11 +68,14 @@ async def create_chat(_, info, description):
 		"description" : description,
 		"createdAt" : str(datetime.now),
 		"createdBy" : user.slug,
-		"id" : str(chat_id)
+		"id" : str(chat_id),
+		"users" : [user.slug]
 	}
 
 	await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
 	await redis.execute("SET", f"chats/{chat_id}/next_message_id", 0)
+
+	await add_user_to_chat(user.slug, chat_id)
 
 	return { "chatId" : chat_id }
 
@@ -73,12 +92,16 @@ async def load_messages(chatId, size, page):
 @query.field("enterChat")
 @login_required
 async def enter_chat(_, info, chatId, size):
+	user = info.context["request"].user
+
 	chat = await redis.execute("GET", f"chats/{chatId}")
 	if not chat:
 		return { "error" : "chat not exist" }
 	chat = json.loads(chat)
 
 	messages = await load_messages(chatId, size, 1)
+
+	await add_user_to_chat(user.slug, chatId, chat)
 
 	return { 
 		"chat" : chat,
@@ -109,6 +132,11 @@ async def create_message(_, info, chatId, body, replyTo = None):
 	await redis.execute("SET", f"chats/{chatId}/messages/{message_id}", json.dumps(new_message))
 	await redis.execute("LPUSH", f"chats/{chatId}/message_ids", str(message_id))
 	await redis.execute("SET", f"chats/{chatId}/next_message_id", str(message_id + 1))
+
+	chat = json.loads(chat)
+	users = chat["users"]
+	for user_slug in users:
+		await redis.execute("LPUSH", f"chats/{chatId}/unread/{user_slug}", str(message_id))
 
 	result = MessageResult("NEW", new_message)
 	await MessageSubscriptions.put(result)
@@ -172,8 +200,32 @@ async def delete_message(_, info, chatId, id):
 	await redis.execute("LREM", f"chats/{chatId}/message_ids", 0, str(id))
 	await redis.execute("DEL", f"chats/{chatId}/messages/{id}")
 
+	chat = json.loads(chat)
+	users = chat["users"]
+	for user_slug in users:
+		await redis.execute("LREM", f"chats/{chatId}/unread/{user_slug}", 0, str(id))
+
 	result = MessageResult("DELETED", message)
 	await MessageSubscriptions.put(result)
+
+	return {}
+
+@mutation.field("markAsRead")
+@login_required
+async def mark_as_read(_, info, chatId, ids):
+	user = info.context["request"].user
+
+	chat = await redis.execute("GET", f"chats/{chatId}")
+	if not chat:
+		return { "error" : "chat not exist" }
+
+	chat = json.loads(chat)
+	users = set(chat["users"])
+	if not user.slug in users:
+		return { "error" : "access denied" }
+
+	for id in ids:
+		await redis.execute("LREM", f"chats/{chatId}/unread/{user.slug}", 0, str(id))
 
 	return {}
 
