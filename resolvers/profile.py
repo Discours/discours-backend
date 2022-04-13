@@ -6,6 +6,8 @@ from orm.topic import Topic, TopicSubscription
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 
+from inbox_resolvers.inbox import get_total_unread_messages_for_user
+
 from sqlalchemy import func, and_, desc
 from sqlalchemy.orm import selectinload
 import asyncio
@@ -14,7 +16,11 @@ import asyncio
 @login_required
 async def get_current_user(_, info):
 	user = info.context["request"].user
-	return { "user": user }
+	total_unread_messages = await get_total_unread_messages_for_user(user.slug)
+	return {
+		"user": user,
+		"totalUnreadMessages": total_unread_messages
+	}
 
 @query.field("getUsersBySlugs")
 async def get_users_by_slugs(_, info, slugs):

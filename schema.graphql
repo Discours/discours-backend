@@ -15,6 +15,7 @@ type AuthResult {
 type UserResult {
   error: String
   user: User
+  totalUnreadMessages: Int
 }
 
 input ShoutInput {

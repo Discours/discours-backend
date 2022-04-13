@@ -42,6 +42,19 @@ class MessageResult:
 		self.status = status
 		self.message = message
 
+async def get_total_unread_messages_for_user(user_slug):
+	chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
+	if not chats:
+		return 0
+
+	chats = json.loads(chats)
+	total = 0
+	for chat_id in chats:
+		n = await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}")
+		total += n
+
+	return total
+
 async def add_user_to_chat(user_slug, chat_id, chat = None):
 	chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
 	if not chats:
