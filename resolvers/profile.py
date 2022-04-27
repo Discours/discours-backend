@@ -12,6 +12,13 @@ from sqlalchemy import func, and_, desc
 from sqlalchemy.orm import selectinload
 import asyncio
 
+def _get_user_subscribed_topics(slug):
+	with local_session() as session:
+		topics = session.query(Topic).\
+			join(TopicSubscription).\
+			where(TopicSubscription.subscriber == slug)
+	return topics
+
 @query.field("getCurrentUser")
 @login_required
 async def get_current_user(_, info):
@@ -19,7 +26,8 @@ async def get_current_user(_, info):
 	total_unread_messages = await get_total_unread_messages_for_user(user.slug)
 	return {
 		"user": user,
-		"totalUnreadMessages": total_unread_messages
+		"totalUnreadMessages": total_unread_messages,
+		"userSubscribedTopics": _get_user_subscribed_topics(user.slug)
 	}
 
 @query.field("getUsersBySlugs")
@@ -90,11 +98,7 @@ async def user_subscribers(_, info, slug):
 
 @query.field("userSubscribedTopics")
 async def user_subscribed_topics(_, info, slug):
-	with local_session() as session:
-		topics = session.query(Topic).\
-			join(TopicSubscription).\
-			where(TopicSubscription.subscriber == slug)
-	return topics
+	return _get_user_subscribed_topics(slug)
 
 @mutation.field("rateUser")
 @login_required

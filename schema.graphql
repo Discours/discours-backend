@@ -16,6 +16,7 @@ type UserResult {
   error: String
   user: User
   totalUnreadMessages: Int
+  userSubscribedTopics: [Topic]!
 }
 
 input ShoutInput {
