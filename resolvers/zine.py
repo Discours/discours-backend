@@ -488,3 +488,14 @@ async def shouts_commented_by_user(_, info, slug, page, size):
 			limit(size).\
 			offset( (page - 1) * size)
 	return shouts
+
+@query.field("shoutsRatedByUser")
+async def shouts_rated_by_user(_, info, slug, page, size):
+	with local_session() as session:
+		shouts = session.query(Shout).\
+			join(ShoutRating).\
+			where(ShoutRating.rater == slug).\
+			order_by(desc(ShoutRating.ts)).\
+			limit(size).\
+			offset( (page - 1) * size)
+	return shouts
