@@ -140,6 +140,8 @@ type Query {
   userSubscribers(slug: String!): [User]!
   userSubscribedTopics(slug: String!): [Topic]!
 
+  shoutsCommentedByUser(slug: String!, page: Int!, size: Int!): [Shout]!
+
   # shouts
   getShoutBySlug(slug: String!): Shout!
   shoutsByTopic(topic: String!, page: Int!, size: Int!): [Shout]!

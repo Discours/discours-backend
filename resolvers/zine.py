@@ -473,3 +473,18 @@ async def shouts_candidates(_, info, size):
 			limit(size)
 
 	return shouts
+
+@query.field("shoutsCommentedByUser")
+async def shouts_commented_by_user(_, info, slug, page, size):
+	user = await UserStorage.get_user_by_slug(slug)
+	if not user:
+		return {}
+
+	with local_session() as session:
+		shouts = session.query(Shout).\
+			join(Comment).\
+			where(Comment.author == user.id).\
+			order_by(desc(Comment.createdAt)).\
+			limit(size).\
+			offset( (page - 1) * size)
+	return shouts
