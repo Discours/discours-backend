@@ -147,6 +147,7 @@ type Query {
 
   shoutsRatedByUser(page: Int!, size: Int!): ShoutsResult!
   shoutsCommentedByUser(slug: String!, page: Int!, size: Int!): [Shout]!
+  userUnpublishedShouts(page: Int!, size: Int!): ShoutsResult!
 
   # shouts
   getShoutBySlug(slug: String!): Shout!

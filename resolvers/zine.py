@@ -505,3 +505,20 @@ async def shouts_rated_by_user(_, info, page, size):
 	return {
 		"shouts" : shouts
 	}
+
+@query.field("userUnpublishedShouts")
+@login_required
+async def user_unpublished_shouts(_, info, page, size):
+	user = info.context["request"].user
+
+	with local_session() as session:
+		shouts = session.query(Shout).\
+			join(ShoutAuthor).\
+			where(and_(Shout.publishedAt == None, ShoutAuthor.user == user.slug)).\
+			order_by(desc(Shout.createdAt)).\
+			limit(size).\
+			offset( (page - 1) * size)
+
+	return {
+		"shouts" : shouts
+	}
