@@ -16,7 +16,7 @@ type UserResult {
   error: String
   user: User
   totalUnreadMessages: Int
-  userSubscribedTopics: [Topic]!
+  userSubscribedTopics: [String]!
 }
 
 input ShoutInput {
@@ -138,7 +138,7 @@ type Query {
   userComments(slug: String!, page: Int!, size: Int!): [Comment]!
   userSubscriptions(slug: String!): [User]!
   userSubscribers(slug: String!): [User]!
-  userSubscribedTopics(slug: String!): [Topic]!
+  userSubscribedTopics(slug: String!): [String]!
 
   shoutsCommentedByUser(slug: String!, page: Int!, size: Int!): [Shout]!
   shoutsRatedByUser(slug: String!, page: Int!, size: Int!): [Shout]!
