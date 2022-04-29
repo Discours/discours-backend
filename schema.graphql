@@ -50,6 +50,11 @@ type ShoutResult {
   shout: Shout
 }
 
+type ShoutsResult {
+  error: String
+  shouts: [Shout]
+}
+
 type CommentResult {
   error: String
   comment: Comment
@@ -140,8 +145,8 @@ type Query {
   userSubscribers(slug: String!): [User]!
   userSubscribedTopics(slug: String!): [String]!
 
+  shoutsRatedByUser(page: Int!, size: Int!): ShoutsResult!
   shoutsCommentedByUser(slug: String!, page: Int!, size: Int!): [Shout]!
-  shoutsRatedByUser(slug: String!, page: Int!, size: Int!): [Shout]!
 
   # shouts
   getShoutBySlug(slug: String!): Shout!

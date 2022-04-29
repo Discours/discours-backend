@@ -490,12 +490,18 @@ async def shouts_commented_by_user(_, info, slug, page, size):
 	return shouts
 
 @query.field("shoutsRatedByUser")
-async def shouts_rated_by_user(_, info, slug, page, size):
+@login_required
+async def shouts_rated_by_user(_, info, page, size):
+	user = info.context["request"].user
+
 	with local_session() as session:
 		shouts = session.query(Shout).\
 			join(ShoutRating).\
-			where(ShoutRating.rater == slug).\
+			where(ShoutRating.rater == user.slug).\
 			order_by(desc(ShoutRating.ts)).\
 			limit(size).\
 			offset( (page - 1) * size)
-	return shouts
+
+	return {
+		"shouts" : shouts
+	}
