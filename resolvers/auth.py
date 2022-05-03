@@ -11,6 +11,7 @@ from auth.email import send_confirm_email, send_auth_email, send_reset_password_
 from orm import User, UserStorage, Role, UserRole
 from orm.base import local_session
 from resolvers.base import mutation, query
+from resolvers.profile import get_user_info
 from exceptions import InvalidPassword, InvalidToken
 
 from settings import JWT_AUTH_HEADER
@@ -108,7 +109,12 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 	
 	token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
 	print(f"signIn {email}: OK")
-	return {"token" : token, "user": orm_user}
+
+	return {
+		"token" : token,
+		"user": orm_user,
+		"info": await get_user_info(orm_user.slug)
+	}
 
 
 @query.field("signOut")

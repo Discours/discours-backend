@@ -21,15 +21,19 @@ def _get_user_subscribed_topic_slugs(slug):
 	slugs = [row.slug for row in rows]
 	return slugs
 
+async def get_user_info(slug):
+	return {
+		"totalUnreadMessages" : await get_total_unread_messages_for_user(slug),
+		"userSubscribedTopics": _get_user_subscribed_topic_slugs(slug)
+	}
+
 @query.field("getCurrentUser")
 @login_required
 async def get_current_user(_, info):
 	user = info.context["request"].user
-	total_unread_messages = await get_total_unread_messages_for_user(user.slug)
 	return {
 		"user": user,
-		"totalUnreadMessages": total_unread_messages,
-		"userSubscribedTopics": _get_user_subscribed_topic_slugs(user.slug)
+		"info": await get_user_info(user.slug)
 	}
 
 @query.field("getUsersBySlugs")

@@ -6,17 +6,22 @@ type Result {
   error: String
 }
 
+type CurrentUserInfo {
+  totalUnreadMessages: Int
+  userSubscribedTopics: [String]!
+}
+
 type AuthResult {
   error: String
   token: String
   user: User
+  info: CurrentUserInfo
 }
 
 type UserResult {
   error: String
   user: User
-  totalUnreadMessages: Int
-  userSubscribedTopics: [String]!
+  info: CurrentUserInfo
 }
 
 input ShoutInput {
