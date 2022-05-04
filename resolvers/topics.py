@@ -2,8 +2,7 @@ from orm import Topic, TopicSubscription, TopicStorage, Shout, User
 from orm.shout import TopicStat, ShoutAuthorStorage
 from orm.user import UserStorage
 from orm.base import local_session
-from resolvers.base import mutation, query, subscription
-from resolvers.zine import ShoutSubscriptions
+from resolvers.base import mutation, query
 from auth.authenticate import login_required
 import asyncio
 
@@ -87,22 +86,3 @@ async def topic_unsubscribe(_, info, slug):
 		session.commit()
 
 	return {}
-
-@subscription.source("topicUpdated")
-async def new_shout_generator(obj, info, user_slug):
-	try:
-		with local_session() as session:
-			topics = session.query(TopicSubscription.topic).filter(TopicSubscription.subscriber == user_slug).all()
-		topics = set([item.topic for item in topics])
-		shouts_queue = asyncio.Queue()
-		await ShoutSubscriptions.register_subscription(shouts_queue)
-		while True:
-			shout = await shouts_queue.get()
-			if topics.intersection(set(shout.topic_slugs)):
-				yield shout
-	finally:
-		await ShoutSubscriptions.del_subscription(shouts_queue)
-
-@subscription.field("topicUpdated")
-def shout_resolver(shout, info, user_id):
-	return shout

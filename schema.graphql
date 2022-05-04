@@ -191,7 +191,6 @@ type Subscription {
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!
-  topicUpdated(user_slug: String!): Shout!
   commentUpdated(shout: String!): CommentUpdatedResult!
 }
 
