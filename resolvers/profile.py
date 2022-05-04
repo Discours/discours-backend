@@ -21,10 +21,18 @@ def _get_user_subscribed_topic_slugs(slug):
 	slugs = [row.slug for row in rows]
 	return slugs
 
+def _get_user_subscribed_authors(slug):
+	with local_session() as session:
+		authors = session.query(User).\
+			join(AuthorSubscription, User.slug == AuthorSubscription.author).\
+			where(AuthorSubscription.subscriber == slug)
+	return authors
+
 async def get_user_info(slug):
 	return {
-		"totalUnreadMessages" : await get_total_unread_messages_for_user(slug),
-		"userSubscribedTopics": _get_user_subscribed_topic_slugs(slug)
+		"totalUnreadMessages"  : await get_total_unread_messages_for_user(slug),
+		"userSubscribedTopics" : _get_user_subscribed_topic_slugs(slug),
+		"userSubscribedAuthors": _get_user_subscribed_authors(slug)
 	}
 
 @query.field("getCurrentUser")
@@ -88,11 +96,7 @@ async def user_comments(_, info, slug, page, size):
 
 @query.field("userSubscriptions")
 async def user_subscriptions(_, info, slug):
-	with local_session() as session:
-		users = session.query(User).\
-			join(AuthorSubscription, User.slug == AuthorSubscription.author).\
-			where(AuthorSubscription.subscriber == slug)
-	return users
+	return _get_user_subscribed_authors(slug)
 
 @query.field("userSubscribers")
 async def user_subscribers(_, info, slug):
