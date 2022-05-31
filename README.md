@@ -34,3 +34,4 @@ Also see `Dockerfile`
 # How to do an authorized request
 
 Put the header 'Auth' with token from signInQuery or registerQuery.
+

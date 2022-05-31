@@ -138,3 +138,5 @@ Pipfile.lock
 migration/data
 migration/content/**/*.md
 .obsidian
+
+*.zip

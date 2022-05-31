@@ -16,16 +16,18 @@ def migrate(entry):
 		'slug': entry['slug'],
 		# 'createdBy': entry['createdBy'],
 		# 'createdAt': date_parse(entry['createdAt']),
-		'title': entry['title'], #.lower(),
+		'title': entry['title'].replace('&nbsp;', ' '), #.lower(),
 		'children': [],
 		'community' : Community.default_community.slug,
 		'body' : entry.get('description')
 	}
 	try:
 		with local_session() as session:
-			topic = session.query(Topic).filter(Topic.slug == entry['slug']).first()
-			if not topic:
-				topic = Topic.create(**topic_dict)
+			topic = session.query(Topic).filter(Topic.slug == topic_dict['slug']).first()
+			if not topic: 
+				topic = session.query(Topic).filter(Topic.title == topic_dict['title']).first()
+				if not topic:
+					topic = Topic.create(**topic_dict)
 	except Exception as e:
 		print(e)
 		raise e
