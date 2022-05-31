@@ -7,10 +7,9 @@ from sqlalchemy.sql.schema import Table
 
 from settings import DB_URL
 
-if not DB_URL.startswith('sqlite'):
+if DB_URL.startswith('sqlite'):
 	engine = create_engine(DB_URL)
 else:
-
 	engine = create_engine(DB_URL, convert_unicode=True, echo=False, \
 		pool_size=10, max_overflow=20)
 
