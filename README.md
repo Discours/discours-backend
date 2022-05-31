@@ -7,26 +7,26 @@ Tech stack:
 - ariadne
 - starlette
 
-# Local development
+# Local development 
 
-Install redis and pipenv first
+Install redis and poetry (or any python env manager) first
 
+on osx
 ```
-brew install redis pipenv
+brew install redis poetry
 brew services start redis
 ```
 
-Create certificate files
-
-```sh
-./create_crt.sh
+on debian/ubuntu
+```
+apt install redis python-poetry
 ```
 
 Then run API server
 
 ```
-pipenv install
-pipenv run python server.py
+poetry install
+poetry run python server.py
 ```
 
 Also see `Dockerfile`

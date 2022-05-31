@@ -157,9 +157,9 @@ type Query {
 
   # shouts
   getShoutBySlug(slug: String!): Shout!
-  shoutsByTopic(topic: String!, page: Int!, size: Int!): [Shout]!
-  shoutsByAuthor(author: String!, page: Int!, size: Int!): [Shout]!
-  shoutsByCommunity(community: String!, page: Int!, size: Int!): [Shout]!
+  shoutsByTopics(slugs: [String]!, page: Int!, size: Int!): [Shout]!
+  shoutsByAuthors(slugs: [String]!, page: Int!, size: Int!): [Shout]!
+  shoutsByCommunities(slugs: [String]!, page: Int!, size: Int!): [Shout]!
   getShoutComments(slug: String!): [Comment]!
 
   # mainpage

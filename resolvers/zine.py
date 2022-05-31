@@ -376,38 +376,33 @@ async def get_shout_comments(_, info, slug):
 		comment.author = await UserStorage.get_user(comment.author)
 	return comments
 
-@query.field("shoutsByTopic")
-async def shouts_by_topic(_, info, topic, page, size):
+@query.field("shoutsByTopics")
+async def shouts_by_topics(_, info, slugs, page, size):
 	page = page - 1
 	with local_session() as session:
 		shouts = session.query(Shout).\
 			join(ShoutTopic).\
-			where(and_(ShoutTopic.topic == topic, Shout.publishedAt != None)).\
+			where(and_(ShoutTopic.topic.in_(slugs), Shout.publishedAt != None)).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
 			offset(page * size)
 	return shouts
 
-@query.field("shoutsByAuthor")
-async def shouts_by_author(_, info, author, page, size):
+@query.field("shoutsByAuthors")
+async def shouts_by_authors(_, info, slugs, page, size):
 	page = page - 1
 	with local_session() as session:
-		user = session.query(User).\
-			filter(User.slug == author).first()
-		if not user:
-			print("author not exist")
-			return
 
 		shouts = session.query(Shout).\
 			join(ShoutAuthor).\
-			where(and_(ShoutAuthor.user == author, Shout.publishedAt != None)).\
+			where(and_(ShoutAuthor.user.in_(slugs), Shout.publishedAt != None)).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
 			offset(page * size)
 	return shouts
 
-@query.field("shoutsByCommunity")
-async def shouts_by_community(_, info, community, page, size):
+@query.field("shoutsByCommunities")
+async def shouts_by_communities(_, info, slugs, page, size):
 	page = page - 1
 	with local_session() as session:
 		#TODO fix postgres high load
@@ -415,7 +410,7 @@ async def shouts_by_community(_, info, community, page, size):
 			join(ShoutTopic).\
 			where(and_(Shout.publishedAt != None,\
 				ShoutTopic.topic.in_(\
-				select(Topic.slug).where(Topic.community == community)\
+				select(Topic.slug).where(Topic.community.in_(slugs))\
 			))).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
