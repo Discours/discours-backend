@@ -83,5 +83,7 @@ async def oauth_authorize(request):
 	}
 	user = Identity.identity_oauth(user_input)
 	token = await Authorize.authorize(user, device="pc")
-	redirect_uri = "%s%s" % (OAUTH_CALLBACK_URL, quote_plus(token))
-	return RedirectResponse(url = redirect_uri)
+
+	response = RedirectResponse(url = OAUTH_CALLBACK_URL)
+	response.set_cookie("token", token)
+	return response
