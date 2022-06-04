@@ -6,6 +6,7 @@ import re
 import frontmatter
 from migration.tables.users import migrate as migrateUser
 from migration.tables.users import migrate_2stage as migrateUser_2stage
+from migration.tables.users import migrate_email_subscription
 from migration.tables.content_items import get_metadata, migrate as migrateShout
 from migration.tables.content_item_categories import migrate as migrateCategory
 from migration.tables.tags import migrate as migrateTag
@@ -194,6 +195,11 @@ def comments(comments_data):
 		migrateComment_2stage(comment, id_map)
 	print(str(len(id_map)) + ' comments exported')
 
+def export_email_subscriptions(email_subscriptions_data):
+	for data in email_subscriptions_data:
+		migrate_email_subscription(data)
+	print(str(len(email_subscriptions_data)) + ' email subscriptions exported')
+
 
 def export_finish(export_articles = {}, export_authors = {}, export_topics = {}, export_comments = {}):
 	open('../src/data/authors.json', 'w').write(json.dumps(export_authors,
@@ -274,6 +280,9 @@ if __name__ == '__main__':
 						comments_by_post[cid].append(old_comment)
 				print(str(len(comments_by_post.keys())) + ' articles with comments')
 
+				email_subscriptions_data = json.loads(open('migration/data/email_subscriptions.json').read())
+				print(str(len(email_subscriptions_data)) + ' email subscriptions loaded')
+
 				export_articles = {} # slug: shout
 				export_authors = {} # slug: user
 				export_comments = {} # shout-slug: comment[] (list)
@@ -291,11 +300,14 @@ if __name__ == '__main__':
 					comments(comments_data)
 				elif cmd == "export_shouts":
 					export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
+				elif cmd == "email_subscriptions":
+					export_email_subscriptions(email_subscriptions_data)
 				elif cmd == "all":
 					users(users_by_oid, users_by_slug, users_data)
 					topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data)
 					shouts(content_data, shouts_by_slug, shouts_by_oid)
 					comments(comments_data)
+					export_email_subscriptions(email_subscriptions_data)
 				elif cmd == 'slug':
 					export_slug(sys.argv[2], export_articles, export_authors, content_dict)
 				#export_finish(export_articles, export_authors, export_topics, export_comments)

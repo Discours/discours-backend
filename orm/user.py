@@ -41,6 +41,13 @@ class AuthorSubscription(Base):
 	author = Column(ForeignKey('user.slug'), primary_key = True)
 	createdAt = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 
+class EmailSubscription(Base):
+	__tablename__ = "email_subscription"
+
+	id = None
+	email = Column(String, primary_key = True)
+	createdAt = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
+
 class User(Base):
 	__tablename__ = "user"
 

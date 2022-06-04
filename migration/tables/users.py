@@ -1,4 +1,5 @@
 from orm import User, Role, UserRating
+from orm.user import EmailSubscription
 import frontmatter
 from dateutil.parser import parse
 from migration.html2text import html2text
@@ -87,6 +88,13 @@ def migrate(entry):
 	res['id'] = user.id
 
 	return res
+
+def migrate_email_subscription(entry):
+	res = {}
+	res["email"] = entry["email"]
+	res["createdAt"] = parse(entry["createdAt"])
+
+	subscription = EmailSubscription.create(**res)
 
 def migrate_2stage(entry, id_map):
 	for rating_entry in entry.get('ratings',[]):
