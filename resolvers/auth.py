@@ -46,14 +46,9 @@ async def register(*_, email: str, password: str = ""):
 		session.add(user)
 		session.commit()
 
-	await UserStorage.add_user(user)
+	await send_confirm_email(user)
 
-	if not password:
-		await send_confirm_email(user)
-		return { "user": user }
-
-	token = await Authorize.authorize(user)
-	return {"user": user, "token": token }
+	return { "user": user }
 
 @mutation.field("requestPasswordUpdate")
 async def request_password_update(_, info, email):
@@ -94,6 +89,9 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 		print(f"signIn {email}: send auth email")
 		await send_auth_email(orm_user)
 		return {}
+
+	if not orm_user.emailConfirmed:
+		return {"error" : "email not confirmed"}
 
 	try:
 		device = info.context["request"].headers['device']

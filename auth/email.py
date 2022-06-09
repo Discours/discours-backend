@@ -1,10 +1,10 @@
 import requests
-from starlette.responses import PlainTextResponse
+from starlette.responses import RedirectResponse
 from starlette.exceptions import HTTPException
 
 from auth.authenticate import EmailAuthenticate, ResetPassword
 
-from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN, RESET_PWD_URL
+from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN, RESET_PWD_URL, CONFIRM_EMAIL_URL
 
 MAILGUN_API_URL = "https://api.mailgun.net/v3/%s/messages" % (MAILGUN_DOMAIN)
 MAILGUN_FROM = "postmaster <postmaster@%s>" % (MAILGUN_DOMAIN)
@@ -28,7 +28,7 @@ async def send_reset_password_email(user):
 
 async def send_email(user, url, text, token):
 	to = "%s <%s>" % (user.username, user.email)
-	url_with_token = "%s/%s" % (url, token)
+	url_with_token = "%s?token=%s" % (url, token)
 	text = text % (url_with_token)
 	response = requests.post(
 		MAILGUN_API_URL,
@@ -46,5 +46,14 @@ async def email_authorize(request):
 	token = request.query_params.get('token')
 	if not token:
 		raise HTTPException(500, "invalid url")
+
 	auth_token, user = await EmailAuthenticate.authenticate(token)
-	return PlainTextResponse(auth_token)
+	
+	if not user.emailConfirmed:
+		with local_session() as session:
+			user.emailConfirmed = True
+			session.commit()
+
+	response = RedirectResponse(url = CONFIRM_EMAIL_URL)
+	response.set_cookie("token", auth_token)
+	return response
