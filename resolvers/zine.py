@@ -99,6 +99,21 @@ class ShoutsCache:
 			ShoutsCache.recent_shouts = shouts
 
 	@staticmethod
+	async def prepare_recent_all():
+		with local_session() as session:
+			stmt = select(Shout).\
+				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
+				where(Shout.publishedAt != None).\
+				limit(ShoutsCache.limit)
+			shouts = []
+			for row in session.execute(stmt):
+				shout = row.Shout
+				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
+				shouts.append(shout)
+		async with ShoutsCache.lock:
+			ShoutsCache.recent_all = shouts
+
+	@staticmethod
 	async def prepare_recent_commented():
 		with local_session() as session:
 			stmt = select(Shout, func.max(Comment.createdAt).label("commentCreatedAt")).\
@@ -184,6 +199,7 @@ class ShoutsCache:
 				await ShoutsCache.prepare_top_overall()
 				await ShoutsCache.prepare_top_viewed()
 				await ShoutsCache.prepare_recent_shouts()
+				await ShoutsCache.prepare_recent_all()
 				await ShoutsCache.prepare_recent_commented()
 				print("shouts cache update finished")
 			except Exception as err:
@@ -225,13 +241,18 @@ async def top_overall(_, info, page, size):
 	async with ShoutsCache.lock:
 		return ShoutsCache.top_overall[(page - 1) * size : page * size]
 
-@query.field("recents")
+@query.field("recentPublished")
 async def recent_shouts(_, info, page, size):
 	async with ShoutsCache.lock:
 		return ShoutsCache.recent_shouts[(page - 1) * size : page * size]
 
+@query.field("recentAll")
+async def recent_all(_, info, page, size):
+	async with ShoutsCache.lock:
+		return ShoutsCache.recent_all[(page - 1) * size : page * size]
+
 @query.field("recentCommented")
-async def recent_shouts(_, info, page, size):
+async def recent_commented(_, info, page, size):
 	async with ShoutsCache.lock:
 		return ShoutsCache.recent_commented[(page - 1) * size : page * size]
 

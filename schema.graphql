@@ -166,7 +166,10 @@ type Query {
   topViewed(page: Int!, size: Int!): [Shout]!
   topMonth(page: Int!, size: Int!): [Shout]!
   topOverall(page: Int!, size: Int!): [Shout]!
-  recents(page: Int!, size: Int!): [Shout]!
+  recentPublished(page: Int!, size: Int!): [Shout]!
+  
+  # feed
+  recentAll(page: Int!, size: Int!): [Shout]!
 
   # topics
   topicsBySlugs(slugs: [String]): [Topic]!
