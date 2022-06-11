@@ -102,6 +102,19 @@ async def load_messages(chatId, size, page):
 		messages = [json.loads(msg) for msg in messages]
 	return messages
 
+@query.field("userChats")
+@login_required
+async def user_chats(_, info):
+	user = info.context["request"].user
+
+	chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
+	if not chats:
+		chats = list()
+	else:
+		chats = list(json.loads(chats))
+
+	return {"chats" : chats}
+
 @query.field("enterChat")
 @login_required
 async def enter_chat(_, info, chatId, size):

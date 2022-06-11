@@ -34,6 +34,11 @@ type EnterChatResult {
   error: String
 }
 
+type UserChatsResult {
+  error: String
+  chats: [String]
+}
+
 ################################### Mutation
 
 type Mutation {
@@ -49,7 +54,7 @@ type Mutation {
 ################################### Query
 
 type Query {
-  # messages
+  userChats: UserChatsResult!
   enterChat(chatId: String!, size: Int = 50): EnterChatResult!
   getMessages(chatId: String!, size: Int!, page: Int!): [Message]!
 }
