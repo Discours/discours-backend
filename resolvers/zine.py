@@ -446,13 +446,13 @@ async def shouts_subscribed(_, info, page, size):
 		shouts_by_topic = session.query(Shout).\
 			join(ShoutTopic).\
 			join(TopicSubscription, ShoutTopic.topic == TopicSubscription.topic).\
-			where(and_(Shout.publishedAt != None, TopicSubscription.subscriber == user.slug))
+			where(TopicSubscription.subscriber == user.slug)
 		shouts_by_author = session.query(Shout).\
 			join(ShoutAuthor).\
 			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
-			where(and_(Shout.publishedAt != None, AuthorSubscription.subscriber == user.slug))
+			where(AuthorSubscription.subscriber == user.slug)
 		shouts = shouts_by_topic.union(shouts_by_author).\
-			order_by(desc(Shout.publishedAt)).\
+			order_by(desc(Shout.createdAt)).\
 			limit(size).\
 			offset( (page - 1) * size)
 
