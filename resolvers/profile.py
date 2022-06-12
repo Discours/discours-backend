@@ -4,6 +4,8 @@ from orm.comment import Comment
 from orm.base import local_session
 from orm.topic import Topic, TopicSubscription
 from resolvers.base import mutation, query, subscription
+from resolvers.topics import topic_subscribe, topic_unsubscribe
+from resolvers.community import community_subscribe, community_unsubscribe
 from auth.authenticate import login_required
 
 from inbox_resolvers.inbox import get_total_unread_messages_for_user
@@ -133,30 +135,53 @@ async def rate_user(_, info, slug, value):
 
 	return {}
 
-@mutation.field("authorSubscribe")
-@login_required
-async def author_subscribe(_, info, slug):
-	user = info.context["request"].user
 
+def author_subscribe(user, slug):
 	AuthorSubscription.create(
 		subscriber = user.slug, 
 		author = slug
 	)
 
-	return {}
-
-@mutation.field("authorUnsubscribe")
-@login_required
-async def author_unsubscribe(_, info, slug):
-	user = info.context["request"].user
-
+def author_unsubscribe(user, slug):
 	with local_session() as session:
 		sub = session.query(AuthorSubscription).\
 			filter(and_(AuthorSubscription.subscriber == user.slug, AuthorSubscription.author == slug)).\
 			first()
 		if not sub:
-			return { "error" : "subscription not exist" }
+			raise Exception("subscription not exist")
 		session.delete(sub)
 		session.commit()
+
+@mutation.field("subscribe")
+@login_required
+async def subscribe(_, info, subscription, slug):
+	user = info.context["request"].user
+
+	try:
+		if subscription == "AUTHOR":
+			author_subscribe(user, slug)
+		elif subscription == "TOPIC":
+			topic_subscribe(user, slug)
+		elif subscription == "COMMUNITY":
+			community_subscribe(user, slug)
+	except Exception as e:
+		return {"error" : e}
+
+	return {}
+
+@mutation.field("unsubscribe")
+@login_required
+async def unsubscribe(_, info, subscription, slug):
+	user = info.context["request"].user
+
+	try:
+		if subscription == "AUTHOR":
+			author_unsubscribe(user, slug)
+		elif subscription == "TOPIC":
+			topic_unsubscribe(user, slug)
+		elif subscription == "COMMUNITY":
+			community_unsubscribe(user, slug)
+	except Exception as e:
+		return {"error" : e}
 
 	return {}
