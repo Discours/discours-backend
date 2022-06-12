@@ -1,5 +1,6 @@
 from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource,\
 	ShoutRatingStorage, ShoutViewStorage, Comment, CommentRating, Topic
+from orm.community import CommunitySubscription
 from orm.base import local_session
 from orm.user import UserStorage, AuthorSubscription
 from orm.topic import TopicSubscription
@@ -451,7 +452,12 @@ async def shouts_subscribed(_, info, page, size):
 			join(ShoutAuthor).\
 			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
 			where(AuthorSubscription.subscriber == user.slug)
+		shouts_by_community = session.query(Shout).\
+			join(Community).\
+			join(CommunitySubscription).\
+			where(CommunitySubscription.subscriber == user.slug)
 		shouts = shouts_by_topic.union(shouts_by_author).\
+			union(shouts_by_community).\
 			order_by(desc(Shout.createdAt)).\
 			limit(size).\
 			offset( (page - 1) * size)
