@@ -5,7 +5,7 @@ from orm.base import local_session
 from orm.topic import Topic, TopicSubscription
 from resolvers.base import mutation, query, subscription
 from resolvers.topics import topic_subscribe, topic_unsubscribe
-from resolvers.community import community_subscribe, community_unsubscribe
+from resolvers.community import community_subscribe, community_unsubscribe, get_subscribed_communities
 from auth.authenticate import login_required
 
 from inbox_resolvers.inbox import get_total_unread_messages_for_user
@@ -32,9 +32,10 @@ def _get_user_subscribed_authors(slug):
 
 async def get_user_info(slug):
 	return {
-		"totalUnreadMessages"  : await get_total_unread_messages_for_user(slug),
-		"userSubscribedTopics" : _get_user_subscribed_topic_slugs(slug),
-		"userSubscribedAuthors": _get_user_subscribed_authors(slug)
+		"totalUnreadMessages"      : await get_total_unread_messages_for_user(slug),
+		"userSubscribedTopics"     : _get_user_subscribed_topic_slugs(slug),
+		"userSubscribedAuthors"    : _get_user_subscribed_authors(slug),
+		"userSubscribedCommunities": get_subscribed_communities(slug)
 	}
 
 @query.field("getCurrentUser")

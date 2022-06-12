@@ -7,9 +7,10 @@ type Result {
 }
 
 type CurrentUserInfo {
-  totalUnreadMessages  : Int
-  userSubscribedTopics : [String]!
-  userSubscribedAuthors: [User]!
+  totalUnreadMessages       : Int
+  userSubscribedTopics      : [String]!
+  userSubscribedAuthors     : [User]!
+  userSubscribedCommunities : [String]!
 }
 
 type AuthResult {

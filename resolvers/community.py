@@ -86,3 +86,12 @@ def community_unsubscribe(user, slug):
 			raise Exception("subscription not exist")
 		session.delete(sub)
 		session.commit()
+
+def get_subscribed_communities(user_slug):
+	with local_session() as session:
+		rows = session.query(Community.slug).\
+			join(CommunitySubscription).\
+			where(CommunitySubscription.subscriber == user_slug).\
+			all()
+	slugs = [row.slug for row in rows]
+	return slugs
