@@ -1,9 +1,11 @@
-from orm import Community
+from orm import Community, CommunitySubscription
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 import asyncio
 from datetime import datetime
+
+from sqlalchemy import and_
 
 @mutation.field("createCommunity")
 @login_required
@@ -68,3 +70,28 @@ async def get_communities(_, info):
 	with local_session() as session:
 		communities = session.query(Community)
 	return communities
+
+def community_subscribe(user, slug):
+	CommunitySubscription.create(
+		subscriber = user.slug, 
+		community = slug
+	)
+
+def community_unsubscribe(user, slug):
+	with local_session() as session:
+		sub = session.query(CommunitySubscription).\
+			filter(and_(CommunitySubscription.subscriber == user.slug, CommunitySubscription.community == slug)).\
+			first()
+		if not sub:
+			raise Exception("subscription not exist")
+		session.delete(sub)
+		session.commit()
+
+def get_subscribed_communities(user_slug):
+	with local_session() as session:
+		rows = session.query(Community.slug).\
+			join(CommunitySubscription).\
+			where(CommunitySubscription.subscriber == user_slug).\
+			all()
+	slugs = [row.slug for row in rows]
+	return slugs

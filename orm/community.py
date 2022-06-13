@@ -3,6 +3,14 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship, backref
 from orm.base import Base, local_session
 
+class CommunitySubscription(Base):
+	__tablename__ = 'community_subscription'
+
+	id = None
+	subscriber = Column(ForeignKey('user.slug'), primary_key = True)
+	community = Column(ForeignKey('community.slug'), primary_key = True)
+	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
+
 
 class Community(Base):
 	__tablename__ = 'community'

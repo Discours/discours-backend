@@ -1,5 +1,6 @@
 from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource,\
 	ShoutRatingStorage, ShoutViewStorage, Comment, CommentRating, Topic
+from orm.community import CommunitySubscription
 from orm.base import local_session
 from orm.user import UserStorage, AuthorSubscription
 from orm.topic import TopicSubscription
@@ -83,7 +84,7 @@ class ShoutsCache:
 	lock = asyncio.Lock()
 
 	@staticmethod
-	async def prepare_recent_shouts():
+	async def prepare_recent_published():
 		with local_session() as session:
 			stmt = select(Shout).\
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
@@ -96,14 +97,14 @@ class ShoutsCache:
 				shout.ratings = await ShoutRatingStorage.get_ratings(shout.slug)
 				shouts.append(shout)
 		async with ShoutsCache.lock:
-			ShoutsCache.recent_shouts = shouts
+			ShoutsCache.recent_published = shouts
 
 	@staticmethod
 	async def prepare_recent_all():
 		with local_session() as session:
 			stmt = select(Shout).\
 				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
-				where(Shout.publishedAt != None).\
+				order_by(desc("createdAt")).\
 				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
@@ -198,7 +199,7 @@ class ShoutsCache:
 				await ShoutsCache.prepare_top_month()
 				await ShoutsCache.prepare_top_overall()
 				await ShoutsCache.prepare_top_viewed()
-				await ShoutsCache.prepare_recent_shouts()
+				await ShoutsCache.prepare_recent_published()
 				await ShoutsCache.prepare_recent_all()
 				await ShoutsCache.prepare_recent_commented()
 				print("shouts cache update finished")
@@ -242,9 +243,9 @@ async def top_overall(_, info, page, size):
 		return ShoutsCache.top_overall[(page - 1) * size : page * size]
 
 @query.field("recentPublished")
-async def recent_shouts(_, info, page, size):
+async def recent_published(_, info, page, size):
 	async with ShoutsCache.lock:
-		return ShoutsCache.recent_shouts[(page - 1) * size : page * size]
+		return ShoutsCache.recent_published[(page - 1) * size : page * size]
 
 @query.field("recentAll")
 async def recent_all(_, info, page, size):
@@ -446,13 +447,18 @@ async def shouts_subscribed(_, info, page, size):
 		shouts_by_topic = session.query(Shout).\
 			join(ShoutTopic).\
 			join(TopicSubscription, ShoutTopic.topic == TopicSubscription.topic).\
-			where(and_(Shout.publishedAt != None, TopicSubscription.subscriber == user.slug))
+			where(TopicSubscription.subscriber == user.slug)
 		shouts_by_author = session.query(Shout).\
 			join(ShoutAuthor).\
 			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
-			where(and_(Shout.publishedAt != None, AuthorSubscription.subscriber == user.slug))
+			where(AuthorSubscription.subscriber == user.slug)
+		shouts_by_community = session.query(Shout).\
+			join(Community).\
+			join(CommunitySubscription).\
+			where(CommunitySubscription.subscriber == user.slug)
 		shouts = shouts_by_topic.union(shouts_by_author).\
-			order_by(desc(Shout.publishedAt)).\
+			union(shouts_by_community).\
+			order_by(desc(Shout.createdAt)).\
 			limit(size).\
 			offset( (page - 1) * size)
 

@@ -7,9 +7,10 @@ type Result {
 }
 
 type CurrentUserInfo {
-  totalUnreadMessages  : Int
-  userSubscribedTopics : [String]!
-  userSubscribedAuthors: [User]!
+  totalUnreadMessages       : Int
+  userSubscribedTopics      : [String]!
+  userSubscribedAuthors     : [User]!
+  userSubscribedCommunities : [String]!
 }
 
 type AuthResult {
@@ -93,6 +94,12 @@ type CommentUpdatedResult {
   comment: Comment
 }
 
+enum SubscriptionType {
+  TOPIC
+  AUTHOR
+  COMMUNITY
+}
+
 ################################### Mutation
 
 type Mutation {
@@ -118,8 +125,6 @@ type Mutation {
   # topics
   createTopic(input: TopicInput!): TopicResult!
   updateTopic(input: TopicInput!): TopicResult!
-  topicSubscribe(slug: String!): Result!
-  topicUnsubscribe(slug: String!): Result!
 
   createComment(body: String!, shout: String!, replyTo: Int): CommentResult!
   updateComment(id: Int!, body: String!): CommentResult!
@@ -130,8 +135,8 @@ type Mutation {
   updateCommunity(community: CommunityInput!): Community!
   deleteCommunity(id: Int!): Result!
 
-  authorSubscribe(slug: String!): Result!
-  authorUnsubscribe(slug: String!): Result!
+  subscribe(subscription : SubscriptionType!, slug: String!): Result!
+  unsubscribe(subscription : SubscriptionType!, slug: String!): Result!
 }
 
 ################################### Query

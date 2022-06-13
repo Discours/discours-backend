@@ -60,29 +60,17 @@ async def update_topic(_, info, input):
 
 	return { "topic" : topic }
 
-@mutation.field("topicSubscribe")
-@login_required
-async def topic_subscribe(_, info, slug):
-	user = info.context["request"].user
-
+def topic_subscribe(user, slug):
 	TopicSubscription.create(
 		subscriber = user.slug, 
 		topic = slug)
 
-	return {}
-
-@mutation.field("topicUnsubscribe")
-@login_required
-async def topic_unsubscribe(_, info, slug):
-	user = info.context["request"].user
-
+def topic_unsubscribe(user, slug):
 	with local_session() as session:
 		sub = session.query(TopicSubscription).\
 			filter(and_(TopicSubscription.subscriber == user.slug, TopicSubscription.topic == slug)).\
 			first()
 		if not sub:
-			return { "error" : "subscription not exist" }
+			raise Exception("subscription not exist")
 		session.delete(sub)
 		session.commit()
-
-	return {}
