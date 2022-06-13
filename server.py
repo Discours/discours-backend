@@ -10,7 +10,7 @@ if __name__ == '__main__':
 		print("DEV MODE")
 		headers = [
 			("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD"),
-			("Access-Control-Allow-Origin", "*"),
+			("Access-Control-Allow-Origin", "http://localhost:3000"),
 			("Access-Control-Allow-Headers", "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"),
 			("Access-Control-Expose-Headers", "Content-Length,Content-Range"),
 			("Access-Control-Allow-Credentials", "true")
