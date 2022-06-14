@@ -9,27 +9,38 @@ Tech stack:
 
 # Local development 
 
-Install redis and poetry (or any python env manager) first
+Install deps first
 
 on osx
 ```
-brew install redis poetry
+brew install redis poetry nginx
 brew services start redis
 ```
 
 on debian/ubuntu
 ```
-apt install redis python-poetry
+apt install redis python-poetry nginx
 ```
 
-Then run API server
+Then run nginx, redis and API server
 
 ```
+redis-server
+
+cp nginx.conf /usr/local/etc/nginx/.
+nginx -s reload
+
 poetry install
 poetry run python server.py
 ```
 
-Also see `Dockerfile`
+## Data prepare
+
+Notice: you need db.sqlite3 file in your root folder or you have to migrate some data to see. 
+
+```
+poetry run python migrate.py all
+```
 
 # How to do an authorized request
 

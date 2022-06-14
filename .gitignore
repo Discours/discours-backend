@@ -140,3 +140,5 @@ migration/content/**/*.md
 .obsidian
 
 *.zip
+
+.DS_Store
