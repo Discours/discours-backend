@@ -315,9 +315,9 @@ class CommentStat:
 class Shout(Base):
 	__tablename__ = 'shout'
 
-	# id = None
+	id = None
 
-	slug: str = Column(String, nullable=True, unique=True)
+	slug: str = Column(String, primary_key=True)
 	community: int = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
 	body: str = Column(String, nullable=False, comment="Body")
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
