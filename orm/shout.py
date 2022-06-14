@@ -315,7 +315,7 @@ class CommentStat:
 class Shout(Base):
 	__tablename__ = 'shout'
 
-	id = None
+	# id = None
 
 	slug: str = Column(String, primary_key=True)
 	community: int = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
