@@ -482,20 +482,6 @@ async def shouts_reviewed(_, info, page, size):
 
 	return shouts
 
-@query.field("shoutsCandidates")
-@login_required
-async def shouts_candidates(_, info, size):
-	user = info.context["request"].user
-	#TODO: postgres heavy load
-	with local_session() as session:
-		shouts = session.query(Shout).distinct().\
-			outerjoin(ShoutRating).\
-			where(and_(Shout.publishedAt != None, ShoutRating.rater != user.slug)).\
-			order_by(desc(Shout.publishedAt)).\
-			limit(size)
-
-	return shouts
-
 @query.field("shoutsCommentedByUser")
 async def shouts_commented_by_user(_, info, slug, page, size):
 	user = await UserStorage.get_user_by_slug(slug)
