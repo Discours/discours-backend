@@ -143,7 +143,7 @@ type Mutation {
 
 type Query {
   # auth
-  isEmailFree(email: String!): Boolean!
+  isEmailUsed(email: String!): Boolean!
   signIn(email: String!, password: String): AuthResult!
   signOut: Result!
 

@@ -1,4 +1,4 @@
-from resolvers.auth import login, sign_out, is_email_free, register, confirm
+from resolvers.auth import login, sign_out, is_email_used, register, confirm
 from resolvers.zine import create_shout, get_shout_by_slug, \
     top_month, top_overall, recent_published, recent_all, top_viewed, \
     shouts_by_authors, shouts_by_topics, shouts_by_communities, \
@@ -12,7 +12,7 @@ from resolvers.community import create_community, delete_community, get_communit
 __all__ = [
     "login",
     "register",
-    "is_email_free",
+    "is_email_used",
     "confirm",
     # TODO: "reset_password_code",
     # TODO: "reset_password_confirm",

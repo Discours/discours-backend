@@ -122,8 +122,8 @@ async def sign_out(_, info: GraphQLResolveInfo):
 	status = await Authorize.revoke(token)
 	return True
 
-@query.field("isEmailFree")
-async def is_email_free(_, info, email):
+@query.field("isEmailUsed")
+async def is_email_used(_, info, email):
 	with local_session() as session:
 		user = session.query(User).filter(User.email == email).first()
-	return user is None
+	return not user is None
