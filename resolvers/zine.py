@@ -381,7 +381,7 @@ async def get_shout_by_slug(_, info, slug):
 			filter(Shout.slug == slug).first()
 
 	if not shout:
-		print("shout not exist")
+		print(f"shout with slug {slug} not exist")
 		return {} #TODO return error field
 
 	shout.ratings = await ShoutRatingStorage.get_ratings(slug)
