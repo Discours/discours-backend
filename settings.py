@@ -18,7 +18,7 @@ EMAIL_TOKEN_LIFE_SPAN = 1 * 60 * 60  # seconds
 REDIS_URL = environ.get("REDIS_URL") or "redis://127.0.0.1"
 
 MAILGUN_API_KEY = environ.get("MAILGUN_API_KEY")
-MAILGUN_DOMAIN = "sandbox6afe2b71cd354c8fa59e0b868c20a23b.mailgun.org"
+MAILGUN_DOMAIN = environ.get("MAILGUN_DOMAIN")
 
 OAUTH_PROVIDERS = ("GITHUB", "FACEBOOK", "GOOGLE")
 OAUTH_CLIENTS = {}
