@@ -331,6 +331,8 @@ type Community {
   name: String!
   desc: String
   pic: String!
+  createdAt: DateTime!
+  createdBy: User!
 }
 
 type TopicStat {

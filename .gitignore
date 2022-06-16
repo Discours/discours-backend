@@ -141,4 +141,5 @@ migration/content/**/*.md
 
 *.zip
 *.sqlite3
+*.rdb
 .DS_Store
