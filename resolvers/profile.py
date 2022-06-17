@@ -25,7 +25,7 @@ def _get_user_subscribed_topic_slugs(slug):
 
 def _get_user_subscribed_authors(slug):
 	with local_session() as session:
-		authors = session.query(User).\
+		authors = session.query(User.slug).\
 			join(AuthorSubscription, User.slug == AuthorSubscription.author).\
 			where(AuthorSubscription.subscriber == slug)
 	return authors

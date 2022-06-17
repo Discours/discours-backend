@@ -7,10 +7,10 @@ type Result {
 }
 
 type CurrentUserInfo {
-  totalUnreadMessages       : Int
-  userSubscribedTopics      : [String]!
-  userSubscribedAuthors     : [User]!
-  userSubscribedCommunities : [String]!
+  totalUnreadMessages: Int
+  userSubscribedTopics: [String]!
+  userSubscribedAuthors: [String]!
+  userSubscribedCommunities: [String]!
 }
 
 type AuthResult {
@@ -135,8 +135,8 @@ type Mutation {
   updateCommunity(community: CommunityInput!): Community!
   deleteCommunity(id: Int!): Result!
 
-  subscribe(subscription : SubscriptionType!, slug: String!): Result!
-  unsubscribe(subscription : SubscriptionType!, slug: String!): Result!
+  subscribe(what: SubscriptionType!, slug: String!): Result!
+  unsubscribe(what: SubscriptionType!, slug: String!): Result!
 }
 
 ################################### Query

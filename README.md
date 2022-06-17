@@ -32,11 +32,12 @@ nginx -s reload
 
 poetry install
 poetry run python server.py
+poetry run python server.py inbox
 ```
 
 ## Data prepare
 
-Notice: you need db.sqlite3 file in your root folder or you have to migrate some data to see. 
+Also, you'll need to migrate some data
 
 ```
 poetry run python migrate.py all
