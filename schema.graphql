@@ -353,14 +353,17 @@ type Topic {
   topicStat: TopicStat
 }
 
-# TODO: resolvers to add/remove topics from publication
-
 type Proposal {
-  body: String!
-  shout: Int!
+  createdBy: String!
+  shout: string!
   range: String # full / 0:2340
-  author: Int!
+  body: String!
   createdAt: DateTime!
+  updatedAt: DateTime
+  acceptedAt: DateTime
+  acceptedBy: string
+  declinedAt: DateTime
+  declinedBy: string
 }
 
 type Token {
