@@ -153,36 +153,95 @@ def author_unsubscribe(user, slug):
 		session.delete(sub)
 		session.commit()
 
-@mutation.field("subscribe")
+@query.field("shoutsRatedByUser")
 @login_required
-async def subscribe(_, info, subscription, slug):
+async def shouts_rated_by_user(_, info, page, size):
 	user = info.context["request"].user
 
-	try:
-		if subscription == "AUTHOR":
-			author_subscribe(user, slug)
-		elif subscription == "TOPIC":
-			topic_subscribe(user, slug)
-		elif subscription == "COMMUNITY":
-			community_subscribe(user, slug)
-	except Exception as e:
-		return {"error" : e}
+	with local_session() as session:
+		shouts = session.query(Shout).\
+			join(ShoutRating).\
+			where(ShoutRating.rater == user.slug).\
+			order_by(desc(ShoutRating.ts)).\
+			limit(size).\
+			offset( (page - 1) * size)
 
-	return {}
+	return {
+		"shouts" : shouts
+	}
 
-@mutation.field("unsubscribe")
+@query.field("userUnpublishedShouts")
 @login_required
-async def unsubscribe(_, info, subscription, slug):
+async def user_unpublished_shouts(_, info, page, size):
 	user = info.context["request"].user
 
-	try:
-		if subscription == "AUTHOR":
-			author_unsubscribe(user, slug)
-		elif subscription == "TOPIC":
-			topic_unsubscribe(user, slug)
-		elif subscription == "COMMUNITY":
-			community_unsubscribe(user, slug)
-	except Exception as e:
-		return {"error" : e}
+	with local_session() as session:
+		shouts = session.query(Shout).\
+			join(ShoutAuthor).\
+			where(and_(Shout.publishedAt == None, ShoutAuthor.user == user.slug)).\
+			order_by(desc(Shout.createdAt)).\
+			limit(size).\
+			offset( (page - 1) * size)
 
-	return {}
+	return {
+		"shouts" : shouts
+	}
+
+@query.field("shoutsReviewed")
+@login_required
+async def shouts_reviewed(_, info, page, size):
+	user = info.context["request"].user
+	with local_session() as session:
+		shouts_by_rating = session.query(Shout).\
+			join(ShoutRating).\
+			where(and_(Shout.publishedAt != None, ShoutRating.rater == user.slug))
+		shouts_by_comment = session.query(Shout).\
+			join(Comment).\
+			where(and_(Shout.publishedAt != None, Comment.author == user.id))
+		shouts = shouts_by_rating.union(shouts_by_comment).\
+			order_by(desc(Shout.publishedAt)).\
+			limit(size).\
+			offset( (page - 1) * size)
+
+	return shouts
+
+@query.field("shoutsSubscribed")
+@login_required
+async def shouts_subscribed(_, info, page, size):
+	user = info.context["request"].user
+	with local_session() as session:
+		shouts_by_topic = session.query(Shout).\
+			join(ShoutTopic).\
+			join(TopicSubscription, ShoutTopic.topic == TopicSubscription.topic).\
+			where(TopicSubscription.subscriber == user.slug)
+		shouts_by_author = session.query(Shout).\
+			join(ShoutAuthor).\
+			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
+			where(AuthorSubscription.subscriber == user.slug)
+		shouts_by_community = session.query(Shout).\
+			join(Community).\
+			join(CommunitySubscription).\
+			where(CommunitySubscription.subscriber == user.slug)
+		shouts = shouts_by_topic.union(shouts_by_author).\
+			union(shouts_by_community).\
+			order_by(desc(Shout.createdAt)).\
+			limit(size).\
+			offset( (page - 1) * size)
+
+	return shouts
+
+@query.field("shoutsCommentedByUser")
+async def shouts_commented_by_user(_, info, slug, page, size):
+	user = await UserStorage.get_user_by_slug(slug)
+	if not user:
+		return {}
+
+	with local_session() as session:
+		shouts = session.query(Shout).\
+			join(Comment).\
+			where(Comment.author == user.id).\
+			order_by(desc(Comment.createdAt)).\
+			limit(size).\
+			offset( (page - 1) * size)
+	return shouts
+

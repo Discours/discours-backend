@@ -18,6 +18,7 @@ from settings import JWT_AUTH_HEADER
 
 @mutation.field("confirmEmail")
 async def confirm(*_, confirm_token):
+	''' confirm owning email address '''
 	auth_token, user = await Authorize.confirm(confirm_token)
 	if auth_token:
 		user.emailConfirmed = True
@@ -29,6 +30,7 @@ async def confirm(*_, confirm_token):
 
 @mutation.field("registerUser")
 async def register(*_, email: str, password: str = ""):
+	''' creates new user account '''
 	with local_session() as session:
 		user = session.query(User).filter(User.email == email).first()
 	if user:
@@ -51,7 +53,8 @@ async def register(*_, email: str, password: str = ""):
 	return { "user": user }
 
 @mutation.field("requestPasswordUpdate")
-async def request_password_update(_, info, email):
+async def auth_forget(_, info, email):
+	''' send email to recover account '''
 	with local_session() as session:
 		user = session.query(User).filter(User.email == email).first()
 	if not user:
@@ -62,9 +65,10 @@ async def request_password_update(_, info, email):
 	return {}
 
 @mutation.field("updatePassword")
-async def update_password(_, info, password, token):
+async def auth_reset(_, info, password, resetToken):
+	''' set the new password '''
 	try:
-		user_id = await ResetPassword.verify(token)
+		user_id = await ResetPassword.verify(resetToken)
 	except InvalidToken as e:
 		return {"error" : e.message}
 
@@ -79,6 +83,7 @@ async def update_password(_, info, password, token):
 
 @query.field("signIn")
 async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
+
 	with local_session() as session:
 		orm_user = session.query(User).filter(User.email == email).first()
 	if orm_user is None:

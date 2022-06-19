@@ -257,113 +257,6 @@ async def recent_commented(_, info, page, size):
 	async with ShoutsCache.lock:
 		return ShoutsCache.recent_commented[(page - 1) * size : page * size]
 
-@mutation.field("createShout")
-@login_required
-async def create_shout(_, info, input):
-	user = info.context["request"].user
-
-	topic_slugs = input.get("topic_slugs", [])
-	if topic_slugs:
-		del input["topic_slugs"]
-
-	new_shout = Shout.create(**input)
-	ShoutAuthor.create(
-		shout = new_shout.slug,
-		user = user.slug)
-	
-	if "mainTopic" in input:
-		topic_slugs.append(input["mainTopic"])
-
-	for slug in topic_slugs:
-		topic = ShoutTopic.create(
-			shout = new_shout.slug,
-			topic = slug)
-	new_shout.topic_slugs = topic_slugs
-
-	task = GitTask(
-		input,
-		user.username,
-		user.email,
-		"new shout %s" % (new_shout.slug)
-		)
-		
-	await ShoutSubscriptions.send_shout(new_shout)
-
-	return {
-		"shout" : new_shout
-	}
-
-@mutation.field("updateShout")
-@login_required
-async def update_shout(_, info, input):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-
-	slug = input["slug"]
-
-	session = local_session()
-	user = session.query(User).filter(User.id == user_id).first()
-	shout = session.query(Shout).filter(Shout.slug == slug).first()
-
-	if not shout:
-		return {
-			"error" : "shout not found"
-		}
-
-	authors = [author.id for author in shout.authors]
-	if not user_id in authors:
-		scopes = auth.scopes
-		print(scopes)
-		if not Resource.shout_id in scopes:
-			return {
-				"error" : "access denied"
-			}
-
-	shout.update(input)
-	shout.updatedAt = datetime.now()
-	session.commit()
-	session.close()
-
-	for topic in input.get("topic_slugs", []):
-		ShoutTopic.create(
-			shout = slug,
-			topic = topic)
-
-	task = GitTask(
-		input,
-		user.username,
-		user.email,
-		"update shout %s" % (slug)
-		)
-
-	return {
-		"shout" : shout
-	}
-
-@mutation.field("rateShout")
-@login_required
-async def rate_shout(_, info, slug, value):
-	auth = info.context["request"].auth
-	user = info.context["request"].user
-
-	with local_session() as session:
-		rating = session.query(ShoutRating).\
-			filter(and_(ShoutRating.rater == user.slug, ShoutRating.shout == slug)).first()
-		if rating:
-			rating.value = value;
-			rating.ts = datetime.now()
-			session.commit()
-		else:
-			rating = ShoutRating.create(
-				rater = user.slug,
-				shout = slug,
-				value = value
-			)
-
-	await ShoutRatingStorage.update_rating(rating)
-
-	return {"error" : ""}
-
 @mutation.field("viewShout")
 async def view_shout(_, info, slug):
 	await ShoutViewStorage.inc_view(slug)
@@ -439,94 +332,61 @@ async def shouts_by_communities(_, info, slugs, page, size):
 			offset(page * size)
 	return shouts
 
-@query.field("shoutsSubscribed")
+@mutation.field("subscribe")
 @login_required
-async def shouts_subscribed(_, info, page, size):
+async def subscribe(_, info, subscription, slug):
 	user = info.context["request"].user
-	with local_session() as session:
-		shouts_by_topic = session.query(Shout).\
-			join(ShoutTopic).\
-			join(TopicSubscription, ShoutTopic.topic == TopicSubscription.topic).\
-			where(TopicSubscription.subscriber == user.slug)
-		shouts_by_author = session.query(Shout).\
-			join(ShoutAuthor).\
-			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
-			where(AuthorSubscription.subscriber == user.slug)
-		shouts_by_community = session.query(Shout).\
-			join(Community).\
-			join(CommunitySubscription).\
-			where(CommunitySubscription.subscriber == user.slug)
-		shouts = shouts_by_topic.union(shouts_by_author).\
-			union(shouts_by_community).\
-			order_by(desc(Shout.createdAt)).\
-			limit(size).\
-			offset( (page - 1) * size)
 
-	return shouts
+	try:
+		if subscription == "AUTHOR":
+			author_subscribe(user, slug)
+		elif subscription == "TOPIC":
+			topic_subscribe(user, slug)
+		elif subscription == "COMMUNITY":
+			community_subscribe(user, slug)
+	except Exception as e:
+		return {"error" : e}
 
-@query.field("shoutsReviewed")
+	return {}
+
+@mutation.field("unsubscribe")
 @login_required
-async def shouts_reviewed(_, info, page, size):
+async def unsubscribe(_, info, subscription, slug):
 	user = info.context["request"].user
-	with local_session() as session:
-		shouts_by_rating = session.query(Shout).\
-			join(ShoutRating).\
-			where(and_(Shout.publishedAt != None, ShoutRating.rater == user.slug))
-		shouts_by_comment = session.query(Shout).\
-			join(Comment).\
-			where(and_(Shout.publishedAt != None, Comment.author == user.id))
-		shouts = shouts_by_rating.union(shouts_by_comment).\
-			order_by(desc(Shout.publishedAt)).\
-			limit(size).\
-			offset( (page - 1) * size)
 
-	return shouts
+	try:
+		if subscription == "AUTHOR":
+			author_unsubscribe(user, slug)
+		elif subscription == "TOPIC":
+			topic_unsubscribe(user, slug)
+		elif subscription == "COMMUNITY":
+			community_unsubscribe(user, slug)
+	except Exception as e:
+		return {"error" : e}
 
-@query.field("shoutsCommentedByUser")
-async def shouts_commented_by_user(_, info, slug, page, size):
-	user = await UserStorage.get_user_by_slug(slug)
-	if not user:
-		return {}
+	return {}
 
-	with local_session() as session:
-		shouts = session.query(Shout).\
-			join(Comment).\
-			where(Comment.author == user.id).\
-			order_by(desc(Comment.createdAt)).\
-			limit(size).\
-			offset( (page - 1) * size)
-	return shouts
 
-@query.field("shoutsRatedByUser")
+@mutation.field("rateShout")
 @login_required
-async def shouts_rated_by_user(_, info, page, size):
+async def rate_shout(_, info, slug, value):
+	auth = info.context["request"].auth
 	user = info.context["request"].user
 
 	with local_session() as session:
-		shouts = session.query(Shout).\
-			join(ShoutRating).\
-			where(ShoutRating.rater == user.slug).\
-			order_by(desc(ShoutRating.ts)).\
-			limit(size).\
-			offset( (page - 1) * size)
+		rating = session.query(ShoutRating).\
+			filter(and_(ShoutRating.rater == user.slug, ShoutRating.shout == slug)).first()
+		if rating:
+			rating.value = value;
+			rating.ts = datetime.now()
+			session.commit()
+		else:
+			rating = ShoutRating.create(
+				rater = user.slug,
+				shout = slug,
+				value = value
+			)
 
-	return {
-		"shouts" : shouts
-	}
+	await ShoutRatingStorage.update_rating(rating)
 
-@query.field("userUnpublishedShouts")
-@login_required
-async def user_unpublished_shouts(_, info, page, size):
-	user = info.context["request"].user
-
-	with local_session() as session:
-		shouts = session.query(Shout).\
-			join(ShoutAuthor).\
-			where(and_(Shout.publishedAt == None, ShoutAuthor.user == user.slug)).\
-			order_by(desc(Shout.createdAt)).\
-			limit(size).\
-			offset( (page - 1) * size)
-
-	return {
-		"shouts" : shouts
-	}
+	return {"error" : ""}

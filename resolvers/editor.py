@@ -1,123 +1,109 @@
-from orm import Proposal, ProposalRating
+from orm import Shout, ShoutRating, ShoutRatingStorage
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 import asyncio
 from datetime import datetime
 
-class ProposalResult:
-	def __init__(self, status, proposal):
-		self.status = status
-		self.proposal = proposal
 
-@mutation.field("createProposal")
+@mutation.field("createShout")
 @login_required
-async def create_proposal(_, info, body, shout, range = None):
+async def create_shout(_, info, input):
+	user = info.context["request"].user
+
+	topic_slugs = input.get("topic_slugs", [])
+	if topic_slugs:
+		del input["topic_slugs"]
+
+	new_shout = Shout.create(**input)
+	ShoutAuthor.create(
+		shout = new_shout.slug,
+		user = user.slug)
+	
+	if "mainTopic" in input:
+		topic_slugs.append(input["mainTopic"])
+
+	for slug in topic_slugs:
+		topic = ShoutTopic.create(
+			shout = new_shout.slug,
+			topic = slug)
+	new_shout.topic_slugs = topic_slugs
+
+	task = GitTask(
+		input,
+		user.username,
+		user.email,
+		"new shout %s" % (new_shout.slug)
+		)
+		
+	await ShoutSubscriptions.send_shout(new_shout)
+
+	return {
+		"shout" : new_shout
+	}
+
+@mutation.field("updateShout")
+@login_required
+async def update_shout(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
-	proposal = Proposal.create(
-		createdBy = user_id,
-		body = body,
-		shout = shout,
-		range = range
+	slug = input["slug"]
+
+	session = local_session()
+	user = session.query(User).filter(User.id == user_id).first()
+	shout = session.query(Shout).filter(Shout.slug == slug).first()
+
+	if not shout:
+		return {
+			"error" : "shout not found"
+		}
+
+	authors = [author.id for author in shout.authors]
+	if not user_id in authors:
+		scopes = auth.scopes
+		print(scopes)
+		if not Resource.shout_id in scopes:
+			return {
+				"error" : "access denied"
+			}
+
+	shout.update(input)
+	shout.updatedAt = datetime.now()
+	session.commit()
+	session.close()
+
+	for topic in input.get("topic_slugs", []):
+		ShoutTopic.create(
+			shout = slug,
+			topic = topic)
+
+	task = GitTask(
+		input,
+		user.username,
+		user.email,
+		"update shout %s" % (slug)
 		)
 
-	result = ProposalResult("NEW", proposal)
-	await ProposalSubscriptions.put(result)
+	return {
+		"shout" : shout
+	}
 
-	return {"proposal": proposal}
-
-@mutation.field("updateProposal")
+@mutation.field("deleteShout")
 @login_required
-async def update_proposal(_, info, id, body):
+async def delete_shout(_, info, slug):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
 	with local_session() as session:
-		proposal = session.query(Proposal).filter(Proposal.id == id).first()
-        shout = session.query(Shout.slug === proposal.shout)
-		if not proposal:
-			return {"error": "invalid proposal id"}
-		if proposal.author != user_id:
-			return {"error": "access denied"}
-		proposal.body = body
-		proposal.updatedAt = datetime.now()
-		session.commit()
-
-	result = ProposalResult("UPDATED", proposal)
-	await ProposalSubscriptions.put(result)
-
-	return {"proposal": proposal}
-
-@mutation.field("deleteProposal")
-@login_required
-async def delete_proposal(_, info, id):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-
-	with local_session() as session:
-		proposal = session.query(Proposal).filter(Proposal.id == id).first()
-		if not proposal:
-			return {"error": "invalid proposal id"}
-		if proposal.createdBy != user_id: 
+		shout = session.query(Shout).filter(Shout.slug == slug).first()
+		authors = [author.id for author in shout.authors]
+		if not comment:
+			return {"error": "invalid shout slug"}
+		if user_id not in authors:
 			return {"error": "access denied"}
 
-		proposal.deletedAt = datetime.now()
+		shout.deletedAt = datetime.now()
 		session.commit()
-
-	result = ProposalResult("DELETED", proposal)
-	await ProposalSubscriptions.put(result)
-
-	return {}
-
-@mutation.field("rateProposal")
-@login_required
-async def rate_proposal(_, info, id, value):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-	
-	with local_session() as session:
-		proposal = session.query(Proposal).filter(Proposal.id == id).first()
-		if not proposal:
-			return {"error": "invalid proposal id"}
-
-		rating = session.query(ProposalRating).\
-			filter(ProposalRating.proposal_id == id and ProposalRating.createdBy == user_id).first()
-		if rating:
-			rating.value = value
-			session.commit()
-	
-	if not rating:
-		ProposalRating.create(
-			proposal_id = id,
-			createdBy = user_id,
-			value = value)
-
-	result = ProposalResult("UPDATED_RATING", proposal)
-	await ProposalSubscriptions.put(result)
-
-	return {}
-
-
-@mutation.field("acceptProposal")
-@login_required
-async def accept_proposal(_, info, id):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
-
-	with local_session() as session:
-		proposal = session.query(Proposal).filter(Proposal.id == id).first()
-		if not proposal:
-			return {"error": "invalid proposal id"}
-		if proposal.acceptedBy == user_id: # TODO: manage ACL here to give access all editors
-			return {"error": "access denied"}
-
-		proposal.acceptedAt = datetime.now()
-		proposal.acceptedBy = user_id 
-		session.commit()
-
-	result = ProposalResult("ACCEPTED", proposal)
-	await ProposalSubscriptions.put(result)
 
 	return {}

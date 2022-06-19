@@ -126,14 +126,25 @@ type Mutation {
   createTopic(input: TopicInput!): TopicResult!
   updateTopic(input: TopicInput!): TopicResult!
 
+  # comments
   createComment(body: String!, shout: String!, replyTo: Int): CommentResult!
   updateComment(id: Int!, body: String!): CommentResult!
   deleteComment(id: Int!): Result!
   rateComment(id: Int!, value: Int!): Result!
 
+  # community
   createCommunity(title: String!, desc: String!): Community!
   updateCommunity(community: CommunityInput!): Community!
   deleteCommunity(id: Int!): Result!
+
+  # proposal
+  createProposal(body: String!, range: String): Proposal!
+  updateProposal(body: String!, range: String): Proposal!
+  acceptProposal(id: Int!): Result!
+  declineProposal(id: Int!): Result!
+  disableProposal(id: Int!): Result!
+  deleteProposal(id: Int!): Result!
+  rateProposal(id: Int!): Result!
 
   subscribe(what: SubscriptionType!, slug: String!): Result!
   unsubscribe(what: SubscriptionType!, slug: String!): Result!
@@ -166,6 +177,9 @@ type Query {
   shoutsByAuthors(slugs: [String]!, page: Int!, size: Int!): [Shout]!
   shoutsByCommunities(slugs: [String]!, page: Int!, size: Int!): [Shout]!
   getShoutComments(slug: String!): [Comment]!
+
+  # collab
+  getShoutProposals(slug: String!): [Proposal]!
 
   # mainpage
   topViewed(page: Int!, size: Int!): [Shout]!
@@ -353,17 +367,29 @@ type Topic {
   topicStat: TopicStat
 }
 
+enum ProposalStatus {
+  NEW
+  UPDATED
+  UPDATED_RATING
+  ACCEPTED
+  DECLINED
+  DISABLED
+  DELETED
+}
+
 type Proposal {
-  createdBy: String!
-  shout: string!
+  shout: String!
   range: String # full / 0:2340
   body: String!
   createdAt: DateTime!
+  createdBy: String!
   updatedAt: DateTime
   acceptedAt: DateTime
-  acceptedBy: string
+  acceptedBy: Int
   declinedAt: DateTime
-  declinedBy: string
+  declinedBy: Int
+  disabledAt: DateTime
+  disabledBy: Int
 }
 
 type Token {

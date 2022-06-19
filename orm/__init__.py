@@ -6,9 +6,13 @@ from orm.notification import Notification
 from orm.shout import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay,\
 	ShoutRatingStorage, ShoutViewStorage
 from orm.base import Base, engine, local_session
-from orm.comment import Comment, CommentRating
+from orm.comment import Comment, CommentRating #, CommentRatingStorage
+from orm.proposal import Proposal, ProposalRating #, ProposalRatingStorage
 
-__all__ = ["User", "Role", "Community", "Operation", "Permission", "Shout", "Topic", "TopicSubscription", "Notification", "ShoutRating", "Comment", "CommentRating", "UserRating"]
+__all__ = ["User", "Role", "Community", "Operation", \
+    "Permission", "Shout", "Topic", "TopicSubscription", \
+        "Notification", "ShoutRating", "Comment", "CommentRating", \
+            "UserRating", "Proposal", "ProposalRating"]
 
 Base.metadata.create_all(engine)
 Operation.init_table()
@@ -19,6 +23,8 @@ Role.init_table()
 
 with local_session() as session:
 	ShoutRatingStorage.init(session)
+	# CommentRatingStorage.init(session)
+	# ProposalRatingStorage.init(session)
 	ShoutViewStorage.init(session)
 	RoleStorage.init(session)
 	UserStorage.init(session)
