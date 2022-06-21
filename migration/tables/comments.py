@@ -59,7 +59,7 @@ def migrate(entry, shouts_by_oid):
 			comment_dict['deletedBy'] = str(entry['updatedBy'])
 		if entry.get('updatedAt'):
 			comment_dict['updatedAt'] = date_parse(entry['updatedAt'])
-		  # comment_dict['updatedBy'] = str(entry.get('updatedBy', 0)) invalid keyword for Comment
+			# comment_dict['updatedBy'] = str(entry.get('updatedBy', 0)) invalid keyword for Comment
 		# print(comment_dict)
 		comment = Comment.create(**comment_dict)
 		comment_dict['id'] = comment.id

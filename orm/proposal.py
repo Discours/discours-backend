@@ -7,7 +7,7 @@ from orm.base import Base
 
 
 class ProposalRating(Base):
-	__tablename__ = "comment_rating"
+	__tablename__ = "proposal_rating"
 
 	id = None
 	proposal_id = Column(ForeignKey('proposal.id'), primary_key = True)

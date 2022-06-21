@@ -16,24 +16,24 @@ class MessageSubscription:
 	def __init__(self, chat_id):
 		self.chat_id = chat_id
 
-class MessageSubscriptions:
+class MessagesStorage:
 	lock = asyncio.Lock()
 	subscriptions = []
 
 	@staticmethod
 	async def register_subscription(subs):
-		async with MessageSubscriptions.lock:
-			MessageSubscriptions.subscriptions.append(subs)
+		async with MessagesStorage.lock:
+			MessagesStorage.subscriptions.append(subs)
 	
 	@staticmethod
 	async def del_subscription(subs):
-		async with MessageSubscriptions.lock:
-			MessageSubscriptions.subscriptions.remove(subs)
+		async with MessagesStorage.lock:
+			MessagesStorage.subscriptions.remove(subs)
 	
 	@staticmethod
 	async def put(message_result):
-		async with MessageSubscriptions.lock:
-			for subs in MessageSubscriptions.subscriptions:
+		async with MessagesStorage.lock:
+			for subs in MessagesStorage.subscriptions:
 				if message_result.message["chatId"] == subs.chat_id:
 					subs.queue.put_nowait(message_result)
 
@@ -165,7 +165,7 @@ async def create_message(_, info, chatId, body, replyTo = None):
 		await redis.execute("LPUSH", f"chats/{chatId}/unread/{user_slug}", str(message_id))
 
 	result = MessageResult("NEW", new_message)
-	await MessageSubscriptions.put(result)
+	await MessagesStorage.put(result)
 
 	return {"message" : new_message}
 
@@ -203,7 +203,7 @@ async def update_message(_, info, chatId, id, body):
 	await redis.execute("SET", f"chats/{chatId}/messages/{id}", json.dumps(message))
 
 	result = MessageResult("UPDATED", message)
-	await MessageSubscriptions.put(result)
+	await MessagesStorage.put(result)
 
 	return {"message" : message}
 
@@ -232,7 +232,7 @@ async def delete_message(_, info, chatId, id):
 		await redis.execute("LREM", f"chats/{chatId}/unread/{user_slug}", 0, str(id))
 
 	result = MessageResult("DELETED", message)
-	await MessageSubscriptions.put(result)
+	await MessagesStorage.put(result)
 
 	return {}
 
@@ -265,12 +265,12 @@ async def message_generator(obj, info, chatId):
 
 	try:
 		subs = MessageSubscription(chatId)
-		await MessageSubscriptions.register_subscription(subs)
+		await MessagesStorage.register_subscription(subs)
 		while True:
 			msg = await subs.queue.get()
 			yield msg
 	finally:
-		await MessageSubscriptions.del_subscription(subs)
+		await MessagesStorage.del_subscription(subs)
 
 @subscription.field("chatUpdated")
 def message_resolver(message, info, chatId):

@@ -201,7 +201,7 @@ type Query {
   getCommunity(slug: String): Community!
   getCommunities: [Community]!
 
-  shoutsSubscribed(page: Int!, size: Int!): [Shout]!
+  shoutCommentsSubscribed(slug: String!, page: Int!, size: Int!): [Shout]!
   shoutsReviewed(page: Int!, size: Int!): [Shout]!
   recentCommented(page: Int!, size: Int!): [Shout]!
 }

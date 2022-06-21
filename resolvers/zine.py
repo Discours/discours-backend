@@ -1,12 +1,13 @@
-from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, User, Community, Resource,\
-	ShoutRatingStorage, ShoutViewStorage, Comment, CommentRating, Topic
+from orm import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay, \
+    User, Community, Resource, ShoutRatingStorage, ShoutViewStorage, \
+        Comment, CommentRating, Topic, ShoutCommentsSubscription
 from orm.community import CommunitySubscription
 from orm.base import local_session
 from orm.user import UserStorage, AuthorSubscription
 from orm.topic import TopicSubscription
 
 from resolvers.base import mutation, query
-
+from resolvers.comments import comments_subscribe, comments_unsubscribe
 from auth.authenticate import login_required
 from settings import SHOUTS_REPO
 
@@ -207,26 +208,6 @@ class ShoutsCache:
 				print("shouts cache worker error = %s" % (err))
 			await asyncio.sleep(ShoutsCache.period)
 
-class ShoutSubscriptions:
-	lock = asyncio.Lock()
-	subscriptions = []
-
-	@staticmethod
-	async def register_subscription(subs):
-		async with ShoutSubscriptions.lock:
-			ShoutSubscriptions.subscriptions.append(subs)
-	
-	@staticmethod
-	async def del_subscription(subs):
-		async with ShoutSubscriptions.lock:
-			ShoutSubscriptions.subscriptions.remove(subs)
-	
-	@staticmethod
-	async def send_shout(shout):
-		async with ShoutSubscriptions.lock:
-			for subs in ShoutSubscriptions.subscriptions:
-				subs.put_nowait(shout)
-
 @query.field("topViewed")
 async def top_viewed(_, info, page, size):
 	async with ShoutsCache.lock:
@@ -344,6 +325,8 @@ async def subscribe(_, info, subscription, slug):
 			topic_subscribe(user, slug)
 		elif subscription == "COMMUNITY":
 			community_subscribe(user, slug)
+		elif comments_subscription == "COMMENTS":
+			comments_subscribe(user, slug)
 	except Exception as e:
 		return {"error" : e}
 
@@ -361,6 +344,8 @@ async def unsubscribe(_, info, subscription, slug):
 			topic_unsubscribe(user, slug)
 		elif subscription == "COMMUNITY":
 			community_unsubscribe(user, slug)
+		elif subscription == "COMMENTS":
+			comments_unsubscribe(user, slug)
 	except Exception as e:
 		return {"error" : e}
 

@@ -4,7 +4,7 @@ from orm.user import User, UserRating, UserRole, UserStorage
 from orm.topic import Topic, TopicSubscription, TopicStorage
 from orm.notification import Notification
 from orm.shout import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay,\
-	ShoutRatingStorage, ShoutViewStorage
+	ShoutRatingStorage, ShoutViewStorage, ShoutCommentsSubscription
 from orm.base import Base, engine, local_session
 from orm.comment import Comment, CommentRating #, CommentRatingStorage
 from orm.proposal import Proposal, ProposalRating #, ProposalRatingStorage

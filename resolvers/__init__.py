@@ -2,7 +2,7 @@ from resolvers.auth import login, sign_out, is_email_used, register, confirm, au
 from resolvers.zine import get_shout_by_slug, subscribe, unsubscribe, view_shout, rate_shout, \
 	top_month, top_overall, recent_published, recent_all, top_viewed, \
 		shouts_by_authors, shouts_by_topics, shouts_by_communities
-from resolvers.profile import get_users_by_slugs, get_current_user, shouts_reviewed, shouts_subscribed
+from resolvers.profile import get_users_by_slugs, get_current_user, shouts_reviewed, shout_comments_subscribed
 from resolvers.topics import topic_subscribe, topic_unsubscribe, topics_by_author, \
 	topics_by_community, topics_by_slugs
 from resolvers.comments import create_comment, delete_comment, update_comment, rate_comment
@@ -30,7 +30,7 @@ __all__ = [
 	"shouts_by_topics",
 	"shouts_by_authors",
 	"shouts_by_communities",
-	"shouts_subscribed",
+	"shout_comments_subscribed",
 	"shouts_reviewed",
 	"top_month",
 	"top_overall",
@@ -59,6 +59,8 @@ __all__ = [
 	
 	# comments
 	"get_shout_comments",
+	"comments_subscribe",
+	"comments_unsubscribe",
 	"create_comment",
 	"update_comment",
 	"delete_comment",

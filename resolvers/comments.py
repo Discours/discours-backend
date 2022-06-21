@@ -1,5 +1,6 @@
 from orm import Comment, CommentRating
 from orm.base import local_session
+from orm.shout import ShoutCommentsSubscription
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 import asyncio
@@ -10,36 +11,50 @@ class CommentResult:
 		self.status = status
 		self.comment = comment
 
-class CommentSubscription:
+class ShoutCommentsSubscription:
 	queue = asyncio.Queue()
 
 	def __init__(self, shout_slug):
 		self.shout_slug = shout_slug
 
-#TODO: one class for MessageSubscription and CommentSubscription
-class CommentSubscriptions:
+class ShoutCommentsStorage:
 	lock = asyncio.Lock()
 	subscriptions = []
 
 	@staticmethod
 	async def register_subscription(subs):
-		self = CommentSubscriptions
+		self = ShoutCommentsStorage
 		async with self.lock:
 			self.subscriptions.append(subs)
 	
 	@staticmethod
 	async def del_subscription(subs):
-		self = CommentSubscriptions
+		self = ShoutCommentsStorage
 		async with self.lock:
 			self.subscriptions.remove(subs)
 	
 	@staticmethod
 	async def put(comment_result):
-		self = CommentSubscriptions
+		self = ShoutCommentsStorage
 		async with self.lock:
 			for subs in self.subscriptions:
 				if comment_result.comment.shout == subs.shout_slug:
 					subs.queue.put_nowait(comment_result)
+
+def comments_subscribe(user, slug):
+	ShoutCommentsSubscription.create(
+		subscriber = user.slug, 
+		shout = slug)
+
+def comments_unsubscribe(user, slug):
+	with local_session() as session:
+		sub = session.query(ShoutCommentsSubscription).\
+			filter(and_(ShoutCommentsSubscription.subscriber == user.slug, ShoutCommentsSubscription.shout == slug)).\
+			first()
+		if not sub:
+			raise Exception("subscription not exist")
+		session.delete(sub)
+		session.commit()
 
 @mutation.field("createComment")
 @login_required
@@ -55,7 +70,7 @@ async def create_comment(_, info, body, shout, replyTo = None):
 		)
 
 	result = CommentResult("NEW", comment)
-	await CommentSubscriptions.put(result)
+	await ShoutCommentsStorage.put(result)
 
 	return {"comment": comment}
 
@@ -78,7 +93,7 @@ async def update_comment(_, info, id, body):
 		session.commit()
 
 	result = CommentResult("UPDATED", comment)
-	await CommentSubscriptions.put(result)
+	await ShoutCommentsStorage.put(result)
 
 	return {"comment": comment}
 
@@ -99,7 +114,7 @@ async def delete_comment(_, info, id):
 		session.commit()
 
 	result = CommentResult("DELETED", comment)
-	await CommentSubscriptions.put(result)
+	await ShoutCommentsStorage.put(result)
 
 	return {}
 
@@ -127,21 +142,6 @@ async def rate_comment(_, info, id, value):
 			value = value)
 
 	result = CommentResult("UPDATED_RATING", comment)
-	await CommentSubscriptions.put(result)
+	await ShoutCommentsStorage.put(result)
 
 	return {}
-
-@subscription.source("commentUpdated")
-async def comment_generator(obj, info, shout):
-	try:
-		subs = CommentSubscription(shout)
-		await CommentSubscriptions.register_subscription(subs)
-		while True:
-			result = await subs.queue.get()
-			yield result
-	finally:
-		await CommentSubscriptions.del_subscription(subs)
-
-@subscription.field("commentUpdated")
-def comment_resolver(result, info, shout):
-	return result

@@ -64,6 +64,7 @@ def users(users_by_oid, users_by_slug, users_data):
 		users_by_slug[user['slug']] = user # public
 		id_map[user['old_id']] = user['slug']
 		counter += 1
+	print(' - * - stage 2 users migration - * -')
 	for entry in users_data:
 		migrateUser_2stage(entry, id_map)
 	try:
@@ -72,7 +73,7 @@ def users(users_by_oid, users_by_slug, users_data):
 		print(str(len(users_by_slug.items())) + ' users migrated')
 	except Exception:
 		print('json dump error')
-		print(users_by_oid)
+		# print(users_by_oid)
 
 
 def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):

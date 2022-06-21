@@ -33,6 +33,8 @@ def migrate(entry):
 	res = {}
 	res['old_id'] = entry['_id']
 	res['password'] = entry['services']['password'].get('bcrypt', '')
+	del entry['services']
+	del entry['subscribedTo']
 	res['username'] = entry['emails'][0]['address']
 	res['email'] = res['username']
 	res['wasOnlineAt'] = parse(entry.get('loggedInAt', entry['createdAt']))
@@ -43,12 +45,11 @@ def migrate(entry):
 	res['notifications'] = []
 	res['links'] = []
 	res['muted'] = False
-	res['bio'] = html2text(entry.get('bio', ''))
 	res['name'] = 'anonymous'
-	if not res['bio'].strip() or res['bio'] == '\n': del res['bio']
 	if entry.get('profile'):
 		# slug
 		res['slug'] = entry['profile'].get('path')
+		res['bio'] = entry['profile'].get('bio','')
 
 		# userpic
 		try: res['userpic'] = 'https://assets.discours.io/unsafe/100x/' + entry['profile']['thumborId']
@@ -86,7 +87,9 @@ def migrate(entry):
 	old = res['old_id']
 	user = User.create(**res.copy())
 	res['id'] = user.id
-
+	if res['slug'] == 'vorovich':
+		print(entry)
+		print(res)
 	return res
 
 def migrate_email_subscription(entry):
@@ -101,6 +104,7 @@ def migrate_2stage(entry, id_map):
 		rater_old_id = rating_entry['createdBy']
 		rater_slug = id_map.get(rater_old_id)
 		if not rater_slug:
+			print(rating_entry)
 			continue
 		old_id = entry['_id']
 		user_rating_dict = {

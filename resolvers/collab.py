@@ -44,7 +44,7 @@ async def create_proposal(_, info, body, shout, range = None):
 		)
 
 	result = ProposalResult("NEW", proposal)
-	await ProposalSubscriptions.put(result)
+	await ProposalStorage.put(result)
 
 	return {"proposal": proposal}
 
@@ -67,7 +67,7 @@ async def update_proposal(_, info, id, body):
 		session.commit()
 
 	result = ProposalResult("UPDATED", proposal)
-	await ProposalSubscriptions.put(result)
+	await ProposalStorage.put(result)
 
 	return {"proposal": proposal}
 
@@ -88,7 +88,7 @@ async def delete_proposal(_, info, id):
 		session.commit()
 
 	result = ProposalResult("DELETED", proposal)
-	await ProposalSubscriptions.put(result)
+	await ProposalStorage.put(result)
 
 	return {}
 
@@ -109,7 +109,7 @@ async def disable_proposal(_, info, id):
 		session.commit()
 
 	result = ProposalResult("DISABLED", proposal)
-	await ProposalSubscriptions.put(result)
+	await ProposalStorage.put(result)
 
 	return {}
 
@@ -137,7 +137,7 @@ async def rate_proposal(_, info, id, value):
 			value = value)
 
 	result = ProposalResult("UPDATED_RATING", proposal)
-	await ProposalSubscriptions.put(result)
+	await ProposalStorage.put(result)
 
 	return {}
 
@@ -162,7 +162,7 @@ async def accept_proposal(_, info, id):
 		session.commit()
 
 	result = ProposalResult("ACCEPTED", proposal)
-	await ProposalSubscriptions.put(result)
+	await ProposalStorage.put(result)
 
 	return {}
 
@@ -186,6 +186,6 @@ async def decline_proposal(_, info, id):
 		session.commit()
 
 	result = ProposalResult("DECLINED", proposal)
-	await ProposalSubscriptions.put(result)
+	await ProposalStorage.put(result)
 
 	return {}

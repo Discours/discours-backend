@@ -36,7 +36,7 @@ async def create_shout(_, info, input):
 		"new shout %s" % (new_shout.slug)
 		)
 		
-	await ShoutSubscriptions.send_shout(new_shout)
+	await ShoutCommentsStorage.send_shout(new_shout)
 
 	return {
 		"shout" : new_shout

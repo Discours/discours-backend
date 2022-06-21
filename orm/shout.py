@@ -11,6 +11,14 @@ from functools import reduce
 
 import asyncio
 
+class ShoutCommentsSubscription(Base):
+	__tablename__ = "shout_comments_subscription"
+	
+	id = None
+	subscriber = Column(ForeignKey('user.slug'), primary_key = True)
+	shout = Column(ForeignKey('shout.slug'), primary_key = True)
+	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
+
 class ShoutAuthor(Base):
 	__tablename__ = "shout_author"
 	

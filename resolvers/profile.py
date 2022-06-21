@@ -4,8 +4,6 @@ from orm.comment import Comment
 from orm.base import local_session
 from orm.topic import Topic, TopicSubscription
 from resolvers.base import mutation, query, subscription
-from resolvers.topics import topic_subscribe, topic_unsubscribe
-from resolvers.community import community_subscribe, community_unsubscribe, get_subscribed_communities
 from auth.authenticate import login_required
 
 from inbox_resolvers.inbox import get_total_unread_messages_for_user
@@ -205,25 +203,16 @@ async def shouts_reviewed(_, info, page, size):
 
 	return shouts
 
-@query.field("shoutsSubscribed")
+@query.field("shoutCommentsSubscribed")
 @login_required
-async def shouts_subscribed(_, info, page, size):
+async def shout_comments_subscribed(_, info, slug, page, size):
 	user = info.context["request"].user
 	with local_session() as session:
-		shouts_by_topic = session.query(Shout).\
-			join(ShoutTopic).\
-			join(TopicSubscription, ShoutTopic.topic == TopicSubscription.topic).\
-			where(TopicSubscription.subscriber == user.slug)
-		shouts_by_author = session.query(Shout).\
-			join(ShoutAuthor).\
-			join(AuthorSubscription, ShoutAuthor.user == AuthorSubscription.author).\
-			where(AuthorSubscription.subscriber == user.slug)
-		shouts_by_community = session.query(Shout).\
-			join(Community).\
-			join(CommunitySubscription).\
-			where(CommunitySubscription.subscriber == user.slug)
-		shouts = shouts_by_topic.union(shouts_by_author).\
-			union(shouts_by_community).\
+		comments_by_shout = session.query(Comment).\
+			join(ShoutCommentsSubscription).\
+			join(ShoutCommentsSubscription, ShoutCommentsSubscription.shout == slug).\
+			where(ShoutCommentsSubscription.subscriber == user.slug)
+		comments = comments_by_shout.\
 			order_by(desc(Shout.createdAt)).\
 			limit(size).\
 			offset( (page - 1) * size)
