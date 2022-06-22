@@ -189,3 +189,56 @@ async def decline_proposal(_, info, id):
 	await ProposalStorage.put(result)
 
 	return {}
+
+
+@mutation.field("inviteAuthor")
+@login_required
+async def invite_author(_, author_slug, shout):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+
+	with local_session() as session:
+		shout = session.query(Shout).filter(Shout.slug == shout).first()
+		if not shout:
+			return {"error": "invalid shout slug"}
+		authors = [author.id for author in shout.authors]
+		if user_id not in authors:
+			return {"error": "access denied"}
+		author = session.query(User).filter(User.slug == author_slug).first()
+		if author.id in authors:
+			return {"error": "already added"}
+		shout.authors.append(author)
+		session.commit()
+
+	# result = Result("INVITED")
+	# FIXME: await ShoutStorage.put(result)
+
+	# TODO: email notify
+
+	return {}
+
+@mutation.field("removeAuthor")
+@login_required
+async def invite_author(_, author_slug, shout):
+	auth = info.context["request"].auth
+	user_id = auth.user_id
+
+	with local_session() as session:
+		shout = session.query(Shout).filter(Shout.slug == shout).first()
+		if not shout:
+			return {"error": "invalid shout slug"}
+		authors = [author.id for author in shout.authors]
+		if user_id not in authors:
+			return {"error": "access denied"}
+		author = session.query(User).filter(User.slug == author_slug).first()
+		if author.id not in authors:
+			return {"error": "not in authors"}
+		shout.authors.remove(author)
+		session.commit()
+
+	# result = Result("INVITED")
+	# FIXME: await ShoutStorage.put(result)
+
+	# TODO: email notify
+
+	return {}

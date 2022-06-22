@@ -7,7 +7,8 @@ from resolvers.topics import topic_subscribe, topic_unsubscribe, topics_by_autho
 	topics_by_community, topics_by_slugs
 from resolvers.comments import create_comment, delete_comment, update_comment, rate_comment
 from resolvers.collab import get_shout_proposals, create_proposal, delete_proposal, \
-	update_proposal, rate_proposal, decline_proposal, disable_proposal, accept_proposal
+	update_proposal, rate_proposal, decline_proposal, disable_proposal, accept_proposal, \
+		invite_author, remove_author
 from resolvers.editor import create_shout, delete_shout, update_shout
 from resolvers.community import create_community, delete_community, get_community, get_communities
 
@@ -72,5 +73,7 @@ __all__ = [
 	"disable_proposal",
 	"accept_proposal",
 	"decline_proposal",
-	"delete_proposal"
+	"delete_proposal",
+	"invite_author",
+	"remove_author"
 	]

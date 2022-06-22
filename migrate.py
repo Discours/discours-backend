@@ -83,6 +83,14 @@ def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
 	if len(sys.argv) > 2: limit = int(sys.argv[2])
 	print('migrating %d topics...' % limit)
 	counter = 0
+	for tag in tags_data:
+		old_id = tag["createdBy"]
+		tag["createdBy"] = user_id_map.get(old_id, 0)
+		topic = migrateTag(tag)
+		topics_by_title[topic['title']] = topic
+		topics_by_oid[topic['tag_id']] = topic
+		if not topics_by_slug.get(topic['slug']): topics_by_slug[topic['slug']] = topic
+		counter += 1
 	for cat in cats_data:
 		old_id = cat["createdBy"]
 		# cat["createdBy"] = user_id_map[old_id]
@@ -90,15 +98,9 @@ def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
 		except Exception as e: raise e
 		topics_by_oid[topic['cat_id']] = topic
 		topics_by_slug[topic['slug']] = topic
+		topics_by_title[topic['title']] = topic
 		counter += 1
-	for tag in tags_data:
-		old_id = tag["createdBy"]
-		tag["createdBy"] = user_id_map.get(old_id, 0)
-		topic = migrateTag(tag)
-		topics_by_oid[topic['tag_id']] = topic
-		if not topics_by_slug.get(topic['slug']): topics_by_slug[topic['slug']] = topic
-		counter += 1
-	export_topics = dict(topics_by_slug.items()) # sorted(topics_by_slug.items(), key=lambda item: str(item[1]['createdAt']))) # NOTE: sorting does not work :)
+	export_topics = dict(topics_by_title.items())
 
 def shouts(content_data, shouts_by_slug, shouts_by_oid):
 	''' migrating content items one by one '''

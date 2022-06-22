@@ -137,6 +137,10 @@ type Mutation {
   updateCommunity(community: CommunityInput!): Community!
   deleteCommunity(id: Int!): Result!
 
+  # collab
+  inviteAuthor(author: String!, shout: String!): Result!
+  removeAuthor(author: String!, shout: String!): Result!
+  
   # proposal
   createProposal(body: String!, range: String): Proposal!
   updateProposal(body: String!, range: String): Proposal!
