@@ -4,7 +4,8 @@ from starlette.exceptions import HTTPException
 
 from auth.authenticate import EmailAuthenticate, ResetPassword
 
-from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN, RESET_PWD_URL, CONFIRM_EMAIL_URL
+from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN, RESET_PWD_URL, \
+	CONFIRM_EMAIL_URL, ERROR_URL_ON_FRONTEND
 
 MAILGUN_API_URL = "https://api.mailgun.net/v3/%s/messages" % (MAILGUN_DOMAIN)
 MAILGUN_FROM = "postmaster <postmaster@%s>" % (MAILGUN_DOMAIN)
@@ -45,9 +46,14 @@ async def send_email(user, url, text, token):
 async def email_authorize(request):
 	token = request.query_params.get('token')
 	if not token:
-		raise HTTPException(500, "invalid url")
+		url_with_error = "%s?error=%s" % (ERROR_URL_ON_FRONTEND, "INVALID_TOKEN")
+		return RedirectResponse(url = url_with_error)
 
-	auth_token, user = await EmailAuthenticate.authenticate(token)
+	try:
+		auth_token, user = await EmailAuthenticate.authenticate(token)
+	except:
+		url_with_error = "%s?error=%s" % (ERROR_URL_ON_FRONTEND, "INVALID_TOKEN")
+		return RedirectResponse(url = url_with_error)
 	
 	if not user.emailConfirmed:
 		with local_session() as session:
