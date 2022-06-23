@@ -1,6 +1,5 @@
 from orm import Comment, CommentRating
 from orm.base import local_session
-from orm.shout import ShoutCommentsSubscription
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 import asyncio
@@ -40,21 +39,6 @@ class ShoutCommentsStorage:
 			for subs in self.subscriptions:
 				if comment_result.comment.shout == subs.shout_slug:
 					subs.queue.put_nowait(comment_result)
-
-def comments_subscribe(user, slug):
-	ShoutCommentsSubscription.create(
-		subscriber = user.slug, 
-		shout = slug)
-
-def comments_unsubscribe(user, slug):
-	with local_session() as session:
-		sub = session.query(ShoutCommentsSubscription).\
-			filter(and_(ShoutCommentsSubscription.subscriber == user.slug, ShoutCommentsSubscription.shout == slug)).\
-			first()
-		if not sub:
-			raise Exception("subscription not exist")
-		session.delete(sub)
-		session.commit()
 
 @mutation.field("createComment")
 @login_required
