@@ -83,6 +83,7 @@ def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
 	if len(sys.argv) > 2: limit = int(sys.argv[2])
 	print('migrating %d topics...' % limit)
 	counter = 0
+	topics_by_title = {}
 	for tag in tags_data:
 		old_id = tag["createdBy"]
 		tag["createdBy"] = user_id_map.get(old_id, 0)
