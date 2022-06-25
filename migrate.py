@@ -166,8 +166,8 @@ def export_body(article, content_dict):
 	article = extract_images(article)
 	metadata = get_metadata(article)
 	content = frontmatter.dumps(frontmatter.Post(article['body'], **metadata))
-	open('../content/discours.io/'+slug+'.md', 'w').write(content)
-	open('../content/discours.io/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
+	open('../discoursio-web/content/' + article['layout'].lower() + '/' + slug + '.mdx', 'w').write(content)
+	# open('../content/discours.io/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
 
 def export_slug(slug, export_articles, export_authors, content_dict):
 	print('exporting %s ' % slug)

@@ -12,7 +12,8 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from orm.base import local_session
 from orm.community import Community
-	
+import os
+
 DISCOURS_USER = {
 	'id': 9999999,
 	'slug': 'discours',
@@ -124,30 +125,37 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		yt = m.get('youtubeId', '')
 		vm = m.get('vimeoId', '')
 		video_url = 'https://www.youtube.com/watch?v=' + yt if yt else '#'
+		therestof = html2text(m.get('body', entry.get('body', '')))
+		r['body'] = 'import { YouTube } from \"solid-social\"\n' + \
+			'<YouTube youtubeId=\"'''  + yt + '\" />\n\n' + therestof
 		if video_url == '#':
 			video_url = 'https://vimeo.com/' + vm if vm else '#'
+			r['body'] = 'import { Vimeo } from \"solid-social\"\n' + \
+				'<Vimeo vimeoId=\"'''  + vm + '\" />\n\n' + therestof
 		if video_url == '#':
 			print(entry.get('media', 'UNKNOWN MEDIA PROVIDER!'))
 			# raise Exception
-		therestof = html2text(m.get('body', ''))
-		r['body'] = 'import VideoPlayer from \"src/components/Article/VideoPlayer\"\n' + \
-			'<VideoPlayer src=\"'''  + video_url + '\" />\n\n' + therestof
 	elif entry.get('type') == 'Music':
-		r['body'] = 'import MusicPlayer from \"src/components/MusicPlayer\"\n'
+		r['body'] = ''
 		for m in entry['media']:
 			if m == { 'main': 'true' } or m == { 'main': True } or m == {}:
 				continue
-			# TODO: mark highlighted track isMain == True
-			try: r['body'] += '<MusicPlayer src=\"' + m['fileUrl'] + '\"'
-			except: print(m)
-			try: r['body'] += ' title=\"' + m['title'] + '\"'
-			except: print(m)
-			r['body'] += ' />\n\n'
-			r['body'] += html2text(m.get('body', ''))
+			else:
+				# TODO: mark highlighted track isMain == True
+				fileUrl = m.get('fileUrl', '')
+				if not fileUrl:
+					print(m)
+					continue
+				else:
+					r['body'] = 'import MusicPlayer from \"src/components/MusicPlayer\"\n\n'
+					r['body'] += '<MusicPlayer src=\"' + fileUrl + '\" title=\"' + m.get('title','') + '\" />\n'
+				r['body'] += html2text(entry.get('body', ''))
 	elif entry.get('type') == 'Image':
 		m = r.get('media')
-		try: r['body'] = '<img src=\"' + r['cover'] + '\" />'
-		except: print(entry)
+		r['body'] = ''
+		if 'cover' in r: r['body'] = '<img src=\"' + r.get('cover', '') + '\" />'
+		r['body'] += entry.get('body', '')
+		if r['body'] == '': print(entry)
 	if r.get('body') is None:
 		body_orig = entry.get('body', '')
 		body_html = str(BeautifulSoup(body_orig, features="html.parser"))
@@ -191,7 +199,10 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		metadata = get_metadata(shout_dict)
 		content = frontmatter.dumps(frontmatter.Post(body, **metadata))
 		ext = 'mdx'
-		open('../discoursio-web/content/' + r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
+		parentDir = '/'.join(os.getcwd().split('/')[:-1])
+		filepath =  parentDir + '/discoursio-web/content/' + r['layout'] + '/' + r['slug'] + '.' + ext
+		# print(filepath)
+		open(filepath, 'w').write(content)
 	try:
 		shout_dict['createdAt'] = date_parse(r.get('createdAt')) if entry.get('createdAt') else ts
 		shout_dict['publishedAt'] = date_parse(entry.get('publishedAt')) if entry.get('published') else None

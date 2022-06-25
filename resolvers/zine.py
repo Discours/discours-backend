@@ -57,7 +57,7 @@ class GitTask:
 		#output = subprocess.check_output(cmd, shell=True)
 		#print(output)
 
-		shout_filename = "%s.md" % (self.slug)
+		shout_filename = "%s.mdx" % (self.slug)
 		shout_full_filename = "%s/%s" % (repo_path, shout_filename)
 		with open(shout_full_filename, mode='w', encoding='utf-8') as shout_file:
 			shout_file.write(self.shout_body)

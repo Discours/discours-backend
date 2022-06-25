@@ -385,7 +385,7 @@ class HTML2Text(html.parser.HTMLParser):
 					elif self.current_class == 'lead' and \
 						self.inheader == False and \
 						self.span_highlight == False:
-							self.o('==') # NOTE: but CriticMarkup uses {== ==}
+							self.o("==") # NOTE: but CriticMarkup uses {== ==}
 							self.span_lead = True
 			else:
 				if self.span_highlight:
@@ -478,7 +478,8 @@ class HTML2Text(html.parser.HTMLParser):
 			else:
 				strong = self.strong_mark
 
-			self.o(strong)
+			if not self.span_lead and not self.span_highlight:
+				self.o(strong)
 			if start:
 				self.stressed = True
 
