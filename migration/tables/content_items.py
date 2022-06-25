@@ -109,7 +109,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
 	if entry.get('type') == 'Literature':
 		media = entry.get('media', '')
 		# print(media[0]['literatureBody'])
-		if type(media) == list:
+		if type(media) == list and media:
 			body_orig = media[0].get('literatureBody', '')
 			if body_orig == '':
 				print('EMPTY BODY!')
@@ -191,7 +191,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		metadata = get_metadata(shout_dict)
 		content = frontmatter.dumps(frontmatter.Post(body, **metadata))
 		ext = 'mdx'
-		open('../discoursio-web/content/' + r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
+		#open('../discoursio-web/content/' + r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
 	try:
 		shout_dict['createdAt'] = date_parse(r.get('createdAt')) if entry.get('createdAt') else ts
 		shout_dict['publishedAt'] = date_parse(entry.get('publishedAt')) if entry.get('published') else None
