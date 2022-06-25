@@ -6,7 +6,7 @@ authors = ["Discours DevTeam <dev@discours.io>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 html2text = "*"
 aioredis = "*"
 ariadne = "*"
