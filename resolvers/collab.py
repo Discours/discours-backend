@@ -219,7 +219,7 @@ async def invite_author(_, author_slug, shout):
 
 @mutation.field("removeAuthor")
 @login_required
-async def invite_author(_, author_slug, shout):
+async def remove_author(_, author_slug, shout):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 

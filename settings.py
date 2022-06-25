@@ -8,6 +8,7 @@ BACKEND_URL = environ.get("BACKEND_URL") or "https://localhost:8080"
 OAUTH_CALLBACK_URL = environ.get("OAUTH_CALLBACK_URL") or "https://localhost:8080"
 RESET_PWD_URL = environ.get("RESET_PWD_URL") or "https://localhost:8080/reset_pwd"
 CONFIRM_EMAIL_URL = environ.get("CONFIRM_EMAIL_URL") or "https://new.discours.io"
+ERROR_URL_ON_FRONTEND = environ.get("ERROR_URL_ON_FRONTEND") or "https://new.discours.io"
 
 DB_URL = environ.get("DATABASE_URL") or environ.get("DB_URL") or "sqlite:///db.sqlite3"
 JWT_ALGORITHM = "HS256"

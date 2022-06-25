@@ -4,25 +4,35 @@ from starlette.exceptions import HTTPException
 
 from auth.authenticate import EmailAuthenticate, ResetPassword
 
-from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN, RESET_PWD_URL, CONFIRM_EMAIL_URL
+from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN, RESET_PWD_URL, \
+	CONFIRM_EMAIL_URL, ERROR_URL_ON_FRONTEND
 
 MAILGUN_API_URL = "https://api.mailgun.net/v3/%s/messages" % (MAILGUN_DOMAIN)
 MAILGUN_FROM = "postmaster <postmaster@%s>" % (MAILGUN_DOMAIN)
 
 AUTH_URL = "%s/email_authorize" % (BACKEND_URL)
 
+email_templates = {"confirm_email" : "", "auth_email" : "", "reset_password_email" : ""}
+
+def load_email_templates():
+	for name in email_templates:
+		filename = "templates/%s.tmpl" % name
+		with open(filename) as f:
+			email_templates[name] = f.read()
+	print("all email templates loaded")
+
 async def send_confirm_email(user):
-	text = "<html><body>To confirm registration follow the <a href='%s'>link</link></body></html>"
+	text = email_templates["confirm_email"]
 	token = await EmailAuthenticate.get_email_token(user)
 	await send_email(user, AUTH_URL, text, token)
 
 async def send_auth_email(user):
-	text = "<html><body>To enter the site follow the <a href='%s'>link</link></body></html>"
+	text = email_templates["auth_email"]
 	token = await EmailAuthenticate.get_email_token(user)
 	await send_email(user, AUTH_URL, text, token)
 
 async def send_reset_password_email(user):
-	text = "<html><body>To reset password follow the <a href='%s'>link</link></body></html>"
+	text = email_templates["reset_password_email"]
 	token = await ResetPassword.get_reset_token(user)
 	await send_email(user, RESET_PWD_URL, text, token)
 
@@ -45,9 +55,14 @@ async def send_email(user, url, text, token):
 async def email_authorize(request):
 	token = request.query_params.get('token')
 	if not token:
-		raise HTTPException(500, "invalid url")
+		url_with_error = "%s?error=%s" % (ERROR_URL_ON_FRONTEND, "INVALID_TOKEN")
+		return RedirectResponse(url = url_with_error)
 
-	auth_token, user = await EmailAuthenticate.authenticate(token)
+	try:
+		auth_token, user = await EmailAuthenticate.authenticate(token)
+	except:
+		url_with_error = "%s?error=%s" % (ERROR_URL_ON_FRONTEND, "INVALID_TOKEN")
+		return RedirectResponse(url = url_with_error)
 	
 	if not user.emailConfirmed:
 		with local_session() as session:
