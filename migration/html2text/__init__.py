@@ -369,15 +369,17 @@ class HTML2Text(html.parser.HTMLParser):
                         self.o('`') # NOTE: same as <code>
                         self.span_hightlight = True
                     elif attrs['class'] == 'lead':
-                        self.o('==') # NOTE: but CriticMarkup uses {== ==}
-                        self.span_lead = True
+                        if self.span_lead == False:
+                            self.o('==\n') # NOTE: but CriticMarkup uses {== ==}
+                            self.span_lead = True
             else:
                 if self.span_hightlight:
                     self.o('`')
                     self.span_hightlight = False
                 elif self.span_lead:
-                    self.o('==')
-                    self.span_lead = False
+                    if self.span_lead == True:
+                        self.o('\n==')
+                        self.span_lead = False
 
         if tag in ["p", "div"]:
             if self.google_doc:
