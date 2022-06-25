@@ -174,7 +174,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
 	shout_dict['authors'] = [ author, ]
 	
 	if entry['published']:
-		metadata = get_metadata(r)
+		metadata = get_metadata(shout_dict)
 		content = frontmatter.dumps(frontmatter.Post(body, **metadata))
 		ext = 'md'
 		open('migration/content/' + r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
