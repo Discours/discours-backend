@@ -34,7 +34,7 @@ def migrate(entry):
 	res['old_id'] = entry['_id']
 	res['password'] = entry['services']['password'].get('bcrypt', '')
 	del entry['services']
-	del entry['subscribedTo']
+	if entry.get('subscribedTo', '') != '': del entry['subscribedTo']
 	res['username'] = entry['emails'][0]['address']
 	res['email'] = res['username']
 	res['wasOnlineAt'] = parse(entry.get('loggedInAt', entry['createdAt']))
