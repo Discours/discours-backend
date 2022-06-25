@@ -110,7 +110,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
 	if entry.get('type') == 'Literature':
 		media = entry.get('media', '')
 		# print(media[0]['literatureBody'])
-		if type(media) == list:
+		if type(media) == list and media:
 			body_orig = media[0].get('literatureBody', '')
 			if body_orig == '':
 				print('EMPTY BODY!')
