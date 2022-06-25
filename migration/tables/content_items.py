@@ -39,6 +39,7 @@ def get_metadata(r):
 	metadata['createdAt'] = r.get('createdAt', ts)
 	metadata['layout'] = r['layout']
 	metadata['topics'] = [topic['slug'] for topic in r['topics']]
+	metadata['topics'].sort()
 	if r.get('cover', False):
 		metadata['cover'] = r.get('cover')
 	return metadata
@@ -80,7 +81,6 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		'createdAt': entry.get('createdAt', '2016-03-05 22:22:00.350000')
 	}
 	r['slug'] = entry.get('slug', '')
-	body_orig = entry.get('body', '')
 	if not r['slug'] and entry.get('friendlySlugs') is not None:
 		r['slug'] = entry['friendlySlugs']['slug'][0]['slug']
 		if(r['slug'] is None):
@@ -94,12 +94,12 @@ def migrate(entry, users_by_oid, topics_by_oid):
 	mainTopic = topics_by_oid.get(category)
 	if mainTopic:
 		r['mainTopic'] = mainTopic["slug"]
-	topic_oids = set([category])
-	topic_oids.update(entry.get("tags", []))
+	topic_oids = [category, ]
+	taglist = entry.get("tags", [])
+	topic_oids.extend(taglist)
 	for oid in topic_oids:
 		if oid in topics_by_oid:
 			r['topics'].append(topics_by_oid[oid])
-
 	if entry.get('image') is not None:
 		r['cover'] = entry['image']['url']
 	if entry.get('thumborId') is not None:
@@ -116,7 +116,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
 			else:
 				body_html = str(BeautifulSoup(
 					body_orig, features="html.parser"))
-				r['body'] = body_html # html2text(body_html)
+				r['body'] = html2text(body_html)
 		else:
 			print(r['slug'] + ': literature has no media')
 	elif entry.get('type') == 'Video':
@@ -127,17 +127,31 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		if video_url == '#':
 			video_url = 'https://vimeo.com/' + vm if vm else '#'
 		if video_url == '#':
-			print(entry.get('media', 'NO MEDIA!'))
+			print(entry.get('media', 'UNKNOWN MEDIA PROVIDER!'))
 			# raise Exception
-		r['body'] = '<ShoutVideo src=\"' + video_url + \
-			'\" />' + html2text(m.get('body', ''))  # FIXME
+		therestof = html2text(m.get('body', ''))
+		r['body'] = 'import VideoPlayer from \"src/components/Article/VideoPlayer\"\n' + \
+			'<VideoPlayer src=\"'''  + video_url + '\" />\n\n' + therestof
 	elif entry.get('type') == 'Music':
-		r['body'] = '<ShoutMusic media={\"' + \
-			json.dumps(entry['media']) + '\"} />'  # FIXME
+		r['body'] = 'import MusicPlayer from \"src/components/MusicPlayer\"\n'
+		for m in entry['media']:
+			if m == { 'main': 'true' } or m == { 'main': True } or m == {}:
+				continue
+			# TODO: mark highlighted track isMain == True
+			try: r['body'] += '<MusicPlayer src=\"' + m['fileUrl'] + '\"'
+			except: print(m)
+			try: r['body'] += ' title=\"' + m['title'] + '\"'
+			except: print(m)
+			r['body'] += ' />\n\n'
+			r['body'] += html2text(m.get('body', ''))
+	elif entry.get('type') == 'Image':
+		m = r.get('media')
+		try: r['body'] = '<img src=\"' + r['cover'] + '\" />'
+		except: print(entry)
 	if r.get('body') is None:
 		body_orig = entry.get('body', '')
 		body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-		r['body'] = body_html # html2text(body_html)
+		r['body'] = html2text(body_html)
 	body = r.get('body', '')
 	
 	# get author data
@@ -172,12 +186,12 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		'userpic': userdata.get('userpic', '')
 	}
 	shout_dict['authors'] = [ author, ]
-	
+
 	if entry['published']:
-		metadata = get_metadata(r)
+		metadata = get_metadata(shout_dict)
 		content = frontmatter.dumps(frontmatter.Post(body, **metadata))
-		ext = 'md'
-		open('migration/content/' + r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
+		ext = 'mdx'
+		open('../discoursio-web/content/' + r['layout'] + '/' + r['slug'] + '.' + ext, 'w').write(content)
 	try:
 		shout_dict['createdAt'] = date_parse(r.get('createdAt')) if entry.get('createdAt') else ts
 		shout_dict['publishedAt'] = date_parse(entry.get('publishedAt')) if entry.get('published') else None
