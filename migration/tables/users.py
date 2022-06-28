@@ -88,9 +88,6 @@ def migrate(entry):
 	old = res['old_id']
 	user = User.create(**res.copy())
 	res['id'] = user.id
-	if res['slug'] == 'vorovich':
-		print(entry)
-		print(res)
 	return res
 
 def migrate_email_subscription(entry):

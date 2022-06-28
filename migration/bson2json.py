@@ -24,5 +24,5 @@ def json_tables():
 				base, d = bson.decode_document(bs, base)
 				lc.append(d)
 			data[table] = lc
-			open('migration/data/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
+			open('dump/discours/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
 

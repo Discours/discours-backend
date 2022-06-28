@@ -1,7 +1,7 @@
 import re
 
 # Use Unicode characters instead of their ascii pseudo-replacements
-UNICODE_SNOB = False
+UNICODE_SNOB = True
 
 # Marker to use for marking tables for padding post processing
 TABLE_MARKER_FOR_PAD = "special_marker_for_table_padding"
@@ -13,7 +13,7 @@ ESCAPE_SNOB = False
 LINKS_EACH_PARAGRAPH = False
 
 # Wrap long lines at position. 0 for no wrapping.
-BODY_WIDTH = 78
+BODY_WIDTH = 0
 
 # Don't show internal links (href="#local-anchor") -- corresponding link
 # targets won't be visible in the plain text file anyway.
@@ -24,7 +24,7 @@ INLINE_LINKS = True
 
 # Protect links from line breaks surrounding them with angle brackets (in
 # addition to their square brackets)
-PROTECT_LINKS = False
+PROTECT_LINKS = True
 WRAP_LINKS = True
 
 # Wrap list items.
@@ -156,7 +156,7 @@ IGNORE_TABLES = False
 
 # Use a single line break after a block element rather than two line breaks.
 # NOTE: Requires body width setting to be 0.
-SINGLE_LINE_BREAK = False
+SINGLE_LINE_BREAK = True
 
 
 # Use double quotation marks when converting the <q> tag.
