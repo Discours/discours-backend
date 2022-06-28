@@ -29,7 +29,7 @@ type UserResult {
 input ShoutInput {
   slug: String!
   body: String!
-  community: Int!
+  community: String!
   mainTopic: String
   topic_slugs: [String]
   title: String
@@ -133,9 +133,9 @@ type Mutation {
   rateComment(id: Int!, value: Int!): Result!
 
   # community
-  createCommunity(title: String!, desc: String!): Community!
+  createCommunity(community: CommunityInput!): Community!
   updateCommunity(community: CommunityInput!): Community!
-  deleteCommunity(id: Int!): Result!
+  deleteCommunity(slug: String!): Result!
 
   # collab
   inviteAuthor(author: String!, shout: String!): Result!
@@ -239,7 +239,7 @@ type Permission {
 type Role {
   id: Int!
   name: String!
-  community: Int!
+  community: String!
   desc: String
   permissions: [Permission!]!
 }
@@ -318,7 +318,7 @@ type Shout {
   authors: [User!]!
   ratings: [Rating]
   visibleFor: [User]
-  community: Int
+  community: String
   cover: String
   layout: String
   # replyTo: Shout
@@ -334,7 +334,6 @@ type Shout {
   deletedBy: Int
   publishedBy: Int # if there is no published field - it is not published
   publishedAt: DateTime
-
   stat: ShoutStat
 }
 

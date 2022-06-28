@@ -9,46 +9,47 @@ from sqlalchemy import and_
 
 @mutation.field("createCommunity")
 @login_required
-async def create_community(_, info, title, desc):
+async def create_community(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
 	community = Community.create(
-		title = title,
-		desc = desc
+		slug = input.get('slug', ''),
+		title = input.get('title', ''),
+		desc = input.get('desc', ''),
+		pic = input.get('pic', '')
 		)
 
 	return {"community": community}
 
 @mutation.field("updateCommunity")
 @login_required
-async def update_community(_, info, id, title, desc, pic):
+async def update_community(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
 	with local_session() as session:
-		community = session.query(Community).filter(Community.id == id).first()
+		community = session.query(Community).filter(Community.slug == inpit.get('slug', '')).first()
 		if not community:
 			return {"error": "invalid community id"}
-		if community.owner != user_id:
+		if community.createdBy != user_id:
 			return {"error": "access denied"}
-		community.title = title
-		community.desc = desc
-		community.pic = pic
+		community.title = input.get('title', '')
+		community.desc = input.get('desc', '')
+		community.pic = input.get('pic', '')
 		community.updatedAt = datetime.now()
-		
 		session.commit()
 
 @mutation.field("deleteCommunity")
 @login_required
-async def delete_community(_, info, id):
+async def delete_community(_, info, slug):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
 	with local_session() as session:
-		community = session.query(Community).filter(Community.id == id).first()
+		community = session.query(Community).filter(Community.slug == slug).first()
 		if not community:
-			return {"error": "invalid community id"}
+			return {"error": "invalid community slug"}
 		if community.owner != user_id:
 			return {"error": "access denied"}
 		community.deletedAt = datetime.now()
