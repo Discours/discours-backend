@@ -4,6 +4,7 @@ from orm.comment import Comment
 from orm.base import local_session
 from orm.topic import Topic, TopicSubscription
 from resolvers.base import mutation, query, subscription
+from resolvers.community import get_subscribed_communities
 from auth.authenticate import login_required
 
 from inbox_resolvers.inbox import get_total_unread_messages_for_user

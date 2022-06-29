@@ -7,6 +7,9 @@ from orm.user import UserStorage, AuthorSubscription
 from orm.topic import TopicSubscription
 
 from resolvers.base import mutation, query
+from resolvers.profile import author_subscribe, author_unsubscribe
+from resolvers.topics import topic_subscribe, topic_unsubscribe
+from resolvers.community import community_subscribe, community_unsubscribe
 from resolvers.comments import comments_subscribe, comments_unsubscribe
 from auth.authenticate import login_required
 from settings import SHOUTS_REPO
@@ -315,17 +318,17 @@ async def shouts_by_communities(_, info, slugs, page, size):
 
 @mutation.field("subscribe")
 @login_required
-async def subscribe(_, info, subscription, slug):
+async def subscribe(_, info, what, slug):
 	user = info.context["request"].user
 
 	try:
-		if subscription == "AUTHOR":
+		if what == "AUTHOR":
 			author_subscribe(user, slug)
-		elif subscription == "TOPIC":
+		elif what == "TOPIC":
 			topic_subscribe(user, slug)
-		elif subscription == "COMMUNITY":
+		elif what == "COMMUNITY":
 			community_subscribe(user, slug)
-		elif comments_subscription == "COMMENTS":
+		elif what == "COMMENTS":
 			comments_subscribe(user, slug)
 	except Exception as e:
 		return {"error" : e}
@@ -334,17 +337,17 @@ async def subscribe(_, info, subscription, slug):
 
 @mutation.field("unsubscribe")
 @login_required
-async def unsubscribe(_, info, subscription, slug):
+async def unsubscribe(_, info, what, slug):
 	user = info.context["request"].user
 
 	try:
-		if subscription == "AUTHOR":
+		if what == "AUTHOR":
 			author_unsubscribe(user, slug)
-		elif subscription == "TOPIC":
+		elif what == "TOPIC":
 			topic_unsubscribe(user, slug)
-		elif subscription == "COMMUNITY":
+		elif what == "COMMUNITY":
 			community_unsubscribe(user, slug)
-		elif subscription == "COMMENTS":
+		elif what == "COMMENTS":
 			comments_unsubscribe(user, slug)
 	except Exception as e:
 		return {"error" : e}

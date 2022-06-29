@@ -6,40 +6,7 @@ from auth.authenticate import login_required
 import asyncio
 from datetime import datetime
 
-class CommentResult:
-	def __init__(self, status, comment):
-		self.status = status
-		self.comment = comment
-
-class ShoutCommentsSubscription:
-	queue = asyncio.Queue()
-
-	def __init__(self, shout_slug):
-		self.shout_slug = shout_slug
-
-class ShoutCommentsStorage:
-	lock = asyncio.Lock()
-	subscriptions = []
-
-	@staticmethod
-	async def register_subscription(subs):
-		self = ShoutCommentsStorage
-		async with self.lock:
-			self.subscriptions.append(subs)
-	
-	@staticmethod
-	async def del_subscription(subs):
-		self = ShoutCommentsStorage
-		async with self.lock:
-			self.subscriptions.remove(subs)
-	
-	@staticmethod
-	async def put(comment_result):
-		self = ShoutCommentsStorage
-		async with self.lock:
-			for subs in self.subscriptions:
-				if comment_result.comment.shout == subs.shout_slug:
-					subs.queue.put_nowait(comment_result)
+from sqlalchemy import and_
 
 def comments_subscribe(user, slug):
 	ShoutCommentsSubscription.create(
@@ -53,7 +20,10 @@ def comments_unsubscribe(user, slug):
 			first()
 		if not sub:
 			raise Exception("subscription not exist")
-		session.delete(sub)
+		if sub.auto:
+			sub.deletedAt = datetime.now()
+		else:
+			session.delete(sub)
 		session.commit()
 
 @mutation.field("createComment")
@@ -68,9 +38,6 @@ async def create_comment(_, info, body, shout, replyTo = None):
 		shout = shout,
 		replyTo = replyTo
 		)
-
-	result = CommentResult("NEW", comment)
-	await ShoutCommentsStorage.put(result)
 
 	return {"comment": comment}
 
@@ -92,9 +59,6 @@ async def update_comment(_, info, id, body):
 		
 		session.commit()
 
-	result = CommentResult("UPDATED", comment)
-	await ShoutCommentsStorage.put(result)
-
 	return {"comment": comment}
 
 @mutation.field("deleteComment")
@@ -112,9 +76,6 @@ async def delete_comment(_, info, id):
 
 		comment.deletedAt = datetime.now()
 		session.commit()
-
-	result = CommentResult("DELETED", comment)
-	await ShoutCommentsStorage.put(result)
 
 	return {}
 
@@ -140,8 +101,5 @@ async def rate_comment(_, info, id, value):
 			comment_id = id,
 			createdBy = user_id,
 			value = value)
-
-	result = CommentResult("UPDATED_RATING", comment)
-	await ShoutCommentsStorage.put(result)
 
 	return {}

@@ -18,6 +18,8 @@ class ShoutCommentsSubscription(Base):
 	subscriber = Column(ForeignKey('user.slug'), primary_key = True)
 	shout = Column(ForeignKey('shout.slug'), primary_key = True)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
+	auto = Column(Boolean, nullable=False, default = False)
+	deletedAt: str = Column(DateTime, nullable=True)
 
 class ShoutAuthor(Base):
 	__tablename__ = "shout_author"
