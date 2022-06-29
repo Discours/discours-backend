@@ -1,6 +1,7 @@
 from orm import Shout, ShoutRating, ShoutRatingStorage
 from orm.base import local_session
 from resolvers.base import mutation, query, subscription
+from resolvers.comments import comments_subscribe
 from auth.authenticate import login_required
 import asyncio
 from datetime import datetime
@@ -19,7 +20,9 @@ async def create_shout(_, info, input):
 	ShoutAuthor.create(
 		shout = new_shout.slug,
 		user = user.slug)
-	
+
+	comments_subscribe(user, new_shout.slug, True)
+
 	if "mainTopic" in input:
 		topic_slugs.append(input["mainTopic"])
 
