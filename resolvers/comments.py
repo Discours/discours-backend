@@ -6,8 +6,6 @@ from auth.authenticate import login_required
 import asyncio
 from datetime import datetime
 
-from sqlalchemy import and_
-
 def comments_subscribe(user, slug):
 	ShoutCommentsSubscription.create(
 		subscriber = user.slug, 
@@ -103,3 +101,11 @@ async def rate_comment(_, info, id, value):
 			value = value)
 
 	return {}
+
+def get_subscribed_shout_comments(slug):
+	with local_session() as session:
+		rows = session.query(ShoutCommentsSubscription.shout).\
+			filter(ShoutCommentsSubscription.subscriber == slug and not ShoutCommentsSubscription.deletedAt is None).\
+			all()
+	slugs = [row.shout for row in rows]
+	return slugs
