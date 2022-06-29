@@ -331,7 +331,7 @@ async def subscribe(_, info, what, slug):
 		elif what == "COMMENTS":
 			comments_subscribe(user, slug)
 	except Exception as e:
-		return {"error" : e}
+		return {"error" : str(e)}
 
 	return {}
 
@@ -350,7 +350,7 @@ async def unsubscribe(_, info, what, slug):
 		elif what == "COMMENTS":
 			comments_unsubscribe(user, slug)
 	except Exception as e:
-		return {"error" : e}
+		return {"error" : str(e)}
 
 	return {}
 
