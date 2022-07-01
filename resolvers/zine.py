@@ -60,7 +60,7 @@ class GitTask:
 		shout_filename = "%s.mdx" % (self.slug)
 		shout_full_filename = "%s/%s" % (repo_path, shout_filename)
 		with open(shout_full_filename, mode='w', encoding='utf-8') as shout_file:
-			shout_file.write(self.shout_body)
+			shout_file.write(bytes(self.shout_body,'utf-8').decode('utf-8','ignore'))
 
 		author = "%s <%s>" % (self.username, self.user_email)
 		cmd = "cd %s && git add %s && git commit -m '%s' --author='%s'" % \
@@ -70,13 +70,13 @@ class GitTask:
 	
 	@staticmethod
 	async def git_task_worker():
-		print("git task worker start")
+		print("[git.task] worker start")
 		while True:
 			task = await GitTask.queue.get()
 			try:
 				task.execute()
 			except Exception as err:
-				print("git task worker error = %s" % (err))
+				print("[git.task] worker error = %s" % (err))
 
 
 class ShoutsCache:
@@ -193,19 +193,19 @@ class ShoutsCache:
 
 	@staticmethod
 	async def worker():
-		print("shouts cache worker start")
+		print("[shouts.cache] worker start")
 		while True:
 			try:
-				print("shouts cache updating...")
+				print("[shouts.cache] updating...")
 				await ShoutsCache.prepare_top_month()
 				await ShoutsCache.prepare_top_overall()
 				await ShoutsCache.prepare_top_viewed()
 				await ShoutsCache.prepare_recent_published()
 				await ShoutsCache.prepare_recent_all()
 				await ShoutsCache.prepare_recent_commented()
-				print("shouts cache update finished")
+				print("[shouts.cache] update finished")
 			except Exception as err:
-				print("shouts cache worker error = %s" % (err))
+				print("[shouts.cache] worker error: %s" % (err))
 			await asyncio.sleep(ShoutsCache.period)
 
 @query.field("topViewed")

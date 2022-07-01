@@ -20,7 +20,7 @@ from orm.base import local_session
 from orm import User
 
 print = pprint.pprint
-IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,(.*?))\)"
+IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,((.|\s)*?))\)"
 OLD_DATE = '2016-03-05 22:22:00.350000'
 
 
@@ -31,17 +31,16 @@ def extract_images(article):
 	matches = re.finditer(IMG_REGEX, body, re.IGNORECASE | re.MULTILINE)
 	for i, match in enumerate(matches, start=1):
 		ext = match.group(3)
-		link = '/static/upload/image-' + \
+		link = 'discoursio-web/public/upload/image-' + \
 			article['old_id'] + str(i) + '.' + ext
 		img = match.group(4)
 		if img not in images:
-			open('..' + link, 'wb').write(base64.b64decode(img))
+			open('../' + link, 'wb').write(base64.b64decode(img))
 			images.append(img)
 		body = body.replace(match.group(2), link)
 		print(link)
 	article['body'] = body
 	return article
-
 
 def users(users_by_oid, users_by_slug, users_data):
 	''' migrating users first '''
@@ -83,28 +82,46 @@ def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
 	if len(sys.argv) > 2: limit = int(sys.argv[2])
 	print('migrating %d topics...' % limit)
 	counter = 0
-	topics_by_title = {}
+	retopics = json.loads(open('migration/tables/replacements.json').read())
+	topicslugs_by_oid = {}
 	for tag in tags_data:
-		old_id = tag["createdBy"]
-		tag["createdBy"] = user_id_map.get(old_id, 0)
-		topic = migrateTag(tag)
-		topics_by_title[topic['title']] = topic
-		topics_by_oid[topic['tag_id']] = topic
-		# if not topics_by_slug.get(topic['slug']): topics_by_slug[topic['slug']] = topic
+		topicslugs_by_oid[tag['_id']] = tag['slug']
+		oldid = tag['_id']
+		tag['slug'] = retopics.get(tag['slug'], tag['slug'])
+		topic = migrateTag(tag, topics_by_oid)
+		topics_by_oid[oldid] = topic
+		topics_by_slug[topic['slug']] = topic
 		counter += 1
 	for cat in cats_data:
-		old_id = cat["createdBy"]
-		# cat["createdBy"] = user_id_map[old_id]
-		try: topic = migrateCategory(cat)
-		except Exception as e: raise e
-		topics_by_oid[topic['cat_id']] = topic
-		topics_by_title[topic['title']] = topic
-		counter += 1
-	for t in topics_by_title.values():
-		topics_by_slug[t['slug']] = t
-	export_topics = dict(topics_by_slug.items())
+		topicslugs_by_oid[cat['_id']] = cat['slug']
+		if not cat.get('hidden'):
+			oldid = cat['_id']
+			cat['slug'] = retopics.get(cat['slug'], cat['slug'])
+			try: topic = migrateCategory(cat, topics_by_oid)
+			except Exception as e: raise e
+			topics_by_oid[oldid] = topic
+			topic['slug'] = retopics.get(topic['slug'], topic['slug'])
+			topics_by_slug[topic['slug']] = topic
+			counter += 1
+	for oid, oslug in topicslugs_by_oid.items():
+		if topics_by_slug.get(oslug):
+			topics_by_oid[oid] = topics_by_slug.get(retopics.get(oslug, oslug))
+	print( str(len(topics_by_oid.values())) + ' topics by oid' )
+	print( str(len(topics_by_slug.values())) + ' topics by slug' )
+	#replacements = {} # json.loads(open('migration/tables/replacements.json').read())
+	#for t in topics_by_title.values():
+	#	slug = replacements.get(t['slug'].strip()) or t['slug'].strip()
+	#	topics_by_slug[slug] = t
+	export_topics = topics_by_slug
+	#for i in topicslugs:
+	#	export_topics[i] = i
+	#open('migration/tables/replacements2.json', 'w').write(json.dumps(export_topics,
+	#													cls=DateTimeEncoder,
+	#													indent=4,
+	#													sort_keys=True,
+	#													ensure_ascii=False))
 
-def shouts(content_data, shouts_by_slug, shouts_by_oid):
+def shouts(content_data, shouts_by_slug, shouts_by_oid, oldtopics_by_oid):
 	''' migrating content items one by one '''
 	# limiting
 	limit = len(content_data)
@@ -117,12 +134,29 @@ def shouts(content_data, shouts_by_slug, shouts_by_oid):
 	# limiting
 	try: limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
 	except ValueError:  limit = len(content_data)
-
+	te = {}
 	for entry in content_data[:limit]:
 		try:
-			shout = migrateShout(entry, users_by_oid, topics_by_oid)
+			shout, terrors = migrateShout(entry, users_by_oid, topics_by_oid)
+			for oid in terrors: 
+				if not te.get(oid): 
+					if oldtopics_by_oid.get(oid):
+						te[oldtopics_by_oid[oid]['slug']] = []
+					else:
+						# print('lost old topic id: ' + oid)
+						pass
+				else:
+					te[oid].append(shout['slug'])
 			author = shout['authors'][0]
 			shout['authors'] = [ author.id, ]
+			newtopics = []
+			retopics = json.loads(open('migration/tables/replacements.json').read())
+			for slug in shout['topics']:
+				nt = retopics.get(slug, slug)
+				if nt not in newtopics:
+					newtopics.append(nt)
+			shout['topics'] = newtopics
+			shout = extract_images(shout)
 			shouts_by_slug[shout['slug']] = shout
 			shouts_by_oid[entry['_id']] = shout
 			line = str(counter+1) + ': ' + shout['slug'] + " @" + str(author.slug)
@@ -134,6 +168,7 @@ def shouts(content_data, shouts_by_slug, shouts_by_oid):
 			print(entry['_id'])
 			errored.append(entry)
 			raise e
+	print(te)
 	open('migration/data/shouts.old_id.json','w').write(json.dumps(shouts_by_oid, cls=DateTimeEncoder))
 	open('migration/data/shouts.slug.json','w').write(json.dumps(shouts_by_slug, cls=DateTimeEncoder))
 	print(str(counter) + '/' + str(len(content_data)) + ' content items were migrated')
@@ -167,8 +202,8 @@ def export_body(article, content_dict):
 	article = extract_images(article)
 	metadata = get_metadata(article)
 	content = frontmatter.dumps(frontmatter.Post(article['body'], **metadata))
-	open('../discoursio-web/content/' + article['layout'].lower() + '/' + slug + '.mdx', 'w').write(content)
-	# open('../content/discours.io/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
+	open('../discoursio-web/content/' + slug + '.mdx', 'w').write(content)
+	# open('../discoursio-web/content/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
 
 def export_slug(slug, export_articles, export_authors, content_dict):
 	print('exporting %s ' % slug)
@@ -244,30 +279,33 @@ if __name__ == '__main__':
 				from migration import bson2json
 				bson2json.json_tables()
 			else:
-
 				# preparing data
-
+    
+				# users
 				users_data = json.loads(open('migration/data/users.json').read())
-				# users_dict = { x['_id']: x for x in users_data } # by id
 				print(str(len(users_data)) + ' users loaded')
 				users_by_oid = {}
 				users_by_slug = {}
-
 				user_id_map = {}
 				with local_session() as session:
 					users_list = session.query(User).all()
 					for user in users_list:
 						user_id_map[user.old_id] = user.id
 						users_by_oid[user.old_id] = vars(user)
-
+				# tags
 				tags_data = json.loads(open('migration/data/tags.json').read())
 				print(str(len(tags_data)) + ' tags loaded')
-
+				# cats
 				cats_data = json.loads(open('migration/data/content_item_categories.json').read())
 				print(str(len(cats_data)) + ' cats loaded')
+				topics_data = tags_data
+				tags_data.extend(cats_data)
+				oldtopics_by_oid = { x['_id']: x for x in topics_data }
+				oldtopics_by_slug = { x['slug']: x for x in topics_data }
 				topics_by_oid = {}
 				topics_by_slug = {}
 
+				# content
 				content_data = json.loads(open('migration/data/content_items.json').read())
 				content_dict = { x['_id']: x for x in content_data }
 				print(str(len(content_data)) + ' content items loaded')
@@ -300,7 +338,7 @@ if __name__ == '__main__':
 				elif cmd == "topics":
 					topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data)
 				elif cmd == "shouts":
-					shouts(content_data, shouts_by_slug, shouts_by_oid) # NOTE: listens limit
+					shouts(content_data, shouts_by_slug, shouts_by_oid, oldtopics_by_oid) # NOTE: listens limit
 				elif cmd == "comments":
 					comments(comments_data)
 				elif cmd == "export_shouts":
@@ -310,7 +348,7 @@ if __name__ == '__main__':
 				elif cmd == "all":
 					users(users_by_oid, users_by_slug, users_data)
 					topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data)
-					shouts(content_data, shouts_by_slug, shouts_by_oid)
+					shouts(content_data, shouts_by_slug, shouts_by_oid, oldtopics_by_oid)
 					comments(comments_data)
 					export_email_subscriptions(email_subscriptions_data)
 				elif cmd == 'slug':

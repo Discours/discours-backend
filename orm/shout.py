@@ -157,14 +157,14 @@ class ShoutViewStorage:
 
 	@staticmethod
 	async def worker():
-		print("ShoutViewStorage worker start")
+		print("[shout.views] worker start")
 		while True:
 			try:
-				print("ShoutViewStorage worker: flush changes")
+				print("[shout.views] worker flush changes")
 				with local_session() as session:
 					await ShoutViewStorage.flush_changes(session)
 			except Exception as err:
-				print("ShoutViewStorage worker: error = %s" % (err))
+				print("[shout.views] worker error: %s" % (err))
 			await asyncio.sleep(ShoutViewStorage.period)
 
 class TopicStat:
@@ -237,15 +237,15 @@ class TopicStat:
 	@staticmethod
 	async def worker():
 		self = TopicStat
-		print("TopicStat worker start")
+		print("[topic.stats] worker start")
 		while True:
 			try:
-				print("TopicStat worker: load stat")
+				print("[topic.stats] worker load stat")
 				with local_session() as session:
 					async with self.lock:
 						await self.load_stat(session)
 			except Exception as err:
-				print("TopicStat worker: error = %s" % (err))
+				print("[topic.stats] worker error: %s" % (err))
 			await asyncio.sleep(self.period)
 
 class ShoutAuthorStorage:
@@ -275,15 +275,15 @@ class ShoutAuthorStorage:
 	@staticmethod
 	async def worker():
 		self = ShoutAuthorStorage
-		print("ShoutAuthorStorage worker start")
+		print("[shout.authors] worker start")
 		while True:
 			try:
-				print("ShoutAuthorStorage worker: load stat")
+				print("[shout.authors] worker load stat")
 				with local_session() as session:
 					async with self.lock:
 						await self.load(session)
 			except Exception as err:
-				print("ShoutAuthorStorage worker: error = %s" % (err))
+				print("[shout.authors] worker error: %s" % (err))
 			await asyncio.sleep(self.period)
 
 class CommentStat:
@@ -309,15 +309,15 @@ class CommentStat:
 	@staticmethod
 	async def worker():
 		self = CommentStat
-		print("CommentStat worker start")
+		print("[comment.stats] worker start")
 		while True:
 			try:
-				print("CommentStat worker: load stat")
+				print("[comment.stats] worker load stat")
 				with local_session() as session:
 					async with self.lock:
 						await self.load(session)
 			except Exception as err:
-				print("CommentStat worker: error = %s" % (err))
+				print("[comment.stats] worker error: %s" % (err))
 			await asyncio.sleep(self.period)
 
 class Shout(Base):

@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from orm.base import local_session
 from orm.community import Community
 import os
+import string
 
 DISCOURS_USER = {
 	'id': 9999999,
@@ -32,7 +33,6 @@ type2layout = {
 	'Image': 'image'
 }
 
-
 def get_metadata(r):
 	metadata = {}
 	metadata['title'] = r.get('title')
@@ -44,6 +44,9 @@ def get_metadata(r):
 	if r.get('cover', False):
 		metadata['cover'] = r.get('cover')
 	return metadata
+
+
+retopics = json.loads(open('migration/tables/replacements.json').read())
 
 def migrate(entry, users_by_oid, topics_by_oid):
 	'''
@@ -96,11 +99,14 @@ def migrate(entry, users_by_oid, topics_by_oid):
 	if mainTopic:
 		r['mainTopic'] = mainTopic["slug"]
 	topic_oids = [category, ]
-	taglist = entry.get("tags", [])
-	topic_oids.extend(taglist)
+	topic_errors = []
+	topic_oids.extend(entry.get('tags', []))
 	for oid in topic_oids:
 		if oid in topics_by_oid:
 			r['topics'].append(topics_by_oid[oid])
+		else:
+			# print('ERROR: unknown old topic id: ' + oid)
+			topic_errors.append(oid)
 	if entry.get('image') is not None:
 		r['cover'] = entry['image']['url']
 	if entry.get('thumborId') is not None:
@@ -115,9 +121,9 @@ def migrate(entry, users_by_oid, topics_by_oid):
 			if body_orig == '':
 				print('EMPTY BODY!')
 			else:
-				body_html = str(BeautifulSoup(
-					body_orig, features="html.parser"))
-				r['body'] = html2text(body_html)
+				# body_html = str(BeautifulSoup(
+				#	body_orig, features="html.parser"))
+				r['body'] = html2text(body_orig)
 		else:
 			print(r['slug'] + ': literature has no media')
 	elif entry.get('type') == 'Video':
@@ -126,12 +132,12 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		vm = m.get('vimeoId', '')
 		video_url = 'https://www.youtube.com/watch?v=' + yt if yt else '#'
 		therestof = html2text(m.get('body', entry.get('body', '')))
-		r['body'] = 'import { YouTube } from \"solid-social\"\n' + \
-			'<YouTube youtubeId=\"'''  + yt + '\" />\n\n' + therestof
+		r['body'] = 'import { YouTube } from \'solid-social\'\n\n' + \
+			'<YouTube youtubeId=\'' + yt + '\' />\n\n' + therestof
 		if video_url == '#':
 			video_url = 'https://vimeo.com/' + vm if vm else '#'
-			r['body'] = 'import { Vimeo } from \"solid-social\"\n' + \
-				'<Vimeo vimeoId=\"'''  + vm + '\" />\n\n' + therestof
+			r['body'] = 'import { Vimeo } from \'solid-social\'\n\n' + \
+				'<Vimeo vimeoId=\''  + vm + '\' />\n\n' + therestof
 		if video_url == '#':
 			print(entry.get('media', 'UNKNOWN MEDIA PROVIDER!'))
 			# raise Exception
@@ -147,21 +153,22 @@ def migrate(entry, users_by_oid, topics_by_oid):
 					print(m)
 					continue
 				else:
-					r['body'] = 'import MusicPlayer from \"src/components/MusicPlayer\"\n\n'
-					r['body'] += '<MusicPlayer src=\"' + fileUrl + '\" title=\"' + m.get('title','') + '\" />\n'
+					r['body'] = 'import MusicPlayer from \'../src/components/MusicPlayer\'\n\n'
+					r['body'] += '<MusicPlayer src=\'' + fileUrl + '\' title=\'' + m.get('title','') + '\' />\n'
 				r['body'] += html2text(entry.get('body', ''))
 	elif entry.get('type') == 'Image':
-		m = r.get('media')
 		r['body'] = ''
 		if 'cover' in r: r['body'] = '<img src=\"' + r.get('cover', '') + '\" />'
-		r['body'] += entry.get('body', '')
+		mbody = r.get('media', [{'body': ''},])[0].get('body', '')
+		r['body'] += mbody + entry.get('body', '')
 		if r['body'] == '': print(entry)
 	if r.get('body') is None:
-		body_orig = entry.get('body', '')
-		body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-		r['body'] = html2text(body_html)
+		body_orig = entry.get('body', entry.get('bodyHistory', [{ 'text': '' }, ])[0].get('text', ''))
+		# body_html = str(BeautifulSoup(body_orig, features="html.parser"))
+		r['body'] = html2text(body_orig)
 	body = r.get('body', '')
-	
+	for oldtopicslug, newtopicslug in retopics.items():
+		body.replace(oldtopicslug, newtopicslug)
 	# get author data
 	userdata = {}
 	try: userdata = users_by_oid[entry['createdBy']]
@@ -200,9 +207,10 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		content = frontmatter.dumps(frontmatter.Post(body, **metadata))
 		ext = 'mdx'
 		parentDir = '/'.join(os.getcwd().split('/')[:-1])
-		filepath =  parentDir + '/discoursio-web/content/' + r['layout'] + '/' + r['slug'] + '.' + ext
+		filepath =  parentDir + '/discoursio-web/content/' + r['slug'] + '.' + ext
 		# print(filepath)
-		open(filepath, 'w').write(content)
+		bc = bytes(content,'utf-8').decode('utf-8','ignore')
+		open(filepath, 'w').write(bc)
 	try:
 		shout_dict['createdAt'] = date_parse(r.get('createdAt')) if entry.get('createdAt') else ts
 		shout_dict['publishedAt'] = date_parse(entry.get('publishedAt')) if entry.get('published') else None
@@ -256,7 +264,9 @@ def migrate(entry, users_by_oid, topics_by_oid):
 			for topic in r['topics']:
 				try:
 					ShoutTopic.create(**{ 'shout': s.slug, 'topic': topic['slug'] })
-					shout_dict['topics'].append(topic['slug'])
+					tpc = topics_by_oid[topic['oid']]
+					slug = retopics.get(tpc['slug'], tpc['slug'])
+					shout_dict['topics'].append(slug)
 				except sqlalchemy.exc.IntegrityError:
 					pass
 
@@ -269,7 +279,6 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		except Exception as e: 
 			raise e
 	except Exception as e:
-		if not shout_dict['body']: r['body'] = 'body moved'
 		raise e
 	shout_dict['old_id'] = entry.get('_id')
-	return shout_dict # for json
+	return shout_dict, topic_errors

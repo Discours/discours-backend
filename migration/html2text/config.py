@@ -156,7 +156,7 @@ IGNORE_TABLES = False
 
 # Use a single line break after a block element rather than two line breaks.
 # NOTE: Requires body width setting to be 0.
-SINGLE_LINE_BREAK = True
+SINGLE_LINE_BREAK = False
 
 
 # Use double quotation marks when converting the <q> tag.

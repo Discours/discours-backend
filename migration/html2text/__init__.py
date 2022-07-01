@@ -385,15 +385,15 @@ class HTML2Text(html.parser.HTMLParser):
 					elif self.current_class == 'lead' and \
 						self.inheader == False and \
 						self.span_highlight == False:
-							self.o("==") # NOTE: but CriticMarkup uses {== ==}
+							#self.o("==") # NOTE:  CriticMarkup {==
 							self.span_lead = True
 			else:
 				if self.span_highlight:
 					self.o('`')
 					self.span_highlight = False
 				elif self.span_lead:
-						self.o('==')
-						self.span_lead = False
+					#self.o('==')
+					self.span_lead = False
 
 		if tag in ["p", "div"]:
 			if self.google_doc:
@@ -401,7 +401,7 @@ class HTML2Text(html.parser.HTMLParser):
 					self.p()
 				else:
 					self.soft_br()
-			elif self.astack:
+			elif self.astack or self.inheader:
 				pass
 			else:
 				self.p()
@@ -468,20 +468,21 @@ class HTML2Text(html.parser.HTMLParser):
 			# without it, Markdown won't render the resulting *** correctly.
 			# (Don't add a space otherwise, though, since there isn't one in the
 			# original HTML.)
-			if (
-				start
-				and self.preceding_data
-				and self.preceding_data[-1] == self.strong_mark[0]
-			):
-				strong = " " + self.strong_mark
-				self.preceding_data += " "
-			else:
-				strong = self.strong_mark
+			if not self.inheader and not self.astack \
+				and not self.span_lead and not self.span_highlight:
+				if (
+					start
+					and self.preceding_data
+					and self.preceding_data[-1] == self.strong_mark[0]
+				):
+					strong = " " + self.strong_mark
+					self.preceding_data += " "
+				else:
+					strong = self.strong_mark
 
-			if not self.span_lead and not self.span_highlight:
 				self.o(strong)
-			if start:
-				self.stressed = True
+				if start:
+					self.stressed = True
 
 		if tag in ["del", "strike", "s"]:
 			if start and self.preceding_data and self.preceding_data[-1] == "~":
@@ -1030,4 +1031,12 @@ def html2text(html: str, baseurl: str = "", bodywidth: Optional[int] = None) -> 
 		bodywidth = config.BODY_WIDTH
 	h = HTML2Text(baseurl=baseurl, bodywidth=bodywidth)
 
-	return h.handle(html)
+	return h.handle(html)\
+		.replace('<...>', '**...**')\
+		.replace('<…>', '***...**')\
+		.replace('****',  '')\
+		.replace('\u00a0',' ')\
+		.replace('\u200c', '')\
+		.replace('\u200b', '')\
+		.replace('\ufeff', '')
+		# .replace('\u2212', '-')
