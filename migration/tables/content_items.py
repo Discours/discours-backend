@@ -263,9 +263,9 @@ def migrate(entry, users_by_oid, topics_by_oid):
 			shout_dict['topics'] = []
 			for topic in r['topics']:
 				try:
-					ShoutTopic.create(**{ 'shout': s.slug, 'topic': topic['slug'] })
 					tpc = topics_by_oid[topic['oid']]
 					slug = retopics.get(tpc['slug'], tpc['slug'])
+					ShoutTopic.create(**{ 'shout': s.slug, 'topic': slug })
 					shout_dict['topics'].append(slug)
 				except sqlalchemy.exc.IntegrityError:
 					pass

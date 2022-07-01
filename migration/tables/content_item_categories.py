@@ -29,6 +29,7 @@ def migrate(entry, topics_by_oid):
 	with local_session() as session:
 		slug = topics_by_oid.get(topic_dict['oid'], topic_dict)['slug']
 		if slug:
+			slug = retopics.get(slug, slug)
 			try:
 				topic = session.query(Topic).filter(Topic.slug == slug).first()
 				if not topic:

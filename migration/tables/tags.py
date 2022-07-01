@@ -33,6 +33,7 @@ def migrate(entry, topics_by_oid):
 		retopics = json.loads(open('migration/tables/replacements.json').read())
 		with local_session() as session:
 			slug = topics_by_oid.get(topic_dict['oid'], topic_dict)['slug']
+			slug = retopics.get(slug, slug)
 			if slug:
 				topic = session.query(Topic).filter(Topic.slug == slug).first()
 				if not topic: 

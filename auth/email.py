@@ -19,7 +19,7 @@ def load_email_templates():
 		filename = "templates/%s.tmpl" % name
 		with open(filename) as f:
 			email_templates[name] = f.read()
-	print("all email templates loaded")
+	print("[email.service] templates loaded")
 
 async def send_confirm_email(user):
 	text = email_templates["confirm_email"]
