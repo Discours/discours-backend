@@ -4,6 +4,8 @@ from orm.comment import Comment
 from orm.base import local_session
 from orm.topic import Topic, TopicSubscription
 from resolvers.base import mutation, query, subscription
+from resolvers.community import get_subscribed_communities
+from resolvers.comments import get_subscribed_shout_comments
 from auth.authenticate import login_required
 
 from inbox_resolvers.inbox import get_total_unread_messages_for_user
@@ -30,10 +32,11 @@ def _get_user_subscribed_authors(slug):
 
 async def get_user_info(slug):
 	return {
-		"totalUnreadMessages"      : await get_total_unread_messages_for_user(slug),
-		"userSubscribedTopics"     : _get_user_subscribed_topic_slugs(slug),
-		"userSubscribedAuthors"    : _get_user_subscribed_authors(slug),
-		"userSubscribedCommunities": get_subscribed_communities(slug)
+		"totalUnreadMessages"        : await get_total_unread_messages_for_user(slug),
+		"userSubscribedTopics"       : _get_user_subscribed_topic_slugs(slug),
+		"userSubscribedAuthors"      : _get_user_subscribed_authors(slug),
+		"userSubscribedCommunities"  : get_subscribed_communities(slug),
+		"userSubscribedShoutComments": get_subscribed_shout_comments(slug)
 	}
 
 @query.field("getCurrentUser")
@@ -198,22 +201,6 @@ async def shouts_reviewed(_, info, page, size):
 			where(and_(Shout.publishedAt != None, Comment.author == user.id))
 		shouts = shouts_by_rating.union(shouts_by_comment).\
 			order_by(desc(Shout.publishedAt)).\
-			limit(size).\
-			offset( (page - 1) * size)
-
-	return shouts
-
-@query.field("shoutCommentsSubscribed")
-@login_required
-async def shout_comments_subscribed(_, info, slug, page, size):
-	user = info.context["request"].user
-	with local_session() as session:
-		comments_by_shout = session.query(Comment).\
-			join(ShoutCommentsSubscription).\
-			join(ShoutCommentsSubscription, ShoutCommentsSubscription.shout == slug).\
-			where(ShoutCommentsSubscription.subscriber == user.slug)
-		comments = comments_by_shout.\
-			order_by(desc(Shout.createdAt)).\
 			limit(size).\
 			offset( (page - 1) * size)
 

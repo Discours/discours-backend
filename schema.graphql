@@ -7,10 +7,11 @@ type Result {
 }
 
 type CurrentUserInfo {
-  totalUnreadMessages: Int
-  userSubscribedTopics: [String]!
-  userSubscribedAuthors: [String]!
-  userSubscribedCommunities: [String]!
+  totalUnreadMessages:         Int
+  userSubscribedTopics:        [String]!
+  userSubscribedAuthors:       [String]!
+  userSubscribedCommunities:   [String]!
+  userSubscribedShoutComments: [String]!
 }
 
 type AuthResult {
@@ -98,6 +99,7 @@ enum SubscriptionType {
   TOPIC
   AUTHOR
   COMMUNITY
+  COMMENTS
 }
 
 ################################### Mutation
@@ -205,7 +207,6 @@ type Query {
   getCommunity(slug: String): Community!
   getCommunities: [Community]!
 
-  shoutCommentsSubscribed(slug: String!, page: Int!, size: Int!): [Shout]!
   shoutsReviewed(page: Int!, size: Int!): [Shout]!
   recentCommented(page: Int!, size: Int!): [Shout]!
 }
