@@ -1,9 +1,7 @@
 ''' cmd managed migration '''
 import json
-import pprint
-import base64
-import re
 import frontmatter
+from migration.extract import extract
 from migration.tables.users import migrate as migrateUser
 from migration.tables.users import migrate_2stage as migrateUser_2stage
 from migration.tables.users import migrate_email_subscription
@@ -19,35 +17,14 @@ from dateutil.parser import parse as date_parse
 from orm.base import local_session
 from orm import User
 
-print = pprint.pprint
-IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,((.|\s)*?))\)"
 OLD_DATE = '2016-03-05 22:22:00.350000'
-
-
-def extract_images(article):
-	''' extract b64 encoded images from markdown in article body '''
-	body = article['body']
-	images = []
-	matches = re.finditer(IMG_REGEX, body, re.IGNORECASE | re.MULTILINE)
-	for i, match in enumerate(matches, start=1):
-		ext = match.group(3)
-		link = 'discoursio-web/public/upload/image-' + \
-			article['old_id'] + str(i) + '.' + ext
-		img = match.group(4)
-		if img not in images:
-			open('../' + link, 'wb').write(base64.b64decode(img))
-			images.append(img)
-		body = body.replace(match.group(2), link)
-		print(link)
-	article['body'] = body
-	return article
 
 def users(users_by_oid, users_by_slug, users_data):
 	''' migrating users first '''
 	# limiting
 	limit = len(users_data)
 	if len(sys.argv) > 2: limit = int(sys.argv[2])
-	print('migrating %d users...' % limit)
+	print('[migration] %d users...' % limit)
 	counter = 0
 	id_map = {}
 	for entry in users_data:
@@ -63,16 +40,18 @@ def users(users_by_oid, users_by_slug, users_data):
 		users_by_slug[user['slug']] = user # public
 		id_map[user['old_id']] = user['slug']
 		counter += 1
-	print(' - * - stage 2 users migration - * -')
+	# print(' - * - stage 2 users migration - * -')
+	ce = 0
 	for entry in users_data:
-		migrateUser_2stage(entry, id_map)
-	try:
-		open('migration/data/users.old_id.json', 'w').write(json.dumps(users_by_oid, cls=DateTimeEncoder))  # NOTE: by old_id
-		open('migration/data/users.slug.json', 'w').write(json.dumps(users_by_slug, cls=DateTimeEncoder))  # NOTE: by slug
-		print(str(len(users_by_slug.items())) + ' users migrated')
-	except Exception:
-		print('json dump error')
-		# print(users_by_oid)
+		ce += migrateUser_2stage(entry, id_map)
+	# print(str(len(users_by_slug.items())) + ' users migrated')
+	print('[migration] %d user ratings errors' % ce)
+	#try:
+	#	open('migration/data/users.old_id.json', 'w').write(json.dumps(users_by_oid, cls=DateTimeEncoder))  # NOTE: by old_id
+	#	open('migration/data/users.slug.json', 'w').write(json.dumps(users_by_slug, cls=DateTimeEncoder))  # NOTE: by slug
+	#except Exception:
+	#	print('json dump error')
+	#	# print(users_by_oid)
 
 
 def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
@@ -80,7 +59,7 @@ def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
 	# limiting
 	limit = len(cats_data) + len(tags_data)
 	if len(sys.argv) > 2: limit = int(sys.argv[2])
-	print('migrating %d topics...' % limit)
+	print('[migration] %d topics...' % limit)
 	counter = 0
 	retopics = json.loads(open('migration/tables/replacements.json').read())
 	topicslugs_by_oid = {}
@@ -106,8 +85,8 @@ def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
 	for oid, oslug in topicslugs_by_oid.items():
 		if topics_by_slug.get(oslug):
 			topics_by_oid[oid] = topics_by_slug.get(retopics.get(oslug, oslug))
-	print( str(len(topics_by_oid.values())) + ' topics by oid' )
-	print( str(len(topics_by_slug.values())) + ' topics by slug' )
+	print( '[migration] ' + str(len(topics_by_oid.values())) + ' topics by oid' )
+	print( '[migration] ' + str(len(topics_by_slug.values())) + ' topics by slug' )
 	#replacements = {} # json.loads(open('migration/tables/replacements.json').read())
 	#for t in topics_by_title.values():
 	#	slug = replacements.get(t['slug'].strip()) or t['slug'].strip()
@@ -121,32 +100,24 @@ def topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data):
 	#													sort_keys=True,
 	#													ensure_ascii=False))
 
-def shouts(content_data, shouts_by_slug, shouts_by_oid, oldtopics_by_oid):
+def shouts(content_data, shouts_by_slug, shouts_by_oid):
 	''' migrating content items one by one '''
 	# limiting
 	limit = len(content_data)
 	if len(sys.argv) > 2: limit = int(sys.argv[2])
-	print('migrating %d content items...' % limit)
+	print('[migration] %d content items...' % limit)
 	counter = 0
 	discours_author = 0
 	errored = []
-
+	pub_counter = 0
 	# limiting
 	try: limit = int(sys.argv[2]) if len(sys.argv) > 2 else len(content_data)
 	except ValueError:  limit = len(content_data)
-	te = {}
 	for entry in content_data[:limit]:
+		if 'slug' in sys.argv and entry['slug'] not in sys.argv: continue
 		try:
 			shout, terrors = migrateShout(entry, users_by_oid, topics_by_oid)
-			for oid in terrors: 
-				if not te.get(oid): 
-					if oldtopics_by_oid.get(oid):
-						te[oldtopics_by_oid[oid]['slug']] = []
-					else:
-						# print('lost old topic id: ' + oid)
-						pass
-				else:
-					te[oid].append(shout['slug'])
+			if entry.get('published'): pub_counter += 1
 			author = shout['authors'][0]
 			shout['authors'] = [ author.id, ]
 			newtopics = []
@@ -156,7 +127,6 @@ def shouts(content_data, shouts_by_slug, shouts_by_oid, oldtopics_by_oid):
 				if nt not in newtopics:
 					newtopics.append(nt)
 			shout['topics'] = newtopics
-			shout = extract_images(shout)
 			shouts_by_slug[shout['slug']] = shout
 			shouts_by_oid[entry['_id']] = shout
 			line = str(counter+1) + ': ' + shout['slug'] + " @" + str(author.slug)
@@ -165,33 +135,34 @@ def shouts(content_data, shouts_by_slug, shouts_by_oid, oldtopics_by_oid):
 			print(line)
 			# open('./shouts.id.log', 'a').write(line + '\n')
 		except Exception as e:
-			print(entry['_id'])
+			# print(entry['_id'])
 			errored.append(entry)
 			raise e
-	print(te)
-	open('migration/data/shouts.old_id.json','w').write(json.dumps(shouts_by_oid, cls=DateTimeEncoder))
-	open('migration/data/shouts.slug.json','w').write(json.dumps(shouts_by_slug, cls=DateTimeEncoder))
-	print(str(counter) + '/' + str(len(content_data)) + ' content items were migrated')
-	print(str(discours_author) + ' authored by @discours')
+	# print(te)
+	# open('migration/data/shouts.old_id.json','w').write(json.dumps(shouts_by_oid, cls=DateTimeEncoder))
+	# open('migration/data/shouts.slug.json','w').write(json.dumps(shouts_by_slug, cls=DateTimeEncoder))
+	print('[migration] ' + str(counter) + ' content items were migrated')
+	print('[migration] ' + str(pub_counter) + ' have been published')
+	print('[migration] ' + str(discours_author) + ' authored by @discours')
 	
 def export_shouts(shouts_by_slug, export_articles, export_authors, content_dict):
 	# update what was just migrated or load json again
 	if len(export_authors.keys()) == 0:
 		export_authors = json.loads(open('../src/data/authors.json').read())
-		print(str(len(export_authors.items())) + ' exported authors loaded')
+		print('[migration] ' + str(len(export_authors.items())) + ' exported authors loaded')
 	if len(export_articles.keys()) == 0:
 		export_articles = json.loads(open('../src/data/articles.json').read())
-		print(str(len(export_articles.items())) + ' exported articles loaded')
+		print('[migration] ' + str(len(export_articles.items())) + ' exported articles loaded')
 	
 	# limiting
 	limit = 33
 	if len(sys.argv) > 2: limit = int(sys.argv[2])
-	print('exporting %d articles to json...' % limit)
+	print('[migration] ' + 'exporting %d articles to json...' % limit)
 	
 	# filter 
 	export_list = [i for i in shouts_by_slug.items() if i[1]['layout'] == 'article']
 	export_list = sorted(export_list, key=lambda item: item[1]['createdAt'] or OLD_DATE, reverse=True)
-	print(str(len(export_list)) + ' filtered')
+	print('[migration] ' + str(len(export_list)) + ' filtered')
 	export_list = export_list[:limit or len(export_list)]
 	
 	for (slug, article) in export_list:
@@ -199,20 +170,20 @@ def export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
 			export_slug(slug, export_articles, export_authors, content_dict)
 	
 def export_body(article, content_dict):
-	article = extract_images(article)
+	article['body'] = extract(article['body'], article['oid'])
 	metadata = get_metadata(article)
 	content = frontmatter.dumps(frontmatter.Post(article['body'], **metadata))
-	open('../discoursio-web/content/' + slug + '.mdx', 'w').write(content)
-	# open('../discoursio-web/content/'+slug+'.html', 'w').write(content_dict[article['old_id']]['body'])
+	open('../discoursio-web/content/' + article['slug'] + '.mdx', 'w').write(content)
+	open('../discoursio-web/content/'+ article['slug'] + '.html', 'w').write(content_dict[article['old_id']]['body'])
 
 def export_slug(slug, export_articles, export_authors, content_dict):
-	print('exporting %s ' % slug)
+	print('[migration] ' + 'exporting %s ' % slug)
 	if export_authors == {}: 
 		export_authors = json.loads(open('../src/data/authors.json').read())
-		print(str(len(export_authors.items())) + ' exported authors loaded')
+		print('[migration] ' + str(len(export_authors.items())) + ' exported authors loaded')
 	if export_articles == {}:
 		export_articles = json.loads(open('../src/data/articles.json').read())
-		print(str(len(export_articles.items())) + ' exported articles loaded')
+		print('[migration] ' + str(len(export_articles.items())) + ' exported articles loaded')
 		
 	shout = shouts_by_slug.get(slug, False)
 	assert shout, 'no data error'
@@ -233,12 +204,14 @@ def comments(comments_data):
 		id_map[old_id] = id
 	for comment in comments_data:
 		migrateComment_2stage(comment, id_map)
-	print(str(len(id_map)) + ' comments exported')
+	print('[migration] ' + str(len(id_map)) + ' comments exported')
 
-def export_email_subscriptions(email_subscriptions_data):
+def export_email_subscriptions():
+	email_subscriptions_data = json.loads(open('migration/data/email_subscriptions.json').read())
+	print('[migration] ' + str(len(email_subscriptions_data)) + ' email subscriptions loaded')
 	for data in email_subscriptions_data:
 		migrate_email_subscription(data)
-	print(str(len(email_subscriptions_data)) + ' email subscriptions exported')
+	print('[migration] ' + str(len(email_subscriptions_data)) + ' email subscriptions exported')
 
 
 def export_finish(export_articles = {}, export_authors = {}, export_topics = {}, export_comments = {}):
@@ -247,26 +220,26 @@ def export_finish(export_articles = {}, export_authors = {}, export_topics = {},
 															indent=4,
 															sort_keys=True,
 															ensure_ascii=False))
-	print(str(len(export_authors.items())) + ' authors exported')
+	print('[migration] ' + str(len(export_authors.items())) + ' authors exported')
 	open('../src/data/topics.json', 'w').write(json.dumps(export_topics,
 														cls=DateTimeEncoder,
 														indent=4,
 														sort_keys=True,
 														ensure_ascii=False))
-	print(str(len(export_topics.keys())) + ' topics exported')
+	print('[migration] ' + str(len(export_topics.keys())) + ' topics exported')
 	
 	open('../src/data/articles.json', 'w').write(json.dumps(export_articles,
 															cls=DateTimeEncoder,
 															indent=4,
 															sort_keys=True,
 															ensure_ascii=False))
-	print(str(len(export_articles.items())) + ' articles exported')
+	print('[migration] ' + str(len(export_articles.items())) + ' articles exported')
 	open('../src/data/comments.json', 'w').write(json.dumps(export_comments,
 															cls=DateTimeEncoder,
 															indent=4,
 															sort_keys=True,
 															ensure_ascii=False))
-	print(str(len(export_comments.items())) + ' exported articles with comments')
+	print('[migration] ' + str(len(export_comments.items())) + ' exported articles with comments')
 
 
 if __name__ == '__main__':
@@ -280,10 +253,10 @@ if __name__ == '__main__':
 				bson2json.json_tables()
 			else:
 				# preparing data
-    
+	
 				# users
 				users_data = json.loads(open('migration/data/users.json').read())
-				print(str(len(users_data)) + ' users loaded')
+				print('[migration] ' + str(len(users_data)) + ' users loaded')
 				users_by_oid = {}
 				users_by_slug = {}
 				user_id_map = {}
@@ -294,10 +267,10 @@ if __name__ == '__main__':
 						users_by_oid[user.old_id] = vars(user)
 				# tags
 				tags_data = json.loads(open('migration/data/tags.json').read())
-				print(str(len(tags_data)) + ' tags loaded')
+				print('[migration] ' + str(len(tags_data)) + ' tags loaded')
 				# cats
 				cats_data = json.loads(open('migration/data/content_item_categories.json').read())
-				print(str(len(cats_data)) + ' cats loaded')
+				print('[migration] ' + str(len(cats_data)) + ' cats loaded')
 				topics_data = tags_data
 				tags_data.extend(cats_data)
 				oldtopics_by_oid = { x['_id']: x for x in topics_data }
@@ -308,12 +281,12 @@ if __name__ == '__main__':
 				# content
 				content_data = json.loads(open('migration/data/content_items.json').read())
 				content_dict = { x['_id']: x for x in content_data }
-				print(str(len(content_data)) + ' content items loaded')
+				print('[migration] ' + str(len(content_data)) + ' content items loaded')
 				shouts_by_slug = {}
 				shouts_by_oid = {}
 
 				comments_data = json.loads(open('migration/data/comments.json').read())
-				print(str(len(comments_data)) + ' comments loaded')
+				print('[migration] ' + str(len(comments_data)) + ' comments loaded')
 				comments_by_post = {}
 					# sort comments by old posts ids
 				for old_comment in comments_data:
@@ -321,10 +294,7 @@ if __name__ == '__main__':
 					comments_by_post[cid] = comments_by_post.get(cid, [])
 					if not old_comment.get('deletedAt', True):
 						comments_by_post[cid].append(old_comment)
-				print(str(len(comments_by_post.keys())) + ' articles with comments')
-
-				email_subscriptions_data = json.loads(open('migration/data/email_subscriptions.json').read())
-				print(str(len(email_subscriptions_data)) + ' email subscriptions loaded')
+				print('[migration] ' + str(len(comments_by_post.keys())) + ' articles with comments')
 
 				export_articles = {} # slug: shout
 				export_authors = {} # slug: user
@@ -338,29 +308,32 @@ if __name__ == '__main__':
 				elif cmd == "topics":
 					topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data)
 				elif cmd == "shouts":
-					shouts(content_data, shouts_by_slug, shouts_by_oid, oldtopics_by_oid) # NOTE: listens limit
+					shouts(content_data, shouts_by_slug, shouts_by_oid) # NOTE: listens limit
 				elif cmd == "comments":
 					comments(comments_data)
 				elif cmd == "export_shouts":
 					export_shouts(shouts_by_slug, export_articles, export_authors, content_dict)
 				elif cmd == "email_subscriptions":
-					export_email_subscriptions(email_subscriptions_data)
+					export_email_subscriptions()
+				elif cmd == 'slug':
+					export_slug(sys.argv[2], export_articles, export_authors, content_dict)
 				elif cmd == "all":
 					users(users_by_oid, users_by_slug, users_data)
 					topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data)
-					shouts(content_data, shouts_by_slug, shouts_by_oid, oldtopics_by_oid)
+					shouts(content_data, shouts_by_slug, shouts_by_oid)
 					comments(comments_data)
-					export_email_subscriptions(email_subscriptions_data)
-				elif cmd == 'slug':
-					export_slug(sys.argv[2], export_articles, export_authors, content_dict)
+					export_email_subscriptions()
+				else:
+					print('[migration] --- debug users, topics, shouts')
+					users(users_by_oid, users_by_slug, users_data)
+					topics(export_topics, topics_by_slug, topics_by_oid, cats_data, tags_data)
+					shouts(content_data, shouts_by_slug, shouts_by_oid)
 				#export_finish(export_articles, export_authors, export_topics, export_comments)
 	else:
-		print('''
-			usage: python migrate.py bson
-			\n.. \ttopics <limit>
-			\n.. \tusers <limit>
-			\n.. \tshouts <limit>
-			\n.. \texport_shouts <limit>
-			\n.. \tslug <slug>
-			\n.. \tall
-			''')
+		print('usage: python migrate.py bson')
+		print('.. \ttopics <limit>')
+		print('.. \tusers <limit>')
+		print('.. \tshouts <limit>')
+		print('.. \texport_shouts <limit>')
+		print('.. \tslug <slug>')
+		print('.. \tall')
