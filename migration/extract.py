@@ -1,8 +1,14 @@
+import json
 import re
 import base64
 
+from migration.html2text import html2text
+
 TOOLTIP_REGEX = r'(\/\/\/(.+)\/\/\/)'
 
+s3 = 'https://discours-io.s3.amazonaws.com/'
+cdn = 'https://assets.discours.io'
+retopics = json.loads(open('migration/tables/replacements.json', 'r').read())
 
 def replace_tooltips(body):
 	newbody = body
@@ -29,9 +35,9 @@ def place_tooltips(body):
 						fn = 'a class="footnote-url" href="'
 						link = part.split(fn,1)[1].split('"', 1)[0]
 						extracted_part = part.split(fn,1)[0] + ' ' + part.split('/', 1)[-1]
-						newparts[i] = '<Tooltip text="' + extracted_part + '" link="' + link + '" />'
+						newparts[i] = '<Tooltip' + (' link="' + link + '" ' if link else '') + '>' + extracted_part + '</Tooltip>'
 					else:
-						newparts[i] = '<Tooltip text="%s" />' % part
+						newparts[i] = '<Tooltip>%s</Tooltip>' % part
 					# print('[extract] tooltip: ' + newparts[i])
 				else:
 					# print('[extract] pass: ' + part[:10] + '..')
@@ -42,7 +48,6 @@ def place_tooltips(body):
 
 IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,((?:[A-Za-z\d+\/]{4})*(?:[A-Za-z\d+\/]{3}=|[A-Za-z\d+\/]{2}==)))\)"
 public = '../discoursio-web/public'
-cdn = 'https://assets.discours.io'
 cache = {}
 
 
@@ -81,7 +86,7 @@ def extract_images(body, oid):
 	body = body.replace(' [](data:image', '![](data:image').replace('\n[](data:image', '![](data:image')
 	oldparts = body.split(sep)
 	newparts = list(oldparts)
-	print()
+	# print()
 	if len(oldparts) > 1: 
 		print('[extract] images for %s' % oid)
 		print('[extract] %d candidates' % (len(oldparts)-1))
@@ -95,15 +100,12 @@ def extract_images(body, oid):
 			if end:
 				continue
 			else: # start or between
-				# print('[extract_images] have next')
 				for mime in IMAGES.keys():
 					if mime in current[-15:]:
-						# print('[extract_images] found proper mime type')
 						print('[extract] ' + current[-15:])
 						if ')' in next: 
 							b64encoded = next.split(')')[0]
 						print('[extract] '+str(i+1)+': %d bytes' % len(b64encoded))
-						# print(meta)
 						ext = IMAGES[mime]
 						print('[extract] type: ' + mime)
 						name = oid + '-' + str(i)
@@ -122,8 +124,8 @@ def extract_images(body, oid):
 							newparts[i] = current.split('![](' + mime)[0] + '![](' + link + ')'
 							newparts[i+1] = next.replace(b64encoded + ')', '')
 						else:
-							print('[extract] not b64encoded')
-							print(current[-15:])
+							print('[extract] ERROR: no b64encoded')
+							# print(current[-15:])
 				i += 1
 	newbody = ''.join(newparts)
 	return newbody
@@ -146,9 +148,91 @@ def cleanup(body):
 		# .replace('\u2212', '-')
 	return newbody
 
-
 def extract(body, oid):
 	newbody = extract_images(body, oid)
 	newbody = cleanup(newbody)
 	newbody = place_tooltips(newbody)
 	return newbody
+
+def prepare_body(entry):
+	# body modifications
+	body = ''
+	body_orig = entry.get('body', '')
+	if not body_orig: body_orig = ''
+
+	if entry.get('type') == 'Literature':
+		for m in entry.get('media', []):
+			t = m.get('title', '')
+			if t: body_orig += '<h5>' + t + '</h5>\n'
+			body_orig += (m.get('body', '') or '')
+			body_orig += '\n' + m.get('literatureBody', '') + '\n'
+
+	elif entry.get('type') == 'Video':
+		providers = set([])
+		video_url = ''
+		require = False
+		for m in entry.get('media', []):
+			yt = m.get('youtubeId', '')
+			vm = m.get('vimeoId', '')
+			if yt:
+				require = True
+				providers.add('YouTube')
+				video_url = 'https://www.youtube.com/watch?v=' + yt
+				body += '<YouTube youtubeId=\'' + yt + '\' />\n'
+			if vm:
+				require = True
+				providers.add('Vimeo')
+				video_url = 'https://vimeo.com/' + vm
+				body += '<Vimeo vimeoId=\''  + vm + '\' />\n'
+			body += extract(html2text(m.get('body', '')), entry['_id'])
+			if video_url == '#': print(entry.get('media', 'UNKNOWN MEDIA PROVIDER!'))
+		if require: body = 'import { ' + ','.join(list(providers)) + ' } from \'solid-social\'\n\n' + body + '\n'
+
+	elif entry.get('type') == 'Music':
+		for m in entry.get('media', []):
+			artist = m.get('performer')
+			trackname = ''
+			if artist: trackname += artist + ' - '
+			if 'title' in m: trackname += m.get('title','')
+			body += '<MusicPlayer src=\"' + m.get('fileUrl','') + '\" title=\"' + trackname + '\" />\n' 
+			body += extract(html2text(m.get('body', '')), entry['_id'])
+		body = 'import MusicPlayer from \'$/components/Article/MusicPlayer\'\n\n' + body + '\n'
+
+	elif entry.get('type') == 'Image':
+		cover = ''
+		if 'thumborId' in entry: cover = cdn + '/unsafe/1600x/' + entry['thumborId']
+		if not cover and 'image' in entry:
+			cover = entry['image'].get('url', '')
+			if 'cloudinary' in cover: cover = ''
+		images = {}
+		for m in entry.get('media', []):
+			t = m.get('title', '')
+			if t: body += '#### ' + t + '\n'
+			u = m.get('image', {}).get('url', '')
+			if 'cloudinary' in u:
+				u = m.get('thumborId')
+				if not u: u = cover
+			u = str(u)
+			if u not in images.keys():
+				if u.startswith('production'): u = s3 + u 
+				body += '![' + m.get('title','').replace('\n', ' ') + '](' + u + ')\n' # TODO: gallery here
+				images[u] = u
+			body += extract(html2text(m.get('body', '')), entry['_id']) + '\n'
+
+	if not body_orig:
+		print('[prepare] using body history...')
+		# print(entry.get('bodyHistory', ''))
+		try: 
+			for up in entry.get('bodyHistory', []):
+				body_orig = up.get('text', '') or ''
+				if body_orig: break
+		except: pass
+
+	# body_html = str(BeautifulSoup(body_orig, features="html.parser"))
+	body += extract(html2text(body_orig), entry['_id'])
+	
+	# replace some topics
+	for oldtopicslug, newtopicslug in retopics.items():
+		body.replace(oldtopicslug, newtopicslug)
+	
+	return body

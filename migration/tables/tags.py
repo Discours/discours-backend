@@ -40,7 +40,7 @@ def migrate(entry, topics_by_oid):
 					del topic_dict['oid']
 					topic = Topic.create(**topic_dict)
 	except Exception as e:
-		print(e)
+		# print(e)
 		raise e
 	topic_dict['oid'] = entry['_id']
 	return topic_dict

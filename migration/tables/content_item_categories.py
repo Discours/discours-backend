@@ -35,7 +35,7 @@ def migrate(entry, topics_by_oid):
 				if not topic:
 					del topic_dict['oid']
 					topic = Topic.create(**topic_dict)
-					print('created')
+					# print('created')
 				else:
 					if len(topic.title) > len(topic_dict['title']) or \
 						len(topic.body) < len(topic_dict['body']):
