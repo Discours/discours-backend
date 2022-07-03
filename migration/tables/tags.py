@@ -39,11 +39,6 @@ def migrate(entry, topics_by_oid):
 				if not topic: 
 					del topic_dict['oid']
 					topic = Topic.create(**topic_dict)
-				else:
-					print(slug + ': ' + topic.title)
-			else:
-				print('not found topic: ' + slug)
-				raise Exception
 	except Exception as e:
 		print(e)
 		raise e

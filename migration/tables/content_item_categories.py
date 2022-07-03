@@ -39,16 +39,11 @@ def migrate(entry, topics_by_oid):
 				else:
 					if len(topic.title) > len(topic_dict['title']) or \
 						len(topic.body) < len(topic_dict['body']):
-							print('updating topic')
 							topic.update({
 								'slug': slug,
 								'title':  topic_dict['title'] if len(topic.title) > len(topic_dict['title']) else topic.title,
-								'body':  topic_dict['body'] if len(topic.body) < len(topic_dict['body']) else topic.body,
-								#'views': topic.views + topic_dict['views']
-								#'authors': topic.views + topic_dict['views']
-								#'followers': topic.views + topic_dict['views']
+								'body':  topic_dict['body'] if len(topic.body) < len(topic_dict['body']) else topic.body
 							})
-							print(slug + ': ' + topic.title)
 			except Exception as e:
 				print('not found old topic: ' + slug)
 		else:
