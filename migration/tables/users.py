@@ -98,11 +98,13 @@ def migrate_email_subscription(entry):
 	subscription = EmailSubscription.create(**res)
 
 def migrate_2stage(entry, id_map):
+	ce = 0
 	for rating_entry in entry.get('ratings',[]):
 		rater_old_id = rating_entry['createdBy']
 		rater_slug = id_map.get(rater_old_id)
 		if not rater_slug:
-			print(rating_entry)
+			ce +=1
+			# print(rating_entry)
 			continue
 		old_id = entry['_id']
 		user_rating_dict = {
@@ -115,3 +117,4 @@ def migrate_2stage(entry, id_map):
 				user_rating = UserRating.create(**user_rating_dict)
 			except Exception as e:
 				print(e)
+	return ce
