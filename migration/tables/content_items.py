@@ -1,19 +1,16 @@
 from dateutil.parser import parse as date_parse
 import frontmatter
 import json
-import sqlite3
 import sqlalchemy
-from orm import Shout, Comment, Topic, ShoutTopic, ShoutRating, ShoutViewByDay, User
-from bs4 import BeautifulSoup
+from orm import Shout, ShoutTopic, ShoutRating, ShoutViewByDay, User, shout
+# from bs4 import BeautifulSoup
 from migration.html2text import html2text
-from migration.tables.comments import migrate as migrateComment
 from transliterate import translit
 from datetime import datetime
-from sqlalchemy.exc import IntegrityError
 from orm.base import local_session
 from orm.community import Community
+from migration.extract import extract
 import os
-import string
 
 DISCOURS_USER = {
 	'id': 9999999,
@@ -35,7 +32,7 @@ type2layout = {
 
 def get_metadata(r):
 	metadata = {}
-	metadata['title'] = r.get('title')
+	metadata['title'] = r.get('title', '').replace('{', '(').replace('}', ')')
 	metadata['authors'] = r.get('authors')
 	metadata['createdAt'] = r.get('createdAt', ts)
 	metadata['layout'] = r['layout']
@@ -84,15 +81,19 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		'ratings': [],
 		'createdAt': entry.get('createdAt', '2016-03-05 22:22:00.350000')
 	}
-	r['slug'] = entry.get('slug', '')
-	if not r['slug'] and entry.get('friendlySlugs') is not None:
-		r['slug'] = entry['friendlySlugs']['slug'][0]['slug']
-		if(r['slug'] is None):
-			r['slug'] = entry['friendlySlugs'][0]['slug']
-	if not r['slug']:
-		print('NO SLUG ERROR')
-		# print(entry)
-		raise Exception
+
+	# slug 
+
+	s = entry.get('slug', '')
+	fslugs = entry.get('friendlySlugs')
+	if not s and fslugs:
+		if type(fslugs) != 'list': fslugs = fslugs.get('slug', [])
+		try: s = fslugs.pop(0).get('slug')
+		except: raise Exception
+	if s: r['slug'] = s
+	else: raise Exception
+
+	# topics
 
 	category = entry['category']
 	mainTopic = topics_by_oid.get(category)
@@ -107,68 +108,106 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		else:
 			# print('ERROR: unknown old topic id: ' + oid)
 			topic_errors.append(oid)
+	
+	# cover
+
 	if entry.get('image') is not None:
 		r['cover'] = entry['image']['url']
 	if entry.get('thumborId') is not None:
 		r['cover'] = 'https://assets.discours.io/unsafe/1600x/' + entry['thumborId']
 	if entry.get('updatedAt') is not None:
 		r['updatedAt'] = date_parse(entry['updatedAt'])
+
+	# body 
+
+	body = ''
+	body_orig = entry.get('body')
+	if not body_orig: body_orig = ''
+
+	# body modifications
+
 	if entry.get('type') == 'Literature':
-		media = entry.get('media', '')
-		# print(media[0]['literatureBody'])
-		if type(media) == list and media:
-			body_orig = media[0].get('literatureBody', '')
-			if body_orig == '':
-				print('EMPTY BODY!')
-			else:
-				# body_html = str(BeautifulSoup(
-				#	body_orig, features="html.parser"))
-				r['body'] = html2text(body_orig)
-		else:
-			print(r['slug'] + ': literature has no media')
+		for m in entry.get('media', []):
+			t = m.get('title', '')
+			if t: body_orig += '### ' + t + '\n'
+			body_orig += (m.get('body', '') or '')
+			body_orig += '\n' + m.get('literatureBody', '') + '\n'
+
+
 	elif entry.get('type') == 'Video':
-		m = entry['media'][0]
-		yt = m.get('youtubeId', '')
-		vm = m.get('vimeoId', '')
-		video_url = 'https://www.youtube.com/watch?v=' + yt if yt else '#'
-		therestof = html2text(m.get('body', entry.get('body', '')))
-		r['body'] = 'import { YouTube } from \'solid-social\'\n\n' + \
-			'<YouTube youtubeId=\'' + yt + '\' />\n\n' + therestof
-		if video_url == '#':
-			video_url = 'https://vimeo.com/' + vm if vm else '#'
-			r['body'] = 'import { Vimeo } from \'solid-social\'\n\n' + \
-				'<Vimeo vimeoId=\''  + vm + '\' />\n\n' + therestof
-		if video_url == '#':
-			print(entry.get('media', 'UNKNOWN MEDIA PROVIDER!'))
-			# raise Exception
+		providers = set([])
+		video_url = ''
+		require = False
+		for m in entry.get('media', []):
+			yt = m.get('youtubeId', '')
+			vm = m.get('vimeoId', '')
+			if yt:
+				require = True
+				providers.add('YouTube')
+				video_url = 'https://www.youtube.com/watch?v=' + yt
+				body += '<YouTube youtubeId=\'' + yt + '\' />\n'
+			if vm:
+				require = True
+				providers.add('Vimeo')
+				video_url = 'https://vimeo.com/' + vm
+				body += '<Vimeo vimeoId=\''  + vm + '\' />\n'
+			body += extract(html2text(m.get('body', '')), entry['_id'])
+			if video_url == '#': print(entry.get('media', 'UNKNOWN MEDIA PROVIDER!'))
+		if require: body = 'import { ' + ','.join(list(providers)) + ' } from \'solid-social\'\n\n' + body + '\n'
+		body += extract(html2text(body_orig), entry['_id'])
+
 	elif entry.get('type') == 'Music':
-		r['body'] = ''
-		for m in entry['media']:
-			if m == { 'main': 'true' } or m == { 'main': True } or m == {}:
-				continue
+		require = False
+		for m in entry.get('media', []):
+			if 'fileUrl' in m:
+				require = True
+				artist = m.get('performer')
+				trackname = ''
+				if artist: trackname += artist + ' - '
+				trackname += m.get('title','')
+				body += '<MusicPlayer src=\"' + m['fileUrl'] + '\" title=\"' + trackname + '\" />\n' 
+				body += extract(html2text(m.get('body', '')), entry['_id'])
 			else:
-				# TODO: mark highlighted track isMain == True
-				fileUrl = m.get('fileUrl', '')
-				if not fileUrl:
-					print(m)
-					continue
-				else:
-					r['body'] = 'import MusicPlayer from \'../src/components/MusicPlayer\'\n\n'
-					r['body'] += '<MusicPlayer src=\'' + fileUrl + '\' title=\'' + m.get('title','') + '\' />\n'
-				r['body'] += html2text(entry.get('body', ''))
+				print(m)
+		if require: body = 'import MusicPlayer from \'$/components/Article/MusicPlayer\'\n\n' + body + '\n'
+		body += extract(html2text(body_orig), entry['_id'])
+
 	elif entry.get('type') == 'Image':
-		r['body'] = ''
-		if 'cover' in r: r['body'] = '<img src=\"' + r.get('cover', '') + '\" />'
-		mbody = r.get('media', [{'body': ''},])[0].get('body', '')
-		r['body'] += mbody + entry.get('body', '')
-		if r['body'] == '': print(entry)
-	if r.get('body') is None:
-		body_orig = entry.get('body', entry.get('bodyHistory', [{ 'text': '' }, ])[0].get('text', ''))
+		cover = r.get('cover')
+		images = {}
+		for m in entry.get('media', []):
+			t = m.get('title', '')
+			if t: body += '#### ' + t + '\n'
+			u = m.get('image', {}).get('url', '')
+			if 'cloudinary' in u:
+				u = m.get('thumborId')
+				if not u: u = cover
+			if u not in images.keys():
+				if u.startswith('production'): u = 'https://discours-io.s3.amazonaws.com/' + u 
+				body += '![' + m.get('title','').replace('\n', ' ') + '](' + u + ')\n' # TODO: gallery here
+				images[u] = u
+			body += extract(html2text(m.get('body', '')), entry['_id']) + '\n'
+		body += extract(html2text(body_orig), entry['_id'])
+
+	# simple post or no body stored
+	if body == '': 
+		if not body_orig:
+			print('[migration] using body history...')
+			try: body_orig += entry.get('bodyHistory', [{'body': ''}])[0].get('body', '')
+			except: pass
+		# need to extract
 		# body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-		r['body'] = html2text(body_orig)
-	body = r.get('body', '')
+		body += extract(html2text(body_orig), entry['_id'])
+	else:
+		# EVERYTHING IS FINE HERE
+		pass
+	
+	# replace some topics
 	for oldtopicslug, newtopicslug in retopics.items():
 		body.replace(oldtopicslug, newtopicslug)
+
+	# authors
+
 	# get author data
 	userdata = {}
 	try: userdata = users_by_oid[entry['createdBy']]
@@ -194,6 +233,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
 		} 
 
 	# set author data
+	r['body'] = body
 	shout_dict = r.copy()
 	author = { # a short version for public listings
 		'slug': userdata.get('slug', 'discours'),
@@ -202,15 +242,21 @@ def migrate(entry, users_by_oid, topics_by_oid):
 	}
 	shout_dict['authors'] = [ author, ]
 
+	# save mdx for prerender if published
+
 	if entry['published']:
 		metadata = get_metadata(shout_dict)
-		content = frontmatter.dumps(frontmatter.Post(body, **metadata))
+		content = frontmatter.dumps(frontmatter.Post(r['body'], **metadata))
 		ext = 'mdx'
 		parentDir = '/'.join(os.getcwd().split('/')[:-1])
-		filepath =  parentDir + '/discoursio-web/content/' + r['slug'] + '.' + ext
+		filepath =  parentDir + '/discoursio-web/content/' + r['slug']
 		# print(filepath)
 		bc = bytes(content,'utf-8').decode('utf-8','ignore')
-		open(filepath, 'w').write(bc)
+		open(filepath + '.' + ext, 'w').write(bc)
+		# open(filepath + '.html', 'w').write(body_orig)
+
+	# save shout to db
+
 	try:
 		shout_dict['createdAt'] = date_parse(r.get('createdAt')) if entry.get('createdAt') else ts
 		shout_dict['publishedAt'] = date_parse(entry.get('publishedAt')) if entry.get('published') else None
@@ -234,51 +280,65 @@ def migrate(entry, users_by_oid, topics_by_oid):
 				if not user and slug: user = session.query(User).filter(User.slug == slug).first()
 				if not user and userdata: user = User.create(**userdata)
 			except:
-				print(userdata)
+				print('[migration] content_items error: \n%r' % entry)
 		assert user, 'could not get a user'
-		
 		shout_dict['authors'] = [ user, ] 
-		try:
-			s = Shout.create(**shout_dict)
+		
+		# create shout
 
-			# shout ratings
-			shout_dict['ratings'] = []
-			for shout_rating_old in entry.get('ratings',[]):
-				with local_session() as session:
-					rater = session.query(User).\
-						filter(User.old_id == shout_rating_old['createdBy']).first()
-				if rater:
-					shout_rating_dict = {
-						'value': shout_rating_old['value'],
-						'rater': rater.slug,
-						'shout': s.slug
-					}
-					cts = shout_rating_old.get('createdAt')
-					if cts: shout_rating_dict['ts'] = date_parse(cts)
-					try: shout_rating = ShoutRating.create(**shout_rating_dict)
-					except sqlalchemy.exc.IntegrityError: pass
+		s = object()
+		try: s = Shout.create(**shout_dict)
+		except: print('[migration] content_items error: \n%r' % entry)
+		
+		# shout ratings
+		
+		shout_dict['ratings'] = []
+		for shout_rating_old in entry.get('ratings',[]):
+			with local_session() as session:
+				rater = session.query(User).\
+					filter(User.old_id == shout_rating_old['createdBy']).first()
+			if rater:
+				shout_rating_dict = {
+					'value': shout_rating_old['value'],
+					'rater': rater.slug,
+					'shout': s.slug
+				}
+				cts = shout_rating_old.get('createdAt')
+				if cts: shout_rating_dict['ts'] = date_parse(cts)
+				try: 
+					shout_rating = session.query(ShoutRating).\
+						filter(ShoutRating.shout == s.slug).\
+						filter(ShoutRating.rater == rater.slug).first()
+					if shout_rating:
+						shout_rating_dict['value'] += int(shout_rating.value or 0)
+						shout_rating.update(shout_rating_dict)
+					else: ShoutRating.create(**shout_rating_dict)
 					shout_dict['ratings'].append(shout_rating_dict)
-
-			# shout topics
-			shout_dict['topics'] = []
-			for topic in r['topics']:
-				try:
-					tpc = topics_by_oid[topic['oid']]
-					slug = retopics.get(tpc['slug'], tpc['slug'])
-					ShoutTopic.create(**{ 'shout': s.slug, 'topic': slug })
-					shout_dict['topics'].append(slug)
-				except sqlalchemy.exc.IntegrityError:
+				except sqlalchemy.exc.IntegrityError: 
+					print('[migration] shout_rating error: \n%r' % shout_rating_dict)
 					pass
 
-			views = entry.get('views', 1)
-			ShoutViewByDay.create(
-				shout = s.slug,
-				value = views
-			)
+		# shout topics
 
-		except Exception as e: 
-			raise e
-	except Exception as e:
+		shout_dict['topics'] = []
+		for topic in r['topics']:
+			try:
+				tpc = topics_by_oid[topic['oid']]
+				slug = retopics.get(tpc['slug'], tpc['slug'])
+				ShoutTopic.create(**{ 'shout': s.slug, 'topic': slug })
+				shout_dict['topics'].append(slug)
+			except sqlalchemy.exc.IntegrityError:
+				pass
+
+		# shout views
+
+		views = entry.get('views', 1)
+		ShoutViewByDay.create(
+			shout = s.slug,
+			value = views
+		)
+
+	except Exception as e: 
 		raise e
 	shout_dict['old_id'] = entry.get('_id')
 	return shout_dict, topic_errors
