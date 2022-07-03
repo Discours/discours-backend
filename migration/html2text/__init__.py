@@ -364,17 +364,19 @@ class HTML2Text(html.parser.HTMLParser):
 				else:
 					self.inheader = False
 					return  # prevent redundant emphasis marks on headers
+
 		if 'class' in attrs:
-			self.current_class = attrs.get('class')
+			self.current_class = attrs.get('class', '')
 			# self.p()
 			if not start:
 				self.current_class = ''
-		if 'style' in attrs:
-			if attrs.get('style') == 'text-align: center':
-				self.current_class = 'center'
-			if not start:
-				self.current_class = ''
+
 		if tag == 'span':
+			if 'style' in attrs:
+				if attrs.get('style') == 'text-align: center':
+					self.current_class = 'center'
+				if not start:
+					self.current_class = ''
 			if start:
 					if self.current_class == 'highlight' and \
 						self.inheader == False and \
@@ -531,21 +533,25 @@ class HTML2Text(html.parser.HTMLParser):
 
 		if tag == "a" and not self.ignore_links:
 			if start:
-				if (
-					"href" in attrs
-					and attrs["href"] is not None
-					and not (self.skip_internal_links and attrs["href"].startswith("#"))
-					and not (
-						self.ignore_mailto_links and attrs["href"].startswith("mailto:")
-					)
-				):
-					self.astack.append(attrs)
-					self.maybe_automatic_link = attrs["href"]
-					self.empty_link = True
-					if self.protect_links:
-						attrs["href"] = "<" + attrs["href"] + ">"
+				if 'data-original-title' in attrs:
+					# WARNING: old discours specific code
+					if 'import Tooltip' not in self.outtextlist[0]: self.outtextlist.insert(0, 'import Tooltip from "$/components/Article/Tooltip"\n\n')
+					self.o('///%s///' % attrs['data-original-title'])
 				else:
-					self.astack.append(None)
+					if (
+						"href" in attrs 
+						and not attrs["href"].startswith('#_ftn')
+						and attrs["href"] is not None
+						and not (self.skip_internal_links and attrs["href"].startswith("#"))
+						and not (self.ignore_mailto_links and attrs["href"].startswith("mailto:"))
+					):
+						self.astack.append(attrs)
+						self.maybe_automatic_link = attrs["href"]
+						self.empty_link = True
+						if self.protect_links:
+							attrs["href"] = "<" + attrs["href"] + ">"
+					else:
+						self.astack.append(None)
 			else:
 				if self.astack:
 					a = self.astack.pop()
@@ -573,7 +579,8 @@ class HTML2Text(html.parser.HTMLParser):
 							self.o("][" + str(a_props.count) + "]")
 
 		if tag == "img" and start and not self.ignore_images:
-			if "src" in attrs:
+			# skip cloudinary images
+			if "src" in attrs and 'cloudinary' not in attrs['src']:
 				assert attrs["src"] is not None
 				if not self.images_to_alt:
 					attrs["href"] = attrs["src"]
@@ -1031,12 +1038,5 @@ def html2text(html: str, baseurl: str = "", bodywidth: Optional[int] = None) -> 
 		bodywidth = config.BODY_WIDTH
 	h = HTML2Text(baseurl=baseurl, bodywidth=bodywidth)
 
-	return h.handle(html)\
-		.replace('<...>', '**...**')\
-		.replace('<…>', '***...**')\
-		.replace('****',  '')\
-		.replace('\u00a0',' ')\
-		.replace('\u200c', '')\
-		.replace('\u200b', '')\
-		.replace('\ufeff', '')
-		# .replace('\u2212', '-')
+	h = h.handle(html)
+	return h
