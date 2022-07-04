@@ -39,6 +39,14 @@ def get_metadata(r):
 		metadata['cover'] = r.get('cover')
 	return metadata
 
+def get_shout_slug(entry):
+	slug = entry.get('slug', '')
+	if not slug:
+		for friend in entry.get('friendlySlugs', []):
+			slug = friend.get('slug', '')
+			if slug: break
+	return slug
+
 def migrate(entry, users_by_oid, topics_by_oid):
 	# init, set title and layout
 	r = {
@@ -54,13 +62,8 @@ def migrate(entry, users_by_oid, topics_by_oid):
 
 	# slug 
 
-	s = entry.get('slug', '')
-	fslugs = entry.get('friendlySlugs')
-	if not s and fslugs:
-		if type(fslugs) != 'list': fslugs = fslugs.get('slug', [])
-		try: s = fslugs.pop(0).get('slug')
-		except: raise Exception
-	if s: r['slug'] = s
+	slug = get_shout_slug(entry)
+	if slug: r['slug'] = slug
 	else: raise Exception
 	
 	# cover
@@ -232,7 +235,7 @@ def migrate(entry, users_by_oid, topics_by_oid):
 					ShoutTopic.create(**{ 'shout': s.slug, 'topic': newslug })
 			shout_dict['topics'].append(newslug)
 	except:
-		print('[migration] shout topic error: \n%r' % entry)
+		print('[migration] shout topic error: \n%r' % topic)
 		raise Exception
 
 	# shout views
