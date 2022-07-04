@@ -1,3 +1,4 @@
+import sqlalchemy
 from orm import User, Role, UserRating
 from orm.user import EmailSubscription
 import frontmatter
@@ -94,7 +95,6 @@ def migrate_email_subscription(entry):
 	res = {}
 	res["email"] = entry["email"]
 	res["createdAt"] = parse(entry["createdAt"])
-
 	subscription = EmailSubscription.create(**res)
 
 def migrate_2stage(entry, id_map):
@@ -115,6 +115,10 @@ def migrate_2stage(entry, id_map):
 		with local_session() as session:
 			try:
 				user_rating = UserRating.create(**user_rating_dict)
+			except sqlalchemy.exc.IntegrityError:
+				print('[migration] duplicate rating solving for ' + rater_slug)
+				old_rating = session.query(UserRating).filter(UserRating.rater == rater_slug).first()
+				old_rating.value = rating_entry['value'] + old_rating.value
 			except Exception as e:
 				print(e)
 	return ce

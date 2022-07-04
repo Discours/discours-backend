@@ -1,12 +1,10 @@
 import bson
-import datetime
 import json
-import importlib
 
 from migration.utils import DateTimeEncoder
 
 def json_tables():
-	print('creating json files at migration/data/')
+	print('[migration] unpack bson to migration/data/*.json')
 	data = {
 		"content_items": [],
 		"content_item_categories": [],
