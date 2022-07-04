@@ -84,16 +84,12 @@ def migrate(entry, shouts_by_oid):
 					raise e
 		return comment_dict
 
-def migrate_2stage(entry, id_map):
-	old_reply_to = entry.get('replyTo')
-	if not old_reply_to:
-		return
-	old_id = entry['_id']
-	if not old_id in id_map:
-		return
-	id = id_map[old_id]
+def migrate_2stage(cmt, old_new_id):
+	reply_oid = cmt.get('replyTo')
+	if not reply_oid: return
+	new_id = old_new_id.get(cmt['_id'])
+	if not new_id: return
 	with local_session() as session:
-		comment = session.query(Comment).filter(Comment.id == id).first()
-		reply_to = id_map.get(old_reply_to)
-		comment.replyTo = reply_to
+		comment = session.query(Comment).filter(Comment.id == new_id).first()
+		comment.replyTo = old_new_id.get(reply_oid)
 		session.commit()
