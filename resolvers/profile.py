@@ -91,7 +91,7 @@ async def user_comments(_, info, slug, page, size):
 	page = page - 1
 	with local_session() as session:
 		comments = session.query(Comment).\
-			filter(Comment.author == user.id).\
+			filter(Comment.createdBy == user.id).\
 			order_by(desc(Comment.createdAt)).\
 			limit(size).\
 			offset(page * size)
@@ -198,7 +198,7 @@ async def shouts_reviewed(_, info, page, size):
 			where(and_(Shout.publishedAt != None, ShoutRating.rater == user.slug))
 		shouts_by_comment = session.query(Shout).\
 			join(Comment).\
-			where(and_(Shout.publishedAt != None, Comment.author == user.id))
+			where(and_(Shout.publishedAt != None, Comment.createdBy == user.id))
 		shouts = shouts_by_rating.union(shouts_by_comment).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
@@ -215,7 +215,7 @@ async def shouts_commented_by_user(_, info, slug, page, size):
 	with local_session() as session:
 		shouts = session.query(Shout).\
 			join(Comment).\
-			where(Comment.author == user.id).\
+			where(Comment.createdBy == user.id).\
 			order_by(desc(Comment.createdAt)).\
 			limit(size).\
 			offset( (page - 1) * size)

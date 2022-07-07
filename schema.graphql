@@ -282,26 +282,24 @@ type User {
   bio: String
   notifications: [Int]
   communities: [Int] # user participating communities
-  old_id: String
+  oid: String
 }
 
 type Comment {
   id: Int!
-  shout: Int!
-  author: User!
+  createdBy: User!
   body: String!
-  replyTo: Int
+  replyTo: Comment!
   createdAt: DateTime!
   updatedAt: DateTime
-  updatedBy: Int
+  shout: Shout!
   deletedAt: DateTime
-  deletedBy: Int
+  deletedBy: User
   ratings: [CommentRating]
   views: Int
-  old_id: String
+  oid: String
   old_thread: String
 }
-
 type CommentRating {
   id: Int!
   comment_id: Int!
@@ -318,22 +316,21 @@ type Shout {
   createdAt: DateTime!
   authors: [User!]!
   ratings: [Rating]
-  visibleFor: [User]
   community: String
   cover: String
   layout: String
-  # replyTo: Shout
-  versionOf: Shout
-  tags: [String] # actual values
+  draft: Boolean
+  versionOf: Shout # translations and adaptations
+  visibleFor: [User]
   topics: [Topic]
   mainTopic: String
   title: String
   subtitle: String
   updatedAt: DateTime
-  updatedBy: Int # can be user id?
+  updatedBy: User
   deletedAt: DateTime
-  deletedBy: Int
-  publishedBy: Int # if there is no published field - it is not published
+  deletedBy: User
+  publishedBy: User
   publishedAt: DateTime
   stat: ShoutStat
 }
@@ -369,6 +366,7 @@ type Topic {
   children: [String] # and children
   community: String!
   topicStat: TopicStat
+  oid: String
 }
 
 enum ProposalStatus {

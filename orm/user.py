@@ -68,7 +68,7 @@ class User(Base):
 	notifications = relationship(lambda: UserNotifications)
 	ratings = relationship(UserRating, foreign_keys=UserRating.user)
 	roles = relationship(lambda: Role, secondary=UserRole.__tablename__)
-	old_id: str = Column(String, nullable = True)
+	oid: str = Column(String, nullable = True)
 	
 	@staticmethod
 	def init_table():

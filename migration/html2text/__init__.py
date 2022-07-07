@@ -535,8 +535,7 @@ class HTML2Text(html.parser.HTMLParser):
 			if start:
 				if 'data-original-title' in attrs:
 					# WARNING: old discours specific code
-					if 'import Tooltip' not in self.outtextlist[0]: self.outtextlist.insert(0, 'import Tooltip from "$/components/Article/Tooltip"\n\n')
-					self.o('///%s///' % attrs['data-original-title'])
+					self.o('&&&%s&&&' % attrs['data-original-title'])
 				else:
 					if (
 						"href" in attrs 
@@ -1033,10 +1032,10 @@ class HTML2Text(html.parser.HTMLParser):
 		return result
 
 
-def html2text(html: str, baseurl: str = "", bodywidth: Optional[int] = None) -> str:
-	if bodywidth is None:
-		bodywidth = config.BODY_WIDTH
-	h = HTML2Text(baseurl=baseurl, bodywidth=bodywidth)
-
-	h = h.handle(html)
+def html2text(html: str, baseurl: str = "", bodywidth: Optional[int] = config.BODY_WIDTH) -> str:
+	h = html.strip() or ''
+	if h: 
+		h = HTML2Text(baseurl=baseurl, bodywidth=bodywidth)
+		h = h.handle(html.strip())
+		print('[html2text] %d bytes' % len(html))
 	return h

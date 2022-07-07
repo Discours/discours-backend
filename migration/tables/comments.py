@@ -1,12 +1,13 @@
+from datetime import datetime
 from dateutil.parser import parse as date_parse
-import json
-import datetime
-from os.path import abspath
-from orm import Shout, Comment, CommentRating, User
+from orm import Comment, CommentRating, User
 from orm.base import local_session
 from migration.html2text import html2text
+from orm.shout import Shout
 
-def migrate(entry, shouts_by_oid):
+ts = datetime.now()
+
+def migrate(entry, storage):
 	'''
 	{
 	  "_id": "hdtwS8fSyFLxXCgSC",
@@ -28,60 +29,70 @@ def migrate(entry, shouts_by_oid):
 
 	type Comment {
 		id: Int!
-		author: Int!
+		createdBy: User!
 		body: String!
-		replyTo: Int!
+		replyTo: Comment!
 		createdAt: DateTime!
 		updatedAt: DateTime
-		shout: Int!
+		shout: Shout!
 		deletedAt: DateTime
-		deletedBy: Int
+		deletedBy: User
 		ratings: [CommentRating]
 		views: Int
 	}
 	'''
+	if entry.get('deleted'): return
+	comment_dict = {}
+	# FIXME: comment_dict['createdAt'] = ts if not entry.get('createdAt') else date_parse(entry.get('createdAt'))
+	# print('[migration] comment original date %r' % entry.get('createdAt'))
+	# print('[migration] comment date %r ' % comment_dict['createdAt'])
+	comment_dict['body'] = html2text(entry.get('body', ''))
+	comment_dict['oid'] = entry['_id']
+	if entry.get('createdAt'): comment_dict['createdAt'] = date_parse(entry.get('createdAt'))
+	shout_oid = entry.get('contentItem')
+	if not shout_oid in storage['shouts']['by_oid']: 
+		print('[migration] no shout for comment', entry)
+	else:
+		with local_session() as session:
+			author = session.query(User).filter(User.oid == entry['createdBy']).first()
+			shout_dict = storage['shouts']['by_oid'][shout_oid]
+			if shout_dict:
+				comment_dict['shout'] = shout_dict['oid']
+				comment_dict['createdBy'] = author.slug if author else 'discours'
+				# FIXME if entry.get('deleted'): comment_dict['deletedAt'] = date_parse(entry['updatedAt']) or ts
+				# comment_dict['deletedBy'] = session.query(User).filter(User.oid == (entry.get('updatedBy') or dd['oid'])).first()
+				# FIXME if entry.get('updatedAt'): comment_dict['updatedAt'] = date_parse(entry['updatedAt']) or ts
+				#for [k, v] in comment_dict.items():
+				#	if not v: del comment_dict[f]
+				#	if k.endswith('At'):
+				#		try: comment_dict[k] = datetime(comment_dict[k])
+				#		except: print(k)
+				#	# print('[migration] comment keys:', f)
 
-	shout_old_id = entry['contentItem']
-	if not shout_old_id in shouts_by_oid:
-		return
-	shout = shouts_by_oid[shout_old_id]
-
-	with local_session() as session:
-		author = session.query(User).filter(User.old_id == entry['createdBy']).first()
-		comment_dict = {
-			'author': author.id if author else 0,
-			'createdAt': date_parse(entry['createdAt']),
-			'body': html2text(entry['body']),
-			'shout': shout["slug"]
-		}
-		if entry.get('deleted'):
-			comment_dict['deletedAt'] = date_parse(entry['updatedAt'])
-			comment_dict['deletedBy'] = str(entry['updatedBy'])
-		if entry.get('updatedAt'):
-			comment_dict['updatedAt'] = date_parse(entry['updatedAt'])
-			# comment_dict['updatedBy'] = str(entry.get('updatedBy', 0)) invalid keyword for Comment
-		# print(comment_dict)
-		comment = Comment.create(**comment_dict)
-		comment_dict['id'] = comment.id
-		comment_dict['ratings'] = []
-		comment_dict['old_id'] = entry['_id']
-		# print(comment)
-		for comment_rating_old in entry.get('ratings',[]):
-			rater = session.query(User).filter(User.old_id == comment_rating_old['createdBy']).first()
-			if rater and comment:
-				comment_rating_dict = {
-					'value': comment_rating_old['value'],
-					'createdBy': rater.slug,
-					'comment_id': comment.id
-				}
-				cts = comment_rating_old.get('createdAt')
-				if cts: comment_rating_dict['createdAt'] = date_parse(cts)
-				try:
-					comment_rating = CommentRating.create(**comment_rating_dict)
-					comment_dict['ratings'].append(comment_rating_dict)
-				except Exception as e:
-					print(comment_rating_dict)
-					raise e
+				comment = Comment.create(**comment_dict)
+				
+				comment_dict['id'] = comment.id
+				comment_dict['ratings'] = []
+				comment_dict['oid'] = entry['_id']
+				# print(comment)
+				for comment_rating_old in entry.get('ratings',[]):
+					rater = session.query(User).filter(User.oid == comment_rating_old['createdBy']).first()
+					if rater and comment:
+						comment_rating_dict = {
+							'value': comment_rating_old['value'],
+							'createdBy': rater.slug,
+							'comment_id': comment.id
+						}
+						cts = comment_rating_old.get('createdAt')
+						if cts: comment_rating_dict['createdAt'] = date_parse(cts)
+						try:
+							CommentRating.create(**comment_rating_dict)
+							comment_dict['ratings'].append(comment_rating_dict)
+						except Exception as e:
+							print('[migration] comment rating error: %r' % comment_rating_dict)
+							raise e
+			else:
+				print('[migration] error: cannot find shout for comment %r' % comment_dict)
 		return comment_dict
 
 def migrate_2stage(cmt, old_new_id):

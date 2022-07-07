@@ -1,6 +1,7 @@
 from orm import Comment, CommentRating
 from orm.base import local_session
 from orm.shout import ShoutCommentsSubscription
+from orm.user import User
 from resolvers.base import mutation, query, subscription
 from auth.authenticate import login_required
 import asyncio
@@ -68,7 +69,7 @@ async def update_comment(_, info, id, body):
 		comment = session.query(Comment).filter(Comment.id == id).first()
 		if not comment:
 			return {"error": "invalid comment id"}
-		if comment.author != user_id:
+		if comment.createdBy != user_id:
 			return {"error": "access denied"}
 		
 		comment.body = body
@@ -88,7 +89,7 @@ async def delete_comment(_, info, id):
 		comment = session.query(Comment).filter(Comment.id == id).first()
 		if not comment:
 			return {"error": "invalid comment id"}
-		if comment.author != user_id:
+		if comment.createdBy != user_id:
 			return {"error": "access denied"}
 
 		comment.deletedAt = datetime.now()
@@ -103,12 +104,12 @@ async def rate_comment(_, info, id, value):
 	user_id = auth.user_id
 	
 	with local_session() as session:
+		user = session.query(User).filter(User.id == user_id).first()
 		comment = session.query(Comment).filter(Comment.id == id).first()
 		if not comment:
 			return {"error": "invalid comment id"}
-
 		rating = session.query(CommentRating).\
-			filter(CommentRating.comment_id == id, CommentRating.createdBy == user_id).first()
+			filter(CommentRating.comment_id == id, CommentRating.createdBy == user.slug).first()
 		if rating:
 			rating.value = value
 			session.commit()
@@ -124,7 +125,8 @@ async def rate_comment(_, info, id, value):
 def get_subscribed_shout_comments(slug):
 	with local_session() as session:
 		rows = session.query(ShoutCommentsSubscription.shout).\
-			filter(ShoutCommentsSubscription.subscriber == slug, ShoutCommentsSubscription.deletedAt == None).\
+			filter(ShoutCommentsSubscription.subscriber == slug,\
+					ShoutCommentsSubscription.deletedAt == None).\
 			all()
 	slugs = [row.shout for row in rows]
 	return slugs

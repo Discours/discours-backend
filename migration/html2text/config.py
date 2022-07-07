@@ -7,7 +7,7 @@ UNICODE_SNOB = True
 TABLE_MARKER_FOR_PAD = "special_marker_for_table_padding"
 # Escape all special characters.  Output is less readable, but avoids
 # corner case formatting issues.
-ESCAPE_SNOB = False
+ESCAPE_SNOB = True
 
 # Put the links after each paragraph instead of at the end.
 LINKS_EACH_PARAGRAPH = False
@@ -46,10 +46,10 @@ IMAGES_AS_HTML = False
 IMAGES_TO_ALT = False
 IMAGES_WITH_SIZE = False
 IGNORE_EMPHASIS = False
-MARK_CODE = False
+MARK_CODE = True
 DECODE_ERRORS = "strict"
 DEFAULT_IMAGE_ALT = ""
-PAD_TABLES = False
+PAD_TABLES = True
 
 # Convert links with same href and text to <href> format
 # if they are absolute links

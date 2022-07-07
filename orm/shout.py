@@ -328,14 +328,14 @@ class Shout(Base):
 	id = None
 
 	slug: str = Column(String, primary_key=True)
-	community: int = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
+	community: str = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
 	body: str = Column(String, nullable=False, comment="Body")
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 	updatedAt: str = Column(DateTime, nullable=True, comment="Updated at")
 	replyTo: int = Column(ForeignKey("shout.slug"), nullable=True)
 	versionOf: int = Column(ForeignKey("shout.slug"), nullable=True)
 	tags: str = Column(String, nullable=True)
-	publishedBy: bool = Column(ForeignKey("user.id"), nullable=True)
+	publishedBy: int = Column(ForeignKey("user.id"), nullable=True)
 	publishedAt: str = Column(DateTime, nullable=True)
 	cover: str = Column(String, nullable = True)
 	title: str = Column(String, nullable = True)
@@ -346,6 +346,8 @@ class Shout(Base):
 	topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
 	mainTopic = Column(ForeignKey("topic.slug"), nullable=True)
 	visibleFor = relationship(lambda: User, secondary=ShoutViewer.__tablename__)
+	draft: bool = Column(Boolean, default=True)
+	oid: str = Column(String, nullable=True)
 
 	@property
 	async def stat(self):

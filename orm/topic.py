@@ -24,6 +24,7 @@ class Topic(Base):
 	pic: str = Column(String, nullable=True, comment="Picture")
 	children = Column(JSONType, nullable=True, default = [], comment="list of children topics")
 	community = Column(ForeignKey("community.slug"), nullable=False, comment="Community")
+	oid: str = Column(String, nullable=True, comment="Old ID")
 
 class TopicStorage:
 	topics = {}

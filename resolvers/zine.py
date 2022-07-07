@@ -272,7 +272,7 @@ async def get_shout_comments(_, info, slug):
 			filter(Comment.shout == slug).\
 			group_by(Comment.id).all()
 	for comment in comments:
-		comment.author = await UserStorage.get_user(comment.author)
+		comment.createdBy = await UserStorage.get_user(comment.createdBy)
 	return comments
 
 @query.field("shoutsByTopics")

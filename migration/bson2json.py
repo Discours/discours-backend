@@ -1,3 +1,4 @@
+import os
 import bson
 import json
 
@@ -17,10 +18,11 @@ def json_tables():
 		lc = []
 		with open('migration/data/'+table+'.bson', 'rb') as f:
 			bs = f.read()
+			f.close()
 			base = 0
 			while base < len(bs):
 				base, d = bson.decode_document(bs, base)
 				lc.append(d)
 			data[table] = lc
-			open('dump/discours/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
+			open(os.getcwd() + '/dump/discours/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
 

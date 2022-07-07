@@ -17,16 +17,14 @@ class CommentRating(Base):
 
 class Comment(Base):
 	__tablename__ = 'comment'
-
-	author: int = Column(ForeignKey("user.id"), nullable=False, comment="Sender")
 	body: str = Column(String, nullable=False, comment="Comment Body")
 	createdAt = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
+	createdBy: str = Column(ForeignKey("user.slug"), nullable=False, comment="Sender")
 	updatedAt = Column(DateTime, nullable=True, comment="Updated at")
-	updatedBy = Column(ForeignKey("user.id"), nullable=True, comment="Last Editor")
+	updatedBy = Column(ForeignKey("user.slug"), nullable=True, comment="Last Editor")
 	deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
-	deletedBy = Column(ForeignKey("user.id"), nullable=True, comment="Deleted by")
+	deletedBy = Column(ForeignKey("user.slug"), nullable=True, comment="Deleted by")
 	shout = Column(ForeignKey("shout.slug"), nullable=False)
 	replyTo: int = Column(ForeignKey("comment.id"), nullable=True, comment="comment ID")
 	ratings = relationship(CommentRating, foreign_keys=CommentRating.comment_id)
-
-	# TODO: work in progress, udpate this code
+	oid: str = Column(String, nullable=True)
