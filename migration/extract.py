@@ -256,7 +256,7 @@ def extract_html(entry):
 				# else: print('[extract] cover: ' + cover)
 				title = m.get('title','').replace('\n', ' ').replace('&nbsp;', ' ')
 				u = m.get('thumborId') or cover or ''
-				addon = '<h4>' + title + '</h4>\n'
+				if title: addon += '<h4>' + title + '</h4>\n'
 				if not u.startswith('http'): u = s3 + u
 				if not u: print('[extract] no image url for ' + str(m))
 				if 'cloudinary' in u: u = 'img/lost.svg'
