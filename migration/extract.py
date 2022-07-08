@@ -31,8 +31,7 @@ def place_tooltips(body):
 			print('[extract] found %d tooltips' % (l-1))
 			for part in parts[1:]:
 				if i & 1: 
-					# print([ len(p) for p in parts ])
-					# print('[extract] tooltip: ' + part)
+					placed = True
 					if 'a class="footnote-url" href=' in part:
 						print('[extract] footnote: ' + part)
 						fn = 'a class="footnote-url" href="'
@@ -41,11 +40,11 @@ def place_tooltips(body):
 						newparts[i] = '<Tooltip' + (' link="' + link + '" ' if link else '') + '>' + extracted_part + '</Tooltip>'
 					else:
 						newparts[i] = '<Tooltip>%s</Tooltip>' % part
+						# print('[extract] ' + newparts[i])
 				else:
-					# print('[extract] pass: ' + part[:10] + '..')
+					# print('[extract] ' + part[:10] + '..')
 					newparts[i] = part
 				i += 1
-			placed = True
 	return (''.join(newparts), placed)
 
 IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,((?:[A-Za-z\d+\/]{4})*(?:[A-Za-z\d+\/]{3}=|[A-Za-z\d+\/]{2}==)))\)"
@@ -81,10 +80,11 @@ IMAGES = {
 	'data:image/jpeg': 'jpg',
 }
 
-sep = ';base64,'
+b64 = ';base64,'
 
 def extract_imageparts(bodyparts, prefix):
 	# recursive loop
+	newparts = list(bodyparts)
 	for current in bodyparts:
 		i = bodyparts.index(current)
 		for mime in IMAGES.keys():
@@ -109,23 +109,67 @@ def extract_imageparts(bodyparts, prefix):
 						raise Exception
 						# raise Exception('[extract] error decoding image %r' %b64encoded)
 				else:
-					print('[extract] cached: ' + cache[b64encoded])
+					print('[extract] cached link ' + cache[b64encoded])
 					name = cache[b64encoded]
 					link = cdn + '/upload/image-' + name + '.' + ext
-				bodyparts[i] = current[:-len(mime)] + current[-len(mime):] + link + next[-b64end:]
-				bodyparts[i+1] = next[:-b64end]
+				newparts[i] = current[:-len(mime)] + current[-len(mime):] + link + next[-b64end:]
+				newparts[i+1] = next[:-b64end]
 				break
-	return extract_imageparts(sep.join(bodyparts[i+1:]), prefix) \
-		if len(bodyparts) > (i + 1) else ''.join(bodyparts)
+	return extract_imageparts(newparts[i] + newparts[i+1] + b64.join(bodyparts[i+2:]), prefix) \
+		if len(bodyparts) > (i + 1) else ''.join(newparts)
+
+def extract_dataimages(parts, prefix):
+	newparts = list(parts)
+	for part in parts:
+		i = parts.index(part)
+		if part.endswith(']('):
+			[ext, rest] = parts[i+1].split(b64)
+			name = prefix + '-' + str(len(cache))
+			if ext == '/jpeg': ext = 'jpg'
+			else: ext = ext.replace('/', '')
+			link = '/upload/image-' + name + '.' + ext
+			print('[extract] filename: ' + link)
+			b64end = rest.find(')')
+			if b64end !=-1:
+				b64encoded = rest[:b64end]
+				print('[extract] %d text bytes' % len(b64encoded))
+				# write if not cached
+				if b64encoded not in cache:
+					try:
+						content = base64.b64decode(b64encoded + '==')
+						open(public + link, 'wb').write(content)
+						print('[extract] ' +str(len(content)) + ' image bytes')
+						cache[b64encoded] = name
+					except:
+						raise Exception
+						# raise Exception('[extract] error decoding image %r' %b64encoded)
+				else:
+					print('[extract] 0 image bytes, cached for ' + cache[b64encoded])
+					name = cache[b64encoded]
+
+				# update link with CDN
+				link = cdn + '/upload/image-' + name + '.' + ext
+				
+				# patch newparts
+				newparts[i+1] = link + rest[b64end:]
+			else:
+				raise Exception('cannot find the end of base64 encoded string')
+		else:
+			print('[extract] dataimage skipping part ' + str(i))
+			continue
+	return ''.join(newparts)
+
+di = 'data:image'
 
 def extract_images(body, oid):
 	newbody = ''
 	body = body\
-		.replace(' [](data:image', '![](data:image')\
-		.replace('\n[](data:image', '![](data:image')
-	parts = body.split(sep)
+		.replace('\n! []('+di, '\n ![]('+di)\
+		.replace('\n[]('+di, '\n![]('+di)\
+		.replace(' []('+di, ' ![]('+di)
+	parts = body.split(di)
 	i = 0
-	if len(parts) > 1: newbody = extract_imageparts(parts, oid)
+	if len(parts) > 1: newbody = extract_dataimages(parts, oid)
 	else: newbody = body
 	return newbody
 
@@ -148,8 +192,9 @@ def cleanup(body):
 	return newbody
 
 def extract(body, oid):
-	if body:
-		newbody = extract_images(body, oid)
+	newbody = body
+	if newbody:
+		newbody = extract_images(newbody, oid)
 		if not newbody: raise Exception('extract_images error')
 		newbody = cleanup(newbody)
 		if not newbody: raise Exception('cleanup error')
@@ -157,96 +202,82 @@ def extract(body, oid):
 		if not newbody: raise Exception('place_tooltips error')
 		if placed:
 			newbody = 'import Tooltip from \'$/components/Article/Tooltip\'\n\n' + newbody
-		return newbody
-	return body
+	return newbody
 
 def prepare_body(entry):
-	# print('[migration] preparing body %s' % entry.get('slug',''))
 	# body modifications
 	body = ''
-	body_orig = entry.get('body', '')
-	if not body_orig: body_orig = ''
-
-	if entry.get('type') == 'Literature':
-		print('[extract] literature')
+	kind = entry.get('type')
+	addon = ''
+	if kind == 'Video':
+		addon = ''
 		for m in entry.get('media', []):
-			t = m.get('title', '')
-			if t: body_orig += '<h5>' + t + '</h5>\n'
-			body_orig += (m.get('body') or '').replace((m.get('literatureBody') or ''), '') + m.get('literatureBody', '') + '\n'
-
-	elif entry.get('type') == 'Video':
-		print('[extract] embedding video')
-		providers = set([])
-		video_url = ''
-		require = False
-		for m in entry.get('media', []):
-			yt = m.get('youtubeId', '')
-			vm = m.get('vimeoId', '')
-			if yt:
-				require = True
-				providers.add('YouTube')
-				video_url = 'https://www.youtube.com/watch?v=' + yt
-				body += '<YouTube youtubeId=\'' + yt + '\' />\n'
-			if vm:
-				require = True
-				providers.add('Vimeo')
-				video_url = 'https://vimeo.com/' + vm
-				body += '<Vimeo vimeoId=\''  + vm + '\' />\n'
-			body += extract(html2text(m.get('body', '')), entry['_id'])
-			if video_url == '#': print(entry.get('media', 'UNKNOWN MEDIA PROVIDER!'))
-		if require: body = 'import { ' + ','.join(list(providers)) + ' } from \'solid-social\'\n\n' + body + '\n'
-		# already body_orig = entry.get('body', '')
-
-	elif entry.get('type') == 'Music':
-		print('[extract] music album')
+			if 'youtubeId' in m: addon += '<Social.YouTube youtubeId=\'' + m['youtubeId'] + '\' />\n'
+			elif 'vimeoId' in m: addon += '<Social.Vimeo vimeoId=\''  + m['vimeoId'] + '\' />\n'
+			else:
+				print('[extract] media is not supported')
+				print(m)
+		body = 'import * as Social from \'solid-social\'\n\n' + addon
+	
+	elif kind == 'Music':
+		addon = ''
 		for m in entry.get('media', []):
 			artist = m.get('performer')
 			trackname = ''
 			if artist: trackname += artist + ' - '
 			if 'title' in m: trackname += m.get('title','')
-			body += '<MusicPlayer src=\"' + m.get('fileUrl','') + '\" title=\"' + trackname + '\" />\n' 
-			body += extract(html2text(m.get('body', '')), entry['_id'])
-		body = 'import MusicPlayer from \'$/components/Article/MusicPlayer\'\n\n' + body + '\n'
-		# already body_orig = entry.get('body', '')
+			addon += '<MusicPlayer src=\"' + m.get('fileUrl','') + '\" title=\"' + trackname + '\" />\n'
+		body = 'import MusicPlayer from \'$/components/Article/MusicPlayer\'\n\n' + addon
 
-	elif entry.get('type') == 'Image':
-		print('[extract] image gallery')
-		cover = ''
-		if 'thumborId' in entry: cover = cdn + '/unsafe/1600x/' + entry['thumborId']
-		if not cover:
-			if 'image' in entry: cover = entry['image'].get('url', '')
-			if 'cloudinary' in cover: cover = ''
-		else:
-			print('[migration] cover: ' + cover)
-		images = {}
-		for m in entry.get('media', []):
-			b = ''
-			title = m.get('title','').replace('\n', ' ').replace('&nbsp;', ' ')
-			u = m.get('image', {}).get('url', '') or m.get('thumborId') or cover
-			u = str(u)
-			b += '<h4>' + title + '</h4>\n' + body_orig
-			if not u.startswith('http'): u = s3 + u
-			if not u: print('[extract] no image for ' + str(m))
-			if 'cloudinary' in u: u = 'img/lost.svg'
-			if u not in images.keys():
-				# print('[extract] image: ' + u)
-				images[u] = title
-				b += '<img src=\"' + u + '\" alt=\"'+ title +'\" />\n'
-			b += m.get('body', '') + '\n'
-			body += extract(html2text(b), entry['_id'])
+	body_orig = extract_html(entry)
+	if body_orig: body += extract(html2text(body_orig), entry['_id'])
+	if not body: print('[extract] empty MDX body')
+	return body
 
-	elif not body_orig:
+def extract_html(entry):
+	body_orig = entry.get('body') or ''
+	media = entry.get('media', [])
+	kind = entry.get('type') or ''
+	print('[extract] kind: ' + kind)
+	mbodies = set([])
+	if media:
+		# print('[extract] media is found')
+		for m in media:
+			mbody = m.get('body', '')
+			addon = ''
+			if kind == 'Literature':
+				mbody = m.get('literatureBody') or m.get('body', '')
+			elif kind == 'Image':
+				cover = ''
+				if 'thumborId' in entry: cover = cdn + '/unsafe/1600x/' + entry['thumborId']
+				if not cover:
+					if 'image' in entry: cover = entry['image'].get('url', '')
+					if 'cloudinary' in cover: cover = ''
+				# else: print('[extract] cover: ' + cover)
+				title = m.get('title','').replace('\n', ' ').replace('&nbsp;', ' ')
+				u = m.get('thumborId') or cover or ''
+				addon = '<h4>' + title + '</h4>\n'
+				if not u.startswith('http'): u = s3 + u
+				if not u: print('[extract] no image url for ' + str(m))
+				if 'cloudinary' in u: u = 'img/lost.svg'
+				if u != cover or (u == cover and media.index(m) == 0):
+					addon += '<img src=\"' + u + '\" alt=\"'+ title +'\" />\n'
+			if addon:
+				body_orig += addon
+				# print('[extract] item addon: ' + addon)
+			# if addon: print('[extract] addon: %s' % addon)
+			if mbody and mbody not in mbodies:
+				mbodies.add(mbody)
+				body_orig += mbody
+		if len(list(mbodies)) != len(media):
+			print('[extract] %d/%d media item bodies appended' % (len(list(mbodies)),len(media)))
+		# print('[extract] media items body: \n' + body_orig)
+	if not body_orig:
 		for up in entry.get('bodyHistory', []) or []:
 			body_orig = up.get('text', '') or ''
-			if body_orig:
-				print('[extract] body from history!')
+			if body_orig: 
+				print('[extract] got html body from history')
 				break
-			if not body and not body_orig: print('[extract] error: EMPTY BODY')
-
+	if not body_orig: print('[extract] empty HTML body')
 	# body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-	# print('[extract] adding original body')
-	if body_orig: body += extract(html2text(body_orig), entry['_id'])
-	if entry['slug'] in sys.argv: 
-		open(contentDir + '/' + entry['slug'] + '.html', 'w')\
-			.write(entry.get('body',''))
-	return body
+	return body_orig

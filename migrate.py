@@ -30,6 +30,7 @@ def users_handle(storage):
 	ce = 0
 	for entry in storage['users']['data']:
 		ce += migrateUser_2stage(entry, id_map)
+	return storage
 
 
 def topics_handle(storage):
@@ -53,6 +54,7 @@ def topics_handle(storage):
 	print( '[migration] ' + str(len(storage['topics']['by_oid'].values())) + ' topics by oid' )
 	print( '[migration] ' + str(len(storage['topics']['by_slug'].values())) + ' topics by slug' )
 	# raise Exception
+	return storage
 
 def shouts_handle(storage):
 	''' migrating content items one by one '''
@@ -69,6 +71,8 @@ def shouts_handle(storage):
 
 		# migrate
 		shout = migrateShout(entry, storage)
+		storage['shouts']['by_oid'][entry['_id']] = shout
+		storage['shouts']['by_slug'][shout['slug']] = shout
 		# shouts.topics
 		if not shout['topics']: print('[migration] no topics!')
 
@@ -89,6 +93,7 @@ def shouts_handle(storage):
 	print('[migration] ' + str(counter) + ' content items were migrated')
 	print('[migration] ' + str(pub_counter) + ' have been published')
 	print('[migration] ' + str(discours_author) + ' authored by @discours')
+	return storage
 
 def comments_handle(storage):
 	id_map = {}
@@ -102,9 +107,11 @@ def comments_handle(storage):
 		id = comment.get('id')
 		oid = comment.get('oid')
 		id_map[oid] = id
+
 	for comment in storage['comments']['data']: migrateComment_2stage(comment, id_map)
 	print('[migration] ' + str(len(id_map)) + ' comments migrated')
 	print('[migration] ' + str(ignored_counter) + ' comments ignored')
+	return storage
 	
 
 def bson_handle():
@@ -125,7 +132,7 @@ def all_handle(storage):
 	shouts_handle(storage)
 	comments_handle(storage)
 	export_email_subscriptions()
-	print('[migration] everything done!')
+	print('[migration] done!')
 
 
 def data_load():

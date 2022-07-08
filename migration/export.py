@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 import os
 import frontmatter
-from migration.extract import prepare_body
+from migration.extract import extract_html, prepare_body
 from migration.tables.users import migrate_email_subscription
 from migration.utils import DateTimeEncoder
 
@@ -42,16 +42,21 @@ def export_mdx(r):
 	open(filepath + '.' + ext, 'w').write(bc)
 
 def export_body(shout, storage):
-	shout['body'] = prepare_body(storage['content_items']['by_oid'][shout['oid']])
-	export_mdx(shout)
-	print('[export] trying to save html %s' % shout['slug'])
-	open(contentDir + shout['slug'] + '.html', 'w').write(storage['content_items']['by_oid'][shout['oid']]['body'])
+	entry = storage['content_items']['by_oid'][shout['oid']]
+	if entry:
+		shout['body'] = prepare_body(entry)
+		export_mdx(shout)
+		print('[export] html for %s' % shout['slug'])
+		body = extract_html(entry)
+		open(contentDir + shout['slug'] + '.html', 'w').write(body)
+	else:
+		raise Exception('no content_items entry found')
 
 def export_slug(slug, storage):
 	shout = storage['shouts']['by_slug'][slug]
 	shout = storage['shouts']['by_slug'].get(slug)
 	assert shout, '[export] no shout found by slug: %s ' % slug
-	author = storage['users']['by_slug'].get(shout['authors'][0]['slug'])
+	author = shout['authors'][0]
 	assert author, '[export] no author error'
 	export_body(shout, storage)
 

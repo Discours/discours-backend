@@ -40,7 +40,7 @@ def migrate(entry, storage):
 		'title': entry['title'],
 		'community': 0,
 		'authors': [],
-		'topics': [],
+		'topics': set([]),
 		'rating': 0,
 		'ratings': [],
 		'createdAt': []
@@ -112,9 +112,10 @@ def migrate(entry, storage):
 	topic_oids.extend(entry.get('tags', []))
 	for oid in topic_oids:
 		if oid in storage['topics']['by_oid']:
-			r['topics'].append(storage['topics']['by_oid'][oid]['slug'])
+			r['topics'].add(storage['topics']['by_oid'][oid]['slug'])
 		else:
 			print('[migration] unknown old topic id: ' + oid)
+	r['topics'] = list(r['topics'])
 	
 	entry['topics'] = r['topics']
 	entry['cover'] = r['cover']
@@ -191,7 +192,8 @@ def migrate(entry, storage):
 						.filter(ShoutTopic.topic == newslug).first()
 					if not shout_topic_new: ShoutTopic.create(**{ 'shout': s.slug, 'topic': newslug })
 				session.commit()
-			shout_dict['topics'].append(newslug)
+			if newslug not in shout_dict['topics']:
+				shout_dict['topics'].append(newslug)
 		else:
 			print('[migration] ignored topic slug: \n%r' % tpc['slug'])
 			# raise Exception
