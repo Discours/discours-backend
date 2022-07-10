@@ -1,8 +1,11 @@
+import asyncio
 from orm import Proposal, ProposalRating, UserStorage
 from orm.base import local_session
-from resolvers.base import mutation, query, subscription
+from orm.shout import Shout
+from sqlalchemy.orm import selectinload
+from orm.user import User
+from resolvers.base import mutation, query
 from auth.authenticate import login_required
-import asyncio
 from datetime import datetime
 
 
@@ -10,6 +13,29 @@ class ProposalResult:
 	def __init__(self, status, proposal):
 		self.status = status
 		self.proposal = proposal
+
+class ProposalStorage:
+	lock = asyncio.Lock()
+	subscriptions = []
+
+	@staticmethod
+	async def register_subscription(subs):
+		async with ProposalStorage.lock:
+			ProposalStorage.subscriptions.append(subs)
+	
+	@staticmethod
+	async def del_subscription(subs):
+		async with ProposalStorage.lock:
+			ProposalStorage.subscriptions.remove(subs)
+	
+	@staticmethod
+	async def put(message_result):
+		async with ProposalStorage.lock:
+			for subs in ProposalStorage.subscriptions:
+				if message_result.message["chatId"] == subs.chat_id:
+					subs.queue.put_nowait(message_result)
+
+
 
 @query.field("getShoutProposals")
 @login_required
@@ -193,7 +219,7 @@ async def decline_proposal(_, info, id):
 
 @mutation.field("inviteAuthor")
 @login_required
-async def invite_author(_, author_slug, shout):
+async def invite_author(_, info, author, shout):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
@@ -201,10 +227,10 @@ async def invite_author(_, author_slug, shout):
 		shout = session.query(Shout).filter(Shout.slug == shout).first()
 		if not shout:
 			return {"error": "invalid shout slug"}
-		authors = [author.id for author in shout.authors]
+		authors = [a.id for a in shout.authors]
 		if user_id not in authors:
 			return {"error": "access denied"}
-		author = session.query(User).filter(User.slug == author_slug).first()
+		author = session.query(User).filter(User.slug == author).first()
 		if author.id in authors:
 			return {"error": "already added"}
 		shout.authors.append(author)
@@ -219,7 +245,7 @@ async def invite_author(_, author_slug, shout):
 
 @mutation.field("removeAuthor")
 @login_required
-async def remove_author(_, author_slug, shout):
+async def remove_author(_, info, author, shout):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 
@@ -230,7 +256,7 @@ async def remove_author(_, author_slug, shout):
 		authors = [author.id for author in shout.authors]
 		if user_id not in authors:
 			return {"error": "access denied"}
-		author = session.query(User).filter(User.slug == author_slug).first()
+		author = session.query(User).filter(User.slug == author).first()
 		if author.id not in authors:
 			return {"error": "not in authors"}
 		shout.authors.remove(author)

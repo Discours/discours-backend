@@ -1,5 +1,4 @@
 from graphql import GraphQLResolveInfo
-from datetime import datetime, timedelta
 from transliterate import translit
 from urllib.parse import quote_plus
 
@@ -8,7 +7,7 @@ from auth.authorize import Authorize
 from auth.identity import Identity
 from auth.password import Password
 from auth.email import send_confirm_email, send_auth_email, send_reset_password_email
-from orm import User, UserStorage, Role, UserRole
+from orm import User, Role
 from orm.base import local_session
 from resolvers.base import mutation, query
 from resolvers.profile import get_user_info

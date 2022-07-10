@@ -8,7 +8,7 @@ import asyncio
 
 from sqlalchemy import func, and_
 
-@query.field("topicsBySlugs")
+@query.field("topicsAll")
 async def topics_by_slugs(_, info, slugs = None):
 	with local_session() as session:
 		topics = await TopicStorage.get_topics(slugs)

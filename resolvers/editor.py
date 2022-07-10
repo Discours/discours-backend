@@ -1,10 +1,14 @@
-from orm import Shout, ShoutRating, ShoutRatingStorage
+from orm import Shout
 from orm.base import local_session
-from resolvers.base import mutation, query, subscription
+from orm.rbac import Resource
+from orm.shout import ShoutAuthor, ShoutTopic
+from orm.user import User
+from resolvers.base import mutation
 from resolvers.comments import comments_subscribe
 from auth.authenticate import login_required
-import asyncio
 from datetime import datetime
+
+from resolvers.zine import GitTask
 
 
 @mutation.field("createShout")
@@ -19,7 +23,8 @@ async def create_shout(_, info, input):
 	new_shout = Shout.create(**input)
 	ShoutAuthor.create(
 		shout = new_shout.slug,
-		user = user.slug)
+		user = user.slug
+		)
 
 	comments_subscribe(user, new_shout.slug, True)
 
@@ -39,7 +44,7 @@ async def create_shout(_, info, input):
 		"new shout %s" % (new_shout.slug)
 		)
 		
-	await ShoutCommentsStorage.send_shout(new_shout)
+	# await ShoutCommentsStorage.send_shout(new_shout)
 
 	return {
 		"shout" : new_shout
@@ -100,8 +105,8 @@ async def delete_shout(_, info, slug):
 
 	with local_session() as session:
 		shout = session.query(Shout).filter(Shout.slug == slug).first()
-		authors = [author.id for author in shout.authors]
-		if not comment:
+		authors = [a.id for a in shout.authors]
+		if not shout:
 			return {"error": "invalid shout slug"}
 		if user_id not in authors:
 			return {"error": "access denied"}

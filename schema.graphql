@@ -197,7 +197,7 @@ type Query {
   recentAll(page: Int!, size: Int!): [Shout]!
 
   # topics
-  topicsBySlugs(slugs: [String]): [Topic]!
+  topicsAll(slugs: [String]): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
 

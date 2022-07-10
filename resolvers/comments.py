@@ -2,9 +2,8 @@ from orm import Comment, CommentRating
 from orm.base import local_session
 from orm.shout import ShoutCommentsSubscription
 from orm.user import User
-from resolvers.base import mutation, query, subscription
+from resolvers.base import mutation
 from auth.authenticate import login_required
-import asyncio
 from datetime import datetime
 
 def comments_subscribe(user, slug, auto = False):
@@ -46,7 +45,7 @@ async def create_comment(_, info, body, shout, replyTo = None):
 	user = info.context["request"].user
 
 	comment = Comment.create(
-		author = user.id,
+		createdBy = user.slug,
 		body = body,
 		shout = shout,
 		replyTo = replyTo

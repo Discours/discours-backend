@@ -1,8 +1,7 @@
 from orm import Community, CommunitySubscription
 from orm.base import local_session
-from resolvers.base import mutation, query, subscription
+from resolvers.base import mutation, query
 from auth.authenticate import login_required
-import asyncio
 from datetime import datetime
 
 from sqlalchemy import and_
@@ -29,7 +28,7 @@ async def update_community(_, info, input):
 	user_id = auth.user_id
 
 	with local_session() as session:
-		community = session.query(Community).filter(Community.slug == inpit.get('slug', '')).first()
+		community = session.query(Community).filter(Community.slug == input.get('slug', '')).first()
 		if not community:
 			return {"error": "invalid community id"}
 		if community.createdBy != user_id:
