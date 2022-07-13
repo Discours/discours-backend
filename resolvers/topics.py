@@ -13,16 +13,21 @@ async def topics_by_slugs(_, info, slugs = None):
 	with local_session() as session:
 		topics = await TopicStorage.get_topics(slugs)
 	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
-	if "topicStat" in all_fields:
+	if "stat" in all_fields:
 		for topic in topics:
-			topic.topicStat = await TopicStat.get_stat(topic.slug)
+			topic.stat = await TopicStat.get_stat(topic.slug)
 	return topics
 
 @query.field("topicsByCommunity")
 async def topics_by_community(_, info, community):
 	with local_session() as session:
-		return await TopicStorage.get_topics_by_community(community)
-
+		topics = await TopicStorage.get_topics_by_community(community)
+	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
+	if "stat" in all_fields:
+		for topic in topics:
+			topic.stat = await TopicStat.get_stat(topic.slug)
+	return topics
+	
 @query.field("topicsByAuthor")
 async def topics_by_author(_, info, author):
 	slugs = set()

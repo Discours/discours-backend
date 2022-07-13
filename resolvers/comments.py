@@ -129,3 +129,7 @@ def get_subscribed_shout_comments(slug):
 			all()
 	slugs = [row.shout for row in rows]
 	return slugs
+
+def get_top10_comments():
+	with local_session() as session:
+		rows = session.query(Comment).limit(10).all()

@@ -159,33 +159,46 @@ type Mutation {
 ################################### Query
 
 type Query {
+
   # auth
   isEmailUsed(email: String!): Boolean!
   signIn(email: String!, password: String): AuthResult!
   signOut: Result!
+  forget(email: String!): Result!
+  requestPasswordReset(email: String!): Result!
+  updatePassword(password: String!, token: String!): Result!
 
   # profile
+  userSubscribers(slug: String!): [String]!
+  userSubscribedAuthors(slug: String!): [String]!
+  userSubscribedTopics(slug: String!): [String]!
   getCurrentUser: UserResult!
   getUsersBySlugs(slugs: [String]!): [User]!
   getUserRoles(slug: String!): [Role]!
-  userComments(slug: String!, page: Int!, size: Int!): [Comment]!
-  userSubscriptions(slug: String!): [User]!
-  userSubscribers(slug: String!): [User]!
-  userSubscribedTopics(slug: String!): [String]!
-
-  shoutsRatedByUser(page: Int!, size: Int!): ShoutsResult!
-  shoutsCommentedByUser(slug: String!, page: Int!, size: Int!): [Shout]!
-  userUnpublishedShouts(page: Int!, size: Int!): ShoutsResult!
 
   # shouts
   getShoutBySlug(slug: String!): Shout!
   shoutsByTopics(slugs: [String]!, page: Int!, size: Int!): [Shout]!
   shoutsByAuthors(slugs: [String]!, page: Int!, size: Int!): [Shout]!
   shoutsByCommunities(slugs: [String]!, page: Int!, size: Int!): [Shout]!
+  shoutsRatedByUser(page: Int!, size: Int!): ShoutsResult!
+  shoutsReviewed(page: Int!, size: Int!): [Shout]!
+  userUnpublishedShouts(page: Int!, size: Int!): ShoutsResult!
+  shoutsCommentedByUser(page: Int!, size: Int!): ShoutsResult!
+  recentCommented(page: Int!, size: Int!): [Shout]!
+
+  # comments
   getShoutComments(slug: String!): [Comment]!
+  getAllComments: [Comment]! # top10
+  userComments(slug: String!, page: Int!, size: Int!): [Comment]!
 
   # collab
   getShoutProposals(slug: String!): [Proposal]!
+  createProposal(body: String!, range: String): Proposal!
+  updateProposal(body: String!, range: String): Proposal!
+  destroyProposal(id: Int!): Result!
+  inviteAuthor(slug: String!, author: String!): Result!
+  removeAuthor(slug: String!, author: String!): Result!
 
   # mainpage
   topViewed(page: Int!, size: Int!): [Shout]!
@@ -197,18 +210,14 @@ type Query {
   recentAll(page: Int!, size: Int!): [Shout]!
 
   # topics
-  topicsAll(slugs: [String]): [Topic]!
+  topicsAll(page: Int!, size: Int!): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
-
-  # getOnlineUsers: [User!]!
 
   # communities
   getCommunity(slug: String): Community!
   getCommunities: [Community]!
-
-  shoutsReviewed(page: Int!, size: Int!): [Shout]!
-  recentCommented(page: Int!, size: Int!): [Shout]!
+  # TODO: getCommunityMembers(slug: String!): [User]!
 }
 
 ############################################ Subscription
@@ -365,7 +374,7 @@ type Topic {
   parents: [String] # NOTE: topic can have parent topics
   children: [String] # and children
   community: String!
-  topicStat: TopicStat
+  stat: TopicStat
   oid: String
 }
 

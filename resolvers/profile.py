@@ -98,17 +98,18 @@ async def user_comments(_, info, slug, page, size):
 
 	return comments
 
-@query.field("userSubscriptions")
+@query.field("userSubscribedAuthors")
 async def user_subscriptions(_, info, slug):
-	return _get_user_subscribed_authors(slug)
+	slugs = _get_user_subscribed_authors(slug)
+	return slugs
 
 @query.field("userSubscribers")
 async def user_subscribers(_, info, slug):
 	with local_session() as session:
-		users = session.query(User).\
+		slugs = session.query(User.slug).\
 			join(AuthorSubscription, User.slug == AuthorSubscription.subscriber).\
 			where(AuthorSubscription.author == slug)
-	return users
+	return slugs
 
 @query.field("userSubscribedTopics")
 async def user_subscribed_topics(_, info, slug):
