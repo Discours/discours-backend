@@ -62,7 +62,6 @@ def shouts_handle(storage):
 	discours_author = 0
 	pub_counter = 0
 	for entry in storage['shouts']['data']:
-		oid = entry['_id']
 		# slug
 		slug = get_shout_slug(entry)
 
@@ -82,7 +81,7 @@ def shouts_handle(storage):
 		# print('[migration] ' + shout['slug'] + ' with author ' + author)
 
 		if entry.get('published'):
-			export_mdx(shout)
+			if 'mdx' in sys.argv: export_mdx(shout)
 			pub_counter += 1
 
 		# print main counter
