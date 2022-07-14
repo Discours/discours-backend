@@ -2,11 +2,9 @@ import sqlalchemy
 from orm import User, UserRating
 from orm.user import EmailSubscription
 from dateutil.parser import parse
-from migration.html2text import html2text
 from orm.base import local_session
 
 def migrate(entry):
-	
 	if 'subscribedTo' in entry: del entry['subscribedTo']
 	email = entry['emails'][0]['address']
 	user_dict = {

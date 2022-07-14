@@ -5,7 +5,7 @@ import json
 from migration.utils import DateTimeEncoder
 
 def json_tables():
-	print('[migration] unpack bson to migration/data/*.json')
+	print('[migration] unpack dump/discours/*.bson to migration/data/*.json')
 	data = {
 		"content_items": [],
 		"content_item_categories": [],
@@ -16,7 +16,7 @@ def json_tables():
 	}
 	for table in data.keys():
 		lc = []
-		with open('migration/data/'+table+'.bson', 'rb') as f:
+		with open('dump/discours/'+table+'.bson', 'rb') as f:
 			bs = f.read()
 			f.close()
 			base = 0
@@ -24,5 +24,5 @@ def json_tables():
 				base, d = bson.decode_document(bs, base)
 				lc.append(d)
 			data[table] = lc
-			open(os.getcwd() + '/dump/discours/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
+			open(os.getcwd() + '/migration/data/'+table+'.json', 'w').write(json.dumps(lc,cls=DateTimeEncoder))
 
