@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import unique
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship, backref
 from orm.base import Base, local_session
@@ -16,7 +17,7 @@ class Community(Base):
 	__tablename__ = 'community'
 
 	name: str = Column(String, nullable=False, comment="Name")
-	slug: str = Column(String, nullable = False)
+	slug: str = Column(String, nullable = False, unique=True, comment="Slug")
 	desc: str = Column(String, nullable=False, default='')
 	pic: str = Column(String, nullable=False, default='')
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
@@ -30,7 +31,7 @@ class Community(Base):
 			default = Community.create(
 				name = "Дискурс",
 				slug = "discours",
-				createdBy = 0 #TODO: use default user
+				createdBy = "discours"
 			)
 
 		Community.default_community = default

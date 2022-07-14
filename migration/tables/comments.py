@@ -57,7 +57,7 @@ def migrate(entry, storage):
 			author = session.query(User).filter(User.oid == entry['createdBy']).first()
 			shout_dict = storage['shouts']['by_oid'][shout_oid]
 			if shout_dict:
-				comment_dict['shout'] = shout_dict['oid']
+				comment_dict['shout'] = shout_dict['slug']
 				comment_dict['createdBy'] = author.slug if author else 'discours'
 				# FIXME if entry.get('deleted'): comment_dict['deletedAt'] = date_parse(entry['updatedAt']) or ts
 				# comment_dict['deletedBy'] = session.query(User).filter(User.oid == (entry.get('updatedBy') or dd['oid'])).first()

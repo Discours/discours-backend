@@ -1037,5 +1037,5 @@ def html2text(html: str, baseurl: str = "", bodywidth: Optional[int] = config.BO
 	if h: 
 		h = HTML2Text(baseurl=baseurl, bodywidth=bodywidth)
 		h = h.handle(html.strip())
-		print('[html2text] %d bytes' % len(html))
+		# print('[html2text] %d bytes' % len(html))
 	return h

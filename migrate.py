@@ -7,6 +7,9 @@ from migration.tables.content_items import get_shout_slug, migrate as migrateSho
 from migration.tables.topics import migrate as migrateTopic
 from migration.tables.comments import migrate as migrateComment
 from migration.tables.comments import migrate_2stage as migrateComment_2stage
+from orm.base import local_session
+from orm.community import Community
+from orm.user import User
 
 OLD_DATE = '2016-03-05 22:22:00.350000'
 

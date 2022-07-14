@@ -73,13 +73,14 @@ class User(Base):
 	@staticmethod
 	def init_table():
 		with local_session() as session:
-			default = session.query(User).filter(User.slug == "default").first()
+			default = session.query(User).filter(User.slug == "discours").first()
 		if not default:
 			default = User.create(
 				id = 0,
-				email = "discours@discours.io",
-				username = "discours",
-				slug = "default"
+				email = "welcome@discours.io",
+				username = "welcome@discours.io",
+				slug = "discours",
+				userpic = 'https://discours.io/images/logo-mini.svg',
 			)
 
 		User.default_user = default

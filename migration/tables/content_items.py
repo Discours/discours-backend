@@ -7,14 +7,6 @@ from orm.base import local_session
 from migration.extract import prepare_body
 from orm.community import Community
 
-DISCOURS_USER = {
-	'id': 9999999,
-	'slug': 'discours',
-	'name': 'Дискурс',
-	'email': 'welcome@discours.io',
-	'userpic': 'https://discours.io/images/logo-mini.svg',
-	'createdAt': '2016-03-05 22:22:00.350000'
-}
 OLD_DATE = '2016-03-05 22:22:00.350000'
 ts = datetime.now()
 type2layout = {
@@ -38,7 +30,7 @@ def migrate(entry, storage):
 	r = {
 		'layout': type2layout[entry['type']],
 		'title': entry['title'],
-		'community': 0,
+		'community': Community.default_community.id,
 		'authors': [],
 		'topics': set([]),
 		'rating': 0,
@@ -70,12 +62,7 @@ def migrate(entry, storage):
 				'wasOnlineAt': ts
 			}
 		else: 
-			userdata = {
-				'name': 'Дискурс',
-				'slug': 'discours',
-				'email': 'welcome@discours.io',
-				'userpic': 'https://discours.io/image/logo-mini.svg'
-			} 
+			userdata = User.default_user.dict()
 	assert userdata, 'no user found for %s from ' % [oid, len(users_by_oid.keys())]
 	r['authors'] = [userdata, ]
 
@@ -151,7 +138,7 @@ def migrate(entry, storage):
 
 	try: 
 		s = Shout.create(**shout_dict)
-	except sqlalchemy.exc.IntegrityError:
+	except sqlalchemy.exc.IntegrityError as e:
 		with local_session() as session:
 			s = session.query(Shout).filter(Shout.slug == shout_dict['slug']).first()
 			bump = False
@@ -168,6 +155,7 @@ def migrate(entry, storage):
 					s.update(shout_dict)
 			else:
 				print('[migration] something went wrong with shout: \n%r' % shout_dict)
+				raise e
 			session.commit()
 	except:
 		print(s)
@@ -182,15 +170,17 @@ def migrate(entry, storage):
 		if newslug:
 			with local_session() as session:
 				shout_topic_old = session.query(ShoutTopic)\
-					.filter(ShoutTopic.shout == s.slug)\
+					.filter(ShoutTopic.shout == shout_dict['slug'])\
 					.filter(ShoutTopic.topic == oldslug).first()
 				if shout_topic_old: 
 					shout_topic_old.update({ 'slug': newslug })
 				else: 
 					shout_topic_new = session.query(ShoutTopic)\
-						.filter(ShoutTopic.shout == s.slug)\
+						.filter(ShoutTopic.shout == shout_dict['slug'])\
 						.filter(ShoutTopic.topic == newslug).first()
-					if not shout_topic_new: ShoutTopic.create(**{ 'shout': s.slug, 'topic': newslug })
+					if not shout_topic_new: 
+						try: ShoutTopic.create(**{ 'shout': shout_dict['slug'], 'topic': newslug })
+						except: print('[migration] shout topic error: ' + newslug)
 				session.commit()
 			if newslug not in shout_dict['topics']:
 				shout_dict['topics'].append(newslug)
@@ -208,12 +198,12 @@ def migrate(entry, storage):
 					shout_rating_dict = {
 						'value': shout_rating_old['value'],
 						'rater': rater.slug,
-						'shout': s.slug
+						'shout': shout_dict['slug']
 					}
 					cts = shout_rating_old.get('createdAt')
 					if cts: shout_rating_dict['ts'] = date_parse(cts)
 					shout_rating = session.query(ShoutRating).\
-						filter(ShoutRating.shout == s.slug).\
+						filter(ShoutRating.shout == shout_dict['slug']).\
 						filter(ShoutRating.rater == rater.slug).first()
 					if shout_rating:
 						shout_rating_dict['value'] = int(shout_rating_dict['value'] or 0) + int(shout_rating.value or 0)
@@ -225,7 +215,7 @@ def migrate(entry, storage):
 		# raise Exception
 
 	# shout views
-	ShoutViewByDay.create( shout = s.slug, value = entry.get('views', 1) )
+	ShoutViewByDay.create( shout = shout_dict['slug'], value = entry.get('views', 1) )
 	del shout_dict['ratings']
 	shout_dict['oid'] = entry.get('_id')
 	storage['shouts']['by_oid'][entry['_id']] = shout_dict
