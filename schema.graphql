@@ -200,19 +200,27 @@ type Query {
   inviteAuthor(slug: String!, author: String!): Result!
   removeAuthor(slug: String!, author: String!): Result!
 
-  # mainpage
+  # mainpage articles' feeds
   topViewed(page: Int!, size: Int!): [Shout]!
   topMonth(page: Int!, size: Int!): [Shout]!
   topOverall(page: Int!, size: Int!): [Shout]!
   recentPublished(page: Int!, size: Int!): [Shout]!
   
-  # feed
+  # all articles' feed
   recentAll(page: Int!, size: Int!): [Shout]!
+  commentsAll(page: Int!, size: Int!): [Comment]!
+  # NOTE: so-named 'collections' are tuned feeds
+  # TODO: createFeed updateFeed deleteFeed mergeFeeds
 
   # topics
   topicsAll(page: Int!, size: Int!): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
+  # TODO: CMUD for topic
+  # createTopic(input: TopicInput!): TopicResult!
+  # mergeTopics(t1: String!, t2: String!): Result!
+  # updateTopic(input: TopicInput!): TopicResult!
+  # destroyTopic(slug: String!): Result!
 
   # communities
   getCommunity(slug: String): Community!

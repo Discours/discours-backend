@@ -2,7 +2,7 @@ from orm import Comment, CommentRating
 from orm.base import local_session
 from orm.shout import ShoutCommentsSubscription
 from orm.user import User
-from resolvers.base import mutation
+from resolvers.base import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
 
@@ -130,6 +130,7 @@ def get_subscribed_shout_comments(slug):
 	slugs = [row.shout for row in rows]
 	return slugs
 
-def get_top10_comments():
+@query.field("commentsAll")
+def get_top10_comments(_, info, page = 1, size = 10):
 	with local_session() as session:
-		rows = session.query(Comment).limit(10).all()
+		rows = session.query(Comment).limit(size).all()
