@@ -61,7 +61,7 @@ class Shout(Base):
 	oid: str = Column(String, nullable=True)
 
 	@property
-	async def stat(self) -> Dict:
+	async def stat(self):
 		return {
 			"viewed": await ViewedStorage.get_shout(self.slug),
 			"reacted": await ReactionsStorage.by_shout(self.slug)

@@ -55,7 +55,7 @@ class TopicStat:
 			return self.shouts_by_topic.get(topic, [])
 
 	@staticmethod
-	async def get_stat(topic) -> Dict:
+	async def get_stat(topic):
 		self = TopicStat
 		async with self.lock:
 			shouts = self.shouts_by_topic.get(topic, [])
