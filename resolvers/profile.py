@@ -1,224 +1,154 @@
-from orm import User, UserRole, Role, UserRating
-from orm.user import AuthorSubscription, UserStorage
-from orm.comment import Comment
+from orm.user import User, UserRole, Role, UserRating, AuthorFollower
+from storages.users import UserStorage
+from orm.shout import Shout
+from orm.reaction import Reaction
 from orm.base import local_session
-from orm.topic import Topic, TopicSubscription
-from resolvers.base import mutation, query, subscription
-from resolvers.community import get_subscribed_communities
-from resolvers.comments import get_subscribed_shout_comments
+from orm.topic import Topic, TopicFollower
+from resolvers.base import mutation, query
+from resolvers.community import get_followed_communities
+from resolvers.reactions import get_shout_reactions
 from auth.authenticate import login_required
-
-from inbox_resolvers.inbox import get_total_unread_messages_for_user
-
-from sqlalchemy import func, and_, desc
+from inbox_resolvers.inbox import get_inbox_counter
+from sqlalchemy import and_, desc
 from sqlalchemy.orm import selectinload
-import asyncio
 
-def _get_user_subscribed_topic_slugs(slug):
-	with local_session() as session:
-		rows = session.query(Topic.slug).\
-			join(TopicSubscription).\
-			where(TopicSubscription.subscriber == slug).\
-			all()
-	slugs = [row.slug for row in rows]
-	return slugs
 
-def _get_user_subscribed_authors(slug):
-	with local_session() as session:
-		authors = session.query(User.slug).\
-			join(AuthorSubscription, User.slug == AuthorSubscription.author).\
-			where(AuthorSubscription.subscriber == slug)
-	return authors
+@query.field("userReactedShouts")
+async def get_user_reacted_shouts(_, info, slug, page, size) -> list[Shout]:
+    user = await UserStorage.get_user_by_slug(slug)
+    if not user: return {}
+    with local_session() as session:
+        shouts = session.query(Shout).\
+            join(Reaction).\
+            where(Reaction.createdBy == user.slug).\
+            order_by(desc(Reaction.createdAt)).\
+            limit(size).\
+            offset(page * size).all()
+    return shouts
 
+
+@query.field("userFollowedTopics")
+@login_required
+def get_followed_topics(_, slug) -> list[Topic]:
+    rows = []
+    with local_session() as session:
+        rows = session.query(Topic).\
+            join(TopicFollower).\
+            where(TopicFollower.follower == slug).\
+            all()
+    return rows
+
+
+@query.field("userFollowedAuthors")
+def get_followed_authors(_, slug) -> list[User]:
+    authors = []
+    with local_session() as session:
+        authors = session.query(User).\
+            join(AuthorFollower, User.slug == AuthorFollower.author).\
+            where(AuthorFollower.follower == slug).\
+            all()
+    return authors
+
+
+@query.field("userFollowers")
+async def user_followers(_, slug) -> list[User]:
+    with local_session() as session:
+        users = session.query(User).\
+            join(AuthorFollower, User.slug == AuthorFollower.follower).\
+            where(AuthorFollower.author == slug).\
+            all()
+    return users
+
+# for query.field("getCurrentUser")
 async def get_user_info(slug):
-	return {
-		"totalUnreadMessages"        : await get_total_unread_messages_for_user(slug),
-		"userSubscribedTopics"       : _get_user_subscribed_topic_slugs(slug),
-		"userSubscribedAuthors"      : _get_user_subscribed_authors(slug),
-		"userSubscribedCommunities"  : get_subscribed_communities(slug),
-		"userSubscribedShoutComments": get_subscribed_shout_comments(slug)
-	}
+    return {
+        "inbox": await get_inbox_counter(slug),
+        "topics": [t.slug for t in get_followed_topics(0, slug)],
+        "authors": [a.slug for a in get_followed_authors(0, slug)],
+        "reactions": [r.shout for r in get_shout_reactions(0, slug)],
+        "communities": [c.slug for c in get_followed_communities(0, slug)]
+    }
+
 
 @query.field("getCurrentUser")
 @login_required
 async def get_current_user(_, info):
-	user = info.context["request"].user
-	return {
-		"user": user,
-		"info": await get_user_info(user.slug)
-	}
+    user = info.context["request"].user
+    return {
+        "user": user,
+        "info": await get_user_info(user.slug)
+    }
+
 
 @query.field("getUsersBySlugs")
 async def get_users_by_slugs(_, info, slugs):
-	with local_session() as session:
-		users = session.query(User).\
-			options(selectinload(User.ratings)).\
-			filter(User.slug.in_(slugs)).all()
-	return users
+    with local_session() as session:
+        users = session.query(User).\
+            options(selectinload(User.ratings)).\
+            filter(User.slug.in_(slugs)).all()
+    return users
+
 
 @query.field("getUserRoles")
 async def get_user_roles(_, info, slug):
+    with local_session() as session:
+        user = session.query(User).where(User.slug == slug).first()
+        roles = session.query(Role).\
+            options(selectinload(Role.permissions)).\
+            join(UserRole).\
+            where(UserRole.user_id == user.id).all()
+    return roles
 
-	with local_session() as session:
-		user = session.query(User).where(User.slug == slug).first()
-
-		roles = session.query(Role).\
-			options(selectinload(Role.permissions)).\
-			join(UserRole).\
-			where(UserRole.user_id == user.id).all()
-
-	return roles
 
 @mutation.field("updateProfile")
 @login_required
 async def update_profile(_, info, profile):
-	auth = info.context["request"].auth
-	user_id = auth.user_id
+    auth = info.context["request"].auth
+    user_id = auth.user_id
+    with local_session() as session:
+        user = session.query(User).filter(User.id == user_id).first()
+        user.update(profile)
+        session.commit()
+    return {}
 
-	with local_session() as session:
-		user = session.query(User).filter(User.id == user_id).first()
-		user.update(profile)
-		session.commit()
-
-	return {}
-
-@query.field("userComments")
-async def user_comments(_, info, slug, page, size):
-	user = await UserStorage.get_user_by_slug(slug)
-	if not user:
-		return
-
-	page = page - 1
-	with local_session() as session:
-		comments = session.query(Comment).\
-			filter(Comment.createdBy == user.id).\
-			order_by(desc(Comment.createdAt)).\
-			limit(size).\
-			offset(page * size)
-
-	return comments
-
-@query.field("userSubscribedAuthors")
-async def user_subscriptions(_, info, slug):
-	slugs = _get_user_subscribed_authors(slug)
-	return slugs
-
-@query.field("userSubscribers")
-async def user_subscribers(_, info, slug):
-	with local_session() as session:
-		slugs = session.query(User.slug).\
-			join(AuthorSubscription, User.slug == AuthorSubscription.subscriber).\
-			where(AuthorSubscription.author == slug)
-	return slugs
-
-@query.field("userSubscribedTopics")
-async def user_subscribed_topics(_, info, slug):
-	return _get_user_subscribed_topic_slugs(slug)
 
 @mutation.field("rateUser")
 @login_required
 async def rate_user(_, info, slug, value):
-	user = info.context["request"].user
+    user = info.context["request"].user
+    with local_session() as session:
+        rating = session.query(UserRating).\
+            filter(and_(UserRating.rater == user.slug, UserRating.user == slug)).\
+            first()
+        if rating:
+            rating.value = value
+            session.commit()
+            return {}
+    try:
+        UserRating.create(
+            rater=user.slug,
+            user=slug,
+            value=value
+        )
+    except Exception as err:
+        return {"error": err}
+    return {}
 
-	with local_session() as session:
-		rating = session.query(UserRating).\
-			filter(and_(UserRating.rater == user.slug, UserRating.user == slug)).\
-			first()
+# for mutation.field("follow")
+def author_follow(user, slug):
+    AuthorFollower.create(
+        follower=user.slug,
+        author=slug
+    )
 
-		if rating:
-			rating.value = value
-			session.commit()
-			return {}
-
-	UserRating.create(
-		rater = user.slug, 
-		user = slug,
-		value = value
-	)
-
-	return {}
-
-
-def author_subscribe(user, slug):
-	AuthorSubscription.create(
-		subscriber = user.slug, 
-		author = slug
-	)
-
-def author_unsubscribe(user, slug):
-	with local_session() as session:
-		sub = session.query(AuthorSubscription).\
-			filter(and_(AuthorSubscription.subscriber == user.slug, AuthorSubscription.author == slug)).\
-			first()
-		if not sub:
-			raise Exception("subscription not exist")
-		session.delete(sub)
-		session.commit()
-
-@query.field("shoutsRatedByUser")
-@login_required
-async def shouts_rated_by_user(_, info, page, size):
-	user = info.context["request"].user
-
-	with local_session() as session:
-		shouts = session.query(Shout).\
-			join(ShoutRating).\
-			where(ShoutRating.rater == user.slug).\
-			order_by(desc(ShoutRating.ts)).\
-			limit(size).\
-			offset( (page - 1) * size)
-
-	return {
-		"shouts" : shouts
-	}
-
-@query.field("userUnpublishedShouts")
-@login_required
-async def user_unpublished_shouts(_, info, page, size):
-	user = info.context["request"].user
-
-	with local_session() as session:
-		shouts = session.query(Shout).\
-			join(ShoutAuthor).\
-			where(and_(Shout.publishedAt == None, ShoutAuthor.user == user.slug)).\
-			order_by(desc(Shout.createdAt)).\
-			limit(size).\
-			offset( (page - 1) * size)
-
-	return {
-		"shouts" : shouts
-	}
-
-@query.field("shoutsReviewed")
-@login_required
-async def shouts_reviewed(_, info, page, size):
-	user = info.context["request"].user
-	with local_session() as session:
-		shouts_by_rating = session.query(Shout).\
-			join(ShoutRating).\
-			where(and_(Shout.publishedAt != None, ShoutRating.rater == user.slug))
-		shouts_by_comment = session.query(Shout).\
-			join(Comment).\
-			where(and_(Shout.publishedAt != None, Comment.createdBy == user.id))
-		shouts = shouts_by_rating.union(shouts_by_comment).\
-			order_by(desc(Shout.publishedAt)).\
-			limit(size).\
-			offset( (page - 1) * size)
-
-	return shouts
-
-@query.field("shoutsCommentedByUser")
-async def shouts_commented_by_user(_, info, slug, page, size):
-	user = await UserStorage.get_user_by_slug(slug)
-	if not user:
-		return {}
-
-	with local_session() as session:
-		shouts = session.query(Shout).\
-			join(Comment).\
-			where(Comment.createdBy == user.id).\
-			order_by(desc(Comment.createdAt)).\
-			limit(size).\
-			offset( (page - 1) * size)
-	return shouts
-
+# for mutation.field("unfollow")
+def author_unfollow(user, slug):
+    with local_session() as session:
+        flw = session.query(AuthorFollower).\
+            filter(and_(AuthorFollower.follower == user.slug, AuthorFollower.author == slug)).\
+            first()
+        if not flw:
+            raise Exception("[resolvers.profile] follower not exist, cant unfollow")
+        else: 
+            session.delete(flw)
+            session.commit()

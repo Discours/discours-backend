@@ -1,17 +1,13 @@
 scalar DateTime
 
-################################### Payload
-
-type Result {
-  error: String
-}
+################################### Payload ###################################
 
 type CurrentUserInfo {
-  totalUnreadMessages:         Int
-  userSubscribedTopics:        [String]!
-  userSubscribedAuthors:       [String]!
-  userSubscribedCommunities:   [String]!
-  userSubscribedShoutComments: [String]!
+  inbox:         Int
+  topics:        [String]!
+  authors:       [String]!
+  reactions:     [String]!
+  communities:   [String]!
 }
 
 type AuthResult {
@@ -21,11 +17,35 @@ type AuthResult {
   info: CurrentUserInfo
 }
 
-type UserResult {
+type Result {
   error: String
-  user: User
-  info: CurrentUserInfo
+  shout: Shout
+  shouts: [Shout]
+  author: User
+  authors: [User]
+  reaction: Reaction
+  reactions: [Reaction]
+  topic: Topic
+  topics: [Topic]
+  community: Community
+  communities: [Community]
 }
+
+enum ReactionStatus {
+  NEW
+  UPDATED
+  CHANGED
+  EXPLAINED
+  DELETED
+}
+
+type ReactionUpdating {
+  error: String
+  status: ReactionStatus
+  reaction: Reaction
+}
+
+################################### Inputs ###################################
 
 input ShoutInput {
   slug: String!
@@ -53,53 +73,29 @@ input CommunityInput {
   pic: String
 }
 
-type ShoutResult {
-  error: String
-  shout: Shout
-}
-
-type ShoutsResult {
-  error: String
-  shouts: [Shout]
-}
-
-type CommentResult {
-  error: String
-  comment: Comment
-}
-
 input TopicInput {
   slug: String!
+  community: String!
   title: String
   body: String
   pic: String
   children: [String]
-  community: String!
+  parents: [String]
 }
 
-type TopicResult {
-  error: String
-  topic: Topic
+input ReactionInput {
+  kind: Int!
+  shout: String!
+  range: String
+  body: String
+  replyTo: Int
 }
 
-enum CommentStatus {
-  NEW
-  UPDATED
-  UPDATED_RATING
-  DELETED
-}
-
-type CommentUpdatedResult {
-  error: String
-  status: CommentStatus
-  comment: Comment
-}
-
-enum SubscriptionType {
+enum FollowingEntity {
   TOPIC
   AUTHOR
   COMMUNITY
-  COMMENTS
+  REACTIONS
 }
 
 ################################### Mutation
@@ -113,11 +109,11 @@ type Mutation {
   # requestEmailConfirmation: User!
 
   # shout
-  createShout(input: ShoutInput!): ShoutResult!
-  updateShout(input: ShoutInput!): ShoutResult!
+  createShout(input: ShoutInput!): Result!
+  updateShout(input: ShoutInput!): Result!
   deleteShout(slug: String!): Result!
-  rateShout(slug: String!, value: Int!): Result!
   viewShout(slug: String!): Result!
+  viewReaction(reaction_id: Int!): Result!
 
   # user profile
   rateUser(slug: String!, value: Int!): Result!
@@ -125,35 +121,35 @@ type Mutation {
   updateProfile(profile: ProfileInput!): Result!
 
   # topics
-  createTopic(input: TopicInput!): TopicResult!
-  updateTopic(input: TopicInput!): TopicResult!
+  createTopic(input: TopicInput!): Result!
+  # TODO: mergeTopics(t1: String!, t2: String!): Result!
+  updateTopic(input: TopicInput!): Result!
+  destroyTopic(slug: String!): Result!
 
-  # comments
-  createComment(body: String!, shout: String!, replyTo: Int): CommentResult!
-  updateComment(id: Int!, body: String!): CommentResult!
-  deleteComment(id: Int!): Result!
-  rateComment(id: Int!, value: Int!): Result!
+
+  # reactions
+  createReaction(input: ReactionInput!): Result!
+  updateReaction(id: Int!, body: String!): Result!
+  deleteReaction(id: Int!): Result!
+  rateReaction(id: Int!, value: Int!): Result!
 
   # community
-  createCommunity(community: CommunityInput!): Community!
-  updateCommunity(community: CommunityInput!): Community!
+  createCommunity(community: CommunityInput!): Result!
+  updateCommunity(community: CommunityInput!): Result!
   deleteCommunity(slug: String!): Result!
 
   # collab
   inviteAuthor(author: String!, shout: String!): Result!
   removeAuthor(author: String!, shout: String!): Result!
-  
-  # proposal
-  createProposal(body: String!, range: String): Proposal!
-  updateProposal(body: String!, range: String): Proposal!
-  acceptProposal(id: Int!): Result!
-  declineProposal(id: Int!): Result!
-  disableProposal(id: Int!): Result!
-  deleteProposal(id: Int!): Result!
-  rateProposal(id: Int!): Result!
 
-  subscribe(what: SubscriptionType!, slug: String!): Result!
-  unsubscribe(what: SubscriptionType!, slug: String!): Result!
+  # following
+  follow(what: FollowingEntity!, slug: String!): Result!
+  unfollow(what: FollowingEntity!, slug: String!): Result!
+
+  # TODO: transform reaction with body to shout
+
+  # NOTE: so-named 'collections' are tuned feeds
+  # TODO: Feed entity and CRUM: createFeed updateFeed deleteFeed mergeFeeds
 }
 
 ################################### Query
@@ -163,69 +159,53 @@ type Query {
   # auth
   isEmailUsed(email: String!): Boolean!
   signIn(email: String!, password: String): AuthResult!
-  signOut: Result!
-  forget(email: String!): Result!
-  requestPasswordReset(email: String!): Result!
-  updatePassword(password: String!, token: String!): Result!
+  signOut: AuthResult!
+  forget(email: String!): AuthResult!
+  requestPasswordReset(email: String!): AuthResult!
+  updatePassword(password: String!, token: String!): AuthResult!
+  getCurrentUser: AuthResult!
 
   # profile
-  userSubscribers(slug: String!): [String]!
-  userSubscribedAuthors(slug: String!): [String]!
-  userSubscribedTopics(slug: String!): [String]!
-  getCurrentUser: UserResult!
   getUsersBySlugs(slugs: [String]!): [User]!
+  userFollowers(slug: String!): [User]!
+  userFollowedAuthors(slug: String!): [User]!
+  userFollowedTopics(slug: String!): [Topic]!
+  userFollowedCommunities(slug: String!): [Community]!
+  userReactedShouts(slug: String!): [Shout]! # test
   getUserRoles(slug: String!): [Role]!
 
   # shouts
   getShoutBySlug(slug: String!): Shout!
+  shoutsForFeed(page: Int!, size: Int!): [Shout]! # test
   shoutsByTopics(slugs: [String]!, page: Int!, size: Int!): [Shout]!
   shoutsByAuthors(slugs: [String]!, page: Int!, size: Int!): [Shout]!
   shoutsByCommunities(slugs: [String]!, page: Int!, size: Int!): [Shout]!
-  shoutsRatedByUser(page: Int!, size: Int!): ShoutsResult!
-  shoutsReviewed(page: Int!, size: Int!): [Shout]!
-  userUnpublishedShouts(page: Int!, size: Int!): ShoutsResult!
-  shoutsCommentedByUser(page: Int!, size: Int!): ShoutsResult!
-  recentCommented(page: Int!, size: Int!): [Shout]!
-
-  # comments
-  getShoutComments(slug: String!): [Comment]!
-  getAllComments: [Comment]! # top10
-  userComments(slug: String!, page: Int!, size: Int!): [Comment]!
-
-  # collab
-  getShoutProposals(slug: String!): [Proposal]!
-  createProposal(body: String!, range: String): Proposal!
-  updateProposal(body: String!, range: String): Proposal!
-  destroyProposal(id: Int!): Result!
-  inviteAuthor(slug: String!, author: String!): Result!
-  removeAuthor(slug: String!, author: String!): Result!
-
-  # mainpage articles' feeds
+  myCandidates(page: Int!, size: Int!): [Shout]! # test
   topViewed(page: Int!, size: Int!): [Shout]!
+  # TODO: topReacted(page: Int!, size: Int!): [Shout]!
   topMonth(page: Int!, size: Int!): [Shout]!
   topOverall(page: Int!, size: Int!): [Shout]!
-  recentPublished(page: Int!, size: Int!): [Shout]!
-  
-  # all articles' feed
+  recentPublished(page: Int!, size: Int!): [Shout]! # homepage
+  recentReacted(page: Int!, size: Int!): [Shout]! # test
   recentAll(page: Int!, size: Int!): [Shout]!
-  commentsAll(page: Int!, size: Int!): [Comment]!
-  # NOTE: so-named 'collections' are tuned feeds
-  # TODO: createFeed updateFeed deleteFeed mergeFeeds
+
+  # reactons
+  reactionsAll(page: Int!, size: Int!): [Reaction]!
+  reactionsByAuthor(slug: String!, page: Int!, size: Int!): [Reaction]!
+  reactionsByShout(slug: String!): [Reaction]!
+
+  # collab
+  inviteAuthor(slug: String!, author: String!): Result!
+  removeAuthor(slug: String!, author: String!): Result
 
   # topics
   topicsAll(page: Int!, size: Int!): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
-  # TODO: CMUD for topic
-  # createTopic(input: TopicInput!): TopicResult!
-  # mergeTopics(t1: String!, t2: String!): Result!
-  # updateTopic(input: TopicInput!): TopicResult!
-  # destroyTopic(slug: String!): Result!
 
   # communities
   getCommunity(slug: String): Community!
-  getCommunities: [Community]!
-  # TODO: getCommunityMembers(slug: String!): [User]!
+  getCommunities: [Community]! # all
 }
 
 ############################################ Subscription
@@ -234,7 +214,7 @@ type Subscription {
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!
-  commentUpdated(shout: String!): CommentUpdatedResult!
+  reactionUpdated(shout: String!): ReactionUpdating!
 }
 
 ############################################ Entities
@@ -302,27 +282,41 @@ type User {
   oid: String
 }
 
-type Comment {
+enum ReactionKind {
+  LIKE
+  DISLIKE
+
+  AGREE
+  DISAGREE
+
+  PROOF
+  DISPROOF
+  
+  COMMENT
+  QOUTE
+  
+  PROPOSE
+  ASK
+  
+  ACCEPT
+  REJECT
+}
+
+type Reaction {
   id: Int!
-  createdBy: User!
-  body: String!
-  replyTo: Comment!
-  createdAt: DateTime!
-  updatedAt: DateTime
   shout: Shout!
+  createdAt: DateTime!
+  createdBy: User!
+  updatedAt: DateTime
   deletedAt: DateTime
   deletedBy: User
-  ratings: [CommentRating]
-  views: Int
-  oid: String
+  range: String # full / 0:2340
+  kind: ReactionKind!
+  body: String
+  replyTo: Reaction
+  stat: Stat
+  old_id: String
   old_thread: String
-}
-type CommentRating {
-  id: Int!
-  comment_id: Int!
-  createdBy: String!
-  createdAt: DateTime!
-  value: Int!
 }
 
 # is publication
@@ -332,7 +326,7 @@ type Shout {
   body: String!
   createdAt: DateTime!
   authors: [User!]!
-  ratings: [Rating]
+  # ratings: [Rating]
   community: String
   cover: String
   layout: String
@@ -349,13 +343,12 @@ type Shout {
   deletedBy: User
   publishedBy: User
   publishedAt: DateTime
-  stat: ShoutStat
+  stat: Stat
 }
 
-type ShoutStat {
-  views: Int!
-  comments: Int!
-  ratings: Int!
+type Stat {
+  viewed: Int!
+  reacted: Int!
 }
 
 type Community {
@@ -369,9 +362,9 @@ type Community {
 
 type TopicStat {
   shouts: Int!
-  views: Int!
-  subscriptions: Int!
+  followers: Int!
   authors: Int!
+  viewed: Int!
 }
 
 type Topic {
@@ -381,34 +374,9 @@ type Topic {
   pic: String
   parents: [String] # NOTE: topic can have parent topics
   children: [String] # and children
-  community: String!
+  community: Community!
   stat: TopicStat
   oid: String
-}
-
-enum ProposalStatus {
-  NEW
-  UPDATED
-  UPDATED_RATING
-  ACCEPTED
-  DECLINED
-  DISABLED
-  DELETED
-}
-
-type Proposal {
-  shout: String!
-  range: String # full / 0:2340
-  body: String!
-  createdAt: DateTime!
-  createdBy: String!
-  updatedAt: DateTime
-  acceptedAt: DateTime
-  acceptedBy: Int
-  declinedAt: DateTime
-  declinedBy: Int
-  disabledAt: DateTime
-  disabledBy: Int
 }
 
 type Token {

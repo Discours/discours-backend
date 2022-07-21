@@ -1,5 +1,4 @@
 from importlib import import_module
-
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
 from starlette.applications import Starlette
@@ -7,16 +6,17 @@ from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.routing import Route
-
 from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
 from auth.email import email_authorize
 from redis import redis
 from resolvers.base import resolvers
-from resolvers.zine import GitTask, ShoutsCache
-
-from orm.shout import ShoutViewStorage, TopicStat, ShoutAuthorStorage, CommentStat
-
+from resolvers.zine import ShoutsCache
+from storages.viewed import ViewedStorage
+# from storages.gittask import GitTask
+from storages.topicstat import TopicStat
+from storages.shoutauthor import ShoutAuthorStorage
+from storages.reactions import ReactionsStorage
 import asyncio
 
 import_module('resolvers')
@@ -29,18 +29,18 @@ middleware = [
 
 async def start_up():
 	await redis.connect()
-	git_task = asyncio.create_task(GitTask.git_task_worker())
+	viewed_storage_task = asyncio.create_task(ViewedStorage.worker())
 	shouts_cache_task = asyncio.create_task(ShoutsCache.worker())
-	view_storage_task = asyncio.create_task(ShoutViewStorage.worker())
+	reaction_stat_task = asyncio.create_task(ReactionsStorage.worker())
 	shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
 	topic_stat_task = asyncio.create_task(TopicStat.worker())
-	comment_stat_task = asyncio.create_task(CommentStat.worker())
+	# FIXME git_task = asyncio.create_task(GitTask.git_task_worker())
 
 async def shutdown():
 	await redis.disconnect()
 
 routes = [
-	Route("/oauth/{provider}", endpoint=oauth_login),
+	Route("/oauth/{provider}", endpoint=oauth_login), # TODO: isolate auth microservice
 	Route("/oauth_authorize", endpoint=oauth_authorize),
 	Route("/email_authorize", endpoint=email_authorize)
 ]

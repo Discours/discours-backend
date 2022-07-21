@@ -1,12 +1,10 @@
 from datetime import datetime
-
 import jwt
-
 from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 from auth.validations import PayLoad, User
 
 
-class Token:
+class JWTCodec:
 	@staticmethod
 	def encode(user: User, exp: datetime, device: str = "pc") -> str:
 		payload = {"user_id": user.id, "device": device, "exp": exp, "iat": datetime.utcnow()}

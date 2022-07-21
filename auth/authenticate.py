@@ -9,10 +9,11 @@ from starlette.authentication import AuthenticationBackend
 from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials, AuthUser
-from auth.token import Token
+from auth.jwtcodec import JWTCodec
 from auth.authorize import Authorize, TokenStorage
 from exceptions import InvalidToken, OperationNotAllowed
-from orm import User, UserStorage
+from orm.user import User
+from storages.users import UserStorage
 from orm.base import local_session
 from redis import redis
 from settings import JWT_AUTH_HEADER, EMAIL_TOKEN_LIFE_SPAN
@@ -32,9 +33,9 @@ class _Authenticate:
 			token is of specified type
 		"""
 		try:
-			payload = Token.decode(token)
+			payload = JWTCodec.decode(token)
 		except ExpiredSignatureError:
-			payload = Token.decode(token, verify_exp=False)
+			payload = JWTCodec.decode(token, verify_exp=False)
 			if not await cls.exists(payload.user_id, token):
 				raise InvalidToken("Login expired, please login again")
 			if payload.device == "mobile":  # noqa
@@ -109,14 +110,14 @@ class ResetPassword:
 	@staticmethod
 	async def get_reset_token(user):
 		exp = datetime.utcnow() + timedelta(seconds=EMAIL_TOKEN_LIFE_SPAN)
-		token = Token.encode(user, exp=exp, device="pc")
+		token = JWTCodec.encode(user, exp=exp, device="pc")
 		await TokenStorage.save(f"{user.id}-reset-{token}", EMAIL_TOKEN_LIFE_SPAN, True)
 		return token
 
 	@staticmethod
 	async def verify(token):
 		try:
-			payload = Token.decode(token)
+			payload = JWTCodec.decode(token)
 		except ExpiredSignatureError:
 			raise InvalidToken("Login expired, please login again")
 		except DecodeError as e:

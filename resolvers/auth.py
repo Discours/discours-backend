@@ -1,7 +1,6 @@
 from graphql import GraphQLResolveInfo
 from transliterate import translit
 from urllib.parse import quote_plus
-
 from auth.authenticate import login_required, ResetPassword
 from auth.authorize import Authorize
 from auth.identity import Identity
@@ -12,7 +11,6 @@ from orm.base import local_session
 from resolvers.base import mutation, query
 from resolvers.profile import get_user_info
 from exceptions import InvalidPassword, InvalidToken
-
 from settings import JWT_AUTH_HEADER
 
 @mutation.field("confirmEmail")

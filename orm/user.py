@@ -1,14 +1,9 @@
-from typing import List
 from datetime import datetime
-
-from sqlalchemy import Table, Column, Integer, String, ForeignKey, Boolean, DateTime, JSON as JSONType
-from sqlalchemy.orm import relationship, selectinload
-
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, JSON as JSONType
+from sqlalchemy.orm import relationship
 from orm.base import Base, local_session
-from orm.rbac import Role, RoleStorage
-from orm.topic import Topic
-
-import asyncio
+from orm.rbac import Role
+from storages.roles import RoleStorage
 
 class UserNotifications(Base):
 	__tablename__ = 'user_notifications'
@@ -33,19 +28,12 @@ class UserRole(Base):
 	user_id = Column(ForeignKey('user.id'), primary_key = True)
 	role_id = Column(ForeignKey('role.id'), primary_key = True)
 
-class AuthorSubscription(Base):
-	__tablename__ = "author_subscription"
+class AuthorFollower(Base):
+	__tablename__ = "author_follower"
 	
 	id = None
-	subscriber = Column(ForeignKey('user.slug'), primary_key = True)
+	follower = Column(ForeignKey('user.slug'), primary_key = True)
 	author = Column(ForeignKey('user.slug'), primary_key = True)
-	createdAt = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
-
-class EmailSubscription(Base):
-	__tablename__ = "email_subscription"
-
-	id = None
-	email = Column(String, primary_key = True)
 	createdAt = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 
 class User(Base):
@@ -94,43 +82,6 @@ class User(Base):
 					scope[p.resource_id] = set()
 				scope[p.resource_id].add(p.operation_id)
 		return scope
-
-class UserStorage:
-	users = {}
-	lock = asyncio.Lock()
-
-	@staticmethod
-	def init(session):
-		self = UserStorage
-		users = session.query(User).\
-			options(selectinload(User.roles)).all()
-		self.users = dict([(user.id, user) for user in users])
-
-	@staticmethod
-	async def get_user(id):
-		self = UserStorage
-		async with self.lock:
-			return self.users.get(id)
-
-	@staticmethod
-	async def get_user_by_slug(slug):
-		self = UserStorage
-		async with self.lock:
-			for user in self.users.values():
-				if user.slug == slug:
-					return user
-
-	@staticmethod
-	async def add_user(user):
-		self = UserStorage
-		async with self.lock:
-			self.users[user.id] = user
-
-	@staticmethod
-	async def del_user(id):
-		self = UserStorage
-		async with self.lock:
-			del self.users[id]
 
 
 if __name__ == "__main__":

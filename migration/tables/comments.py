@@ -1,8 +1,10 @@
 from datetime import datetime
 from dateutil.parser import parse as date_parse
-from orm import Comment, CommentRating, User
+from orm import Reaction, User
+from orm import reaction
 from orm.base import local_session
 from migration.html2text import html2text
+from orm.reaction import ReactionKind
 from orm.shout import Shout
 
 ts = datetime.now()
@@ -27,80 +29,80 @@ def migrate(entry, storage):
 
 	->
 
-	type Comment {
+	type Reaction {
 		id: Int!
-		createdBy: User!
-		body: String!
-		replyTo: Comment!
-		createdAt: DateTime!
-		updatedAt: DateTime
 		shout: Shout!
+		createdAt: DateTime!
+		createdBy: User!
+		updatedAt: DateTime
 		deletedAt: DateTime
 		deletedBy: User
-		ratings: [CommentRating]
-		views: Int
-	}
+		range: String # full / 0:2340
+		kind: ReactionKind!
+		body: String
+		replyTo: Reaction
+		stat: Stat
+		old_id: String
+		old_thread: String
+		}
 	'''
-	if entry.get('deleted'): return
-	comment_dict = {}
+	reaction_dict = {}
 	# FIXME: comment_dict['createdAt'] = ts if not entry.get('createdAt') else date_parse(entry.get('createdAt'))
 	# print('[migration] comment original date %r' % entry.get('createdAt'))
 	# print('[migration] comment date %r ' % comment_dict['createdAt'])
-	comment_dict['body'] = html2text(entry.get('body', ''))
-	comment_dict['oid'] = entry['_id']
-	if entry.get('createdAt'): comment_dict['createdAt'] = date_parse(entry.get('createdAt'))
+	reaction_dict['body'] = html2text(entry.get('body', ''))
+	reaction_dict['oid'] = entry['_id']
+	if entry.get('createdAt'): reaction_dict['createdAt'] = date_parse(entry.get('createdAt'))
 	shout_oid = entry.get('contentItem')
 	if not shout_oid in storage['shouts']['by_oid']: 
-		print('[migration] no shout for comment', entry)
+		if len(storage['shouts']['by_oid']) > 0: 
+			return shout_oid
+		else:
+			print('[migration] no shouts migrated yet')
+			raise Exception
+		return
 	else:
 		with local_session() as session:
 			author = session.query(User).filter(User.oid == entry['createdBy']).first()
 			shout_dict = storage['shouts']['by_oid'][shout_oid]
 			if shout_dict:
-				comment_dict['shout'] = shout_dict['slug']
-				comment_dict['createdBy'] = author.slug if author else 'discours'
-				# FIXME if entry.get('deleted'): comment_dict['deletedAt'] = date_parse(entry['updatedAt']) or ts
-				# comment_dict['deletedBy'] = session.query(User).filter(User.oid == (entry.get('updatedBy') or dd['oid'])).first()
-				# FIXME if entry.get('updatedAt'): comment_dict['updatedAt'] = date_parse(entry['updatedAt']) or ts
-				#for [k, v] in comment_dict.items():
-				#	if not v: del comment_dict[f]
-				#	if k.endswith('At'):
-				#		try: comment_dict[k] = datetime(comment_dict[k])
-				#		except: print(k)
-				#	# print('[migration] comment keys:', f)
+				reaction_dict['shout'] = shout_dict['slug']
+				reaction_dict['createdBy'] = author.slug if author else 'discours'
+				reaction_dict['kind'] = ReactionKind.COMMENT
 
-				comment = Comment.create(**comment_dict)
+				# creating reaction from old comment
+				reaction = Reaction.create(**reaction_dict)
 				
-				comment_dict['id'] = comment.id
-				comment_dict['ratings'] = []
-				comment_dict['oid'] = entry['_id']
-				# print(comment)
+				reaction_dict['id'] = reaction.id
 				for comment_rating_old in entry.get('ratings',[]):
 					rater = session.query(User).filter(User.oid == comment_rating_old['createdBy']).first()
-					if rater and comment:
-						comment_rating_dict = {
-							'value': comment_rating_old['value'],
-							'createdBy': rater.slug,
-							'comment_id': comment.id
-						}
-						cts = comment_rating_old.get('createdAt')
-						if cts: comment_rating_dict['createdAt'] = date_parse(cts)
-						try:
-							CommentRating.create(**comment_rating_dict)
-							comment_dict['ratings'].append(comment_rating_dict)
-						except Exception as e:
-							print('[migration] comment rating error: %r' % comment_rating_dict)
-							raise e
+					reactedBy = rater if rater else session.query(User).filter(User.slug == 'noname').first()
+					re_reaction_dict = {
+						'shout': reaction_dict['shout'],
+						'replyTo': reaction.id,
+						'kind': ReactionKind.LIKE if comment_rating_old['value'] > 0 else ReactionKind.DISLIKE,
+						'createdBy': reactedBy.slug if reactedBy else 'discours'
+					}
+					cts = comment_rating_old.get('createdAt')
+					if cts: re_reaction_dict['createdAt'] = date_parse(cts)
+					try:
+						# creating reaction from old rating
+						Reaction.create(**re_reaction_dict)
+					except Exception as e:
+						print('[migration] comment rating error: %r' % re_reaction_dict)
+						raise e
 			else:
-				print('[migration] error: cannot find shout for comment %r' % comment_dict)
-		return comment_dict
+				print('[migration] error: cannot find shout for comment %r' % reaction_dict)
+		return reaction
 
-def migrate_2stage(cmt, old_new_id):
-	reply_oid = cmt.get('replyTo')
+def migrate_2stage(rr, old_new_id):
+	reply_oid = rr.get('replyTo')
 	if not reply_oid: return
-	new_id = old_new_id.get(cmt['_id'])
+	new_id = old_new_id.get(rr.get('oid'))
 	if not new_id: return
 	with local_session() as session:
-		comment = session.query(Comment).filter(Comment.id == new_id).first()
+		comment = session.query(Reaction).filter(Reaction.id == new_id).first()
 		comment.replyTo = old_new_id.get(reply_oid)
+		comment.save()
 		session.commit()
+	if not rr['body']: raise Exception(rr)

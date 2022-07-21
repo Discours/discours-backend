@@ -1,11 +1,6 @@
 import warnings
-
-from typing import Type
-import asyncio
-
-from sqlalchemy import String, Integer, Column, ForeignKey, UniqueConstraint, TypeDecorator
-from sqlalchemy.orm import relationship, selectinload
-
+from sqlalchemy import String, Column, ForeignKey, UniqueConstraint, TypeDecorator
+from sqlalchemy.orm import relationship
 from orm.base import Base, REGISTRY, engine, local_session
 from orm.community import Community
 
@@ -88,34 +83,6 @@ class Permission(Base):
 	operation_id: int = Column(ForeignKey("operation.id", ondelete="CASCADE"), nullable=False, comment="Operation")
 	resource_id: int = Column(ForeignKey("resource.id", ondelete="CASCADE"), nullable=False, comment="Resource")
 
-class RoleStorage:
-	roles = {}
-	lock = asyncio.Lock()
-
-	@staticmethod
-	def init(session):
-		self = RoleStorage
-		roles = session.query(Role).\
-			options(selectinload(Role.permissions)).all()
-		self.roles = dict([(role.id, role) for role in roles])
-
-	@staticmethod
-	async def get_role(id):
-		self = RoleStorage
-		async with self.lock:
-			return self.roles.get(id)
-
-	@staticmethod
-	async def add_role(role):
-		self = RoleStorage
-		async with self.lock:
-			self.roles[id] = role
-
-	@staticmethod
-	async def del_role(id):
-		self = RoleStorage
-		async with self.lock:
-			del self.roles[id]
 
 if __name__ == '__main__':
 	Base.metadata.create_all(engine)

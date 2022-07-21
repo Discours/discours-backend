@@ -1,6 +1,3 @@
-from orm import User
-from orm.base import local_session
-
 from resolvers_base import mutation, query, subscription
 
 from auth.authenticate import login_required
@@ -10,7 +7,7 @@ from datetime import datetime
 
 from redis import redis
 
-class MessageSubscription:
+class ChatFollowing:
 	queue = asyncio.Queue()
 
 	def __init__(self, chat_id):
@@ -18,42 +15,42 @@ class MessageSubscription:
 
 class MessagesStorage:
 	lock = asyncio.Lock()
-	subscriptions = []
+	chats = []
 
 	@staticmethod
-	async def register_subscription(subs):
+	async def register_chat(chat):
 		async with MessagesStorage.lock:
-			MessagesStorage.subscriptions.append(subs)
+			MessagesStorage.chats.append(chat)
 	
 	@staticmethod
-	async def del_subscription(subs):
+	async def remove_chat(chat):
 		async with MessagesStorage.lock:
-			MessagesStorage.subscriptions.remove(subs)
+			MessagesStorage.chats.remove(chat)
 	
 	@staticmethod
 	async def put(message_result):
 		async with MessagesStorage.lock:
-			for subs in MessagesStorage.subscriptions:
-				if message_result.message["chatId"] == subs.chat_id:
-					subs.queue.put_nowait(message_result)
+			for chat in MessagesStorage.chats:
+				if message_result.message["chatId"] == chat.chat_id:
+					chat.queue.put_nowait(message_result)
 
 class MessageResult:
 	def __init__(self, status, message):
 		self.status = status
 		self.message = message
 
-async def get_total_unread_messages_for_user(user_slug):
+async def get_inbox_counter(user_slug):
 	chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
 	if not chats:
 		return 0
 
 	chats = json.loads(chats)
-	total = 0
+	unread = 0
 	for chat_id in chats:
 		n = await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}")
-		total += n
+		unread += n
 
-	return total
+	return unread
 
 async def add_user_to_chat(user_slug, chat_id, chat = None):
 	chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
@@ -264,13 +261,13 @@ async def message_generator(obj, info, chatId):
 	#	yield {"error" : auth.error_message or "Please login"}
 
 	try:
-		subs = MessageSubscription(chatId)
-		await MessagesStorage.register_subscription(subs)
+		following_chat = ChatFollowing(chatId)
+		await MessagesStorage.register_chat(following_chat)
 		while True:
-			msg = await subs.queue.get()
+			msg = await following_chat.queue.get()
 			yield msg
 	finally:
-		await MessagesStorage.del_subscription(subs)
+		await MessagesStorage.remove_chat(following_chat)
 
 @subscription.field("chatUpdated")
 def message_resolver(message, info, chatId):

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from auth.token import Token
+from auth.jwtcodec import JWTCodec
 from redis import redis
 from settings import JWT_LIFE_SPAN
 from auth.validations import User
@@ -22,14 +22,14 @@ class Authorize:
 	@staticmethod
 	async def authorize(user: User, device: str = "pc", life_span = JWT_LIFE_SPAN, auto_delete=True) -> str:
 		exp = datetime.utcnow() + timedelta(seconds=life_span)
-		token = Token.encode(user, exp=exp, device=device)
+		token = JWTCodec.encode(user, exp=exp, device=device)
 		await TokenStorage.save(f"{user.id}-{token}", life_span, auto_delete)
 		return token
 
 	@staticmethod
 	async def revoke(token: str) -> bool:
 		try:
-			payload = Token.decode(token)
+			payload = JWTCodec.decode(token)
 		except:  # noqa
 			pass
 		else:

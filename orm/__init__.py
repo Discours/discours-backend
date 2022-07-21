@@ -1,18 +1,19 @@
-from orm.rbac import Operation, Resource, Permission, Role, RoleStorage
-from orm.community import Community, CommunitySubscription
-from orm.user import User, UserRating, UserRole, UserStorage
-from orm.topic import Topic, TopicSubscription, TopicStorage
+from orm.rbac import Operation, Resource, Permission, Role
+from storages.roles import RoleStorage
+from orm.community import Community
+from orm.user import User, UserRating
+from orm.topic import Topic, TopicFollower
 from orm.notification import Notification
-from orm.shout import Shout, ShoutAuthor, ShoutTopic, ShoutRating, ShoutViewByDay,\
-	ShoutRatingStorage, ShoutViewStorage, ShoutCommentsSubscription
+from orm.shout import Shout
+from orm.reaction import Reaction
+from storages.topics import TopicStorage
+from storages.users import UserStorage
+from storages.viewed import ViewedStorage
 from orm.base import Base, engine, local_session
-from orm.comment import Comment, CommentRating #, CommentRatingStorage
-from orm.proposal import Proposal, ProposalRating #, ProposalRatingStorage
 
-__all__ = ["User", "Role", "Community", "Operation", \
-    "Permission", "Shout", "Topic", "TopicSubscription", \
-        "Notification", "ShoutRating", "Comment", "CommentRating", \
-            "UserRating", "Proposal", "ProposalRating"]
+__all__ = ["User", "Role", "Operation", "Permission", \
+	"Community", "Shout", "Topic", "TopicFollower", \
+    "Notification", "Reaction", "UserRating"]
 
 Base.metadata.create_all(engine)
 Operation.init_table()
@@ -22,10 +23,7 @@ Community.init_table()
 Role.init_table()
 
 with local_session() as session:
-	ShoutRatingStorage.init(session)
-	# CommentRatingStorage.init(session)
-	# ProposalRatingStorage.init(session)
-	ShoutViewStorage.init(session)
+	ViewedStorage.init(session)
 	RoleStorage.init(session)
 	UserStorage.init(session)
 	TopicStorage.init(session)

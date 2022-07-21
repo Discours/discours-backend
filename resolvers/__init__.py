@@ -1,14 +1,12 @@
 from resolvers.auth import login, sign_out, is_email_used, register, confirm, auth_forget, auth_reset
-from resolvers.zine import get_shout_by_slug, subscribe, unsubscribe, view_shout, rate_shout, \
+from resolvers.zine import get_shout_by_slug, follow, unfollow, view_shout, \
 	top_month, top_overall, recent_published, recent_all, top_viewed, \
 		shouts_by_authors, shouts_by_topics, shouts_by_communities
-from resolvers.profile import get_users_by_slugs, get_current_user, shouts_reviewed
-from resolvers.topics import topic_subscribe, topic_unsubscribe, topics_by_author, \
-	topics_by_community, topics_by_slugs
-from resolvers.comments import create_comment, delete_comment, update_comment, rate_comment
-from resolvers.collab import get_shout_proposals, create_proposal, delete_proposal, \
-	update_proposal, rate_proposal, decline_proposal, disable_proposal, accept_proposal, \
-		invite_author, remove_author
+from resolvers.profile import get_users_by_slugs, get_current_user, get_user_reacted_shouts, get_user_roles
+from resolvers.topics import topic_follow, topic_unfollow, topics_by_author, topics_by_community, topics_by_slugs
+# from resolvers.feed import shouts_for_feed, my_candidates
+from resolvers.reactions import create_reaction, delete_reaction, update_reaction, get_all_reactions
+from resolvers.collab import invite_author, remove_author
 from resolvers.editor import create_shout, delete_shout, update_shout
 from resolvers.community import create_community, delete_community, get_community, get_communities
 
@@ -20,36 +18,43 @@ __all__ = [
 	"confirm",
 	"auth_forget",
 	"auth_reset"
+	"sign_out",
 	
 	# profile
 	"get_current_user",
 	"get_users_by_slugs",
 	
 	# zine
+	"shouts_for_feed",
+	"my_candidates",
 	"recent_published",
+	"recent_reacted",
 	"recent_all",
 	"shouts_by_topics",
 	"shouts_by_authors",
 	"shouts_by_communities",
-	"shouts_reviewed",
+	"get_user_reacted_shouts",
 	"top_month",
 	"top_overall",
 	"top_viewed",
-	"rate_shout",
 	"view_shout",
+	"view_reaction",
 	"get_shout_by_slug",
 	
 	# editor
 	"create_shout",
 	"update_shout",
 	"delete_shout",
+	# collab
+	"invite_author",
+	"remove_author"
 	
 	# topics 
 	"topics_by_slugs",
 	"topics_by_community",
 	"topics_by_author",
-	"topic_subscribe",
-	"topic_unsubscribe",
+	"topic_follow",
+	"topic_unfollow",
 	
 	# communities
 	"get_community",
@@ -57,22 +62,12 @@ __all__ = [
 	"create_community",
 	"delete_community",
 	
-	# comments
-	"get_shout_comments",
-	"comments_subscribe",
-	"comments_unsubscribe",
-	"create_comment",
-	"update_comment",
-	"delete_comment",
-	
-	# collab
-	"get_shout_proposals",
-	"create_proposal",
-	"update_proposal",
-	"disable_proposal",
-	"accept_proposal",
-	"decline_proposal",
-	"delete_proposal",
-	"invite_author",
-	"remove_author"
+	# reactions
+	"get_shout_reactions",
+	"reactions_follow",
+	"reactions_unfollow",
+	"create_reaction",
+	"update_reaction",
+	"delete_reaction",
+	"get_all_reactions",
 	]

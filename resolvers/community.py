@@ -1,5 +1,6 @@
-from orm import Community, CommunitySubscription
+from orm.community import Community, CommunityFollower
 from orm.base import local_session
+from orm.user import User
 from resolvers.base import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
@@ -26,12 +27,15 @@ async def create_community(_, info, input):
 async def update_community(_, info, input):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
+	community_slug = input.get('slug', '')
 
 	with local_session() as session:
-		community = session.query(Community).filter(Community.slug == input.get('slug', '')).first()
+		owner = session.query(User).filter(User.id == user_id) # note list here
+		community = session.query(Community).filter(Community.slug == community_slug).first()
+		editors = [e.slug for e in community.editors]
 		if not community:
 			return {"error": "invalid community id"}
-		if community.createdBy != user_id:
+		if community.createdBy not in (owner + editors):
 			return {"error": "access denied"}
 		community.title = input.get('title', '')
 		community.desc = input.get('desc', '')
@@ -71,27 +75,28 @@ async def get_communities(_, info):
 		communities = session.query(Community)
 	return communities
 
-def community_subscribe(user, slug):
-	CommunitySubscription.create(
-		subscriber = user.slug, 
+def community_follow(user, slug):
+	CommunityFollower.create(
+		follower = user.slug, 
 		community = slug
 	)
 
-def community_unsubscribe(user, slug):
+def community_unfollow(user, slug):
 	with local_session() as session:
-		sub = session.query(CommunitySubscription).\
-			filter(and_(CommunitySubscription.subscriber == user.slug, CommunitySubscription.community == slug)).\
+		following = session.query(CommunityFollower).\
+			filter(and_(CommunityFollower.follower == user.slug, CommunityFollower.community == slug)).\
 			first()
-		if not sub:
-			raise Exception("subscription not exist")
-		session.delete(sub)
+		if not following:
+			raise Exception("[orm.community] following was not exist")
+		session.delete(following)
 		session.commit()
 
-def get_subscribed_communities(user_slug):
+@query.field("userFollowedCommunities")
+def get_followed_communities(_, user_slug) -> list[Community]:
+	ccc = []
 	with local_session() as session:
-		rows = session.query(Community.slug).\
-			join(CommunitySubscription).\
-			where(CommunitySubscription.subscriber == user_slug).\
+		ccc = session.query(Community.slug).\
+			join(CommunityFollower).\
+			where(CommunityFollower.follower == user_slug).\
 			all()
-	slugs = [row.slug for row in rows]
-	return slugs
+	return ccc

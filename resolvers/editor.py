@@ -4,11 +4,10 @@ from orm.rbac import Resource
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.user import User
 from resolvers.base import mutation
-from resolvers.comments import comments_subscribe
+from resolvers.reactions import reactions_follow, reactions_unfollow
 from auth.authenticate import login_required
 from datetime import datetime
-
-from resolvers.zine import GitTask
+from storages.gittask import GitTask
 
 
 @mutation.field("createShout")
@@ -26,7 +25,7 @@ async def create_shout(_, info, input):
 		user = user.slug
 		)
 
-	comments_subscribe(user, new_shout.slug, True)
+	reactions_follow(user, new_shout.slug, True)
 
 	if "mainTopic" in input:
 		topic_slugs.append(input["mainTopic"])
@@ -110,8 +109,10 @@ async def delete_shout(_, info, slug):
 			return {"error": "invalid shout slug"}
 		if user_id not in authors:
 			return {"error": "access denied"}
-
+		for a in authors:
+			reactions_unfollow(a.slug, slug, True)
 		shout.deletedAt = datetime.now()
 		session.commit()
 
+		
 	return {}

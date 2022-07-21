@@ -1,17 +1,16 @@
-from orm import Topic, TopicSubscription, TopicStorage, Shout, User
-from orm.shout import TopicStat, ShoutAuthorStorage
-from orm.user import UserStorage
+from orm.topic import Topic, TopicFollower
+from storages.topics import TopicStorage
+from orm.shout import Shout
+from orm.user import User
+from storages.topicstat import TopicStat
 from orm.base import local_session
 from resolvers.base import mutation, query
 from auth.authenticate import login_required
-import asyncio
-
-from sqlalchemy import func, and_
+from sqlalchemy import and_
 
 @query.field("topicsAll")
-async def topics_by_slugs(_, info, slugs = None):
-	with local_session() as session:
-		topics = await TopicStorage.get_topics(slugs)
+async def topics_by_slugs(_, info, page = 1, size = 50):
+	topics = await TopicStorage.get_topics_all(page, size)
 	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
 	if "stat" in all_fields:
 		for topic in topics:
@@ -20,8 +19,7 @@ async def topics_by_slugs(_, info, slugs = None):
 
 @query.field("topicsByCommunity")
 async def topics_by_community(_, info, community):
-	with local_session() as session:
-		topics = await TopicStorage.get_topics_by_community(community)
+	topics = await TopicStorage.get_topics_by_community(community)
 	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
 	if "stat" in all_fields:
 		for topic in topics:
@@ -65,17 +63,17 @@ async def update_topic(_, info, input):
 
 	return { "topic" : topic }
 
-def topic_subscribe(user, slug):
-	TopicSubscription.create(
-		subscriber = user.slug, 
+def topic_follow(user, slug):
+	TopicFollower.create(
+		follower = user.slug, 
 		topic = slug)
 
-def topic_unsubscribe(user, slug):
+def topic_unfollow(user, slug):
 	with local_session() as session:
-		sub = session.query(TopicSubscription).\
-			filter(and_(TopicSubscription.subscriber == user.slug, TopicSubscription.topic == slug)).\
+		sub = session.query(TopicFollower).\
+			filter(and_(TopicFollower.follower == user.slug, TopicFollower.topic == slug)).\
 			first()
 		if not sub:
-			raise Exception("subscription not exist")
+			raise Exception("[resolvers.topics] follower not exist")
 		session.delete(sub)
 		session.commit()

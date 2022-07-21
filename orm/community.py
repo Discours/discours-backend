@@ -1,14 +1,12 @@
 from datetime import datetime
-from enum import unique
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy import Column, String, ForeignKey, DateTime
 from orm.base import Base, local_session
 
-class CommunitySubscription(Base):
-	__tablename__ = 'community_subscription'
+class CommunityFollower(Base):
+	__tablename__ = 'community_followers'
 
 	id = None
-	subscriber = Column(ForeignKey('user.slug'), primary_key = True)
+	follower = Column(ForeignKey('user.slug'), primary_key = True)
 	community = Column(ForeignKey('community.slug'), primary_key = True)
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
 
@@ -21,7 +19,7 @@ class Community(Base):
 	desc: str = Column(String, nullable=False, default='')
 	pic: str = Column(String, nullable=False, default='')
 	createdAt: str = Column(DateTime, nullable=False, default = datetime.now, comment="Created at")
-	createdBy: str = Column(ForeignKey("user.slug"), nullable=False, comment="Creator")
+	createdBy: str = Column(ForeignKey("user.slug"), nullable=False, comment="Author")
 
 	@staticmethod
 	def init_table():

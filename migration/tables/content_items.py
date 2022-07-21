@@ -1,11 +1,13 @@
 from dateutil.parser import parse as date_parse
 import sqlalchemy
-from orm import Shout, ShoutTopic, ShoutRating, ShoutViewByDay, User
+from orm.shout import Shout, ShoutTopic, User
+from storages.viewed import ViewedByDay
 from transliterate import translit
 from datetime import datetime
 from orm.base import local_session
 from migration.extract import prepare_body
 from orm.community import Community
+from orm.reaction import Reaction, ReactionKind
 
 OLD_DATE = '2016-03-05 22:22:00.350000'
 ts = datetime.now()
@@ -33,8 +35,8 @@ def migrate(entry, storage):
 		'community': Community.default_community.id,
 		'authors': [],
 		'topics': set([]),
-		'rating': 0,
-		'ratings': [],
+		# 'rating': 0,
+		# 'ratings': [],
 		'createdAt': []
 	}
 	topics_by_oid = storage['topics']['by_oid']
@@ -117,8 +119,8 @@ def migrate(entry, storage):
 	shout_dict = r.copy() 
 	user = None
 	del shout_dict['topics'] # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
-	del shout_dict['rating'] # FIXME: TypeError: 'rating' is an invalid keyword argument for Shout
-	del shout_dict['ratings']
+	#del shout_dict['rating'] # FIXME: TypeError: 'rating' is an invalid keyword argument for Shout
+	#del shout_dict['ratings']
 	email = userdata.get('email')
 	slug = userdata.get('slug')
 	with local_session() as session:
@@ -188,35 +190,36 @@ def migrate(entry, storage):
 			print('[migration] ignored topic slug: \n%r' % tpc['slug'])
 			# raise Exception
 
-	# shout ratings
+	# content_item ratings to reactions
 	try:
-		shout_dict['ratings'] = []
-		for shout_rating_old in entry.get('ratings',[]):
+		for content_rating in entry.get('ratings',[]):
 			with local_session() as session:
-				rater = session.query(User).filter(User.oid == shout_rating_old['createdBy']).first()
+				rater = session.query(User).filter(User.oid == content_rating['createdBy']).first()
+				reactedBy = rater if rater else session.query(User).filter(User.slug == 'noname').first()
 				if rater:
-					shout_rating_dict = {
-						'value': shout_rating_old['value'],
-						'rater': rater.slug,
+					reaction_dict = {
+						'kind': ReactionKind.LIKE if content_rating['value'] > 0 else ReactionKind.DISLIKE,
+						'createdBy': reactedBy.slug,
 						'shout': shout_dict['slug']
 					}
-					cts = shout_rating_old.get('createdAt')
-					if cts: shout_rating_dict['ts'] = date_parse(cts)
-					shout_rating = session.query(ShoutRating).\
-						filter(ShoutRating.shout == shout_dict['slug']).\
-						filter(ShoutRating.rater == rater.slug).first()
-					if shout_rating:
-						shout_rating_dict['value'] = int(shout_rating_dict['value'] or 0) + int(shout_rating.value or 0)
-						shout_rating.update(shout_rating_dict)
-					else: ShoutRating.create(**shout_rating_dict)
-					shout_dict['ratings'].append(shout_rating_dict)
+					cts = content_rating.get('createdAt')
+					if cts: reaction_dict['createdAt'] = date_parse(cts)
+					reaction = session.query(Reaction).\
+						filter(Reaction.shout == reaction_dict['shout']).\
+						filter(Reaction.createdBy == reaction_dict['createdBy']).\
+						filter(Reaction.kind == reaction_dict['kind']).first()
+					if reaction:
+						reaction_dict['kind'] = ReactionKind.AGREE if content_rating['value'] > 0 else ReactionKind.DISAGREE,
+						reaction.update(reaction_dict)
+					else: Reaction.create(**reaction_dict)
+					# shout_dict['ratings'].append(reaction_dict)
 	except:
-		print('[migration] shout rating error: \n%r' % shout_rating_old)
-		# raise Exception
+		print('[migration] content_item.ratings error: \n%r' % content_rating)
+		raise Exception
 
 	# shout views
-	ShoutViewByDay.create( shout = shout_dict['slug'], value = entry.get('views', 1) )
-	del shout_dict['ratings']
+	ViewedByDay.create( shout = shout_dict['slug'], value = entry.get('views', 1) )
+	# del shout_dict['ratings']
 	shout_dict['oid'] = entry.get('_id')
 	storage['shouts']['by_oid'][entry['_id']] = shout_dict
 	storage['shouts']['by_slug'][slug] = shout_dict

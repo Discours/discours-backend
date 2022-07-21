@@ -4,7 +4,7 @@ import json
 import os
 import frontmatter
 from migration.extract import extract_html, prepare_body
-from migration.tables.users import migrate_email_subscription
+# from migration.tables.users import migrate_email_subscription
 from migration.utils import DateTimeEncoder
 
 OLD_DATE = '2016-03-05 22:22:00.350000'
@@ -63,17 +63,18 @@ def export_slug(slug, storage):
 def export_email_subscriptions():
 	email_subscriptions_data = json.loads(open('migration/data/email_subscriptions.json').read())
 	for data in email_subscriptions_data:
-		migrate_email_subscription(data)
+		# migrate_email_subscription(data)
+		pass
 	print('[migration] ' + str(len(email_subscriptions_data)) + ' email subscriptions exported')
 
 def export_shouts(storage):
 	# update what was just migrated or load json again
 	if len(storage['users']['by_slugs'].keys()) == 0:
 		storage['users']['by_slugs'] = json.loads(open(EXPORT_DEST + 'authors.json').read())
-		print('[migration] ' + str(len(storage['users']['by_slugs'].keys())) + ' exported authors loaded')
+		print('[migration] ' + str(len(storage['users']['by_slugs'].keys())) + ' exported authors ')
 	if len(storage['shouts']['by_slugs'].keys()) == 0:
 		storage['shouts']['by_slugs'] = json.loads(open(EXPORT_DEST + 'articles.json').read())
-		print('[migration] ' + str(len(storage['shouts']['by_slugs'].keys())) + ' exported articles loaded')
+		print('[migration] ' + str(len(storage['shouts']['by_slugs'].keys())) + ' exported articles ')
 	for slug in storage['shouts']['by_slugs'].keys(): export_slug(slug, storage)
 
 def export_json(export_articles = {}, export_authors = {}, export_topics = {}, export_comments = {}):

@@ -1,6 +1,5 @@
 import sqlalchemy
 from orm import User, UserRating
-from orm.user import EmailSubscription
 from dateutil.parser import parse
 from orm.base import local_session
 
@@ -41,7 +40,7 @@ def migrate(entry):
 		# name
 		fn = entry['profile'].get('firstName', '')
 		ln = entry['profile'].get('lastName', '')
-		name = user_dict['slug'] if user_dict['slug'] else 'anonymous'
+		name = user_dict['slug'] if user_dict['slug'] else 'noname'
 		name = fn if fn else name
 		name = (name + ' ' + ln) if ln else name
 		name = entry['profile']['path'].lower().replace(' ', '-') if len(name) < 2 else name
@@ -75,12 +74,6 @@ def migrate(entry):
 				raise Exception
 	user_dict['id'] = user.id
 	return user_dict
-
-def migrate_email_subscription(entry):
-	res = {}
-	res["email"] = entry["email"]
-	res["createdAt"] = parse(entry["createdAt"])
-	EmailSubscription.create(**res)
 
 def migrate_2stage(entry, id_map):
 	ce = 0
