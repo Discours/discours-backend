@@ -41,6 +41,7 @@ class ReactionsStorage:
 		for row in session.execute(stmt):
 			reaction = row.Reaction
 			reactions.append(reaction)
+		reactions.sort(key=lambda x: x.createdAt, reverse=True)
 		async with ReactionsStorage.lock:
 			print("[storage.reactions] %d recently published reactions " % len(reactions))
 			ReactionsStorage.reactions = reactions
@@ -102,17 +103,17 @@ class ReactionsStorage:
 			ReactionsStorage.reactions_by_topic = reactions_by_topic
 
 	@staticmethod
-	async def recent() -> list[Reaction]:
+	async def recent():
 		async with ReactionsStorage.lock:
-			return ReactionsStorage.reactions.sort(key=lambda x: x.createdAt, reverse=True)
+			return ReactionsStorage.reactions
 
 	@staticmethod
-	async def total() -> int:
+	async def total():
 		async with ReactionsStorage.lock:
 			return len(ReactionsStorage.reactions)
 
 	@staticmethod
-	async def by_shout(shout) -> int:
+	async def by_shout(shout):
 		async with ReactionsStorage.lock:
 			stat = ReactionsStorage.reactions_by_shout.get(shout)
 			stat = stat if stat else 0
@@ -124,14 +125,14 @@ class ReactionsStorage:
 			return ReactionsStorage.rating_by_shout.get(shout)
 
 	@staticmethod
-	async def by_author(slug) -> int:
+	async def by_author(slug):
 		async with ReactionsStorage.lock:
 			stat = ReactionsStorage.reactions_by_author.get(slug)
 			stat = stat if stat else 0
 			return stat
 
 	@staticmethod
-	async def by_topic(topic) -> int:
+	async def by_topic(topic):
 		async with ReactionsStorage.lock:
 			stat = ReactionsStorage.reactions_by_topic.get(topic)
 			stat = stat if stat else 0
