@@ -263,8 +263,7 @@ def mongo_download(url):
 def create_pgdump():
 	# pg_dump -d discoursio > 20220714-pgdump.sql
 	subprocess.Popen(
-		[ 'pg_dump', '-d', 'discoursio' ], 
-		stdout=open('migration/data/' + TODAY + '-pgdump.log', 'w'), 
+		[ 'pg_dump', 'postgres://localhost:5432/discoursio', '-f', 'migration/data/' + TODAY + '-pgdump.log'], 
 		stderr = subprocess.STDOUT
 	)
 	# scp 20220714-pgdump.sql root@build.discours.io:/root/discours-backend/.
