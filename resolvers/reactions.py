@@ -9,7 +9,7 @@ from auth.authenticate import login_required
 from datetime import datetime
 from storages.reactions import ReactionsStorage
 from storages.viewed import ViewedStorage
-
+from typing import List
 
 def reactions_follow(user, slug, auto=False):
     with local_session() as session:
@@ -104,7 +104,7 @@ async def delete_reaction(_, info, id):
     return {}
 
 @query.field("reactionsByShout")
-def get_shout_reactions(_, info, slug) -> list[Shout]: 
+def get_shout_reactions(_, info, slug) -> List[Shout]: 
     shouts = []
     with local_session() as session:
         shoutslugs = session.query(ShoutReactionsFollower.shout).\
@@ -117,7 +117,7 @@ def get_shout_reactions(_, info, slug) -> list[Shout]:
 
 
 @query.field("reactionsAll")
-def get_all_reactions(_, info, page=1, size=10) -> list[Reaction]:
+def get_all_reactions(_, info, page=1, size=10) -> List[Reaction]:
     reactions = []
     with local_session() as session:
         q = session.query(Reaction).\
@@ -134,7 +134,7 @@ def get_all_reactions(_, info, page=1, size=10) -> list[Reaction]:
 
 
 @query.field("reactionsByAuthor")
-def get_reactions_by_author(_, info, slug, page=1, size=50) -> list[Reaction]:
+def get_reactions_by_author(_, info, slug, page=1, size=50) -> List[Reaction]:
     reactions = []
     with local_session() as session:
         reactions = session.query(Reaction).\

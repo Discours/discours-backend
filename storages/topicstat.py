@@ -4,7 +4,7 @@ import asyncio
 from orm.base import local_session
 from storages.shoutauthor import ShoutAuthorStorage
 from orm.topic import ShoutTopic, TopicFollower
-
+from typing import Dict
 
 class TopicStat:
 	shouts_by_topic = {}
@@ -55,7 +55,7 @@ class TopicStat:
 			return self.shouts_by_topic.get(topic, [])
 
 	@staticmethod
-	async def get_stat(topic) -> dict:
+	async def get_stat(topic) -> Dict:
 		self = TopicStat
 		async with self.lock:
 			shouts = self.shouts_by_topic.get(topic, [])

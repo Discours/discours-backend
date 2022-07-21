@@ -38,7 +38,7 @@ class Reaction(Base):
 	oid: str = Column(String, nullable=True, comment="Old ID")
 
 	@property
-	async def stat(self) -> dict:
+	async def stat(self) -> Dict:
 		reacted = 0
 		try:
 			with local_session() as session:

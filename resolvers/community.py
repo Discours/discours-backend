@@ -4,7 +4,7 @@ from orm.user import User
 from resolvers.base import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
-
+from typing import List
 from sqlalchemy import and_
 
 @mutation.field("createCommunity")
@@ -92,7 +92,7 @@ def community_unfollow(user, slug):
 		session.commit()
 
 @query.field("userFollowedCommunities")
-def get_followed_communities(_, user_slug) -> list[Community]:
+def get_followed_communities(_, user_slug) -> List[Community]:
 	ccc = []
 	with local_session() as session:
 		ccc = session.query(Community.slug).\

@@ -5,10 +5,11 @@ from orm.reaction import Reaction
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import TopicFollower
 from orm.user import AuthorFollower
+from typing import List
 
 @query.field("shoutsForFeed")
 @login_required
-def get_user_feed(_, info, page, size) -> list[Shout]:
+def get_user_feed(_, info, page, size) -> List[Shout]:
 	user = info.context["request"].user
 	shouts = []
 	with local_session() as session:
@@ -27,7 +28,7 @@ def get_user_feed(_, info, page, size) -> list[Shout]:
 
 @query.field("myCandidates")
 @login_required
-async def user_unpublished_shouts(_, info, page = 1, size = 10) -> list[Shout]:
+async def user_unpublished_shouts(_, info, page = 1, size = 10) -> List[Shout]:
 	user = info.context["request"].user
 	shouts = []
 	with local_session() as session:

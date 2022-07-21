@@ -11,10 +11,10 @@ from auth.authenticate import login_required
 from inbox_resolvers.inbox import get_inbox_counter
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import selectinload
-
+from typing import List
 
 @query.field("userReactedShouts")
-async def get_user_reacted_shouts(_, info, slug, page, size) -> list[Shout]:
+async def get_user_reacted_shouts(_, info, slug, page, size) -> List[Shout]:
     user = await UserStorage.get_user_by_slug(slug)
     if not user: return {}
     with local_session() as session:
@@ -29,7 +29,7 @@ async def get_user_reacted_shouts(_, info, slug, page, size) -> list[Shout]:
 
 @query.field("userFollowedTopics")
 @login_required
-def get_followed_topics(_, slug) -> list[Topic]:
+def get_followed_topics(_, slug) -> List[Topic]:
     rows = []
     with local_session() as session:
         rows = session.query(Topic).\
@@ -40,7 +40,7 @@ def get_followed_topics(_, slug) -> list[Topic]:
 
 
 @query.field("userFollowedAuthors")
-def get_followed_authors(_, slug) -> list[User]:
+def get_followed_authors(_, slug) -> List[User]:
     authors = []
     with local_session() as session:
         authors = session.query(User).\
@@ -51,7 +51,7 @@ def get_followed_authors(_, slug) -> list[User]:
 
 
 @query.field("userFollowers")
-async def user_followers(_, slug) -> list[User]:
+async def user_followers(_, slug) -> List[User]:
     with local_session() as session:
         users = session.query(User).\
             join(AuthorFollower, User.slug == AuthorFollower.follower).\
