@@ -3,21 +3,20 @@ from sqlalchemy import Column, String, ForeignKey, DateTime
 from orm.base import Base, local_session
 import enum
 from sqlalchemy import Enum
-
 from storages.viewed import ViewedStorage
 
 class ReactionKind(enum.Enum):
 	AGREE 	= 1 # +1
-	DISAGREE 	= 2 # -1
+	DISAGREE = 2 # -1
 	PROOF 	= 3	# +1
-	DISPROOF 	= 4	# -1
+	DISPROOF = 4 # -1
 	ASK		= 5 # +0
 	PROPOSE	= 6 # +0
-	QOUTE		= 7 # +0
+	QUOTE	= 7 # +0
 	COMMENT	= 8 # +0
 	ACCEPT	= 9 # +1
 	REJECT	= 0 # -1
-	LIKE		= 11 # +1
+	LIKE	= 11 # +1
 	DISLIKE	= 12 # -1
 	# TYPE = <reaction index> # rating change guess
 
