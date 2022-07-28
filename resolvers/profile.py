@@ -152,3 +152,7 @@ def author_unfollow(user, slug):
         else: 
             session.delete(flw)
             session.commit()
+
+@query.field("authorsAll")
+def get_authors_all(_, info):
+    return UserStorage.get_all_users()

@@ -23,6 +23,12 @@ class UserStorage:
 			return self.users.get(id)
 
 	@staticmethod
+	async def get_all_users():
+		self = UserStorage
+		async with self.lock:
+			return self.users
+
+	@staticmethod
 	async def get_user_by_slug(slug):
 		self = UserStorage
 		async with self.lock:
