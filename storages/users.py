@@ -27,7 +27,7 @@ class UserStorage:
 	async def get_all_users():
 		self = UserStorage
 		async with self.lock:
-			aaa = list(self.users.copy().values())
+			aaa = list(self.users.values())
 			aaa.sort(key=lambda user: user.createdAt)
 			return aaa
 
