@@ -1,4 +1,4 @@
-from sqlalchemy import and_
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import selectinload, joinedload
 from orm.reaction import Reaction
 from orm.base import local_session
@@ -8,6 +8,7 @@ from resolvers.base import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
 from storages.reactions import ReactionsStorage
+from storages.shoutscache import ShoutsCache
 from storages.viewed import ViewedStorage
 from typing import List
 
@@ -120,7 +121,17 @@ def get_shout_reactions(_, info, slug) -> List[Shout]:
 def get_all_reactions(_, info, page=1, size=10) -> List[Reaction]:
     reactions = []
     with local_session() as session:
-        q = session.query(Reaction).\
+
+        # reactions = session.execute(select(Reaction, func.max(Reaction.createdAt).label("reactionCreatedAt")).\
+		#		join(Shout, Reaction.shout == Shout.slug).\
+		#		group_by(Reaction.id).\
+		#		order_by(desc("reactionCreatedAt")).\
+        #        join( User, Reaction.createdBy == User.slug ).\
+        #        join( Shout, Reaction.shout == Shout.slug ).\
+        #        filter( Reaction.deletedAt == None ).\
+        #        limit(size).offset(page * size).all())
+        
+        reactions = session.query(Reaction).\
             options(
                 joinedload(User), 
                 joinedload(Shout)

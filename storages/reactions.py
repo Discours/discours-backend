@@ -81,7 +81,7 @@ class ReactionsStorage:
 			rating_by_shout[shout] = 0
 			shout_reactions_by_kinds = session.query(Reaction).\
 				where(and_(Reaction.deletedAt == None, Reaction.shout == shout)).\
-				group_by(Reaction.kind)
+				group_by(Reaction.kind, Reaction.id).all()
 			for kind, reactions in shout_reactions_by_kinds:
 				rating_by_shout[shout] += len(reactions) * kind_to_rate(kind)
 		async with ReactionsStorage.lock:
@@ -144,10 +144,13 @@ class ReactionsStorage:
 			try:
 				with local_session() as session:
 					await ReactionsStorage.prepare_all(session)
+					print("[storage.reactions] all reactions prepared")
 					await ReactionsStorage.prepare_by_shout(session)
+					print("[storage.reactions] reactions by shouts prepared")
 					await ReactionsStorage.calc_ratings(session)
+					print("[storage.reactions] reactions ratings prepared")
 					await ReactionsStorage.prepare_by_topic(session)
-					print("[storage.reactions] updated")
+					print("[storage.reactions] reactions topics prepared")
 			except Exception as err:
 				print("[storage.reactions] errror: %s" % (err))
 			await asyncio.sleep(ReactionsStorage.period)

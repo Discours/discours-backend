@@ -22,7 +22,7 @@ async def confirm(*_, confirm_token):
 		user.save()
 		return { "token": auth_token, "user" : user}
 	else:
-		return { "error": "Email not confirmed"}
+		return { "error": "email not confirmed"}
 
 
 @mutation.field("registerUser")
@@ -84,8 +84,8 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 	with local_session() as session:
 		orm_user = session.query(User).filter(User.email == email).first()
 	if orm_user is None:
-		print(f"signIn {email}: invalid email")
-		return {"error" : "invalid email"}
+		print(f"signIn {email}: email not found")
+		return {"error" : "email not found"}
 
 	if not password:
 		print(f"signIn {email}: send auth email")

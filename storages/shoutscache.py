@@ -52,8 +52,11 @@ class ShoutsCache:
 	async def prepare_recent_reacted():
 		with local_session() as session:
 			stmt = select(Shout, func.max(Reaction.createdAt).label("reactionCreatedAt")).\
-				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
-				join(Reaction).\
+				options(
+					selectinload(Shout.authors),
+					selectinload(Shout.topics),
+				).\
+				join(Reaction, Reaction.shout == Shout.slug).\
 				where(and_(Shout.publishedAt != None, Reaction.deletedAt == None)).\
 				group_by(Shout.slug).\
 				order_by(desc("reactionCreatedAt")).\
