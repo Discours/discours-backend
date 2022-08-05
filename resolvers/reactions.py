@@ -105,54 +105,23 @@ async def delete_reaction(_, info, id):
     return {}
 
 @query.field("reactionsByShout")
-def get_shout_reactions(_, info, slug) -> List[Shout]: 
-    shouts = []
-    with local_session() as session:
-        shoutslugs = session.query(ShoutReactionsFollower.shout).\
-            join(User).where(Reaction.createdBy == User.slug).\
-            filter(ShoutReactionsFollower.follower == slug,
-                   ShoutReactionsFollower.deletedAt == None).all()
-        shoutslugs = list(set(shoutslugs))
-        shouts = session.query(Shout).filter(Shout.slug in shoutslugs).all()
-    return shouts
+def get_shout_reactions(_, info, slug)-> List[Reaction]:
+    #offset = page * size
+    #end = offset + size
+    return ReactionsStorage.reactions_by_shout.get(slug, []) #[offset:end]
 
 
 @query.field("reactionsAll")
 def get_all_reactions(_, info, page=1, size=10) -> List[Reaction]:
-    reactions = []
-    with local_session() as session:
-
-        # reactions = session.execute(select(Reaction, func.max(Reaction.createdAt).label("reactionCreatedAt")).\
-		#		join(Shout, Reaction.shout == Shout.slug).\
-		#		group_by(Reaction.id).\
-		#		order_by(desc("reactionCreatedAt")).\
-        #        join( User, Reaction.createdBy == User.slug ).\
-        #        join( Shout, Reaction.shout == Shout.slug ).\
-        #        filter( Reaction.deletedAt == None ).\
-        #        limit(size).offset(page * size).all())
-        
-        reactions = session.query(Reaction).\
-            options(
-                joinedload(User), 
-                joinedload(Shout)
-            ).\
-            join( User, Reaction.createdBy == User.slug ).\
-            join( Shout, Reaction.shout == Shout.slug ).\
-            filter( Reaction.deletedAt == None ).\
-            limit(size).offset(page * size).all()
-        # print(reactions[0].dict())
-        return reactions
-
+    offset = page * size
+    end = offset + size
+    return ReactionsStorage.reactions[offset:end]
 
 @query.field("reactionsByAuthor")
 def get_reactions_by_author(_, info, slug, page=1, size=50) -> List[Reaction]:
-    reactions = []
-    with local_session() as session:
-        reactions = session.query(Reaction).\
-            join(Shout).where(Reaction.shout == Shout.slug).\
-            filter(Reaction.deletedAt == None, Reaction.createdBy == slug).\
-        	limit(size).offset(page * size).all() # pagination
-        return reactions
+    offset = page * size
+    end = offset + size
+    return ReactionsStorage.reactions_by_author.get(slug, [])[offset:end]
 
 
 @mutation.field("viewReaction")

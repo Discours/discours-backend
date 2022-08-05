@@ -320,13 +320,20 @@ type Reaction {
   old_thread: String
 }
 
+type Author {
+  slug: String!
+  name: String!
+  userpic: String
+  caption: String
+}
+
 # is publication
 type Shout {
   id: Int!
   slug: String!
   body: String!
   createdAt: DateTime!
-  authors: [User!]!
+  authors: [Author!]!
   # ratings: [Rating]
   community: String
   cover: String
