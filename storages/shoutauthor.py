@@ -12,7 +12,7 @@ class ShoutAuthorStorage:
 	@staticmethod
 	async def load(session):
 		self = ShoutAuthorStorage
-		authors = session.query(ShoutAuthor)
+		authors = session.query(ShoutAuthor).all()
 		for author in authors:
 			user = author.user
 			shout = author.shout

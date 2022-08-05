@@ -1,8 +1,9 @@
 import asyncio
 from sqlalchemy import and_, desc, func
+from sqlalchemy.orm import selectinload, joinedload
 from orm.base import local_session
 from orm.reaction import Reaction, ReactionKind
-from orm.topic import ShoutTopic
+from orm.topic import ShoutTopic, Topic
 
 
 def kind_to_rate(kind) -> int:
@@ -32,7 +33,6 @@ class ReactionsStorage:
 
 	@staticmethod
 	async def prepare_all(session):
-		# FIXME
 		stmt = session.query(Reaction).\
 			filter(Reaction.deletedAt == None).\
 			order_by(desc("createdAt")).\
@@ -49,7 +49,6 @@ class ReactionsStorage:
 	@staticmethod
 	async def prepare_by_author(session):
 		try:
-			# FIXME
 			by_authors = session.query(Reaction.createdBy, func.count('*').label("count")).\
 				where(and_(Reaction.deletedAt == None)).\
 				group_by(Reaction.createdBy).all()
@@ -58,12 +57,11 @@ class ReactionsStorage:
 			by_authors = {}
 		async with ReactionsStorage.lock:
 			ReactionsStorage.reactions_by_author = dict([stat for stat in by_authors])
-			print("[storage.reactions] %d recently reacted users" % len(by_authors))
+			print("[storage.reactions] %d reacted users" % len(by_authors))
 
 	@staticmethod
 	async def prepare_by_shout(session):
 		try:
-			# FIXME
 			by_shouts = session.query(Reaction.shout, func.count('*').label("count")).\
 				where(and_(Reaction.deletedAt == None)).\
 				group_by(Reaction.shout).all()
@@ -72,7 +70,7 @@ class ReactionsStorage:
 			by_shouts = {}
 		async with ReactionsStorage.lock:
 			ReactionsStorage.reactions_by_shout = dict([stat for stat in by_shouts])
-			print("[storage.reactions] %d recently reacted shouts" % len(by_shouts))
+			print("[storage.reactions] %d reacted shouts" % len(by_shouts))
 
 	@staticmethod
 	async def calc_ratings(session):
@@ -82,23 +80,28 @@ class ReactionsStorage:
 			shout_reactions_by_kinds = session.query(Reaction).\
 				where(and_(Reaction.deletedAt == None, Reaction.shout == shout)).\
 				group_by(Reaction.kind, Reaction.id).all()
-			for kind, reactions in shout_reactions_by_kinds:
-				rating_by_shout[shout] += len(reactions) * kind_to_rate(kind)
+			for reaction in shout_reactions_by_kinds:
+				rating_by_shout[shout] +=  kind_to_rate(reaction.kind)
 		async with ReactionsStorage.lock:
 			ReactionsStorage.rating_by_shout = rating_by_shout
 
 	@staticmethod
 	async def prepare_by_topic(session):
-		by_topics = session.query(Reaction.shout, func.count('*').label("count")).\
-			filter(Reaction.deletedAt == None).\
+		# TODO: optimize
+		by_topics = session.query(Reaction, func.count('*').label("count")).\
+			options(
+				joinedload(ShoutTopic),
+				joinedload(Reaction.shout)
+			).\
 			join(ShoutTopic, ShoutTopic.shout == Reaction.shout).\
-			order_by(desc("count")).\
+			filter(Reaction.deletedAt == None).\
 			group_by(ShoutTopic.topic).all()
 		reactions_by_topic = {}
-		for stat in by_topics:
-			if not reactions_by_topic.get(stat.topic):
-				reactions_by_topic[stat.shout] = 0
-			reactions_by_topic[stat.shout] += stat.count
+		for t, reactions in by_topics:
+			if not reactions_by_topic.get(t):
+				reactions_by_topic[t] = 0
+			for r in reactions:
+				reactions_by_topic[t] += r.count
 		async with ReactionsStorage.lock:
 			ReactionsStorage.reactions_by_topic = reactions_by_topic
 
