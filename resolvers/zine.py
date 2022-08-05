@@ -51,9 +51,10 @@ async def view_shout(_, info, slug):
 @query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
 	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
-	selected_fields = set(["authors", "topics", "reactions"]).intersection(all_fields)
+	selected_fields = set(["authors", "topics", "reactions", "captions"]).intersection(all_fields)
 	select_options = [selectinload(getattr(Shout, field)) for field in selected_fields]
-
+	# select_options.append(selectinload(ShoutTopic.caption).label("captions"))
+	# TODO: append captions anyhow
 	with local_session() as session:
 		shout = session.query(Shout).\
 			options(select_options).\

@@ -324,7 +324,7 @@ type Author {
   slug: String!
   name: String!
   userpic: String
-  caption: String
+  caption: String # only for full shout 
 }
 
 # is publication
