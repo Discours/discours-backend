@@ -322,7 +322,7 @@ type Reaction {
 
 type Author {
   slug: String!
-  name: String!
+  name: String
   userpic: String
   caption: String # only for full shout 
 }
@@ -333,7 +333,7 @@ type Shout {
   slug: String!
   body: String!
   createdAt: DateTime!
-  authors: [Author!]!
+  authors: [Author]
   # ratings: [Rating]
   community: String
   cover: String

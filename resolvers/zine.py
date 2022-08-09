@@ -10,7 +10,7 @@ from resolvers.community import community_follow, community_unfollow
 from resolvers.reactions import reactions_follow, reactions_unfollow
 from auth.authenticate import login_required
 from sqlalchemy import select, desc, and_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 
 @query.field("topViewed")
@@ -50,14 +50,16 @@ async def view_shout(_, info, slug):
 
 @query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
-	all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
-	selected_fields = set(["authors", "topics", "reactions", "captions"]).intersection(all_fields)
-	select_options = [selectinload(getattr(Shout, field)) for field in selected_fields]
-	# select_options.append(selectinload(ShoutTopic.caption).label("captions"))
+	shout = None
 	# TODO: append captions anyhow
 	with local_session() as session:
 		shout = session.query(Shout).\
-			options(select_options).\
+			options([
+				selectinload(Shout.topics),
+				selectinload(Shout.reactions),
+				selectinload(Shout.authors)
+			]).\
+			join([ShoutAuthor.user, ShoutAuthor.caption], ShoutAuthor.shout == slug ).\
 			filter(Shout.slug == slug).first()
 
 	if not shout:

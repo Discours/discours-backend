@@ -25,7 +25,7 @@ class ShoutAuthor(Base):
 	id = None
 	shout = Column(ForeignKey('shout.slug'), primary_key = True)
 	user = Column(ForeignKey('user.slug'), primary_key = True)
-	caption: str = Column(String, nullable=False, default = "")
+	caption: str = Column(String, nullable = True, default = "")
 	
 class ShoutAllowed(Base):
 	__tablename__ = "shout_allowed"
