@@ -57,9 +57,10 @@ async def get_shout_by_slug(_, info, slug):
 			options([
 				selectinload(Shout.topics),
 				selectinload(Shout.reactions),
-				selectinload(Shout.authors)
+				joinedload(Shout.authors, innerjoin=True),
+				selectinload(ShoutAuthor.caption)
 			]).\
-			join([ShoutAuthor.user, ShoutAuthor.caption], ShoutAuthor.shout == slug ).\
+			join(ShoutAuthor.caption.label('caption'), ShoutAuthor.shout == slug ).\
 			filter(Shout.slug == slug).first()
 
 	if not shout:

@@ -13,13 +13,13 @@ Install deps first
 
 on osx
 ```
-brew install redis poetry nginx
+brew install redis nginx
 brew services start redis
 ```
 
 on debian/ubuntu
 ```
-apt install redis python-poetry nginx
+apt install redis nginx
 ```
 
 Then run nginx, redis and API server
@@ -30,17 +30,9 @@ redis-server
 cp nginx.conf /usr/local/etc/nginx/.
 nginx -s reload
 
-poetry install
-poetry run python server.py
-poetry run python server.py inbox
-```
-
-## Data prepare
-
-Also, you'll need to migrate some data
-
-```
-poetry run python migrate.py all
+pip install -r requirements.txt
+python server.py
+python server.py inbox
 ```
 
 # How to do an authorized request
