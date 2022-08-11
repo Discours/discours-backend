@@ -4,7 +4,8 @@ from settings import PORT
 import sys
 
 if __name__ == '__main__':
-	x = sys.argv[1] or ""
+	x = ''
+	if len(sys.argv) > 1: x = sys.argv[1]
 	if x == "dev":
 		print("DEV MODE")
 		headers = [

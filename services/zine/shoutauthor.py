@@ -20,7 +20,8 @@ class ShoutAuthorStorage:
 				self.authors_by_shout[shout].append(user)
 			else:
 				self.authors_by_shout[shout] = [user]
-		print('[service.shoutauthor] %d shouts ' % len(self.authors_by_shout))
+		print('[service.shoutauthor] %d authors ' % len(self.authors_by_shout))
+  # FIXME: [service.shoutauthor] 4251 authors 
 
 	@staticmethod
 	async def get_authors(shout):

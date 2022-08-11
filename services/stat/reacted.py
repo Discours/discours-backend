@@ -48,7 +48,6 @@ class ReactedStorage:
 				self.this_day_reactions[shout] = reaction
 		
 		print('[service.reacted] watching %d shouts' % len(reactions))
-		# TODO: add reactions ?
 
 	@staticmethod
 	async def get_shout(shout_slug):

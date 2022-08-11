@@ -118,8 +118,8 @@ def migrate(entry, storage):
 	s = object()
 	shout_dict = r.copy() 
 	user = None
-	del shout_dict['topics'] # FIXME: AttributeError: 'str' object has no attribute '_sa_instance_state'
-	#del shout_dict['rating'] # FIXME: TypeError: 'rating' is an invalid keyword argument for Shout
+	del shout_dict['topics'] # NOTE: AttributeError: 'str' object has no attribute '_sa_instance_state'
+	#del shout_dict['rating'] # NOTE: TypeError: 'rating' is an invalid keyword argument for Shout
 	#del shout_dict['ratings']
 	email = userdata.get('email')
 	slug = userdata.get('slug')

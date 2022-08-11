@@ -189,9 +189,6 @@ type Mutation {
   unfollow(what: FollowingEntity!, slug: String!): Result!
 
   # TODO: transform reaction with body to shout
-
-  # NOTE: so-named 'collections' are tuned feeds
-  # TODO: Feed entity and CRUM: createFeed updateFeed deleteFeed mergeFeeds
 }
 
 ################################### Query
@@ -229,7 +226,7 @@ type Query {
   shoutsByCommunities(slugs: [String]!, page: Int!, size: Int!): [Shout]!
   myCandidates(page: Int!, size: Int!): [Shout]! # test
   topViewed(page: Int!, size: Int!): [Shout]!
-  # TODO: topReacted(page: Int!, size: Int!): [Shout]!
+  # topReacted(page: Int!, size: Int!): [Shout]!
   topMonth(page: Int!, size: Int!): [Shout]!
   topOverall(page: Int!, size: Int!): [Shout]!
   recentPublished(page: Int!, size: Int!): [Shout]! # homepage

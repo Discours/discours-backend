@@ -47,8 +47,8 @@ def migrate(entry, storage):
 		}
 	'''
 	reaction_dict = {}
-	# FIXME: comment_dict['createdAt'] = ts if not entry.get('createdAt') else date_parse(entry.get('createdAt'))
-	# print('[migration] comment original date %r' % entry.get('createdAt'))
+	reaction_dict['createdAt'] = ts if not entry.get('createdAt') else date_parse(entry.get('createdAt'))
+	print('[migration] reaction original date %r' % entry.get('createdAt'))
 	# print('[migration] comment date %r ' % comment_dict['createdAt'])
 	reaction_dict['body'] = html2text(entry.get('body', ''))
 	reaction_dict['oid'] = entry['_id']

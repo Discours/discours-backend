@@ -75,7 +75,7 @@ async def update_reaction(_, info, inp):
         reaction.body = inp['body']
         reaction.updatedAt = datetime.now()
         if reaction.kind != inp['kind']:
-            # TODO: change mind detection
+            # NOTE: change mind detection can be here
             pass
         if inp.get('range'):
             reaction.range = inp.get('range')

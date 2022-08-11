@@ -17,4 +17,6 @@ class Collection(Base):
 	title: str = Column(String, nullable=False, comment="Title")
 	body: str = Column(String, nullable=True, comment="Body")
 	pic: str = Column(String, nullable=True, comment="Picture")
+	createdAt: datetime = Column(DateTime, default=datetime.now, comment="Created At")
+	createdBy: str = Column(ForeignKey('user.id'), comment="Created By")
 

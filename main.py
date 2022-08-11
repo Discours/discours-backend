@@ -40,7 +40,7 @@ async def shutdown():
 	await redis.disconnect()
 
 routes = [
-	Route("/oauth/{provider}", endpoint=oauth_login), # TODO: isolate auth microservice
+	Route("/oauth/{provider}", endpoint=oauth_login),
 	Route("/oauth_authorize", endpoint=oauth_authorize),
 	Route("/email_authorize", endpoint=email_authorize)
 ]

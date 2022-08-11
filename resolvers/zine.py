@@ -51,7 +51,7 @@ async def view_shout(_, info, slug):
 @query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
 	shout = None
-	# TODO: append captions anyhow
+	# FIXME: append captions anyhow
 	with local_session() as session:
 		shout = session.query(Shout).\
 			options([
@@ -65,7 +65,7 @@ async def get_shout_by_slug(_, info, slug):
 
 	if not shout:
 		print(f"[resolvers.zine] error: shout with slug {slug} not exist")
-		return {} #TODO return error field
+		return {"error" : "shout not found"}
 	
 	return shout
 

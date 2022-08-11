@@ -12,7 +12,6 @@ class UserStorage:
 		self = UserStorage
 		users = session.query(User).\
 			options(selectinload(User.roles), selectinload(User.ratings)).all()
-			# TODO: add shouts and reactions counters
 		self.users = dict([(user.id, user) for user in users])
 		print('[service.auth] %d users' % len(self.users))
 

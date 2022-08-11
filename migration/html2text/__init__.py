@@ -30,8 +30,7 @@ from .utils import (
 __version__ = (2020, 1, 16)
 
 
-# TODO:
-# Support decoded entities with UNIFIABLE.
+# TODO: Support decoded entities with UNIFIABLE.
 
 
 class HTML2Text(html.parser.HTMLParser):
@@ -503,7 +502,7 @@ class HTML2Text(html.parser.HTMLParser):
 				self.handle_emphasis(start, tag_style, parent_style)
 
 		if tag in ["kbd", "code", "tt"] and not self.pre:
-			self.o("`")  # TODO: `` `this` ``
+			self.o("`")  # `` `this` ``
 			self.code = not self.code
 
 		if tag == "abbr":
@@ -681,7 +680,7 @@ class HTML2Text(html.parser.HTMLParser):
 					# Indent two spaces per list, except use three spaces for an
 					# unordered list inside an ordered list.
 					# https://spec.commonmark.org/0.28/#motivation
-					# TODO: line up <ol><li>s > 9 correctly.
+					# WARNING: does not line up <ol><li>s > 9 correctly.
 					parent_list = None
 					for list in self.list:
 						self.o(
@@ -761,7 +760,6 @@ class HTML2Text(html.parser.HTMLParser):
 					self.out("\n[/code]")
 			self.p()
 
-	# TODO: Add docstring for these one letter functions
 	def pbr(self) -> None:
 		"Pretty print has a line break"
 		if self.p_p == 0:
@@ -807,7 +805,7 @@ class HTML2Text(html.parser.HTMLParser):
 				return
 
 			if self.startpre:
-				# self.out(" :") #TODO: not output when already one there
+				# self.out(" :") # not an output when already one there
 				if not data.startswith("\n") and not data.startswith("\r\n"):
 					# <pre>stuff...
 					data = "\n" + data

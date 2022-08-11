@@ -9,11 +9,11 @@ s3 = 'https://discours-io.s3.amazonaws.com/'
 cdn = 'https://assets.discours.io'
 
 def replace_tooltips(body): 
-	# FIXME: if you prefer regexp
+	# change if you prefer regexp
 	newbody = body
 	matches = list(re.finditer(TOOLTIP_REGEX, body, re.IGNORECASE | re.MULTILINE))[1:]
 	for match in matches:
-		newbody = body.replace(match.group(1), '<Tooltip text="' + match.group(2) + '" />') # FIXME: doesn't work
+		newbody = body.replace(match.group(1), '<Tooltip text="' + match.group(2) + '" />') # NOTE: doesn't work
 	if len(matches) > 0: 
 		print('[extract] found %d tooltips' % len(matches))
 	return newbody
@@ -54,7 +54,7 @@ cache = {}
 
 
 def reextract_images(body, oid): 
-	# FIXME: if you prefer regexp
+	# change if you prefer regexp
 	matches = list(re.finditer(IMG_REGEX, body, re.IGNORECASE | re.MULTILINE))[1:]
 	i = 0
 	for match in matches:
@@ -63,7 +63,7 @@ def reextract_images(body, oid):
 		name = oid + str(i)
 		link = public + '/upload/image-' + name + '.' + ext
 		img = match.group(4)
-		title = match.group(1) # FIXME: this is not the title
+		title = match.group(1) # NOTE: this is not the title
 		if img not in cache:
 			content = base64.b64decode(img + '==')
 			print(str(len(img)) + ' image bytes been written')
@@ -72,7 +72,7 @@ def reextract_images(body, oid):
 			i += 1
 		else:
 			print('[extract] image cached ' + cache[img])
-		body.replace(str(match), '![' + title + '](' + cdn + link + ')') # FIXME: this does not work
+		body.replace(str(match), '![' + title + '](' + cdn + link + ')') # WARNING: this does not work
 	return body
 
 IMAGES = {

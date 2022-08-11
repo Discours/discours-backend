@@ -14,7 +14,7 @@ email_templates = {"confirm_email" : "", "auth_email" : "", "reset_password_emai
 
 def load_email_templates():
 	for name in email_templates:
-		filename = "auth/templates/%s.tmpl" % name # TODO: check path
+		filename = "auth/templates/%s.tmpl" % name
 		with open(filename) as f:
 			email_templates[name] = f.read()
 	print("[auth.email] templates loaded")

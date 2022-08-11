@@ -25,5 +25,3 @@ class CreateUser(BaseModel):
     # age: Optional[int]
     # phone: Optional[Text]
     password: Optional[Text]
-
-# TODO: update validations

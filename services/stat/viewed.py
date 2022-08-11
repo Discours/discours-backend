@@ -17,7 +17,6 @@ class ViewedByDay(Base):
 class ViewedStorage:
 	viewed = {
 		'shouts': {},
-		# TODO: ? 'reactions': {},
 		'topics': {} # TODO: get sum views for all shouts in topic
 	}
 	this_day_views = {}
@@ -43,7 +42,6 @@ class ViewedStorage:
 				self.this_day_views[shout] = view
 		
 		print('[service.viewed] watching %d shouts' % len(views))
-		# TODO: add reactions ?
 
 	@staticmethod
 	async def get_shout(shout_slug):

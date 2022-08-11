@@ -8,4 +8,4 @@ class Notification(Base):
 	template: str = Column(String, nullable = False)
 	variables: JSONType = Column(JSONType, nullable = True) # [ <var1>, .. ]
 
-	# FIXME looks like frontend code
+	# looks like frontend code
