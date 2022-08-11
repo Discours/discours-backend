@@ -6,7 +6,7 @@ from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN, RESET_PWD_URL
 	CONFIRM_EMAIL_URL, ERROR_URL_ON_FRONTEND
 
 MAILGUN_API_URL = "https://api.mailgun.net/v3/%s/messages" % (MAILGUN_DOMAIN)
-MAILGUN_FROM = "postmaster <postmaster@%s>" % (MAILGUN_DOMAIN)
+MAILGUN_FROM = "discours.io <noreply@%s>" % (MAILGUN_DOMAIN)
 
 AUTH_URL = "%s/email_authorize" % (BACKEND_URL)
 
@@ -14,7 +14,7 @@ email_templates = {"confirm_email" : "", "auth_email" : "", "reset_password_emai
 
 def load_email_templates():
 	for name in email_templates:
-		filename = "templates/%s.tmpl" % name
+		filename = "auth/templates/%s.tmpl" % name # TODO: check path
 		with open(filename) as f:
 			email_templates[name] = f.read()
 	print("[auth.email] templates loaded")

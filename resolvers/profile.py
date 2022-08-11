@@ -1,5 +1,5 @@
 from orm.user import User, UserRole, Role, UserRating, AuthorFollower
-from storages.users import UserStorage
+from services.auth.users import UserStorage
 from orm.shout import Shout
 from orm.reaction import Reaction
 from base.orm import local_session

@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, J
 from sqlalchemy.orm import relationship
 from base.orm import Base, local_session
 from orm.rbac import Role
-from storages.roles import RoleStorage
+from services.auth.roles import RoleStorage
 
 class UserNotifications(Base):
 	__tablename__ = 'user_notifications'

@@ -2,8 +2,8 @@ from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from base.orm import local_session
 from base.resolvers import mutation, query
-from storages.shoutscache import ShoutsCache
-from storages.viewed import ViewedStorage
+from services.zine.shoutscache import ShoutsCache
+from services.stat.viewed import ViewedStorage
 from resolvers.profile import author_follow, author_unfollow
 from resolvers.topics import topic_follow, topic_unfollow
 from resolvers.community import community_follow, community_unfollow

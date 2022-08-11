@@ -43,7 +43,7 @@ class ReactionsStorage:
 			reactions.append(reaction)
 		reactions.sort(key=lambda x: x.createdAt, reverse=True)
 		async with ReactionsStorage.lock:
-			print("[storage.reactions] %d recently published reactions " % len(reactions))
+			print("[service.reactions] %d recently published reactions " % len(reactions))
 			ReactionsStorage.reactions = reactions
 
 	@staticmethod
@@ -57,7 +57,7 @@ class ReactionsStorage:
 			by_authors = {}
 		async with ReactionsStorage.lock:
 			ReactionsStorage.reactions_by_author = dict([stat for stat in by_authors])
-			print("[storage.reactions] %d reacted users" % len(by_authors))
+			print("[service.reactions] %d reacted users" % len(by_authors))
 
 	@staticmethod
 	async def prepare_by_shout(session):
@@ -70,7 +70,7 @@ class ReactionsStorage:
 			by_shouts = {}
 		async with ReactionsStorage.lock:
 			ReactionsStorage.reactions_by_shout = dict([stat for stat in by_shouts])
-			print("[storage.reactions] %d reacted shouts" % len(by_shouts))
+			print("[service.reactions] %d reacted shouts" % len(by_shouts))
 
 	@staticmethod
 	async def calc_ratings(session):
@@ -147,13 +147,13 @@ class ReactionsStorage:
 			try:
 				with local_session() as session:
 					await ReactionsStorage.prepare_all(session)
-					print("[storage.reactions] all reactions prepared")
+					print("[service.reactions] all reactions prepared")
 					await ReactionsStorage.prepare_by_shout(session)
-					print("[storage.reactions] reactions by shouts prepared")
+					print("[service.reactions] reactions by shouts prepared")
 					await ReactionsStorage.calc_ratings(session)
-					print("[storage.reactions] reactions ratings prepared")
+					print("[service.reactions] reactions ratings prepared")
 					await ReactionsStorage.prepare_by_topic(session)
-					print("[storage.reactions] reactions topics prepared")
+					print("[service.reactions] reactions topics prepared")
 			except Exception as err:
-				print("[storage.reactions] errror: %s" % (err))
+				print("[service.reactions] errror: %s" % (err))
 			await asyncio.sleep(ReactionsStorage.period)

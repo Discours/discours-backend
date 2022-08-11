@@ -5,8 +5,8 @@ from orm.user import User
 from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
-from storages.reactions import ReactionsStorage
-from storages.viewed import ViewedStorage
+from services.zine.reactions import ReactionsStorage
+from services.stat.viewed import ViewedStorage
 
 def reactions_follow(user, slug, auto=False):
     with local_session() as session:

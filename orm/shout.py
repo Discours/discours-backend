@@ -4,8 +4,8 @@ from sqlalchemy.orm import relationship
 from orm.user import User
 from orm.topic import Topic, ShoutTopic
 from orm.reaction import Reaction
-from storages.reactions import ReactionsStorage
-from storages.viewed import ViewedStorage
+from services.zine.reactions import ReactionsStorage
+from services.stat.viewed import ViewedStorage
 from base.orm import Base
 
 

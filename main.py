@@ -12,11 +12,11 @@ from auth.email import email_authorize
 from base.redis import redis
 from base.resolvers import resolvers
 from resolvers.zine import ShoutsCache
-from storages.viewed import ViewedStorage
-# from storages.gittask import GitTask
-from storages.topicstat import TopicStat
-from storages.shoutauthor import ShoutAuthorStorage
-from storages.reactions import ReactionsStorage
+from services.stat.viewed import ViewedStorage
+from services.zine.gittask import GitTask
+from services.stat.topicstat import TopicStat
+from services.zine.shoutauthor import ShoutAuthorStorage
+from services.zine.reactions import ReactionsStorage
 import asyncio
 
 import_module('resolvers')
@@ -34,7 +34,7 @@ async def start_up():
 	reaction_stat_task = asyncio.create_task(ReactionsStorage.worker())
 	shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
 	topic_stat_task = asyncio.create_task(TopicStat.worker())
-	# FIXME git_task = asyncio.create_task(GitTask.git_task_worker())
+	git_task = asyncio.create_task(GitTask.git_task_worker())
 
 async def shutdown():
 	await redis.disconnect()

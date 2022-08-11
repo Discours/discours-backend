@@ -13,7 +13,7 @@ class RoleStorage:
 		roles = session.query(Role).\
 			options(selectinload(Role.permissions)).all()
 		self.roles = dict([(role.id, role) for role in roles])
-		print('[storage.roles] %d ' % len(roles))
+		print('[service.auth] %d roles' % len(roles))
 		
 
 	@staticmethod

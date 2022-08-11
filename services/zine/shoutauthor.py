@@ -20,7 +20,7 @@ class ShoutAuthorStorage:
 				self.authors_by_shout[shout].append(user)
 			else:
 				self.authors_by_shout[shout] = [user]
-		print('[storage.shoutauthor] %d shouts ' % len(self.authors_by_shout))
+		print('[service.shoutauthor] %d shouts ' % len(self.authors_by_shout))
 
 	@staticmethod
 	async def get_authors(shout):
@@ -36,7 +36,7 @@ class ShoutAuthorStorage:
 				with local_session() as session:
 					async with self.lock:
 						await self.load(session)
-						print("[storage.shoutauthor] updated")
+						print("[service.shoutauthor] updated")
 			except Exception as err:
-				print("[storage.shoutauthor] errror: %s" % (err))
+				print("[service.shoutauthor] errror: %s" % (err))
 			await asyncio.sleep(self.period)

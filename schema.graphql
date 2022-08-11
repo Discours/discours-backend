@@ -97,6 +97,12 @@ input CommunityInput {
   pic: String
 }
 
+input CollectionInput {
+  title: String!
+  desc: String
+  pic: String
+}
+
 input TopicInput {
   slug: String!
   community: String!
@@ -169,6 +175,11 @@ type Mutation {
   updateCommunity(community: CommunityInput!): Result!
   deleteCommunity(slug: String!): Result!
 
+  # collection
+  createCollection(collection: CollectionInput!): Result!
+  updateCollection(collection: CollectionInput!): Result!
+  deleteCollection(slug: String!): Result!
+
   # collab
   inviteAuthor(author: String!, shout: String!): Result!
   removeAuthor(author: String!, shout: String!): Result!
@@ -238,6 +249,9 @@ type Query {
   topicsAll(page: Int!, size: Int!): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
+
+  # collection
+  getCollection(author: String!, slug: String!): Collection!
 
   # communities
   getCommunity(slug: String): Community!
@@ -398,6 +412,15 @@ type Stat {
 type Community {
   slug: String!
   name: String!
+  desc: String
+  pic: String!
+  createdAt: DateTime!
+  createdBy: User!
+}
+
+type Collection {
+  slug: String!
+  title: String!
   desc: String
   pic: String!
   createdAt: DateTime!

@@ -10,7 +10,7 @@ from auth.jwtcodec import JWTCodec
 from auth.authorize import Authorize, TokenStorage
 from base.exceptions import InvalidToken
 from orm.user import User
-from storages.users import UserStorage
+from services.auth.users import UserStorage
 from base.orm import local_session
 from settings import JWT_AUTH_HEADER, EMAIL_TOKEN_LIFE_SPAN
 

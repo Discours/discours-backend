@@ -1,7 +1,7 @@
 from auth.authenticate import login_required
 from base.orm import local_session
-from sqlalchemy import and_, desc, query
-from orm.reaction import Reaction
+from base.resolvers import query
+from sqlalchemy import and_, desc
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import TopicFollower
 from orm.user import AuthorFollower

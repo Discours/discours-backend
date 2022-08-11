@@ -1,8 +1,8 @@
 from orm.topic import Topic, TopicFollower
-from storages.topics import TopicStorage
+from services.zine.topics import TopicStorage
 from orm.shout import Shout
 from orm.user import User
-from storages.topicstat import TopicStat
+from services.stat.topicstat import TopicStat
 from base.orm import local_session
 from base.resolvers import mutation, query
 from auth.authenticate import login_required

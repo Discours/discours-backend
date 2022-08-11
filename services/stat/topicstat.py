@@ -1,6 +1,6 @@
 import asyncio
 from base.orm import local_session
-from storages.shoutauthor import ShoutAuthorStorage
+from services.zine.shoutauthor import ShoutAuthorStorage
 from orm.topic import ShoutTopic, TopicFollower
 from typing import Dict
 
@@ -32,8 +32,8 @@ class TopicStat:
 			else:
 				self.authors_by_topic[topic] = set(authors)
 
-		print('[storage.topicstat] authors sorted')
-		print('[storage.topicstat] shouts sorted')
+		print('[service.topicstat] authors sorted')
+		print('[service.topicstat] shouts sorted')
 		
 		self.followers_by_topic = {}
 		followings = session.query(TopicFollower)
@@ -44,7 +44,7 @@ class TopicStat:
 				self.followers_by_topic[topic].append(user)
 			else:
 				self.followers_by_topic[topic] = [user]
-		print('[storage.topicstat] followers sorted')
+		print('[service.topicstat] followers sorted')
 
 	@staticmethod
 	async def get_shouts(topic):
@@ -76,8 +76,8 @@ class TopicStat:
 				with local_session() as session:
 					async with self.lock:
 						await self.load_stat(session)
-						print("[storage.topicstat] updated")
+						print("[service.topicstat] updated")
 			except Exception as err:
-				print("[storage.topicstat] errror: %s" % (err))
+				print("[service.topicstat] errror: %s" % (err))
 			await asyncio.sleep(self.period)
 

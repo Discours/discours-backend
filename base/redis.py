@@ -1,7 +1,6 @@
 import aioredis
 from settings import REDIS_URL
 
-
 class Redis:
 	def __init__(self, uri=REDIS_URL):
 		self._uri: str = uri
@@ -27,29 +26,6 @@ class Redis:
 
 	async def mget(self, key, *keys):
 		return await self._instance.mget(key, *keys)
-
-
-async def test():
-	redis = Redis()
-	from datetime import datetime
-
-	await redis.connect()
-	await redis.execute("SET", "1-KEY1", 1)
-	await redis.execute("SET", "1-KEY2", 1)
-	await redis.execute("SET", "1-KEY3", 1)
-	await redis.execute("SET", "1-KEY4", 1)
-	await redis.execute("EXPIREAT", "1-KEY4", int(datetime.utcnow().timestamp()))
-	v = await redis.execute("KEYS", "1-*")
-	print(v)
-	await redis.execute("DEL", *v)
-	v = await redis.execute("KEYS", "1-*")
-	print(v)
-
-
-if __name__ == '__main__':
-	import asyncio
-
-	asyncio.run(test())
 
 
 redis = Redis()

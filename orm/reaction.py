@@ -3,7 +3,7 @@ from sqlalchemy import Column, String, ForeignKey, DateTime
 from base.orm import Base, local_session
 import enum
 from sqlalchemy import Enum
-from storages.viewed import ViewedStorage
+from services.stat.viewed import ViewedStorage
 
 class ReactionKind(enum.Enum):
 	AGREE 	= 1 # +1

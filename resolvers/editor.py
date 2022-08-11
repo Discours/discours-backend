@@ -7,7 +7,7 @@ from base.resolvers import mutation
 from resolvers.reactions import reactions_follow, reactions_unfollow
 from auth.authenticate import login_required
 from datetime import datetime
-from storages.gittask import GitTask
+from services.zine.gittask import GitTask
 
 
 @mutation.field("createShout")

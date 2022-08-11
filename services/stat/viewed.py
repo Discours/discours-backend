@@ -42,7 +42,7 @@ class ViewedStorage:
 			if this_day_view.day < view.day:
 				self.this_day_views[shout] = view
 		
-		print('[storage.viewed] watching %d shouts' % len(views))
+		print('[service.viewed] watching %d shouts' % len(views))
 		# TODO: add reactions ?
 
 	@staticmethod
@@ -115,7 +115,7 @@ class ViewedStorage:
 			try:
 				with local_session() as session:
 					await ViewedStorage.flush_changes(session)
-					print("[storage.viewed] storage flushed changes")
+					print("[service.viewed] service flushed changes")
 			except Exception as err:
-				print("[storage.viewed] errror: %s" % (err))
+				print("[service.viewed] errror: %s" % (err))
 			await asyncio.sleep(ViewedStorage.period)

@@ -6,8 +6,8 @@ from sqlalchemy.orm import selectinload
 from base.orm import local_session
 from orm.reaction import Reaction
 from orm.shout import Shout
-from storages.reactions import ReactionsStorage
-from storages.viewed import ViewedByDay
+from services.zine.reactions import ReactionsStorage
+from services.stat.viewed import ViewedByDay
 
 
 class ShoutsCache:
@@ -30,7 +30,7 @@ class ShoutsCache:
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.recent_published = shouts
-			print("[storage.shoutscache] %d recently published shouts " % len(shouts))
+			print("[service.shoutscache] %d recently published shouts " % len(shouts))
 
 	@staticmethod
 	async def prepare_recent_all():
@@ -46,7 +46,7 @@ class ShoutsCache:
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.recent_all = shouts
-			print("[storage.shoutscache] %d recently created shouts " % len(shouts))
+			print("[service.shoutscache] %d recently created shouts " % len(shouts))
 
 	@staticmethod
 	async def prepare_recent_reacted():
@@ -68,7 +68,7 @@ class ShoutsCache:
 				shouts.append(shout)
 			async with ShoutsCache.lock:
 				ShoutsCache.recent_reacted = shouts
-				print("[storage.shoutscache] %d recently reacted shouts " % len(shouts))
+				print("[service.shoutscache] %d recently reacted shouts " % len(shouts))
 
 
 	@staticmethod
@@ -91,7 +91,7 @@ class ShoutsCache:
 				shouts.append(shout)
 			shouts.sort(key = lambda shout: shout.rating, reverse = True)
 			async with ShoutsCache.lock:
-				print("[storage.shoutscache] %d top shouts " % len(shouts))
+				print("[service.shoutscache] %d top shouts " % len(shouts))
 				ShoutsCache.top_overall = shouts
 
 	@staticmethod
@@ -112,7 +112,7 @@ class ShoutsCache:
 				shouts.append(shout)
 			shouts.sort(key = lambda shout: shout.rating, reverse = True)
 			async with ShoutsCache.lock:
-				print("[storage.shoutscache] %d top month shouts " % len(shouts))
+				print("[service.shoutscache] %d top month shouts " % len(shouts))
 				ShoutsCache.top_month = shouts
 
 	@staticmethod
@@ -133,7 +133,7 @@ class ShoutsCache:
 				shouts.append(shout)
 		# shouts.sort(key = lambda shout: shout.viewed, reverse = True)
 		async with ShoutsCache.lock:
-			print("[storage.shoutscache] %d top viewed shouts " % len(shouts))
+			print("[service.shoutscache] %d top viewed shouts " % len(shouts))
 			ShoutsCache.top_viewed = shouts
 
 	@staticmethod
@@ -146,8 +146,8 @@ class ShoutsCache:
 				await ShoutsCache.prepare_recent_published()
 				await ShoutsCache.prepare_recent_all()
 				await ShoutsCache.prepare_recent_reacted()
-				print("[storage.shoutscache] updated")
+				print("[service.shoutscache] updated")
 			except Exception as err:
-				print("[storage.shoutscache] error: %s" % (err))
+				print("[service.shoutscache] error: %s" % (err))
 				raise err
 			await asyncio.sleep(ShoutsCache.period)

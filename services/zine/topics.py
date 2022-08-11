@@ -14,7 +14,7 @@ class TopicStorage:
 		for topic in self.topics.values():
 			self.load_parents(topic) # TODO: test
 		
-		print('[storage.topics] %d ' % len(self.topics.keys()))
+		print('[service.topics] %d ' % len(self.topics.keys()))
 
 	@staticmethod
 	def load_parents(topic):
