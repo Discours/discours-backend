@@ -1,4 +1,4 @@
-from extract import extract_md, html2text
+from migration.extract import extract_md, html2text
 from base.orm import local_session
 from orm import Topic, Community
 

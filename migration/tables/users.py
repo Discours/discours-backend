@@ -1,5 +1,5 @@
 import sqlalchemy
-from html2text import html2text
+from migration.html2text import html2text
 from orm import User, UserRating
 from dateutil.parser import parse
 from base.orm import local_session

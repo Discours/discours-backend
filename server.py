@@ -4,9 +4,8 @@ from settings import PORT
 import sys
 
 if __name__ == '__main__':
-	dev_mode = len(sys.argv) > 1 and sys.argv[1] == "dev"
-	inbox_service = len(sys.argv) > 1 and sys.argv[1] == "inbox"
-	if dev_mode:
+	x = sys.argv[1] or ""
+	if x == "dev":
 		print("DEV MODE")
 		headers = [
 			("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD"),
@@ -16,5 +15,8 @@ if __name__ == '__main__':
 			("Access-Control-Allow-Credentials", "true")
 		]
 		uvicorn.run("main:app", host="localhost", port=8080, headers=headers) #, ssl_keyfile="discours.key", ssl_certfile="discours.crt", reload=True)
-	else :
+	elif x == "migrate":
+		from migration import migrate
+		migrate()
+	else:
 		uvicorn.run("main:app", host="0.0.0.0", port=PORT)

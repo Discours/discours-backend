@@ -1,7 +1,7 @@
 import os
 import re
 import base64
-from html2text import html2text
+from .html2text import html2text
 
 TOOLTIP_REGEX = r'(\/\/\/(.+)\/\/\/)'
 contentDir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', 'discoursio-web', 'content')

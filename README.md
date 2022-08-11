@@ -22,8 +22,12 @@ on debian/ubuntu
 apt install redis nginx
 ```
 
-Then run nginx, redis and API server
+First, you'll need some data
+```
+python server.py migrate
+```
 
+Then run nginx, redis and API server
 ```
 redis-server
 
@@ -32,7 +36,6 @@ nginx -s reload
 
 pip install -r requirements.txt
 python server.py
-python server.py inbox
 ```
 
 # How to do an authorized request

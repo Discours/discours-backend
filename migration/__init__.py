@@ -6,14 +6,14 @@ import sys
 import os
 
 # from export import export_email_subscriptions
-from export import export_mdx, export_slug
+from .export import export_mdx, export_slug
 from orm.reaction import Reaction
-from tables.users import migrate as migrateUser
-from tables.users import migrate_2stage as migrateUser_2stage
-from tables.content_items import get_shout_slug, migrate as migrateShout
-from tables.topics import migrate as migrateTopic
-from tables.comments import migrate as migrateComment
-from tables.comments import migrate_2stage as migrateComment_2stage
+from .tables.users import migrate as migrateUser
+from .tables.users import migrate_2stage as migrateUser_2stage
+from .tables.content_items import get_shout_slug, migrate as migrateShout
+from .tables.topics import migrate as migrateTopic
+from .tables.comments import migrate as migrateComment
+from .tables.comments import migrate_2stage as migrateComment_2stage
 
 from settings import DB_URL
 
@@ -301,5 +301,4 @@ def migrate():
 		print('[migration] usage: python migrate.py <command>')
 		print('[migration] commands: mongodb, bson, all, all mdx, - <slug>')
 
-if __name__ == '__main__':
-	migrate()
+migrate()
