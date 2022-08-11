@@ -2,7 +2,7 @@ import os
 import bson
 import json
 
-from migration.utils import DateTimeEncoder
+from utils import DateTimeEncoder
 
 def json_tables():
 	print('[migration] unpack dump/discours/*.bson to migration/data/*.json')

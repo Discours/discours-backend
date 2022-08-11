@@ -5,16 +5,18 @@ import subprocess
 import sys
 import os
 
-# from migration.export import export_email_subscriptions
-from migration.export import export_mdx, export_slug
-from migration.tables.users import migrate as migrateUser
-from migration.tables.users import migrate_2stage as migrateUser_2stage
-from migration.tables.content_items import get_shout_slug, migrate as migrateShout
-from migration.tables.topics import migrate as migrateTopic
-from migration.tables.comments import migrate as migrateComment
-from migration.tables.comments import migrate_2stage as migrateComment_2stage
+# from export import export_email_subscriptions
+from export import export_mdx, export_slug
 from orm.reaction import Reaction
+from tables.users import migrate as migrateUser
+from tables.users import migrate_2stage as migrateUser_2stage
+from tables.content_items import get_shout_slug, migrate as migrateShout
+from tables.topics import migrate as migrateTopic
+from tables.comments import migrate as migrateComment
+from tables.comments import migrate_2stage as migrateComment_2stage
+
 from settings import DB_URL
+
 
 TODAY = datetime.strftime(datetime.now(), '%Y%m%d')
 

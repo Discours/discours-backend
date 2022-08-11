@@ -1,8 +1,8 @@
 import sqlalchemy
-from migration.html2text import html2text
+from html2text import html2text
 from orm import User, UserRating
 from dateutil.parser import parse
-from orm.base import local_session
+from base.orm import local_session
 
 def migrate(entry):
 	if 'subscribedTo' in entry: del entry['subscribedTo']

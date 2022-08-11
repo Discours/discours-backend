@@ -1,5 +1,5 @@
-from migration.extract import extract_md, html2text
-from orm.base import local_session
+from extract import extract_md, html2text
+from base.orm import local_session
 from orm import Topic, Community
 
 def migrate(entry):

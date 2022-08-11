@@ -1,11 +1,11 @@
 from dateutil.parser import parse as date_parse
 import sqlalchemy
 from orm.shout import Shout, ShoutTopic, User
-from storages.viewed import ViewedByDay
+from services.stat.viewed import ViewedByDay
 from transliterate import translit
 from datetime import datetime
-from orm.base import local_session
-from migration.extract import prepare_html_body
+from base.orm import local_session
+from extract import prepare_html_body
 from orm.community import Community
 from orm.reaction import Reaction, ReactionKind
 

@@ -3,8 +3,8 @@ from datetime import datetime
 import json
 import os
 import frontmatter
-from migration.extract import extract_html, prepare_html_body
-from migration.utils import DateTimeEncoder
+from extract import extract_html, prepare_html_body
+from utils import DateTimeEncoder
 
 OLD_DATE = '2016-03-05 22:22:00.350000'
 EXPORT_DEST = '../discoursio-web/data/'
