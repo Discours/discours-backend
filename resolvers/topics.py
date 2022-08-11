@@ -3,8 +3,8 @@ from storages.topics import TopicStorage
 from orm.shout import Shout
 from orm.user import User
 from storages.topicstat import TopicStat
-from orm.base import local_session
-from resolvers.base import mutation, query
+from base.orm import local_session
+from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from sqlalchemy import and_
 

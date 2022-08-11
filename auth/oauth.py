@@ -1,8 +1,5 @@
 from authlib.integrations.starlette_client import OAuth
 from starlette.responses import RedirectResponse
-
-from urllib.parse import quote_plus
-
 from auth.authorize import Authorize
 from auth.identity import Identity
 

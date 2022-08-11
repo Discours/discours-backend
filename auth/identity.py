@@ -1,7 +1,7 @@
 from auth.password import Password
-from exceptions import InvalidPassword, ObjectNotExist
+from base.exceptions import InvalidPassword, ObjectNotExist
 from orm import User as OrmUser
-from orm.base import local_session
+from base.orm import local_session
 from auth.validations import User
 
 from sqlalchemy import or_

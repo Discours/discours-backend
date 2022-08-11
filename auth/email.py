@@ -1,9 +1,7 @@
 import requests
 from starlette.responses import RedirectResponse
-from starlette.exceptions import HTTPException
-
 from auth.authenticate import EmailAuthenticate, ResetPassword
-
+from base.orm import local_session
 from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN, RESET_PWD_URL, \
 	CONFIRM_EMAIL_URL, ERROR_URL_ON_FRONTEND
 

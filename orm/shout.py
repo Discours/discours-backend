@@ -6,7 +6,7 @@ from orm.topic import Topic, ShoutTopic
 from orm.reaction import Reaction
 from storages.reactions import ReactionsStorage
 from storages.viewed import ViewedStorage
-from orm.base import Base
+from base.orm import Base
 
 
 class ShoutReactionsFollower(Base):

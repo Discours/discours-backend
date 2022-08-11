@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from auth.jwtcodec import JWTCodec
-from redis import redis
+from base.redis import redis
 from settings import JWT_LIFE_SPAN
 from auth.validations import User
 

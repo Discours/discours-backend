@@ -1,9 +1,9 @@
 from orm import Shout
-from orm.base import local_session
+from base.orm import local_session
 from orm.rbac import Resource
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.user import User
-from resolvers.base import mutation
+from base.resolvers import mutation
 from resolvers.reactions import reactions_follow, reactions_unfollow
 from auth.authenticate import login_required
 from datetime import datetime

@@ -2,19 +2,43 @@ scalar DateTime
 
 ################################### Payload ###################################
 
-type CurrentUserInfo {
-  inbox:         Int
-  topics:        [String]!
-  authors:       [String]!
-  reactions:     [String]!
-  communities:   [String]!
+type MessageResult {
+  error: String
+  message: Message
+}
+
+enum MessageStatus {
+  NEW
+  UPDATED
+  DELETED
+}
+
+type ChatUpdatedResult {
+  error: String
+  status: MessageStatus
+  message: Message
+}
+
+type CreateChatResult {
+  chatId: String
+  error: String
+}
+
+type EnterChatResult {
+  chat: Chat
+  messages: [Message]
+  error: String
+}
+
+type UserChatsResult {
+  error: String
+  chats: [String]
 }
 
 type AuthResult {
   error: String
   token: String
   user: User
-  info: CurrentUserInfo
 }
 
 type Result {
@@ -101,6 +125,13 @@ enum FollowingEntity {
 ################################### Mutation
 
 type Mutation {
+  # inbox
+  createChat(description: String): CreateChatResult!
+  createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
+  updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
+  deleteMessage(chatId: String!, id: Int!): Result!
+  markAsRead(chatId: String!, ids: [Int]!): Result!
+
   # auth
   confirmEmail(token: String!): AuthResult!
   registerUser(email: String!, password: String): AuthResult!
@@ -155,6 +186,10 @@ type Mutation {
 ################################### Query
 
 type Query {
+  # inbox
+  userChats: UserChatsResult!
+  enterChat(chatId: String!, size: Int = 50): EnterChatResult!
+  getMessages(chatId: String!, size: Int!, page: Int!): [Message]!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -212,6 +247,7 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
+  chatUpdated(chatId: String!): ChatUpdatedResult!
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!
@@ -394,4 +430,22 @@ type Token {
   ownerId: Int!
   usedAt: DateTime
   value: String!
+}
+
+type Message {
+  author: String!
+  chatRoom: Int!
+  body: String!
+  createdAt: DateTime!
+  id: Int!
+  replyTo: Int
+  updatedAt: DateTime!
+  visibleForUsers: [Int]!
+}
+
+type Chat {
+  id: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  description: String
 }

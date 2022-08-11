@@ -1,7 +1,7 @@
 import warnings
 from sqlalchemy import String, Column, ForeignKey, UniqueConstraint, TypeDecorator
 from sqlalchemy.orm import relationship
-from orm.base import Base, REGISTRY, engine, local_session
+from base.orm import Base, REGISTRY, engine, local_session
 from orm.community import Community
 
 

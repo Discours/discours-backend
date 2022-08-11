@@ -1,7 +1,4 @@
-from typing import Optional
-
 import aioredis
-
 from settings import REDIS_URL
 
 
@@ -53,3 +50,9 @@ if __name__ == '__main__':
 	import asyncio
 
 	asyncio.run(test())
+
+
+redis = Redis()
+
+__all__ = ['redis']
+

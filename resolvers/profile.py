@@ -2,13 +2,13 @@ from orm.user import User, UserRole, Role, UserRating, AuthorFollower
 from storages.users import UserStorage
 from orm.shout import Shout
 from orm.reaction import Reaction
-from orm.base import local_session
+from base.orm import local_session
 from orm.topic import Topic, TopicFollower
-from resolvers.base import mutation, query
+from base.resolvers import mutation, query
 from resolvers.community import get_followed_communities
 from resolvers.reactions import get_shout_reactions
 from auth.authenticate import login_required
-from inbox_resolvers.inbox import get_inbox_counter
+from resolvers.inbox import get_inbox_counter
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import selectinload
 from typing import List

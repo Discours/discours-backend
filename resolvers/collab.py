@@ -1,8 +1,8 @@
 from datetime import datetime
-from orm.base import local_session
+from base.orm import local_session
 from orm.shout import Shout
 from orm.user import User
-from resolvers.base import mutation
+from base.resolvers import mutation
 from auth.authenticate import login_required
 
 @mutation.field("inviteAuthor")

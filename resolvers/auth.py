@@ -7,10 +7,10 @@ from auth.identity import Identity
 from auth.password import Password
 from auth.email import send_confirm_email, send_auth_email, send_reset_password_email
 from orm import User, Role
-from orm.base import local_session
-from resolvers.base import mutation, query
+from base.orm import local_session
+from base.resolvers import mutation, query
 from resolvers.profile import get_user_info
-from exceptions import InvalidPassword, InvalidToken
+from base.exceptions import InvalidPassword, InvalidToken
 from settings import JWT_AUTH_HEADER
 
 @mutation.field("confirmEmail")

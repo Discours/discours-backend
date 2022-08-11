@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import Column, String, ForeignKey, DateTime
-from orm.base import Base, local_session
+from base.orm import Base, local_session
 
 class CommunityFollower(Base):
 	__tablename__ = 'community_followers'

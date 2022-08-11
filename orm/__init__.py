@@ -9,7 +9,7 @@ from orm.reaction import Reaction
 from storages.topics import TopicStorage
 from storages.users import UserStorage
 from storages.viewed import ViewedStorage
-from orm.base import Base, engine, local_session
+from base.orm import Base, engine, local_session
 
 __all__ = ["User", "Role", "Operation", "Permission", \
 	"Community", "Shout", "Topic", "TopicFollower", \

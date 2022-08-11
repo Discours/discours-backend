@@ -9,8 +9,8 @@ from starlette.routing import Route
 from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
 from auth.email import email_authorize
-from redis import redis
-from resolvers.base import resolvers
+from base.redis import redis
+from base.resolvers import resolvers
 from resolvers.zine import ShoutsCache
 from storages.viewed import ViewedStorage
 # from storages.gittask import GitTask

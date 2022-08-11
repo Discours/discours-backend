@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import Column, String, ForeignKey, DateTime, JSON as JSONType
-from orm.base import Base
+from base.orm import Base
 
 class ShoutTopic(Base):
 	__tablename__ = 'shout_topic'

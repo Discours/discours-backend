@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, JSON as JSONType
-from orm.base import Base
+from base.orm import Base
 
 class Notification(Base):
 	__tablename__ = 'notification'

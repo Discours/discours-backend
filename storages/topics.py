@@ -1,4 +1,3 @@
-
 import asyncio
 from orm.topic import Topic
 

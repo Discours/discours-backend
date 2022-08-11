@@ -11,6 +11,9 @@ from resolvers.editor import create_shout, delete_shout, update_shout
 from resolvers.community import create_community, delete_community, get_community, get_communities
 
 __all__ = [
+    "follow",
+    "unfollow",
+    
 	# auth
 	"login",
 	"register",

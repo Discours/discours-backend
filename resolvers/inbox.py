@@ -1,11 +1,8 @@
-from resolvers_base import mutation, query, subscription
-
+from base.resolvers import mutation, query, subscription
 from auth.authenticate import login_required
-
 import asyncio, uuid, json
 from datetime import datetime
-
-from redis import redis
+from base.redis import redis
 
 class ChatFollowing:
 	queue = asyncio.Queue()

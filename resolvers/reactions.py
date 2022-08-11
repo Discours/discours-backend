@@ -1,16 +1,12 @@
-from sqlalchemy import and_, desc, func, select
-from sqlalchemy.orm import selectinload, joinedload
 from orm.reaction import Reaction
-from orm.base import local_session
-from orm.shout import Shout, ShoutReactionsFollower
+from base.orm import local_session
+from orm.shout import ShoutReactionsFollower
 from orm.user import User
-from resolvers.base import mutation, query
+from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
 from storages.reactions import ReactionsStorage
-from storages.shoutscache import ShoutsCache
 from storages.viewed import ViewedStorage
-from typing import List
 
 def reactions_follow(user, slug, auto=False):
     with local_session() as session:

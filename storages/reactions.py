@@ -1,9 +1,9 @@
 import asyncio
 from sqlalchemy import and_, desc, func
-from sqlalchemy.orm import selectinload, joinedload
-from orm.base import local_session
+from sqlalchemy.orm import joinedload
+from base.orm import local_session
 from orm.reaction import Reaction, ReactionKind
-from orm.topic import ShoutTopic, Topic
+from orm.topic import ShoutTopic
 
 
 def kind_to_rate(kind) -> int:

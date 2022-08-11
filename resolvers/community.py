@@ -1,7 +1,7 @@
 from orm.community import Community, CommunityFollower
-from orm.base import local_session
+from base.orm import local_session
 from orm.user import User
-from resolvers.base import mutation, query
+from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
 from typing import List

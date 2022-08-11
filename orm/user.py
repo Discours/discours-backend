@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, JSON as JSONType
 from sqlalchemy.orm import relationship
-from orm.base import Base, local_session
+from base.orm import Base, local_session
 from orm.rbac import Role
 from storages.roles import RoleStorage
 

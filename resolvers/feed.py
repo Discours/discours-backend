@@ -1,5 +1,5 @@
 from auth.authenticate import login_required
-from orm.base import local_session
+from base.orm import local_session
 from sqlalchemy import and_, desc, query
 from orm.reaction import Reaction
 from orm.shout import Shout, ShoutAuthor, ShoutTopic

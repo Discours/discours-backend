@@ -1,21 +1,17 @@
 from functools import wraps
 from typing import Optional, Tuple
-
 from datetime import datetime, timedelta
-
 from graphql import GraphQLResolveInfo
 from jwt import DecodeError, ExpiredSignatureError
 from starlette.authentication import AuthenticationBackend
 from starlette.requests import HTTPConnection
-
 from auth.credentials import AuthCredentials, AuthUser
 from auth.jwtcodec import JWTCodec
 from auth.authorize import Authorize, TokenStorage
-from exceptions import InvalidToken, OperationNotAllowed
+from base.exceptions import InvalidToken
 from orm.user import User
 from storages.users import UserStorage
-from orm.base import local_session
-from redis import redis
+from base.orm import local_session
 from settings import JWT_AUTH_HEADER, EMAIL_TOKEN_LIFE_SPAN
 
 
