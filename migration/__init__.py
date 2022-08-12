@@ -301,4 +301,4 @@ def migrate():
 		print('[migration] usage: python migrate.py <command>')
 		print('[migration] commands: mongodb, bson, all, all mdx, - <slug>')
 
-migrate()
+if __name__ == '__main__': migrate()

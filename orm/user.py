@@ -67,6 +67,7 @@ class User(Base):
 				id = 0,
 				email = "welcome@discours.io",
 				username = "welcome@discours.io",
+				name = "Дискурс",
 				slug = "discours",
 				userpic = 'https://discours.io/images/logo-mini.svg',
 			)

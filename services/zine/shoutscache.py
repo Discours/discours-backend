@@ -2,10 +2,11 @@
 import asyncio
 from datetime import datetime, timedelta
 from sqlalchemy import and_, desc, func, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 from base.orm import local_session
 from orm.reaction import Reaction
 from orm.shout import Shout
+from orm.topic import Topic
 from services.zine.reactions import ReactionsStorage
 from services.stat.viewed import ViewedByDay
 
@@ -36,12 +37,16 @@ class ShoutsCache:
 	async def prepare_recent_all():
 		with local_session() as session:
 			stmt = select(Shout).\
-				options(selectinload(Shout.authors), selectinload(Shout.topics)).\
+				options( 
+        			selectinload(Shout.authors), 
+           			selectinload(Shout.topics)
+                ).\
 				order_by(desc("createdAt")).\
 				limit(ShoutsCache.limit)
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
+				# shout.topics = [t.slug for t in shout.topics]
 				shout.rating = await ReactionsStorage.shout_rating(shout.slug) or 0
 				shouts.append(shout)
 		async with ShoutsCache.lock:
@@ -64,6 +69,7 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
+				# shout.topics = [t.slug for t in shout.topics]
 				shout.rating = await ReactionsStorage.shout_rating(shout.slug) or 0
 				shouts.append(shout)
 			async with ShoutsCache.lock:
