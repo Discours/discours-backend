@@ -35,10 +35,19 @@ type UserChatsResult {
   chats: [String]
 }
 
+type SessionInfo {
+  unread: Int
+  topics: [String]
+  authors: [String]
+  reactions: [Int]
+  communities: [String]
+}
+
 type AuthResult {
   error: String
   token: String
   user: User
+  info: SessionInfo
 }
 
 type Result {
@@ -308,7 +317,7 @@ type User {
   id: Int!
   username: String! # to login, ex. email
   createdAt: DateTime!
-  lastSeen: DataTime
+  lastSeen: DateTime
   slug: String!
   name: String # to display
   email: String

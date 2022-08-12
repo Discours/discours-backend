@@ -9,7 +9,7 @@ from base.resolvers import mutation, query
 from resolvers.community import get_followed_communities
 from resolvers.reactions import get_shout_reactions
 from auth.authenticate import login_required
-from resolvers.inbox import get_inbox_counter
+from resolvers.inbox import get_unread_counter
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import selectinload
 from typing import List
@@ -60,10 +60,10 @@ async def user_followers(_, slug) -> List[User]:
 			all()
 	return users
 
-# for query.field("refreshSession")
+# for mutation.field("refreshSession")
 async def get_user_info(slug):
 	return {
-		"inbox": await get_inbox_counter(slug),
+		"unread": await get_unread_counter(slug),
 		"topics": [t.slug for t in get_followed_topics(0, slug)],
 		"authors": [a.slug for a in get_followed_authors(0, slug)],
 		"reactions": [r.shout for r in get_shout_reactions(0, slug)],
@@ -71,7 +71,7 @@ async def get_user_info(slug):
 	}
 
 
-@query.field("refreshSession")
+@mutation.field("refreshSession")
 @login_required
 async def get_current_user(_, info):
 	user = info.context["request"].user
@@ -80,6 +80,7 @@ async def get_current_user(_, info):
 		user.save()
 		session.commit()
 	return {
+		"token": "", # same token?
 		"user": user,
 		"info": await get_user_info(user.slug)
 	}

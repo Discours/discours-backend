@@ -36,7 +36,7 @@ class MessageResult:
 		self.status = status
 		self.message = message
 
-async def get_inbox_counter(user_slug):
+async def get_unread_counter(user_slug):
 	chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
 	if not chats:
 		return 0
@@ -250,13 +250,8 @@ async def mark_as_read(_, info, chatId, ids):
 	return {}
 
 @subscription.source("chatUpdated")
+@login_required
 async def message_generator(obj, info, chatId):
-
-	#TODO: send AUTH header
-	#auth = info.context["request"].auth
-	#if not auth.logged_in:
-	#	yield {"error" : auth.error_message or "Please login"}
-
 	try:
 		following_chat = ChatFollowing(chatId)
 		await MessagesStorage.register_chat(following_chat)
