@@ -140,10 +140,10 @@ type Mutation {
 
   # auth
   confirmEmail(token: String!): AuthResult!
+  refreshSession: AuthResult!
   registerUser(email: String!, password: String): AuthResult!
   requestPasswordUpdate(email: String!): Result!
   updatePassword(password: String!, token: String!): Result!
-  # requestEmailConfirmation: User!
 
   # shout
   createShout(input: ShoutInput!): Result!
@@ -203,10 +203,6 @@ type Query {
   isEmailUsed(email: String!): Boolean!
   signIn(email: String!, password: String): AuthResult!
   signOut: AuthResult!
-  forget(email: String!): AuthResult!
-  requestPasswordReset(email: String!): AuthResult!
-  updatePassword(password: String!, token: String!): AuthResult!
-  getCurrentUser: AuthResult!
 
   # profile
   getUsersBySlugs(slugs: [String]!): [User]!
@@ -312,6 +308,7 @@ type User {
   id: Int!
   username: String! # to login, ex. email
   createdAt: DateTime!
+  lastSeen: DataTime
   slug: String!
   name: String # to display
   email: String
