@@ -54,14 +54,14 @@ async def get_shout_by_slug(_, info, slug):
 	shout = None
 	# FIXME: append captions anyhow
 	with local_session() as session:
-		shout = session.query(Shout).\
+		shout = session.query(Shout, ShoutAuthor.caption.label("author_caption")).\
 			options([
 				selectinload(Shout.topics),
 				selectinload(Shout.reactions),
-				joinedload(Shout.authors, innerjoin=True),
+				joinedload(Shout.authors),
 				selectinload(ShoutAuthor.caption)
 			]).\
-			join(ShoutAuthor.caption.label('caption'), ShoutAuthor.shout == slug ).\
+			join(ShoutAuthor.shout == slug ).\
 			filter(Shout.slug == slug).first()
 
 	if not shout:

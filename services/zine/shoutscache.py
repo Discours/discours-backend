@@ -151,7 +151,7 @@ class ShoutsCache:
 				await ShoutsCache.prepare_recent_published()
 				await ShoutsCache.prepare_recent_all()
 				await ShoutsCache.prepare_recent_reacted()
-				print("[zine.cache] updated")
+				print("[zine.cache] periodical update")
 			except Exception as err:
 				print("[zine.cache] error: %s" % (err))
 				raise err

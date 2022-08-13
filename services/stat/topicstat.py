@@ -78,7 +78,7 @@ class TopicStat:
 				with local_session() as session:
 					async with self.lock:
 						await self.load_stat(session)
-						print("[stat.topics] updated")
+						print("[stat.topics] periodical update")
 			except Exception as err:
 				print("[stat.topics] errror: %s" % (err))
 			await asyncio.sleep(self.period)

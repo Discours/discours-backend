@@ -18,7 +18,8 @@ class ViewedByDay(Base):
 class ViewedStorage:
 	viewed = {
 		'shouts': {},
-		'topics': {}
+		'topics': {},
+		'reactions': {}
 	}
 	this_day_views = {}
 	to_flush = []
@@ -46,7 +47,7 @@ class ViewedStorage:
 			if this_day_view.day < view.day:
 				self.this_day_views[shout] = view
 		
-		print('[stat.viewed] watching %d shouts' % len(views))
+		print('[stat.viewed] %d shouts viewed' % len(views))
 
 	@staticmethod
 	async def get_shout(shout_slug):
@@ -59,6 +60,12 @@ class ViewedStorage:
 		self = ViewedStorage
 		async with self.lock:
 			return self.viewed['topics'].get(topic_slug, 0)
+
+	@staticmethod
+	async def get_reaction(reaction_id):
+		self = ViewedStorage
+		async with self.lock:
+			return self.viewed['reactions'].get(reaction_id, 0)
 
 	@staticmethod
 	async def increment(shout_slug):
@@ -74,13 +81,11 @@ class ViewedStorage:
 			else:
 				this_day_view.value = this_day_view.value + 1
 			this_day_view.modified = True
-			old_value = self.viewed['shouts'].get(shout_slug, 0)
-			self.viewed['shouts'][shout_slug] = old_value + 1
+			self.viewed['shouts'][shout_slug] = self.viewed['shouts'].get(shout_slug, 0) + 1
 			with local_session() as session:
 				topics = session.query(ShoutTopic.topic).where(ShoutTopic.shout == shout_slug).all()
 				for t in topics:
-					old_topic_value = self.viewed['topics'].get(t, 0)
-					self.viewed['topics'][t] = old_topic_value + 1
+					self.viewed['topics'][t] = self.viewed['topics'].get(t, 0) + 1
 			flag_modified(this_day_view, "value")
     
 
@@ -104,7 +109,7 @@ class ViewedStorage:
 			try:
 				with local_session() as session:
 					await ViewedStorage.flush_changes(session)
-					print("[stat.viewed] service flushed changes")
+					print("[stat.viewed] periodical flush")
 			except Exception as err:
 				print("[stat.viewed] errror: %s" % (err))
 			await asyncio.sleep(ViewedStorage.period)

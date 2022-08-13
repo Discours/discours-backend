@@ -14,7 +14,7 @@ class TopicStorage:
 		for topic in self.topics.values():
 			self.load_parents(topic)
 		
-		print('[zine.topics] %d ' % len(self.topics.keys()))
+		print('[zine.topics] %d precached' % len(self.topics.keys()))
 
 	@staticmethod
 	def load_parents(topic):

@@ -53,7 +53,7 @@ class GitTask:
 	
 	@staticmethod
 	async def git_task_worker():
-		print("[service.git] worker start")
+		print("[service.git] starting task worker")
 		while True:
 			task = await GitTask.queue.get()
 			try:

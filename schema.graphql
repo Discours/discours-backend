@@ -440,6 +440,7 @@ type TopicStat {
   authors: Int!
   viewed: Int!
   reacted: Int!
+  rating: Int
 }
 
 type Topic {
