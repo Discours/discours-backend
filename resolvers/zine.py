@@ -1,3 +1,4 @@
+from orm.collection import ShoutCollection
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from base.orm import local_session
@@ -76,6 +77,18 @@ async def shouts_by_topics(_, info, slugs, page, size):
 		shouts = session.query(Shout).\
 			join(ShoutTopic).\
 			where(and_(ShoutTopic.topic.in_(slugs), Shout.publishedAt != None)).\
+			order_by(desc(Shout.publishedAt)).\
+			limit(size).\
+			offset(page * size)
+	return shouts
+
+@query.field("shoutsByCollection")
+async def shouts_by_topics(_, info, collection, page, size):
+	page = page - 1
+	with local_session() as session:
+		shouts = session.query(Shout).\
+			join(ShoutCollection, ShoutCollection.collection == collection).\
+			where(and_(ShoutCollection.shout == Shout.slug, Shout.publishedAt != None)).\
 			order_by(desc(Shout.publishedAt)).\
 			limit(size).\
 			offset(page * size)

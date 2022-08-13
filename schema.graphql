@@ -254,6 +254,7 @@ type Query {
 
   # collection
   getCollection(author: String!, slug: String!): Collection!
+  shoutsByCollection(collection: String, page: Int, size: Int): [Shout]!
 
   # communities
   getCommunity(slug: String): Community!
@@ -408,8 +409,10 @@ type Shout {
 }
 
 type Stat {
-  viewed: Int!
-  reacted: Int!
+  viewed: Int
+  reacted: Int
+  rating: Int
+  bookmarked: Int
 }
 
 type Community {
@@ -435,6 +438,7 @@ type TopicStat {
   followers: Int!
   authors: Int!
   viewed: Int!
+  reacted: Int!
 }
 
 type Topic {

@@ -1,3 +1,4 @@
+from sqlalchemy import desc
 from orm.reaction import Reaction
 from base.orm import local_session
 from orm.shout import ShoutReactionsFollower
@@ -5,8 +6,7 @@ from orm.user import User
 from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
-from services.zine.reactions import ReactionsStorage
-from services.stat.viewed import ViewedStorage
+from services.stat.reacted import ReactedStorage
 
 def reactions_follow(user, slug, auto=False):
     with local_session() as session:
@@ -48,9 +48,11 @@ def reactions_unfollow(user, slug):
 @login_required
 async def create_reaction(_, info, inp):
     user = info.context["request"].user
-
+    
+    # TODO: filter allowed reaction kinds
+    
     reaction = Reaction.create(**inp)
-
+    ReactedStorage.increment(reaction.shout, reaction.replyTo)
     try:
         reactions_follow(user, inp['shout'], True)
     except Exception as e:
@@ -101,26 +103,34 @@ async def delete_reaction(_, info, id):
     return {}
 
 @query.field("reactionsByShout")
-def get_shout_reactions(_, info, slug):
-    #offset = page * size
-    #end = offset + size
-    return ReactionsStorage.reactions_by_shout.get(slug, []) #[offset:end]
+def get_shout_reactions(_, info, slug, page, size):
+    offset = page * size
+    reactions = []
+    with local_session() as session:
+        reactions = session.query(Reaction).filter(Reaction.shout == slug).limit(size).offset(offset).all()
+    return reactions
 
 
 @query.field("reactionsAll")
 def get_all_reactions(_, info, page=1, size=10):
     offset = page * size
-    end = offset + size
-    return ReactionsStorage.reactions[offset:end]
+    reactions = []
+    with local_session() as session:
+        stmt = session.query(Reaction).\
+            filter(Reaction.deletedAt == None).\
+            order_by(desc("createdAt")).\
+            offset(offset).limit(size)
+        reactions = []
+        for row in session.execute(stmt):
+            reaction = row.Reaction
+            reactions.append(reaction)
+        reactions.sort(key=lambda x: x.createdAt, reverse=True)
+    return reactions
 
 @query.field("reactionsByAuthor")
 def get_reactions_by_author(_, info, slug, page=1, size=50):
     offset = page * size
-    end = offset + size
-    return ReactionsStorage.reactions_by_author.get(slug, [])[offset:end]
-
-
-@mutation.field("viewReaction")
-async def view_reaction(_, info, reaction):
-	await ViewedStorage.inc_reaction(reaction)
-	return {"error" : ""}
+    reactions = []
+    with local_session() as session:
+        reactions = session.query(Reaction).filter(Reaction.createdBy == slug).limit(size).offset(offset).all()
+    return reactions

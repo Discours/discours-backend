@@ -1,5 +1,7 @@
 import asyncio
 from base.orm import local_session
+from services.stat.reacted import ReactedStorage
+from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
 from orm.topic import ShoutTopic, TopicFollower
 from typing import Dict
@@ -8,7 +10,6 @@ class TopicStat:
 	shouts_by_topic = {}
 	authors_by_topic = {}
 	followers_by_topic = {}
-	reactions_by_topic = {}
 	lock = asyncio.Lock()
 	period = 30*60 #sec
 
@@ -32,8 +33,8 @@ class TopicStat:
 			else:
 				self.authors_by_topic[topic] = set(authors)
 
-		print('[service.topicstat] authors sorted')
-		print('[service.topicstat] shouts sorted')
+		print('[stat.topics] authors sorted')
+		print('[stat.topics] shouts sorted')
 		
 		self.followers_by_topic = {}
 		followings = session.query(TopicFollower)
@@ -44,7 +45,7 @@ class TopicStat:
 				self.followers_by_topic[topic].append(user)
 			else:
 				self.followers_by_topic[topic] = [user]
-		print('[service.topicstat] followers sorted')
+		print('[stat.topics] followers sorted')
 
 	@staticmethod
 	async def get_shouts(topic):
@@ -59,13 +60,14 @@ class TopicStat:
 			shouts = self.shouts_by_topic.get(topic, [])
 			followers = self.followers_by_topic.get(topic, [])
 			authors = self.authors_by_topic.get(topic, [])
-			reactions = self.reactions_by_topic.get(topic, [])
 
 		return  { 
 			"shouts" : len(shouts),
 			"authors" : len(authors),
 			"followers" : len(followers),
-			"reactions" : len(reactions)
+			"viewed": ViewedStorage.get_topic(topic),
+			"reacted" : ReactedStorage.get_topic(topic),
+			"rating" : ReactedStorage.get_topic_rating(topic),
 		}
 
 	@staticmethod
@@ -76,8 +78,8 @@ class TopicStat:
 				with local_session() as session:
 					async with self.lock:
 						await self.load_stat(session)
-						print("[service.topicstat] updated")
+						print("[stat.topics] updated")
 			except Exception as err:
-				print("[service.topicstat] errror: %s" % (err))
+				print("[stat.topics] errror: %s" % (err))
 			await asyncio.sleep(self.period)
 

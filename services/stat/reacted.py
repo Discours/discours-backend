@@ -1,9 +1,12 @@
 import asyncio
 from datetime import datetime
+from typing_extensions import Self
+from sqlalchemy.types import Enum
 from sqlalchemy import Column, DateTime, ForeignKey, Integer
 from sqlalchemy.orm.attributes import flag_modified
 from base.orm import Base, local_session
-from orm.reaction import ReactionKind
+from orm.reaction import ReactionKind, kind_to_rate
+from orm.topic import ShoutTopic
 
 class ReactedByDay(Base):
 	__tablename__ = "reacted_by_day"
@@ -12,42 +15,50 @@ class ReactedByDay(Base):
 	reaction = Column(ForeignKey("reaction.id"), primary_key = True)
 	shout = Column(ForeignKey('shout.slug'), primary_key=True)
 	reply = Column(ForeignKey('reaction.id'), primary_key=True, nullable=True)
-	kind = Column(ReactionKind, primary_key=True)
+	kind: int = Column(Enum(ReactionKind), nullable=False, comment="Reaction kind")
 	day = Column(DateTime, primary_key=True, default=datetime.now)
 
 class ReactedStorage:
 	reacted = {
-		'shouts': {
-			'total': 0,
-			'today': 0,
-			'month': 0,
-			# TODO: need an opionated metrics list
-       	},
-		'topics': {} # TODO: get sum reactions for all shouts in topic
+		'shouts': {},
+		'topics': {},
+		'reactions': {}
 	}
-	this_day_reactions = {}
+	rating = {
+		'shouts': {},
+		'topics': {},
+		'reactions': {}
+	}
+	reactions = []
 	to_flush = []
 	period = 30*60  # sec
 	lock = asyncio.Lock()
 
 	@staticmethod
-	def init(session):
+	def prepare(session):
 		self = ReactedStorage
-		reactions = session.query(ReactedByDay).all()
-
-		for reaction in reactions:
+		all_reactions = session.query(ReactedByDay).all()
+		day_start = datetime.now().replace(hour=0, minute=0, second=0)
+		for reaction in all_reactions:
+			day = reaction.day
 			shout = reaction.shout
-			value = reaction.value
-			if shout:
-				old_value = self.reacted['shouts'].get(shout, 0)
-				self.reacted['shouts'][shout] = old_value + value
-			if not shout in self.this_day_reactions:
-				self.this_day_reactions[shout] = reaction
-			this_day_reaction = self.this_day_reactions[shout]
-			if this_day_reaction.day < reaction.day:
-				self.this_day_reactions[shout] = reaction
+			topics = session.query(ShoutTopic.topic).where(ShoutTopic.shout == shout).all()
+			kind = reaction.kind
+   
+			self.reacted['shouts'][shout] = self.reacted['shouts'].get(shout, 0) + 1
+			self.rating['shouts'][shout] = self.rating['shouts'].get(shout, 0) + kind_to_rate(kind)
+   
+			for t in topics:
+				self.reacted['topics'][t] = self.reacted['topics'].get(t, 0) + 1 # reactions amount
+				self.rating['topics'][t] = self.rating['topics'].get(t, 0) + kind_to_rate(kind) # rating
+	
+			if reaction.reply:
+				self.reacted['reactions'][reaction.reply] = self.reacted['reactions'].get(reaction.reply, 0) + 1
+				self.rating['reactions'][reaction.reply] = self.rating['reactions'].get(reaction.reply, 0) + kind_to_rate(reaction.kind)
+
+		print('[stat.reacted] %d shouts reacted' % len(self.reacted['shouts']))
+		print('[stat.reacted] %d reactions reacted' % len(self.reacted['reactions']))
 		
-		print('[service.reacted] watching %d shouts' % len(reactions))
 
 	@staticmethod
 	async def get_shout(shout_slug):
@@ -55,7 +66,24 @@ class ReactedStorage:
 		async with self.lock:
 			return self.reacted['shouts'].get(shout_slug, 0)
 	
-	# NOTE: this method is never called
+	@staticmethod
+	async def get_topic(topic_slug):
+		self = ReactedStorage
+		async with self.lock:
+			return self.reacted['topics'].get(topic_slug, 0)
+
+	@staticmethod
+	async def get_rating(shout_slug):
+		self = ReactedStorage
+		async with self.lock:
+			return self.reacted['shouts'].get(shout_slug, 0)
+
+	@staticmethod
+	async def get_topic_rating(topic_slug):
+		self = ReactedStorage
+		async with self.lock:
+			return self.rating['topics'].get(topic_slug, 0)
+
 	@staticmethod
 	async def get_reaction(reaction_id):
 		self = ReactedStorage
@@ -63,63 +91,35 @@ class ReactedStorage:
 			return self.reacted['reactions'].get(reaction_id, 0)
 
 	@staticmethod
-	async def inc_shout(shout_slug):
+	async def get_reaction_rating(reaction_id):
 		self = ReactedStorage
 		async with self.lock:
-			this_day_reaction = self.this_day_reactions.get(shout_slug)
-			day_start = datetime.now().replace(hour=0, minute=0, second=0)
-			if not this_day_reaction or this_day_reaction.day < day_start:
-				if this_day_reaction and getattr(this_day_reaction, "modified", False):
-					self.to_flush.append(this_day_reaction)
-				this_day_reaction = ReactedByDay.create(shout=shout_slug, value=1)
-				self.this_day_reactions[shout_slug] = this_day_reaction
-			else:
-				this_day_reaction.value = this_day_reaction.value + 1
-			this_day_reaction.modified = True
-			old_value = self.reacted['shouts'].get(shout_slug, 0)
-			self.reacted['shotus'][shout_slug] = old_value + 1
+			return self.rating['reactions'].get(reaction_id, 0)
 
 	@staticmethod
-	async def inc_reaction(shout_slug, reaction_id):
+	async def increment(shout_slug, kind, reply_id = None):
 		self = ReactedStorage
+		reaction: ReactedByDay = None
 		async with self.lock:
-			this_day_reaction = self.this_day_reactions.get(reaction_id)
-			day_start = datetime.now().replace(hour=0, minute=0, second=0)
-			if not this_day_reaction or this_day_reaction.day < day_start:
-				if this_day_reaction and getattr(this_day_reaction, "modified", False):
-					self.to_flush.append(this_day_reaction)
-				this_day_reaction = ReactedByDay.create(
-					shout=shout_slug, reaction=reaction_id, value=1)
-				self.this_day_reactions[shout_slug] = this_day_reaction
-			else:
-				this_day_reaction.value = this_day_reaction.value + 1
-			this_day_reaction.modified = True
-			old_value = self.reacted['shouts'].get(shout_slug, 0)
-			self.reacted['shouts'][shout_slug] = old_value + 1
-			old_value = self.reacted['reactions'].get(shout_slug, 0)
-			self.reacted['reaction'][reaction_id] = old_value + 1
-
-	@staticmethod
-	async def flush_changes(session):
-		self = ReactedStorage
-		async with self.lock:
-			for reaction in self.this_day_reactions.values():
-				if getattr(reaction, "modified", False):
-					session.add(reaction)
-					flag_modified(reaction, "value")
-					reaction.modified = False
-			for reaction in self.to_flush:
-				session.add(reaction)
-			self.to_flush.clear()
-		session.commit()
+			reaction = ReactedByDay.create(shout=shout_slug, kind=kind, reply=reply_id)
+			self.reacted['shouts'][shout_slug] = self.reacted['shouts'].get(shout_slug, [])
+			self.reacted['shouts'][shout_slug].append(reaction)
+			if reply_id:
+				self.reacted['reaction'][reply_id] = self.reacted['reactions'].get(shout_slug, [])
+				self.reacted['reaction'][reply_id].append(reaction)
 
 	@staticmethod
 	async def worker():
 		while True:
 			try:
 				with local_session() as session:
-					await ReactedStorage.flush_changes(session)
-					print("[service.reacted] service flushed changes")
+					ReactedStorage.prepare(session)
+					print("[stat.reacted] updated")
 			except Exception as err:
-				print("[service.reacted] errror: %s" % (err))
+				print("[stat.reacted] error: %s" % (err))
+				raise err
 			await asyncio.sleep(ReactedStorage.period)
+
+	@staticmethod
+	def init(session):
+		ReactedStorage.prepare(session)

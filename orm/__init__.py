@@ -6,6 +6,7 @@ from orm.topic import Topic, TopicFollower
 from orm.notification import Notification
 from orm.shout import Shout
 from orm.reaction import Reaction
+from services.stat.reacted import ReactedStorage
 from services.zine.topics import TopicStorage
 from services.auth.users import UserStorage
 from services.stat.viewed import ViewedStorage
@@ -24,6 +25,7 @@ Role.init_table()
 
 with local_session() as session:
 	ViewedStorage.init(session)
+	ReactedStorage.init(session)
 	RoleStorage.init(session)
 	UserStorage.init(session)
 	TopicStorage.init(session)

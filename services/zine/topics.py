@@ -12,9 +12,9 @@ class TopicStorage:
 		topics = session.query(Topic)
 		self.topics = dict([(topic.slug, topic) for topic in topics])
 		for topic in self.topics.values():
-			self.load_parents(topic) # TODO: test
+			self.load_parents(topic)
 		
-		print('[service.topics] %d ' % len(self.topics.keys()))
+		print('[zine.topics] %d ' % len(self.topics.keys()))
 
 	@staticmethod
 	def load_parents(topic):

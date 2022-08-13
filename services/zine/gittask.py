@@ -53,10 +53,10 @@ class GitTask:
 	
 	@staticmethod
 	async def git_task_worker():
-		print("[resolvers.git] worker start")
+		print("[service.git] worker start")
 		while True:
 			task = await GitTask.queue.get()
 			try:
 				task.execute()
 			except Exception as err:
-				print("[resolvers.git] worker error: %s" % (err))
+				print("[service.git] worker error: %s" % (err))

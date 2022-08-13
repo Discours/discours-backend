@@ -2,12 +2,11 @@
 import asyncio
 from datetime import datetime, timedelta
 from sqlalchemy import and_, desc, func, select
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import selectinload
 from base.orm import local_session
 from orm.reaction import Reaction
 from orm.shout import Shout
-from orm.topic import Topic
-from services.zine.reactions import ReactionsStorage
+from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedByDay
 
 
@@ -27,11 +26,11 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = await ReactionsStorage.shout_rating(shout.slug) or 0
+				shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.recent_published = shouts
-			print("[service.shoutscache] %d recently published shouts " % len(shouts))
+			print("[zine.cache] %d recently published shouts " % len(shouts))
 
 	@staticmethod
 	async def prepare_recent_all():
@@ -47,11 +46,11 @@ class ShoutsCache:
 			for row in session.execute(stmt):
 				shout = row.Shout
 				# shout.topics = [t.slug for t in shout.topics]
-				shout.rating = await ReactionsStorage.shout_rating(shout.slug) or 0
+				shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
 				shouts.append(shout)
 		async with ShoutsCache.lock:
 			ShoutsCache.recent_all = shouts
-			print("[service.shoutscache] %d recently created shouts " % len(shouts))
+			print("[zine.cache] %d recently created shouts " % len(shouts))
 
 	@staticmethod
 	async def prepare_recent_reacted():
@@ -70,11 +69,11 @@ class ShoutsCache:
 			for row in session.execute(stmt):
 				shout = row.Shout
 				# shout.topics = [t.slug for t in shout.topics]
-				shout.rating = await ReactionsStorage.shout_rating(shout.slug) or 0
+				shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
 				shouts.append(shout)
 			async with ShoutsCache.lock:
 				ShoutsCache.recent_reacted = shouts
-				print("[service.shoutscache] %d recently reacted shouts " % len(shouts))
+				print("[zine.cache] %d recently reacted shouts " % len(shouts))
 
 
 	@staticmethod
@@ -93,11 +92,11 @@ class ShoutsCache:
 			# with rating synthetic counter
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = await ReactionsStorage.shout_rating(shout.slug) or 0
+				shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
 				shouts.append(shout)
 			shouts.sort(key = lambda shout: shout.rating, reverse = True)
 			async with ShoutsCache.lock:
-				print("[service.shoutscache] %d top shouts " % len(shouts))
+				print("[zine.cache] %d top shouts " % len(shouts))
 				ShoutsCache.top_overall = shouts
 
 	@staticmethod
@@ -114,11 +113,11 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = await ReactionsStorage.shout_rating(shout.slug) or 0
+				shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
 				shouts.append(shout)
 			shouts.sort(key = lambda shout: shout.rating, reverse = True)
 			async with ShoutsCache.lock:
-				print("[service.shoutscache] %d top month shouts " % len(shouts))
+				print("[zine.cache] %d top month shouts " % len(shouts))
 				ShoutsCache.top_month = shouts
 
 	@staticmethod
@@ -135,11 +134,11 @@ class ShoutsCache:
 			shouts = []
 			for row in session.execute(stmt):
 				shout = row.Shout
-				shout.rating = await ReactionsStorage.shout_rating(shout.slug) or 0
+				shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
 				shouts.append(shout)
 		# shouts.sort(key = lambda shout: shout.viewed, reverse = True)
 		async with ShoutsCache.lock:
-			print("[service.shoutscache] %d top viewed shouts " % len(shouts))
+			print("[zine.cache] %d top viewed shouts " % len(shouts))
 			ShoutsCache.top_viewed = shouts
 
 	@staticmethod
@@ -152,8 +151,8 @@ class ShoutsCache:
 				await ShoutsCache.prepare_recent_published()
 				await ShoutsCache.prepare_recent_all()
 				await ShoutsCache.prepare_recent_reacted()
-				print("[service.shoutscache] updated")
+				print("[zine.cache] updated")
 			except Exception as err:
-				print("[service.shoutscache] error: %s" % (err))
+				print("[zine.cache] error: %s" % (err))
 				raise err
 			await asyncio.sleep(ShoutsCache.period)

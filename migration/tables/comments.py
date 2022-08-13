@@ -1,7 +1,6 @@
 from datetime import datetime
 from dateutil.parser import parse as date_parse
 from orm import Reaction, User
-from orm import reaction
 from base.orm import local_session
 from migration.html2text import html2text
 from orm.reaction import ReactionKind

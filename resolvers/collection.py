@@ -1,10 +1,10 @@
-from orm.collection import Collection, CollectionFollower
+from orm.collection import Collection
 from base.orm import local_session
 from orm.user import User
 from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
-from typing import Collection, List
+from typing import Collection
 from sqlalchemy import and_
 
 @mutation.field("createCollection")
