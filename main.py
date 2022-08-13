@@ -30,7 +30,7 @@ middleware = [
 async def start_up():
 	await redis.connect()
 	viewed_storage_task = asyncio.create_task(ViewedStorage.worker())
-	reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
+	# reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
 	shouts_cache_task = asyncio.create_task(ShoutsCache.worker())
 	shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
 	topic_stat_task = asyncio.create_task(TopicStat.worker())
