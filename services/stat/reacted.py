@@ -35,7 +35,7 @@ class ReactedStorage:
 	lock = asyncio.Lock()
 
 	@staticmethod
-	def prepare(session):
+	def init(session):
 		self = ReactedStorage
 		all_reactions = session.query(ReactedByDay).all()
 		day_start = datetime.now().replace(hour=0, minute=0, second=0)
@@ -101,25 +101,10 @@ class ReactedStorage:
 		self = ReactedStorage
 		reaction: ReactedByDay = None
 		async with self.lock:
-			reaction = ReactedByDay.create(shout=shout_slug, kind=kind, reply=reply_id)
-			self.reacted['shouts'][shout_slug] = self.reacted['shouts'].get(shout_slug, [])
-			self.reacted['shouts'][shout_slug].append(reaction)
-			if reply_id:
-				self.reacted['reaction'][reply_id] = self.reacted['reactions'].get(shout_slug, [])
-				self.reacted['reaction'][reply_id].append(reaction)
-
-	@staticmethod
-	async def worker():
-		while True:
-			try:
-				with local_session() as session:
-					ReactedStorage.prepare(session)
-					print("[stat.reacted] updated")
-			except Exception as err:
-				print("[stat.reacted] error: %s" % (err))
-				raise err
-			await asyncio.sleep(ReactedStorage.period)
-
-	@staticmethod
-	def init(session):
-		ReactedStorage.prepare(session)
+			with local_session() as session:
+				reaction = ReactedByDay.create(shout=shout_slug, kind=kind, reply=reply_id)
+				self.reacted['shouts'][shout_slug] = self.reacted['shouts'].get(shout_slug, [])
+				self.reacted['shouts'][shout_slug].append(reaction)
+				if reply_id:
+					self.reacted['reaction'][reply_id] = self.reacted['reactions'].get(shout_slug, [])
+					self.reacted['reaction'][reply_id].append(reaction)

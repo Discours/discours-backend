@@ -252,9 +252,9 @@ type Query {
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
 
-  # collection
-  getCollection(author: String!, slug: String!): Collection!
-  shoutsByCollection(collection: String, page: Int, size: Int): [Shout]!
+  # collections
+  getUserCollections(author: String!): [Collection]!
+  shoutsByCollection(collection: String!, page: Int, size: Int): [Shout]!
 
   # communities
   getCommunity(slug: String): Community!
@@ -429,6 +429,7 @@ type Collection {
   title: String!
   desc: String
   pic: String!
+  publishedAt: DateTime
   createdAt: DateTime!
   createdBy: User!
 }

@@ -57,22 +57,22 @@ async def delete_collection(_, info, slug):
 
 	return {}
 
-@query.field("getCollection")
-async def get_collection(_, info, userslug, colslug):
+@query.field("getUserCollections")
+async def get_user_collections(_, info, userslug):
+	collections = []
 	with local_session() as session:
 		user = session.query(User).filter(User.slug == userslug).first()
 		if user:
-			collection = session.\
+			# TODO: check rights here
+			collections = session.\
 				query(Collection).\
-				where(and_(Collection.createdBy == user.id, Collection.slug == colslug)).\
-				first()
-		if not collection:
-			return {"error": "collection not found"}
-	return collection
+				where(and_(Collection.createdBy == userslug, Collection.publishedAt != None)).\
+				all()
+	return collections
 
 @query.field("getMyColelctions")
 @login_required
-async def get_collections(_, info):
+async def get_my_collections(_, info):
 	auth = info.context["request"].auth
 	user_id = auth.user_id
 	with local_session() as session:
