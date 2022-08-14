@@ -3,10 +3,10 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from orm.user import User
 from orm.topic import Topic, ShoutTopic
-from orm.reaction import Reaction, get_bookmarked
-from services.stat.reacted import ReactedStorage
+from orm.reaction import Reaction
+from services.stat.reacted import ReactedStorage, ReactionKind
 from services.stat.viewed import ViewedStorage
-from base.orm import Base, local_session
+from base.orm import Base
 
 
 class ShoutReactionsFollower(Base):
@@ -63,15 +63,9 @@ class Shout(Base):
 
     @property
     async def stat(self):
-        reacted = []
-        try:
-            with local_session() as session:
-                reacted = session.query(Reaction).where(Reaction.shout == self.slug).all()
-        except Exception as e:
-            print(e)
+        rrr = await ReactedStorage.get_shout(self.slug)
         return {
                 "viewed": await ViewedStorage.get_shout(self.slug),
-                "reacted": await ReactedStorage.get_shout(self.slug),
-                "rating": await ReactedStorage.get_rating(self.slug),
-                "bookmarked": get_bookmarked(reacted)
-            }
+			    "reacted": len(rrr),
+			    "rating": await ReactedStorage.get_rating(self.slug)
+		}

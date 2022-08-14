@@ -145,5 +145,5 @@ migration/content/**/*.md
 .DS_Store
 dump
 .vscode
-*.sql
+*dump.sql
 *.csv

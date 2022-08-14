@@ -29,7 +29,7 @@ def migrate(entry):
 	if 'wasOnineAt' in entry: user_dict['wasOnlineAt'] = parse(entry['wasOnlineAt'])
 	if entry.get('profile'):
 		# slug
-		user_dict['slug'] = entry['profile'].get('path')
+		user_dict['slug'] = entry['profile'].get('path').lower().replace(' ', '-').strip()
 		user_dict['bio'] = html2text(entry.get('profile').get('bio') or '')
 
 		# userpic
@@ -41,10 +41,10 @@ def migrate(entry):
 		# name
 		fn = entry['profile'].get('firstName', '')
 		ln = entry['profile'].get('lastName', '')
-		name = user_dict['slug'] if user_dict['slug'] else 'noname'
+		name = user_dict['slug'] if user_dict['slug'] else 'anonymous'
 		name = fn if fn else name
 		name = (name + ' ' + ln) if ln else name
-		name = entry['profile']['path'].lower().replace(' ', '-') if len(name) < 2 else name
+		name = entry['profile']['path'].lower().strip().replace(' ', '-') if len(name) < 2 else name
 		user_dict['name'] = name
 
 		# links
@@ -63,6 +63,7 @@ def migrate(entry):
 
 	user_dict['slug'] = user_dict.get('slug', user_dict['email'].split('@')[0])
 	oid = user_dict['oid']
+	user_dict['slug'] = user_dict['slug'].lower().strip().replace(' ', '-')
 	try: user = User.create(**user_dict.copy())
 	except sqlalchemy.exc.IntegrityError:
 		print('[migration] cannot create user ' + user_dict['slug'])

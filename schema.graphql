@@ -241,7 +241,7 @@ type Query {
   # reactons
   reactionsAll(page: Int!, size: Int!): [Reaction]!
   reactionsByAuthor(slug: String!, page: Int!, size: Int!): [Reaction]!
-  reactionsByShout(slug: String!): [Reaction]!
+  reactionsByShout(slug: String!, page: Int!, size: Int!): [Reaction]!
 
   # collab
   inviteAuthor(slug: String!, author: String!): Result!

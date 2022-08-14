@@ -12,14 +12,10 @@ class ShoutAuthorStorage:
 	@staticmethod
 	async def load(session):
 		self = ShoutAuthorStorage
-		authors = session.query(ShoutAuthor).all()
-		for author in authors:
-			user = author.user
-			shout = author.shout
-			if shout in self.authors_by_shout:
-				self.authors_by_shout[shout].append(user)
-			else:
-				self.authors_by_shout[shout] = [user]
+		sas = session.query(ShoutAuthor).all()
+		for sa in sas:
+			self.authors_by_shout[sa.shout] = self.authors_by_shout.get(sa.shout, [])
+			self.authors_by_shout[sa.shout].append([sa.user, sa.caption])
 		print('[zine.authors] %d shouts preprocessed' % len(self.authors_by_shout))
 
 	@staticmethod
@@ -27,6 +23,15 @@ class ShoutAuthorStorage:
 		self = ShoutAuthorStorage
 		async with self.lock:
 			return self.authors_by_shout.get(shout, [])
+
+	@staticmethod
+	async def get_author_caption(shout, author):
+		self = ShoutAuthorStorage
+		async with self.lock:
+			for a in self.authors_by_shout.get(shout, []):
+				if author in a:
+					return a[1]
+		return { "error": "author caption not found" }
 
 	@staticmethod
 	async def worker():

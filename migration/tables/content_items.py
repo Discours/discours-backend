@@ -123,12 +123,15 @@ def migrate(entry, storage):
 	#del shout_dict['ratings']
 	email = userdata.get('email')
 	slug = userdata.get('slug')
+	if not slug: raise Exception
 	with local_session() as session:
 		# c = session.query(Community).all().pop()
 		if email: user = session.query(User).filter(User.email == email).first()
 		if not user and slug: user = session.query(User).filter(User.slug == slug).first()
 		if not user and userdata: 
-			try: user = User.create(**userdata)
+			try: 
+				userdata['slug'] = userdata['slug'].lower().strip().replace(' ', '-')
+				user = User.create(**userdata)
 			except sqlalchemy.exc.IntegrityError:
 				print('[migration] user error: ' + userdata)
 			userdata['id'] = user.id

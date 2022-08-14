@@ -1,12 +1,42 @@
 import asyncio
 from datetime import datetime
 from sqlalchemy.types import Enum
-from sqlalchemy import Column, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, ForeignKey
 # from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy import Enum
+import enum
 from base.orm import Base, local_session
-from orm.reaction import Reaction, ReactionKind, kind_to_rate
 from orm.topic import ShoutTopic
 
+class ReactionKind(enum.Enum):
+	AGREE 	= 1 # +1
+	DISAGREE = 2 # -1
+	PROOF 	= 3	# +1
+	DISPROOF = 4 # -1
+	ASK		= 5 # +0 bookmark
+	PROPOSE	= 6 # +0
+	QUOTE	= 7 # +0 bookmark
+	COMMENT	= 8 # +0
+	ACCEPT	= 9 # +1
+	REJECT	= 0 # -1
+	LIKE	= 11 # +1
+	DISLIKE	= 12 # -1
+	# TYPE = <reaction index> # rating diff
+
+def kind_to_rate(kind) -> int:
+	if kind in [
+		ReactionKind.AGREE,
+		ReactionKind.LIKE,
+		ReactionKind.PROOF,
+		ReactionKind.ACCEPT
+	]: return 1
+	elif kind in [
+		ReactionKind.DISAGREE,
+		ReactionKind.DISLIKE,
+		ReactionKind.DISPROOF,
+		ReactionKind.REJECT
+	]: return -1
+	else: return 0
 class ReactedByDay(Base):
 	__tablename__ = "reacted_by_day"
 
@@ -37,12 +67,8 @@ class ReactedStorage:
 	def init(session):
 		self = ReactedStorage
 		all_reactions = session.query(ReactedByDay).all()
-		all_reactions2 = session.query(Reaction).filter(Reaction.deletedAt == None).all()
-		print('[stat.reacted] %d reactions total' % len(all_reactions or all_reactions2))
-		rrr = (all_reactions or all_reactions2)
-		create = False
-		if not all_reactions: create = True
-		for reaction in rrr:
+		print('[stat.reacted] %d reactions total' % len(all_reactions))
+		for reaction in all_reactions:
 			shout = reaction.shout
 			topics = session.query(ShoutTopic.topic).where(ShoutTopic.shout == shout).all()
 			kind = reaction.kind
@@ -64,12 +90,6 @@ class ReactedStorage:
 		print('[stat.reacted] %d topics reacted' % len(ttt))
 		print('[stat.reacted] %d shouts reacted' % len(self.reacted['shouts']))
 		print('[stat.reacted] %d reactions reacted' % len(self.reacted['reactions']))
-  
-		if len(all_reactions) == 0 and len(all_reactions2) != 0:
-			with local_session() as session:
-				for r in all_reactions2:
-					session.add(ReactedByDay(reaction=r.id, shout=r.shout, reply=r.replyTo, kind=r.kind, day=r.createdAt.replace(hour=0, minute=0, second=0)))
-				session.commit()
 
 	@staticmethod
 	async def get_shout(shout_slug):

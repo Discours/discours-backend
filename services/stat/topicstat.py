@@ -65,9 +65,9 @@ class TopicStat:
 			"shouts" : len(shouts),
 			"authors" : len(authors),
 			"followers" : len(followers),
-			"viewed": ViewedStorage.get_topic(topic),
-			"reacted" : ReactedStorage.get_topic(topic),
-			"rating" : ReactedStorage.get_topic_rating(topic),
+			"viewed": await ViewedStorage.get_topic(topic),
+			"reacted" : await ReactedStorage.get_topic(topic),
+			"rating" : await ReactedStorage.get_topic_rating(topic),
 		}
 
 	@staticmethod

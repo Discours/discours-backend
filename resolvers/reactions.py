@@ -6,6 +6,7 @@ from orm.user import User
 from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
+from services.auth.users import UserStorage
 from services.stat.reacted import ReactedStorage
 
 def reactions_follow(user, slug, auto=False):
@@ -103,11 +104,15 @@ async def delete_reaction(_, info, id):
     return {}
 
 @query.field("reactionsByShout")
-def get_shout_reactions(_, info, slug, page, size):
+async def get_shout_reactions(_, info, slug, page, size):
     offset = page * size
     reactions = []
     with local_session() as session:
-        reactions = session.query(Reaction).filter(Reaction.shout == slug).limit(size).offset(offset).all()
+        reactions = session.query(Reaction).\
+            filter(Reaction.shout == slug).\
+            limit(size).offset(offset).all()
+    for r in reactions:
+        r.createdBy = await UserStorage.get_user(r.createdBy)
     return reactions
 
 
@@ -116,12 +121,13 @@ def get_all_reactions(_, info, page=1, size=10):
     offset = page * size
     reactions = []
     with local_session() as session:
-        stmt = session.query(Reaction).\
+        # raw sql: statement = text(open('queries/reactions-all.sql', 'r').read()))
+        statement = session.query(Reaction).\
             filter(Reaction.deletedAt == None).\
             order_by(desc("createdAt")).\
             offset(offset).limit(size)
         reactions = []
-        for row in session.execute(stmt):
+        for row in session.execute(statement):
             reaction = row.Reaction
             reactions.append(reaction)
         reactions.sort(key=lambda x: x.createdAt, reverse=True)
