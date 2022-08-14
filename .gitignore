@@ -146,3 +146,4 @@ migration/content/**/*.md
 dump
 .vscode
 *.sql
+*.csv

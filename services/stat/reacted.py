@@ -13,7 +13,7 @@ class ReactedByDay(Base):
 	id = None
 	reaction = Column(ForeignKey("reaction.id"), primary_key = True)
 	shout = Column(ForeignKey('shout.slug'), primary_key=True)
-	reply = Column(ForeignKey('reaction.id'), nullable=True)
+	replyTo = Column(ForeignKey('reaction.id'), nullable=True)
 	kind: int = Column(Enum(ReactionKind), nullable=False, comment="Reaction kind")
 	day = Column(DateTime, primary_key=True, default=datetime.now)
 

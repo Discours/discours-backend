@@ -1,10 +1,12 @@
 ''' cmd managed migration '''
+import csv
 from datetime import datetime
 import json
 import subprocess
 import sys
 import os
-
+import bs4
+import numpy as np
 # from export import export_email_subscriptions
 from .export import export_mdx, export_slug
 from orm.reaction import Reaction
@@ -77,6 +79,8 @@ def shouts_handle(storage, args):
 	counter = 0
 	discours_author = 0
 	pub_counter = 0
+	topics_dataset_bodies = []
+	topics_dataset_tlist = []
 	for entry in storage['shouts']['data']:
 		# slug
 		slug = get_shout_slug(entry)
@@ -104,6 +108,14 @@ def shouts_handle(storage, args):
 		counter += 1
 		line = str(counter+1) + ': ' + shout['slug'] + " @" + author
 		print(line)
+		b = bs4.BeautifulSoup(shout['body'], 'html.parser')
+		texts = []
+		texts.append(shout['title'].lower().replace(r'[^а-яА-Яa-zA-Z]', ''))
+		texts = b.findAll(text=True)
+		topics_dataset_bodies.append(u" ".join([x.strip().lower() for x in texts]))
+		topics_dataset_tlist.append(shout['topics'])
+  
+	np.savetxt('topics_dataset.csv', (topics_dataset_bodies, topics_dataset_tlist), delimiter=',', fmt='%s')
 
 	print('[migration] ' + str(counter) + ' content items were migrated')
 	print('[migration] ' + str(pub_counter) + ' have been published')

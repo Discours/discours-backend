@@ -1,4 +1,5 @@
 frontmatter
+numpy
 aioredis
 ariadne
 pyjwt>=2.0.0

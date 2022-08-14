@@ -91,7 +91,7 @@ def migrate(entry, storage):
 						# creating reaction from old rating
 						rr = Reaction.create(**re_reaction_dict)
 						day = (re_reaction_dict.get('createdAt') or ts).replace(hour=0, minute=0, second=0, microsecond=0)
-						ReactedByDay.create(shout=rr.shout, reaction=rr.id, kind=rr.kind, day=day)
+						ReactedByDay.create(shout=rr.shout, reaction=rr.id, kind=rr.kind, day=day, replyTo=reaction.id)
 				
 					except Exception as e:
 						print('[migration] comment rating error: %r' % re_reaction_dict)
