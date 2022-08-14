@@ -92,20 +92,29 @@ class ReactedStorage:
 	@staticmethod
 	async def get_rating(shout_slug):
 		self = ReactedStorage
+		rating = 0
 		async with self.lock:
-			return self.reacted['shouts'].get(shout_slug, 0)
+			for r in self.reacted['shouts'].get(shout_slug, []):
+				rating = rating + kind_to_rate(r.kind)
+		return rating
 
 	@staticmethod
 	async def get_topic_rating(topic_slug):
 		self = ReactedStorage
+		rating = 0
 		async with self.lock:
-			return self.rating['topics'].get(topic_slug, 0)
+			for r in self.reacted['topics'].get(topic_slug, []):
+				rating = rating + kind_to_rate(r.kind)
+		return rating
 
 	@staticmethod
 	async def get_reaction_rating(reaction_id):
 		self = ReactedStorage
+		rating = 0
 		async with self.lock:
-			return self.rating['reactions'].get(reaction_id, 0)
+			for r in self.reacted['reactions'].get(reaction_id, []):
+				rating = rating + kind_to_rate(r.kind)
+		return rating
 
 	@staticmethod
 	async def increment(shout_slug, kind, reply_id = None):
