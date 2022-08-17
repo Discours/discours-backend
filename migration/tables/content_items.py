@@ -1,7 +1,7 @@
 from dateutil.parser import parse as date_parse
 import sqlalchemy
 from orm.shout import Shout, ShoutTopic, User
-from services.stat.reacted import ReactedByDay
+from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedByDay
 from transliterate import translit
 from datetime import datetime
@@ -162,7 +162,8 @@ def migrate(entry, storage):
 				print('[migration] something went wrong with shout: \n%r' % shout_dict)
 				raise e
 			session.commit()
-	except:
+	except Exception as e:
+		print(e)
 		print(s)
 		raise Exception
 	
@@ -217,7 +218,7 @@ def migrate(entry, storage):
 					else:
 						day = (reaction_dict.get('createdAt') or ts).replace(hour=0, minute=0, second=0, microsecond=0)
 						rea = Reaction.create(**reaction_dict)
-						ReactedByDay.create(shout=rea.shout, reaction=rea.id, kind=rea.kind, day=day)
+						ReactedStorage.increment(rea)
 					# shout_dict['ratings'].append(reaction_dict)
 	except:
 		print('[migration] content_item.ratings error: \n%r' % content_rating)

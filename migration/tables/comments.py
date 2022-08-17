@@ -4,8 +4,7 @@ from orm import Reaction, User
 from base.orm import local_session
 from migration.html2text import html2text
 from orm.reaction import ReactionKind
-from orm.shout import Shout
-from services.stat.reacted import ReactedByDay
+from services.stat.reacted import ReactedStorage
 
 ts = datetime.now()
 
@@ -73,7 +72,7 @@ def migrate(entry, storage):
 				# creating reaction from old comment
 				day = (reaction_dict.get('createdAt') or ts).replace(hour=0, minute=0, second=0, microsecond=0)
 				reaction = Reaction.create(**reaction_dict)
-				ReactedByDay.create(shout=reaction.shout, reaction=reaction.id, kind=reaction.kind, day=day)
+				ReactedStorage.increment(reaction)
 				
 				reaction_dict['id'] = reaction.id
 				for comment_rating_old in entry.get('ratings',[]):
@@ -90,8 +89,7 @@ def migrate(entry, storage):
 					try:
 						# creating reaction from old rating
 						rr = Reaction.create(**re_reaction_dict)
-						day = (re_reaction_dict.get('createdAt') or ts).replace(hour=0, minute=0, second=0, microsecond=0)
-						ReactedByDay.create(shout=rr.shout, reaction=rr.id, kind=rr.kind, day=day, replyTo=reaction.id)
+						ReactedStorage.increment(rr)
 				
 					except Exception as e:
 						print('[migration] comment rating error: %r' % re_reaction_dict)
