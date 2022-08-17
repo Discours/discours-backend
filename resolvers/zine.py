@@ -123,25 +123,30 @@ async def shouts_by_authors(_, info, slugs, page, size):
             a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
     return shouts
 
+SINGLE_COMMUNITY = True
+
 @query.field("shoutsByCommunities")
 async def shouts_by_communities(_, info, slugs, page, size):
-    page = page - 1
-    with local_session() as session:
-        #TODO fix postgres high load
-        shouts = session.query(Shout).distinct().\
-            join(ShoutTopic).\
-            where(and_(Shout.publishedAt != None,\
-                ShoutTopic.topic.in_(\
-                select(Topic.slug).where(Topic.community.in_(slugs))\
-            ))).\
-            order_by(desc(Shout.publishedAt)).\
-            limit(size).\
-            offset(page * size)
-    
-    for s in shouts:
-        for a in s.authors:
-            a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-    return shouts
+    if SINGLE_COMMUNITY: 
+        return recent_published(_, info, page, size)
+    else:
+        page = page - 1
+        with local_session() as session:
+            #TODO fix postgres high load
+            shouts = session.query(Shout).distinct().\
+                join(ShoutTopic).\
+                where(and_(Shout.publishedAt != None,\
+                    ShoutTopic.topic.in_(\
+                    select(Topic.slug).where(Topic.community.in_(slugs))\
+                ))).\
+                order_by(desc(Shout.publishedAt)).\
+                limit(size).\
+                offset(page * size)
+        
+        for s in shouts:
+            for a in s.authors:
+                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+        return shouts
 
 @mutation.field("follow")
 @login_required

@@ -22,10 +22,9 @@ class Reaction(Base):
 
 	@property
 	async def stat(self):
-		rrr = await ReactedStorage.get_reaction(self.id)
-		print(rrr[0])
 		return {
 			"viewed": await ViewedStorage.get_reaction(self.id),
-			"reacted": len(rrr),
-			"rating": await ReactedStorage.get_reaction_rating(self.id)
+			"reacted": len(await ReactedStorage.get_reaction(self.id)),
+			"rating": await ReactedStorage.get_reaction_rating(self.id),
+			"commented": len(await ReactedStorage.get_reaction_comments(self.id))
 		}

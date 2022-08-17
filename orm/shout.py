@@ -63,9 +63,10 @@ class Shout(Base):
 
     @property
     async def stat(self):
-        rrr = await ReactedStorage.get_shout(self.slug)
         return {
-                "viewed": await ViewedStorage.get_shout(self.slug),
-			    "reacted": len(rrr),
-			    "rating": await ReactedStorage.get_rating(self.slug)
+            "viewed": await ViewedStorage.get_shout(self.slug),
+            "reacted": len(await ReactedStorage.get_shout(self.slug)),
+            "commented": len(await ReactedStorage.get_comments(self.slug)),
+            "rating": await ReactedStorage.get_rating(self.slug),
+            "bookmarked": len(await ReactedStorage.get_bookmarked(self.slug))
 		}
