@@ -253,6 +253,7 @@ type Query {
   topicsByAuthor(author: String!): [Topic]!
 
   # collections
+  collectionsAll: [Collection]!
   getUserCollections(author: String!): [Collection]!
   shoutsByCollection(collection: String!, page: Int, size: Int): [Shout]!
 
@@ -429,7 +430,7 @@ type Collection {
   slug: String!
   title: String!
   desc: String
-  pic: String!
+  amount: Int
   publishedAt: DateTime
   createdAt: DateTime!
   createdBy: User!

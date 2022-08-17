@@ -5,7 +5,6 @@ from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
 from orm.topic import ShoutTopic, TopicFollower
 from typing import Dict
-
 class TopicStat:
 	shouts_by_topic = {}
 	authors_by_topic = {}
@@ -18,14 +17,14 @@ class TopicStat:
 		self = TopicStat
 		self.shouts_by_topic = {}
 		self.authors_by_topic = {}
-		shout_topics = session.query(ShoutTopic)
+		shout_topics = session.query(ShoutTopic).all()
 		for shout_topic in shout_topics:
 			topic = shout_topic.topic
 			shout = shout_topic.shout
 			if topic in self.shouts_by_topic:
 				self.shouts_by_topic[topic].append(shout)
 			else:
-				self.shouts_by_topic[topic] = [shout]
+				self.shouts_by_topic[topic] = [shout, ]
 
 			authors = await ShoutAuthorStorage.get_authors(shout)
 			if topic in self.authors_by_topic:
@@ -66,7 +65,9 @@ class TopicStat:
 			"authors" : len(authors),
 			"followers" : len(followers),
 			"viewed": await ViewedStorage.get_topic(topic),
-			"reacted" : await ReactedStorage.get_topic(topic),
+			"reacted" : len(await ReactedStorage.get_topic(topic)),
+			"commented": len(await ReactedStorage.get_topic_comments(topic)),
+			"bookmarked": len(await ReactedStorage.get_topic_bookmarked(topic)),
 			"rating" : await ReactedStorage.get_topic_rating(topic),
 		}
 
