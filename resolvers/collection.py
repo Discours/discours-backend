@@ -1,4 +1,4 @@
-from orm.collection import Collection
+from orm.collection import Collection, ShoutCollection
 from base.orm import local_session
 from orm.user import User
 from base.resolvers import mutation, query
@@ -68,6 +68,25 @@ async def get_user_collections(_, info, userslug):
 				query(Collection).\
 				where(and_(Collection.createdBy == userslug, Collection.publishedAt != None)).\
 				all()
+		for c in collections:
+			shouts = session.query(ShoutCollection).filter(ShoutCollection.collection == c.id).all()
+			c.amount = len(shouts)
+	return collections
+
+@query.field("getMyCollections")
+async def get_user_collections(_, info, userslug):
+	collections = []
+	with local_session() as session:
+		user = session.query(User).filter(User.slug == userslug).first()
+		if user:
+			# TODO: check rights here
+			collections = session.\
+				query(Collection).\
+				where(and_(Collection.createdBy == userslug, Collection.publishedAt != None)).\
+				all()
+		for c in collections:
+			shouts = session.query(ShoutCollection).filter(ShoutCollection.collection == c.id).all()
+			c.amount = len(shouts)
 	return collections
 
 @query.field("getMyColelctions")

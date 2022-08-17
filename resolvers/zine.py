@@ -55,23 +55,20 @@ async def get_shout_by_slug(_, info, slug):
     all_fields = [node.name.value for node in info.field_nodes[0].selection_set.selections]
     selected_fields = set(["authors", "topics"]).intersection(all_fields)
     select_options = [selectinload(getattr(Shout, field)) for field in selected_fields]
-
+    shout = {}
     with local_session() as session:
         try: s = text(open('src/queries/shout-by-slug.sql', 'r').read() % slug)
         except: pass
-        shout_q = session.query(Shout).\
+        shout = session.query(Shout).\
             options(select_options).\
-            filter(Shout.slug == slug)
-        
-        print(shout_q.statement)
-        
-        shout = shout_q.first()
-        for a in shout.authors:
-            a.caption = await ShoutAuthorStorage.get_author_caption(slug, a.slug)
+            filter(Shout.slug == slug).first()
 
-    if not shout:
-        print(f"shout with slug {slug} not exist")
-        return {"error" : "shout not found"}
+        if not shout:
+            print(f"shout with slug {slug} not exist")
+            return {"error" : "shout not found"}
+        else:
+            for a in shout.authors:
+                a.caption = await ShoutAuthorStorage.get_author_caption(slug, a.slug)
     return shout
 
 @query.field("shoutsByTopics")
