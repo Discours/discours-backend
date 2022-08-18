@@ -47,7 +47,7 @@ class ReactedByDay(Base):
 	replyTo = Column(ForeignKey('reaction.id'), nullable=True)
 	kind: int = Column(Enum(ReactionKind), nullable=False, comment="Reaction kind")
 	day = Column(DateTime, primary_key=True, default=datetime.now)
-	comment = Column(Boolean, nullable=True)
+	comment = Column(Boolean, default=False)
 	
 
 class ReactedStorage:

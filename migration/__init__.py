@@ -172,7 +172,7 @@ async def all_handle(storage, args):
 	users_handle(storage)
 	topics_handle(storage)
 	await shouts_handle(storage, args)
-	comments_handle(storage)
+	await comments_handle(storage)
 	# export_email_subscriptions()
 	print('[migration] done!')
 
