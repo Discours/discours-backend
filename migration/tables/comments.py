@@ -8,7 +8,7 @@ from services.stat.reacted import ReactedStorage
 
 ts = datetime.now()
 
-def migrate(entry, storage):
+async def migrate(entry, storage):
 	'''
 	{
 	  "_id": "hdtwS8fSyFLxXCgSC",
@@ -72,7 +72,7 @@ def migrate(entry, storage):
 				# creating reaction from old comment
 				day = (reaction_dict.get('createdAt') or ts).replace(hour=0, minute=0, second=0, microsecond=0)
 				reaction = Reaction.create(**reaction_dict)
-				ReactedStorage.increment(reaction)
+				await ReactedStorage.increment(reaction)
 				
 				reaction_dict['id'] = reaction.id
 				for comment_rating_old in entry.get('ratings',[]):
@@ -89,7 +89,7 @@ def migrate(entry, storage):
 					try:
 						# creating reaction from old rating
 						rr = Reaction.create(**re_reaction_dict)
-						ReactedStorage.increment(rr)
+						await ReactedStorage.increment(rr)
 				
 					except Exception as e:
 						print('[migration] comment rating error: %r' % re_reaction_dict)

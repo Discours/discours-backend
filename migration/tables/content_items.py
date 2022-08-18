@@ -28,7 +28,7 @@ def get_shout_slug(entry):
 			if slug: break
 	return slug
 
-def migrate(entry, storage):
+async def migrate(entry, storage):
 	# init, set title and layout
 	r = {
 		'layout': type2layout[entry['type']],
@@ -218,7 +218,7 @@ def migrate(entry, storage):
 					else:
 						day = (reaction_dict.get('createdAt') or ts).replace(hour=0, minute=0, second=0, microsecond=0)
 						rea = Reaction.create(**reaction_dict)
-						ReactedStorage.increment(rea)
+						await ReactedStorage.increment(rea)
 					# shout_dict['ratings'].append(reaction_dict)
 	except:
 		print('[migration] content_item.ratings error: \n%r' % content_rating)

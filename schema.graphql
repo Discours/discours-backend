@@ -414,7 +414,6 @@ type Stat {
   reacted: Int
   rating: Int
   commented: Int
-  bookmarked: Int
 }
 
 type Community {

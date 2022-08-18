@@ -67,7 +67,6 @@ class TopicStat:
 			"viewed": await ViewedStorage.get_topic(topic),
 			"reacted" : len(await ReactedStorage.get_topic(topic)),
 			"commented": len(await ReactedStorage.get_topic_comments(topic)),
-			"bookmarked": len(await ReactedStorage.get_topic_bookmarked(topic)),
 			"rating" : await ReactedStorage.get_topic_rating(topic),
 		}
 

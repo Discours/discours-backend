@@ -67,6 +67,5 @@ class Shout(Base):
             "viewed": await ViewedStorage.get_shout(self.slug),
             "reacted": len(await ReactedStorage.get_shout(self.slug)),
             "commented": len(await ReactedStorage.get_comments(self.slug)),
-            "rating": await ReactedStorage.get_rating(self.slug),
-            "bookmarked": len(await ReactedStorage.get_bookmarked(self.slug))
+            "rating": await ReactedStorage.get_rating(self.slug)
 		}

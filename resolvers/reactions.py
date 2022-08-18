@@ -1,4 +1,5 @@
 from sqlalchemy import desc
+from sqlalchemy.orm import joinedload, selectinload
 from orm.reaction import Reaction
 from base.orm import local_session
 from orm.shout import ShoutReactionsFollower
@@ -112,31 +113,31 @@ async def get_shout_reactions(_, info, slug, page, size):
             filter(Reaction.shout == slug).\
             limit(size).offset(offset).all()
     for r in reactions:
-        r.createdBy = await UserStorage.get_user(r.createdBy)
+        r.createdBy = await UserStorage.get_user(r.createdBy or 'discours')
     return reactions
 
 
 @query.field("reactionsAll")
-def get_all_reactions(_, info, page=1, size=10):
+async def get_all_reactions(_, info, page=1, size=10):
     offset = page * size
     reactions = []
     with local_session() as session:
-        # raw sql: statement = text(open('queries/reactions-all.sql', 'r').read()))
-        statement = session.query(Reaction).\
+        reactions = session.query(Reaction).\
             filter(Reaction.deletedAt == None).\
             order_by(desc("createdAt")).\
             offset(offset).limit(size)
-        reactions = []
-        for row in session.execute(statement):
-            reaction = row.Reaction
-            reactions.append(reaction)
+        for r in reactions:
+            r.createdBy = await UserStorage.get_user(r.createdBy or 'discours')
+        reactions = list(reactions)
         reactions.sort(key=lambda x: x.createdAt, reverse=True)
     return reactions
 
 @query.field("reactionsByAuthor")
-def get_reactions_by_author(_, info, slug, page=1, size=50):
+async def get_reactions_by_author(_, info, slug, page=1, size=50):
     offset = page * size
     reactions = []
     with local_session() as session:
-        reactions = session.query(Reaction).filter(Reaction.createdBy == slug).limit(size).offset(offset).all()
+        reactions = session.query(Reaction).filter(Reaction.createdBy == slug).limit(size).offset(offset)
+    for r in reactions:
+        r.createdBy = await UserStorage.get_user(r.createdBy or 'discours')
     return reactions

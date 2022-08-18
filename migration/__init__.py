@@ -1,5 +1,6 @@
 ''' cmd managed migration '''
 import csv
+import asyncio
 from datetime import datetime
 import json
 import subprocess
@@ -74,7 +75,7 @@ def topics_handle(storage):
 	return storage
 
 
-def shouts_handle(storage, args):
+async def shouts_handle(storage, args):
 	''' migrating content items one by one '''
 	counter = 0
 	discours_author = 0
@@ -89,7 +90,7 @@ def shouts_handle(storage, args):
 		if '-' in args and slug not in args: continue
 
 		# migrate
-		shout = migrateShout(entry, storage)
+		shout = await migrateShout(entry, storage)
 		storage['shouts']['by_oid'][entry['_id']] = shout
 		storage['shouts']['by_slug'][shout['slug']] = shout
 		# shouts.topics
@@ -123,13 +124,13 @@ def shouts_handle(storage, args):
 	return storage
 
 
-def comments_handle(storage):
+async def comments_handle(storage):
 	id_map = {}
 	ignored_counter = 0
 	missed_shouts = {}
 	for oldcomment in storage['reactions']['data']:
 		if not oldcomment.get('deleted'):
-			reaction = migrateComment(oldcomment, storage)
+			reaction = await migrateComment(oldcomment, storage)
 			if type(reaction) == str:
 				missed_shouts[reaction] = oldcomment
 			elif type(reaction) == Reaction:
@@ -166,11 +167,11 @@ def export_one(slug, storage):
 	export_slug(slug, storage)
 
 
-def all_handle(storage, args):
+async def all_handle(storage, args):
 	print('[migration] handle everything')
 	users_handle(storage)
 	topics_handle(storage)
-	shouts_handle(storage, args)
+	await shouts_handle(storage, args)
 	comments_handle(storage)
 	# export_email_subscriptions()
 	print('[migration] done!')
@@ -213,26 +214,26 @@ def data_load():
 	content_data = []
 	try:
 		users_data = json.loads(open('migration/data/users.json').read())
-		print('[migration] ' + str(len(users_data)) + ' users ')
+		print('[migration.load] ' + str(len(users_data)) + ' users ')
 		tags_data = json.loads(open('migration/data/tags.json').read())
 		storage['topics']['tags'] = tags_data
-		print('[migration] ' + str(len(tags_data)) + ' tags ')
+		print('[migration.load] ' + str(len(tags_data)) + ' tags ')
 		cats_data = json.loads(
 			open('migration/data/content_item_categories.json').read())
 		storage['topics']['cats'] = cats_data
-		print('[migration] ' + str(len(cats_data)) + ' cats ')
+		print('[migration.load] ' + str(len(cats_data)) + ' cats ')
 		comments_data = json.loads(open('migration/data/comments.json').read())
 		storage['reactions']['data'] = comments_data
-		print('[migration] ' + str(len(comments_data)) + ' comments ')
+		print('[migration.load] ' + str(len(comments_data)) + ' comments ')
 		content_data = json.loads(open('migration/data/content_items.json').read())
 		storage['shouts']['data'] = content_data
-		print('[migration] ' + str(len(content_data)) + ' content items ')
+		print('[migration.load] ' + str(len(content_data)) + ' content items ')
 		# fill out storage
 		for x in users_data:
 			storage['users']['by_oid'][x['_id']] = x
 			# storage['users']['by_slug'][x['slug']] = x
 		# no user.slug yet
-		print('[migration] ' + str(len(storage['users']
+		print('[migration.load] ' + str(len(storage['users']
 			  ['by_oid'].keys())) + ' users by oid')
 		for x in tags_data:
 			storage['topics']['by_oid'][x['_id']] = x
@@ -240,20 +241,20 @@ def data_load():
 		for x in cats_data:
 			storage['topics']['by_oid'][x['_id']] = x
 			storage['topics']['by_slug'][x['slug']] = x
-		print('[migration] ' + str(len(storage['topics']
+		print('[migration.load] ' + str(len(storage['topics']
 			  ['by_slug'].keys())) + ' topics by slug')
 		for item in content_data:
 			slug = get_shout_slug(item)
 			storage['content_items']['by_slug'][slug] = item
 			storage['content_items']['by_oid'][item['_id']] = item
-		print('[migration] ' + str(len(content_data)) + ' content items')
+		print('[migration.load] ' + str(len(content_data)) + ' content items')
 		for x in comments_data:
 			storage['reactions']['by_oid'][x['_id']] = x
 			cid = x['contentItem']
 			storage['reactions']['by_content'][cid] = x
 			ci = storage['content_items']['by_oid'].get(cid, {})
 			if 'slug' in ci: storage['reactions']['by_slug'][ci['slug']] = x
-		print('[migration] ' + str(len(storage['reactions']
+		print('[migration.load] ' + str(len(storage['reactions']
 			  ['by_content'].keys())) + ' with comments')
 	except Exception as e: raise e
 	storage['users']['data'] = users_data
@@ -288,29 +289,25 @@ def create_pgdump():
 	])
 
 
-def handle_auto():
+async def handle_auto():
 	print('[migration] no command given, auto mode')
-	mongo_download(os.getenv('MONGODB_URL'))
+	url = os.getenv('MONGODB_URL')
+	if url: mongo_download(url)
 	bson_handle()
-	all_handle(data_load(), sys.argv)
+	await all_handle(data_load(), sys.argv)
 	create_pgdump()
 
-def migrate():
+async def main():
 	if len(sys.argv) > 1:
 		cmd=sys.argv[1]
 		if type(cmd) == str: print('[migration] command: ' + cmd)
-		if cmd == 'mongodb':
-			mongo_download(sys.argv[2])
-		elif cmd == 'bson':
-			bson_handle()
-		else:
-			storage=data_load()
-			if cmd == '-': export_one(sys.argv[2], storage)
-			else: all_handle(storage, sys.argv)
-	elif len(sys.argv) == 1:
-		handle_auto()
+		await handle_auto()
 	else:
-		print('[migration] usage: python migrate.py <command>')
-		print('[migration] commands: mongodb, bson, all, all mdx, - <slug>')
+		print('[migration] usage: python server.py migrate')
 
-if __name__ == '__main__': migrate()
+def migrate():
+	loop = asyncio.get_event_loop()
+	loop.run_until_complete(main())
+ 
+if __name__ == '__main__':
+	migrate()
