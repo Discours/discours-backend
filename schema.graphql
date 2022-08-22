@@ -380,6 +380,8 @@ type Author {
   name: String!
   userpic: String
   caption: String # only for full shout 
+  bio: strings
+  links: [String]
 }
 
 # is publication

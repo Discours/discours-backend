@@ -116,7 +116,7 @@ async def shouts_handle(storage, args):
 		topics_dataset_bodies.append(u" ".join([x.strip().lower() for x in texts]))
 		topics_dataset_tlist.append(shout['topics'])
   
-	np.savetxt('topics_dataset.csv', (topics_dataset_bodies, topics_dataset_tlist), delimiter=',', fmt='%s')
+	# np.savetxt('topics_dataset.csv', (topics_dataset_bodies, topics_dataset_tlist), delimiter=',', fmt='%s')
 
 	print('[migration] ' + str(counter) + ' content items were migrated')
 	print('[migration] ' + str(pub_counter) + ' have been published')
@@ -160,10 +160,10 @@ def bson_handle():
 	bson2json.json_tables()
 
 
-def export_one(slug, storage):
+def export_one(slug, storage, args = None):
 	topics_handle(storage)
 	users_handle(storage)
-	shouts_handle(storage)
+	shouts_handle(storage, args)
 	export_slug(slug, storage)
 
 

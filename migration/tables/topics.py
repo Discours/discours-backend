@@ -1,3 +1,4 @@
+from logging import exception
 from migration.extract import extract_md, html2text
 from base.orm import local_session
 from orm import Topic, Community
@@ -14,15 +15,14 @@ def migrate(entry):
 	topic_dict['body'] = extract_md(html2text(body_orig), entry['_id'])
 	with local_session() as session:
 		slug = topic_dict['slug']
-		topic = session.query(Topic).filter(Topic.slug == slug).first()
-		if not topic: 
-			topic = Topic.create(**topic_dict)
-		if len(topic.title) > len(topic_dict['title']):
-			topic.update({ 'title':  topic_dict['title'] })
-		if len(topic.body) < len(topic_dict['body']):
-			topic.update({ 'body':  topic_dict['body'] })
-		session.commit()
+		t: Topic = session.query(Topic).filter(Topic.slug == slug).first() or Topic.create(**topic_d) or raise Exception('topic not created')  # type: ignore
+		if t:
+			if len(t.title) > len(topic_dict['title']): 
+				Topic.update(t, {'title': topic_dict['title']})
+			if len(t.body) < len(topic_dict['body']): 
+				Topic.update(t, { 'body':  topic_dict['body'] })
+			session.commit()
 	# print(topic.__dict__)
-	rt = topic.__dict__.copy()
+	rt = t.__dict__.copy()
 	del rt['_sa_instance_state']
 	return rt
