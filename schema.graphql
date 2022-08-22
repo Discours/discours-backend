@@ -380,7 +380,7 @@ type Author {
   name: String!
   userpic: String
   caption: String # only for full shout 
-  bio: strings
+  bio: String
   links: [String]
 }
 
