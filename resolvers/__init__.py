@@ -3,7 +3,7 @@ from resolvers.zine import get_shout_by_slug, follow, unfollow, view_shout, \
 	top_month, top_overall, recent_published, recent_all, top_viewed, \
 		shouts_by_authors, shouts_by_topics, shouts_by_communities
 from resolvers.profile import get_users_by_slugs, get_current_user, get_user_reacted_shouts, get_user_roles
-from resolvers.topics import topic_follow, topic_unfollow, topics_by_author, topics_by_community, topics_by_slugs
+from resolvers.topics import topic_follow, topic_unfollow, topics_by_author, topics_by_community, topics_all
 # from resolvers.feed import shouts_for_feed, my_candidates
 from resolvers.reactions import create_reaction, delete_reaction, update_reaction, get_all_reactions
 from resolvers.collab import invite_author, remove_author
@@ -53,7 +53,7 @@ __all__ = [
 	"remove_author"
 	
 	# topics 
-	"topics_by_slugs",
+	"topics_all",
 	"topics_by_community",
 	"topics_by_author",
 	"topic_follow",
