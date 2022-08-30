@@ -27,10 +27,12 @@ class TopicStorage:
 		return topic
 
 	@staticmethod
-	async def get_topics_all():
+	async def get_topics_all(page, size):
+		end = page * size
+		start = end - size
 		self = TopicStorage
 		async with self.lock:
-			return self.topics.values()
+			return self.topics.values()[start:end]
 
 	@staticmethod
 	async def get_topics_by_slugs(slugs):

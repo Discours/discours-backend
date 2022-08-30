@@ -9,7 +9,7 @@ from auth.authenticate import login_required
 from sqlalchemy import and_
 
 @query.field("topicsAll")
-async def topics_by_slugs(_, info, page = 1, size = 50):
+async def topics_all(_, info, page = 1, size = 50):
 	topics = await TopicStorage.get_topics_all(page, size)
 	for topic in topics:
 		topic.stat = await TopicStat.get_stat(topic.slug)

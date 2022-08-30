@@ -160,5 +160,8 @@ def author_unfollow(user, slug):
 			session.commit()
 
 @query.field("authorsAll")
-def get_authors_all(_, info):
-	return UserStorage.get_all_users()
+def get_authors_all(_, info, page, size):
+	end = page * size
+	start = end - size
+	return UserStorage.get_all_users()[start:end]
+
