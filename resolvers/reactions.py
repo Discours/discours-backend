@@ -50,9 +50,9 @@ def reactions_unfollow(user, slug):
 @login_required
 async def create_reaction(_, info, inp):
     user = info.context["request"].user
-    
+
     # TODO: filter allowed reaction kinds
-    
+
     reaction = Reaction.create(**inp)
     ReactedStorage.increment(reaction.shout, reaction.replyTo)
     try:
@@ -110,6 +110,19 @@ async def get_shout_reactions(_, info, slug, page, size):
     reactions = []
     with local_session() as session:
         reactions = session.query(Reaction).\
+            filter(Reaction.shout == slug).\
+            limit(size).offset(offset).all()
+    for r in reactions:
+        r.createdBy = await UserStorage.get_user(r.createdBy or 'discours')
+    return reactions
+
+@query.field("reactionsForSlugs")
+async def get_shout_reactions(_, info, slugs, page, size):
+    offset = page * size
+    reactions = []
+    with local_session() as session:
+      for slug in slugs:
+        reactions += session.query(Reaction).\
             filter(Reaction.shout == slug).\
             limit(size).offset(offset).all()
     for r in reactions:

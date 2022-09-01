@@ -242,6 +242,7 @@ type Query {
   reactionsAll(page: Int!, size: Int!): [Reaction]!
   reactionsByAuthor(slug: String!, page: Int!, size: Int!): [Reaction]!
   reactionsByShout(slug: String!, page: Int!, size: Int!): [Reaction]!
+  reactionsForSlugs(slugs: [String]!, page: Int!, size: Int!): [Reaction]!
 
   # collab
   inviteAuthor(slug: String!, author: String!): Result!
@@ -347,13 +348,13 @@ enum ReactionKind {
 
   PROOF
   DISPROOF
-  
+
   COMMENT
   QUOTE
-  
+
   PROPOSE
   ASK
-  
+
   ACCEPT
   REJECT
 }
@@ -379,7 +380,7 @@ type Author {
   slug: String!
   name: String!
   userpic: String
-  caption: String # only for full shout 
+  caption: String # only for full shout
   bio: String
   links: [String]
 }

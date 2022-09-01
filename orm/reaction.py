@@ -25,6 +25,7 @@ class Reaction(Base):
 		return {
 			"viewed": await ViewedStorage.get_reaction(self.id),
 			"reacted": len(await ReactedStorage.get_reaction(self.id)),
+			# TODO: "replied"
 			"rating": await ReactedStorage.get_reaction_rating(self.id),
 			"commented": len(await ReactedStorage.get_reaction_comments(self.id))
 		}
