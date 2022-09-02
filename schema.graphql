@@ -245,8 +245,7 @@ type Query {
   reactionsForSlugs(slugs: [String]!, page: Int!, size: Int!): [Reaction]!
 
   # collab
-  inviteAuthor(slug: String!, author: String!): Result!
-  removeAuthor(slug: String!, author: String!): Result
+  getCollabs: [Collab]!
 
   # topics
   topicsAll(page: Int!, size: Int!): [Topic]!
@@ -339,6 +338,14 @@ type User {
   oid: String
 }
 
+type Collab {
+ authors: [String]!
+ invites: [String]
+ createdAt: DateTime!
+ title: String
+ body: String
+}
+
 enum ReactionKind {
   LIKE
   DISLIKE
@@ -392,7 +399,7 @@ type Shout {
   body: String!
   createdAt: DateTime!
   authors: [Author]
-  # ratings: [Rating]
+  lang: String
   community: String
   cover: String
   layout: String
