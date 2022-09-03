@@ -39,7 +39,7 @@ class ViewedStorage:
             for t in topics:
                 old_topic_value = self.viewed["topics"].get(t, 0)
                 self.viewed["topics"][t] = old_topic_value + value
-            if not shout in self.this_day_views:
+            if shout not in self.this_day_views:
                 self.this_day_views[shout] = view
             this_day_view = self.this_day_views[shout]
             if this_day_view.day < view.day:

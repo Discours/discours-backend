@@ -1,16 +1,14 @@
 import asyncio
 from datetime import datetime
-from sqlalchemy.types import Enum
 from sqlalchemy import Column, DateTime, ForeignKey, Boolean
-
-# from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy import Enum
-import enum
-from base.orm import Base, local_session
+from base.orm import Base
+from orm.reaction import Reaction
 from orm.topic import ShoutTopic
+from enum import Enum as Enumeration
+from sqlalchemy.types import Enum as ColumnEnum
 
 
-class ReactionKind(enum.Enum):
+class ReactionKind(Enumeration):
     AGREE = 1  # +1
     DISAGREE = 2  # -1
     PROOF = 3  # +1
@@ -48,11 +46,11 @@ def kind_to_rate(kind) -> int:
 class ReactedByDay(Base):
     __tablename__ = "reacted_by_day"
 
-    id = None
+    id = None  # type: ignore
     reaction = Column(ForeignKey("reaction.id"), primary_key=True)
     shout = Column(ForeignKey("shout.slug"), primary_key=True)
     replyTo = Column(ForeignKey("reaction.id"), nullable=True)
-    kind: int = Column(Enum(ReactionKind), nullable=False, comment="Reaction kind")
+    kind = Column(ColumnEnum(ReactionKind), nullable=False, comment="Reaction kind")
     day = Column(DateTime, primary_key=True, default=datetime.now)
     comment = Column(Boolean, default=False)
 
@@ -82,7 +80,7 @@ class ReactedStorage:
         self = ReactedStorage
         async with self.lock:
             return list(
-                filter(lambda r: r.comment, self.reacted["shouts"].get(shout_slug, []))
+                filter(lambda r: r.comment, self.reacted["shouts"].get(shout_slug, {}))
             )
 
     @staticmethod
@@ -90,7 +88,7 @@ class ReactedStorage:
         self = ReactedStorage
         async with self.lock:
             return list(
-                filter(lambda r: r.comment, self.reacted["topics"].get(topic_slug, []))
+                filter(lambda r: r.comment, self.reacted["topics"].get(topic_slug, {}))
             )
 
     @staticmethod
@@ -98,7 +96,7 @@ class ReactedStorage:
         self = ReactedStorage
         async with self.lock:
             return list(
-                filter(lambda r: r.comment, self.reacted["reactions"].get(reaction_id))
+                filter(lambda r: r.comment, self.reacted["reactions"].get(reaction_id, {}))
             )
 
     @staticmethod
@@ -135,39 +133,29 @@ class ReactedStorage:
         return rating
 
     @staticmethod
-    async def increment(reaction):
+    async def increment(reaction: Reaction):  # type: ignore
         self = ReactedStorage
-        async with self.lock:
-            with local_session() as session:
-                r = {
-                    "day": datetime.now().replace(
-                        hour=0, minute=0, second=0, microsecond=0
-                    ),
-                    "reaction": reaction.id,
-                    "kind": reaction.kind,
-                    "shout": reaction.shout,
-                }
-                if reaction.replyTo:
-                    r["replyTo"] = reaction.replyTo
-                if reaction.body:
-                    r["comment"] = True
-                reaction = ReactedByDay.create(**r)
-                self.reacted["shouts"][reaction.shout] = self.reacted["shouts"].get(
-                    reaction.shout, []
-                )
-                self.reacted["shouts"][reaction.shout].append(reaction)
-                if reaction.replyTo:
-                    self.reacted["reaction"][reaction.replyTo] = self.reacted[
-                        "reactions"
-                    ].get(reaction.shout, [])
-                    self.reacted["reaction"][reaction.replyTo].append(reaction)
-                    self.rating["reactions"][reaction.replyTo] = self.rating[
-                        "reactions"
-                    ].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
-                else:
-                    self.rating["shouts"][reaction.replyTo] = self.rating["shouts"].get(
-                        reaction.shout, 0
-                    ) + kind_to_rate(reaction.kind)
+        r = {
+            "day": datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
+            "reaction": reaction.id,
+            "kind": reaction.kind,
+            "shout": reaction.shout,
+        }
+        if reaction.replyTo:
+            r["replyTo"] = reaction.replyTo
+        if reaction.body:
+            r["comment"] = True
+        reaction: ReactedByDay = ReactedByDay.create(**r)  # type: ignore
+        self.reacted["shouts"][reaction.shout] = self.reacted["shouts"].get(reaction.shout, [])
+        self.reacted["shouts"][reaction.shout].append(reaction)
+        if reaction.replyTo:
+            self.reacted["reaction"][reaction.replyTo] = self.reacted["reactions"].get(reaction.shout, [])
+            self.reacted["reaction"][reaction.replyTo].append(reaction)
+            self.rating["reactions"][reaction.replyTo] = \
+                self.rating["reactions"].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
+        else:
+            self.rating["shouts"][reaction.replyTo] = \
+                self.rating["shouts"].get(reaction.shout, 0) + kind_to_rate(reaction.kind)
 
     @staticmethod
     def init(session):
@@ -176,16 +164,11 @@ class ReactedStorage:
         print("[stat.reacted] %d reactions total" % len(all_reactions))
         for reaction in all_reactions:
             shout = reaction.shout
-            topics = (
-                session.query(ShoutTopic.topic).where(ShoutTopic.shout == shout).all()
-            )
+            topics = (session.query(ShoutTopic.topic).where(ShoutTopic.shout == shout).all())
             kind = reaction.kind
-
             self.reacted["shouts"][shout] = self.reacted["shouts"].get(shout, [])
             self.reacted["shouts"][shout].append(reaction)
-            self.rating["shouts"][shout] = self.rating["shouts"].get(
-                shout, 0
-            ) + kind_to_rate(kind)
+            self.rating["shouts"][shout] = self.rating["shouts"].get(shout, 0) + kind_to_rate(kind)
 
             for t in topics:
                 self.reacted["topics"][t] = self.reacted["topics"].get(t, [])
@@ -197,13 +180,11 @@ class ReactedStorage:
                 )  # rating
 
             if reaction.replyTo:
-                self.reacted["reactions"][reaction.replyTo] = self.reacted[
-                    "reactions"
-                ].get(reaction.replyTo, [])
+                self.reacted["reactions"][reaction.replyTo] = \
+                    self.reacted["reactions"].get(reaction.replyTo, [])
                 self.reacted["reactions"][reaction.replyTo].append(reaction)
-                self.rating["reactions"][reaction.replyTo] = self.rating[
-                    "reactions"
-                ].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
+                self.rating["reactions"][reaction.replyTo] = \
+                    self.rating["reactions"].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
         ttt = self.reacted["topics"].values()
         print("[stat.reacted] %d topics reacted" % len(ttt))
         print("[stat.reacted] %d shouts reacted" % len(self.reacted["shouts"]))

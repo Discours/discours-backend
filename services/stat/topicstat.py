@@ -4,7 +4,6 @@ from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
 from orm.topic import ShoutTopic, TopicFollower
-from typing import Dict
 
 
 class TopicStat:
