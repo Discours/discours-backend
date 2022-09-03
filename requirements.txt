@@ -17,3 +17,4 @@ requests
 bcrypt
 websockets
 bson
+flake8

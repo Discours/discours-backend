@@ -12,9 +12,19 @@ from services.auth.users import UserStorage
 from services.stat.viewed import ViewedStorage
 from base.orm import Base, engine, local_session
 
-__all__ = ["User", "Role", "Operation", "Permission", \
-	"Community", "Shout", "Topic", "TopicFollower", \
-    "Notification", "Reaction", "UserRating"]
+__all__ = [
+    "User",
+    "Role",
+    "Operation",
+    "Permission",
+    "Community",
+    "Shout",
+    "Topic",
+    "TopicFollower",
+    "Notification",
+    "Reaction",
+    "UserRating",
+]
 
 Base.metadata.create_all(engine)
 Operation.init_table()
@@ -24,8 +34,8 @@ Community.init_table()
 Role.init_table()
 
 with local_session() as session:
-	ViewedStorage.init(session)
-	ReactedStorage.init(session)
-	RoleStorage.init(session)
-	UserStorage.init(session)
-	TopicStorage.init(session)
+    ViewedStorage.init(session)
+    ReactedStorage.init(session)
+    RoleStorage.init(session)
+    UserStorage.init(session)
+    TopicStorage.init(session)

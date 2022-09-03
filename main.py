@@ -19,31 +19,40 @@ from services.stat.topicstat import TopicStat
 from services.zine.shoutauthor import ShoutAuthorStorage
 import asyncio
 
-import_module('resolvers')
-schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)
+import_module("resolvers")
+schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
 
 middleware = [
-	Middleware(AuthenticationMiddleware, backend=JWTAuthenticate()),
-	Middleware(SessionMiddleware, secret_key="!secret")
+    Middleware(AuthenticationMiddleware, backend=JWTAuthenticate()),
+    Middleware(SessionMiddleware, secret_key="!secret"),
 ]
+
 
 async def start_up():
-	await redis.connect()
-	viewed_storage_task = asyncio.create_task(ViewedStorage.worker())
-	# reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
-	shouts_cache_task = asyncio.create_task(ShoutsCache.worker())
-	shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
-	topic_stat_task = asyncio.create_task(TopicStat.worker())
-	git_task = asyncio.create_task(GitTask.git_task_worker())
+    await redis.connect()
+    viewed_storage_task = asyncio.create_task(ViewedStorage.worker())
+    # reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
+    shouts_cache_task = asyncio.create_task(ShoutsCache.worker())
+    shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
+    topic_stat_task = asyncio.create_task(TopicStat.worker())
+    git_task = asyncio.create_task(GitTask.git_task_worker())
+
 
 async def shutdown():
-	await redis.disconnect()
+    await redis.disconnect()
+
 
 routes = [
-	Route("/oauth/{provider}", endpoint=oauth_login),
-	Route("/oauth_authorize", endpoint=oauth_authorize),
-	Route("/email_authorize", endpoint=email_authorize)
+    Route("/oauth/{provider}", endpoint=oauth_login),
+    Route("/oauth_authorize", endpoint=oauth_authorize),
+    Route("/email_authorize", endpoint=email_authorize),
 ]
 
-app = Starlette(debug=True, on_startup=[start_up], on_shutdown=[shutdown], middleware=middleware, routes=routes)
+app = Starlette(
+    debug=True,
+    on_startup=[start_up],
+    on_shutdown=[shutdown],
+    middleware=middleware,
+    routes=routes,
+)
 app.mount("/", GraphQL(schema, debug=True))
