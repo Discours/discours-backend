@@ -239,10 +239,9 @@ type Query {
   recentAll(page: Int!, size: Int!): [Shout]!
 
   # reactons
-  reactionsAll(page: Int!, size: Int!): [Reaction]!
   reactionsByAuthor(slug: String!, page: Int!, size: Int!): [Reaction]!
   reactionsByShout(slug: String!, page: Int!, size: Int!): [Reaction]!
-  reactionsForSlugs(slugs: [String]!, page: Int!, size: Int!): [Reaction]!
+  reactionsForShouts(shouts: [String]!, page: Int!, size: Int!): [Reaction]!
 
   # collab
   getCollabs: [Collab]!

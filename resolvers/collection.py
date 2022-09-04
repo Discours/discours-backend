@@ -4,15 +4,14 @@ from orm.user import User
 from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from datetime import datetime
-from typing import Collection
 from sqlalchemy import and_
 
 
 @mutation.field("createCollection")
 @login_required
 async def create_collection(_, info, input):
-    auth = info.context["request"].auth
-    user_id = auth.user_id
+    # auth = info.context["request"].auth
+    # user_id = auth.user_id
     collection = Collection.create(
         slug=input.get("slug", ""),
         title=input.get("title", ""),
@@ -73,35 +72,7 @@ async def get_user_collections(_, info, userslug):
             collections = (
                 session.query(Collection)
                 .where(
-                    and_(
-                        Collection.createdBy == userslug, Collection.publishedAt != None
-                    )
-                )
-                .all()
-            )
-        for c in collections:
-            shouts = (
-                session.query(ShoutCollection)
-                .filter(ShoutCollection.collection == c.id)
-                .all()
-            )
-            c.amount = len(shouts)
-    return collections
-
-
-@query.field("getMyCollections")
-async def get_user_collections(_, info, userslug):
-    collections = []
-    with local_session() as session:
-        user = session.query(User).filter(User.slug == userslug).first()
-        if user:
-            # TODO: check rights here
-            collections = (
-                session.query(Collection)
-                .where(
-                    and_(
-                        Collection.createdBy == userslug, Collection.publishedAt != None
-                    )
+                    and_(Collection.createdBy == userslug, bool(Collection.publishedAt))
                 )
                 .all()
             )

@@ -41,7 +41,7 @@ async def user_unpublished_shouts(_, info, page=1, size=10) -> List[Shout]:
         shouts = (
             session.query(Shout)
             .join(ShoutAuthor)
-            .where(and_(Shout.publishedAt == None, ShoutAuthor.user == user.slug))
+            .where(and_(not bool(Shout.publishedAt), ShoutAuthor.user == user.slug))
             .order_by(desc(Shout.createdAt))
             .limit(size)
             .offset(page * size)

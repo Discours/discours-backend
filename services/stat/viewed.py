@@ -114,5 +114,5 @@ class ViewedStorage:
                     await ViewedStorage.flush_changes(session)
                     print("[stat.viewed] periodical flush")
             except Exception as err:
-                print("[stat.viewed] errror: %s" % (err))
+                print("[stat.viewed] : %s" % (err))
             await asyncio.sleep(ViewedStorage.period)

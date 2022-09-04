@@ -128,11 +128,11 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 async def sign_out(_, info: GraphQLResolveInfo):
     token = info.context["request"].headers[JWT_AUTH_HEADER]
     status = await Authorize.revoke(token)
-    return True
+    return status
 
 
 @query.field("isEmailUsed")
 async def is_email_used(_, info, email):
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
-    return not user is None
+    return user is not None

@@ -21,9 +21,7 @@ class Reaction(Base):
     replyTo = Column(
         ForeignKey("reaction.id"), nullable=True, comment="Reply to reaction ID"
     )
-    range = Column(
-        String, nullable=True, comment="Range in format <start index>:<end>"
-    )
+    range = Column(String, nullable=True, comment="Range in format <start index>:<end>")
     kind = Column(Enum(ReactionKind), nullable=False, comment="Reaction kind")
     oid = Column(String, nullable=True, comment="Old ID")
 

@@ -28,10 +28,10 @@ async def create_shout(_, info, input):
         topic_slugs.append(input["mainTopic"])
 
     for slug in topic_slugs:
-        topic = ShoutTopic.create(shout=new_shout.slug, topic=slug)
+        ShoutTopic.create(shout=new_shout.slug, topic=slug)
     new_shout.topic_slugs = topic_slugs
 
-    task = GitTask(input, user.username, user.email, "new shout %s" % (new_shout.slug))
+    GitTask(input, user.username, user.email, "new shout %s" % (new_shout.slug))
 
     # await ShoutCommentsStorage.send_shout(new_shout)
 
@@ -54,10 +54,10 @@ async def update_shout(_, info, input):
         return {"error": "shout not found"}
 
     authors = [author.id for author in shout.authors]
-    if not user_id in authors:
+    if user_id not in authors:
         scopes = auth.scopes
         print(scopes)
-        if not Resource.shout_id in scopes:
+        if Resource.shout_id not in scopes:
             return {"error": "access denied"}
 
     shout.update(input)
@@ -68,7 +68,7 @@ async def update_shout(_, info, input):
     for topic in input.get("topic_slugs", []):
         ShoutTopic.create(shout=slug, topic=topic)
 
-    task = GitTask(input, user.username, user.email, "update shout %s" % (slug))
+    GitTask(input, user.username, user.email, "update shout %s" % (slug))
 
     return {"shout": shout}
 

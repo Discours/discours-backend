@@ -1,5 +1,4 @@
 from sqlalchemy import desc
-from sqlalchemy.orm import joinedload, selectinload
 from orm.reaction import Reaction
 from base.orm import local_session
 from orm.shout import ShoutReactionsFollower
@@ -24,7 +23,7 @@ def reactions_follow(user, slug, auto=False):
         if auto and fw:
             return
         elif not auto and fw:
-            if not fw.deletedAt is None:
+            if bool(fw.deletedAt):
                 fw.deletedAt = None
                 fw.auto = False
                 session.commit()
@@ -130,40 +129,23 @@ async def get_shout_reactions(_, info, slug, page, size):
     return reactions
 
 
-@query.field("reactionsForSlugs")
-async def get_shout_reactions(_, info, slugs, page, size):
+@query.field("reactionsForShouts")
+async def get_reactions_for_shouts(_, info, shoutslugs, page, size):
     offset = page * size
     reactions = []
     with local_session() as session:
-        for slug in slugs:
+        for slug in shoutslugs:
             reactions += (
                 session.query(Reaction)
                 .filter(Reaction.shout == slug)
-                .limit(size)
+                .where(not bool(Reaction.deletedAt))
+                .order_by(desc("createdAt"))
                 .offset(offset)
+                .limit(size)
                 .all()
             )
     for r in reactions:
         r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
-    return reactions
-
-
-@query.field("reactionsAll")
-async def get_all_reactions(_, info, page=1, size=10):
-    offset = page * size
-    reactions = []
-    with local_session() as session:
-        reactions = (
-            session.query(Reaction)
-            .filter(Reaction.deletedAt == None)
-            .order_by(desc("createdAt"))
-            .offset(offset)
-            .limit(size)
-        )
-        for r in reactions:
-            r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
-        reactions = list(reactions)
-        reactions.sort(key=lambda x: x.createdAt, reverse=True)
     return reactions
 
 

@@ -1,8 +1,8 @@
 import asyncio
 from datetime import datetime
 from sqlalchemy import Column, DateTime, ForeignKey, Boolean
-from base.orm import Base
-from orm.reaction import Reaction
+from sqlalchemy.orm.attributes import flag_modified
+from base.orm import Base, local_session
 from orm.topic import ShoutTopic
 from enum import Enum as Enumeration
 from sqlalchemy.types import Enum as ColumnEnum
@@ -96,7 +96,9 @@ class ReactedStorage:
         self = ReactedStorage
         async with self.lock:
             return list(
-                filter(lambda r: r.comment, self.reacted["reactions"].get(reaction_id, {}))
+                filter(
+                    lambda r: r.comment, self.reacted["reactions"].get(reaction_id, {})
+                )
             )
 
     @staticmethod
@@ -133,29 +135,45 @@ class ReactedStorage:
         return rating
 
     @staticmethod
-    async def increment(reaction: Reaction):  # type: ignore
+    async def react(reaction):
         self = ReactedStorage
-        r = {
-            "day": datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
-            "reaction": reaction.id,
-            "kind": reaction.kind,
-            "shout": reaction.shout,
-        }
-        if reaction.replyTo:
-            r["replyTo"] = reaction.replyTo
-        if reaction.body:
-            r["comment"] = True
-        reaction: ReactedByDay = ReactedByDay.create(**r)  # type: ignore
-        self.reacted["shouts"][reaction.shout] = self.reacted["shouts"].get(reaction.shout, [])
-        self.reacted["shouts"][reaction.shout].append(reaction)
-        if reaction.replyTo:
-            self.reacted["reaction"][reaction.replyTo] = self.reacted["reactions"].get(reaction.shout, [])
-            self.reacted["reaction"][reaction.replyTo].append(reaction)
-            self.rating["reactions"][reaction.replyTo] = \
-                self.rating["reactions"].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
-        else:
-            self.rating["shouts"][reaction.replyTo] = \
-                self.rating["shouts"].get(reaction.shout, 0) + kind_to_rate(reaction.kind)
+
+        async with self.lock:
+            reactions = self.reacted["shouts"].get(reaction.shout)
+            if reaction.replyTo:
+                reactions = self.reacted["reactions"].get(reaction.id)
+                for r in reactions.values():
+                    r = {
+                        "day": datetime.now().replace(
+                            hour=0, minute=0, second=0, microsecond=0
+                        ),
+                        "reaction": reaction.id,
+                        "kind": reaction.kind,
+                        "shout": reaction.shout,
+                    }
+                if reaction.replyTo:
+                    r["replyTo"] = reaction.replyTo
+                if reaction.body:
+                    r["comment"] = True
+                reaction: ReactedByDay = ReactedByDay.create(**r)  # type: ignore
+                self.reacted["shouts"][reaction.shout] = self.reacted["shouts"].get(
+                    reaction.shout, []
+                )
+                self.reacted["shouts"][reaction.shout].append(reaction)
+                if reaction.replyTo:
+                    self.reacted["reaction"][reaction.replyTo] = self.reacted[
+                        "reactions"
+                    ].get(reaction.shout, [])
+                    self.reacted["reaction"][reaction.replyTo].append(reaction)
+                    self.rating["reactions"][reaction.replyTo] = self.rating[
+                        "reactions"
+                    ].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
+                else:
+                    self.rating["shouts"][reaction.replyTo] = self.rating["shouts"].get(
+                        reaction.shout, 0
+                    ) + kind_to_rate(reaction.kind)
+
+                flag_modified(r, "value")
 
     @staticmethod
     def init(session):
@@ -164,11 +182,15 @@ class ReactedStorage:
         print("[stat.reacted] %d reactions total" % len(all_reactions))
         for reaction in all_reactions:
             shout = reaction.shout
-            topics = (session.query(ShoutTopic.topic).where(ShoutTopic.shout == shout).all())
+            topics = (
+                session.query(ShoutTopic.topic).where(ShoutTopic.shout == shout).all()
+            )
             kind = reaction.kind
             self.reacted["shouts"][shout] = self.reacted["shouts"].get(shout, [])
             self.reacted["shouts"][shout].append(reaction)
-            self.rating["shouts"][shout] = self.rating["shouts"].get(shout, 0) + kind_to_rate(kind)
+            self.rating["shouts"][shout] = self.rating["shouts"].get(
+                shout, 0
+            ) + kind_to_rate(kind)
 
             for t in topics:
                 self.reacted["topics"][t] = self.reacted["topics"].get(t, [])
@@ -180,12 +202,54 @@ class ReactedStorage:
                 )  # rating
 
             if reaction.replyTo:
-                self.reacted["reactions"][reaction.replyTo] = \
-                    self.reacted["reactions"].get(reaction.replyTo, [])
+                self.reacted["reactions"][reaction.replyTo] = self.reacted[
+                    "reactions"
+                ].get(reaction.replyTo, [])
                 self.reacted["reactions"][reaction.replyTo].append(reaction)
-                self.rating["reactions"][reaction.replyTo] = \
-                    self.rating["reactions"].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
+                self.rating["reactions"][reaction.replyTo] = self.rating[
+                    "reactions"
+                ].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
         ttt = self.reacted["topics"].values()
         print("[stat.reacted] %d topics reacted" % len(ttt))
         print("[stat.reacted] %d shouts reacted" % len(self.reacted["shouts"]))
         print("[stat.reacted] %d reactions reacted" % len(self.reacted["reactions"]))
+
+    @staticmethod
+    async def flush_changes(session):
+        self = ReactedStorage()
+        async with self.lock:
+            for slug in dict(self.reacted['shouts']).keys():
+                topics = session.query(ShoutTopic.topic).where(ShoutTopic.shout == slug).all()
+                reactions = self.reacted['shouts'][slug]
+                for ts in list(topics):
+                    try:
+                        tslug = ts.pop()
+                    except Exception:
+                        print(ts)
+                        raise Exception('error')
+                    topic_reactions = self.reacted["topics"][tslug]
+                    if not topic_reactions:
+                        topic_reactions = []
+                    topic_reactions += reactions
+                    print('[stat.reacted] topic {' + str(tslug) + "}: " + str(len(topic_reactions)))
+                reactions += list(self.reacted['reactions'].values())
+                for reaction in reactions:
+                    if getattr(reaction, "modified", False):
+                        session.add(reaction)
+                        flag_modified(reaction, "value")
+                        reaction.modified = False
+            for reaction in self.to_flush:
+                session.add(reaction)
+            self.to_flush.clear()
+        session.commit()
+
+    @staticmethod
+    async def worker():
+        while True:
+            try:
+                with local_session() as session:
+                    await ReactedStorage().flush_changes(session)
+                    print("[stat.reacted] periodical flush")
+            except Exception as err:
+                print("[stat.reacted] errror: %s" % (err))
+            await asyncio.sleep(ReactedStorage.period)

@@ -11,44 +11,44 @@ from resolvers.topics import topic_follow, topic_unfollow
 from resolvers.community import community_follow, community_unfollow
 from resolvers.reactions import reactions_follow, reactions_unfollow
 from auth.authenticate import login_required
-from sqlalchemy import select, desc, and_, text
+from sqlalchemy import select, desc, and_
 from sqlalchemy.orm import selectinload
 
 
 @query.field("topViewed")
 async def top_viewed(_, info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.top_viewed[(page - 1) * size : page * size]
+        return ShoutsCache.top_viewed[((page - 1) * size) : (page * size)]
 
 
 @query.field("topMonth")
 async def top_month(_, info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.top_month[(page - 1) * size : page * size]
+        return ShoutsCache.top_month[((page - 1) * size) : (page * size)]
 
 
 @query.field("topOverall")
 async def top_overall(_, info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.top_overall[(page - 1) * size : page * size]
+        return ShoutsCache.top_overall[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentPublished")
 async def recent_published(_, info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.recent_published[(page - 1) * size : page * size]
+        return ShoutsCache.recent_published[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentAll")
 async def recent_all(_, info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.recent_all[(page - 1) * size : page * size]
+        return ShoutsCache.recent_all[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentReacted")
 async def recent_reacted(_, info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.recent_reacted[(page - 1) * size : page * size]
+        return ShoutsCache.recent_reacted[((page - 1) * size) : (page * size)]
 
 
 @mutation.field("viewShout")
@@ -66,10 +66,7 @@ async def get_shout_by_slug(_, info, slug):
     select_options = [selectinload(getattr(Shout, field)) for field in selected_fields]
     shout = {}
     with local_session() as session:
-        try:
-            s = text(open("src/queries/shout-by-slug.sql", "r").read() % slug)
-        except:
-            pass
+        # s = text(open("src/queries/shout-by-slug.sql", "r").read() % slug)
         shout = (
             session.query(Shout)
             .options(select_options)
@@ -93,7 +90,7 @@ async def shouts_by_topics(_, info, slugs, page, size):
         shouts = (
             session.query(Shout)
             .join(ShoutTopic)
-            .where(and_(ShoutTopic.topic.in_(slugs), Shout.publishedAt != None))
+            .where(and_(ShoutTopic.topic.in_(slugs), bool(Shout.publishedAt)))
             .order_by(desc(Shout.publishedAt))
             .limit(size)
             .offset(page * size)
@@ -106,14 +103,14 @@ async def shouts_by_topics(_, info, slugs, page, size):
 
 
 @query.field("shoutsByCollection")
-async def shouts_by_topics(_, info, collection, page, size):
+async def shouts_by_collection(_, info, collection, page, size):
     page = page - 1
     shouts = []
     with local_session() as session:
         shouts = (
             session.query(Shout)
             .join(ShoutCollection, ShoutCollection.collection == collection)
-            .where(and_(ShoutCollection.shout == Shout.slug, Shout.publishedAt != None))
+            .where(and_(ShoutCollection.shout == Shout.slug, bool(Shout.publishedAt)))
             .order_by(desc(Shout.publishedAt))
             .limit(size)
             .offset(page * size)
@@ -132,7 +129,7 @@ async def shouts_by_authors(_, info, slugs, page, size):
         shouts = (
             session.query(Shout)
             .join(ShoutAuthor)
-            .where(and_(ShoutAuthor.user.in_(slugs), Shout.publishedAt != None))
+            .where(and_(ShoutAuthor.user.in_(slugs), bool(Shout.publishedAt)))
             .order_by(desc(Shout.publishedAt))
             .limit(size)
             .offset(page * size)
@@ -161,7 +158,7 @@ async def shouts_by_communities(_, info, slugs, page, size):
                 .join(ShoutTopic)
                 .where(
                     and_(
-                        Shout.publishedAt != None,
+                        bool(Shout.publishedAt),
                         ShoutTopic.topic.in_(
                             select(Topic.slug).where(Topic.community.in_(slugs))
                         ),

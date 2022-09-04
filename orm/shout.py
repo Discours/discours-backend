@@ -16,7 +16,9 @@ class ShoutReactionsFollower(Base):
     follower = Column(ForeignKey("user.slug"), primary_key=True)
     shout = Column(ForeignKey("shout.slug"), primary_key=True)
     auto = Column(Boolean, nullable=False, default=False)
-    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
+    createdAt = Column(
+        DateTime, nullable=False, default=datetime.now, comment="Created at"
+    )
     deletedAt = Column(DateTime, nullable=True)
 
 
@@ -42,9 +44,13 @@ class Shout(Base):
 
     id = None  # type: ignore
     slug = Column(String, primary_key=True)
-    community = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
+    community = Column(
+        Integer, ForeignKey("community.id"), nullable=False, comment="Community"
+    )
     body = Column(String, nullable=False, comment="Body")
-    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
+    createdAt = Column(
+        DateTime, nullable=False, default=datetime.now, comment="Created at"
+    )
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
     replyTo = Column(ForeignKey("shout.slug"), nullable=True)
     versionOf = Column(ForeignKey("shout.slug"), nullable=True)

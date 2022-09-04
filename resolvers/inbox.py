@@ -1,6 +1,8 @@
 from base.resolvers import mutation, query, subscription
 from auth.authenticate import login_required
-import asyncio, uuid, json
+import asyncio
+import uuid
+import json
 from datetime import datetime
 from base.redis import redis
 
@@ -259,7 +261,7 @@ async def mark_as_read(_, info, chatId, ids):
 
     chat = json.loads(chat)
     users = set(chat["users"])
-    if not user.slug in users:
+    if user.slug not in users:
         return {"error": "access denied"}
 
     for id in ids:

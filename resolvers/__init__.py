@@ -42,7 +42,8 @@ from resolvers.reactions import (
     update_reaction,
     get_all_reactions,
 )
-from resolvers.collab import invite_author, remove_author
+
+# from resolvers.collab import invite_author, remove_author
 from resolvers.editor import create_shout, delete_shout, update_shout
 from resolvers.community import (
     create_community,
@@ -60,10 +61,12 @@ __all__ = [
     "is_email_used",
     "confirm",
     "auth_forget",
-    "auth_reset" "sign_out",
+    "auth_reset",
+    "sign_out",
     # profile
     "get_current_user",
     "get_users_by_slugs",
+    "get_user_roles",
     # zine
     "shouts_for_feed",
     "my_candidates",
@@ -86,7 +89,7 @@ __all__ = [
     "delete_shout",
     # collab
     "invite_author",
-    "remove_author"
+    "remove_author",
     # topics
     "topics_all",
     "topics_by_community",

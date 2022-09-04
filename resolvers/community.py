@@ -13,13 +13,16 @@ from sqlalchemy import and_
 async def create_community(_, info, input):
     auth = info.context["request"].auth
     user_id = auth.user_id
-
-    community = Community.create(
-        slug=input.get("slug", ""),
-        title=input.get("title", ""),
-        desc=input.get("desc", ""),
-        pic=input.get("pic", ""),
-    )
+    with local_session() as session:
+        user = session.query(User).where(User.id == user_id).first()
+        community = Community.create(
+            slug=input.get("slug", ""),
+            title=input.get("title", ""),
+            desc=input.get("desc", ""),
+            pic=input.get("pic", ""),
+            createdBy=user.slug,
+            createdAt=datetime.now(),
+        )
 
     return {"community": community}
 

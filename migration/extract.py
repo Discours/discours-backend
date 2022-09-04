@@ -26,13 +26,13 @@ def replace_tooltips(body):
 
 def place_tooltips(body):
     parts = body.split("&&&")
-    l = len(parts)
+    lll = len(parts)
     newparts = list(parts)
     placed = False
-    if l & 1:
-        if l > 1:
+    if lll & 1:
+        if lll > 1:
             i = 1
-            print("[extract] found %d tooltips" % (l - 1))
+            print("[extract] found %d tooltips" % (lll - 1))
             for part in parts[1:]:
                 if i & 1:
                     placed = True
@@ -60,7 +60,8 @@ def place_tooltips(body):
     return ("".join(newparts), placed)
 
 
-IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,((?:[A-Za-z\d+\/]{4})*(?:[A-Za-z\d+\/]{3}=|[A-Za-z\d+\/]{2}==)))\)"
+IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,((?:[A-Za-z\d+\/]{4})*(?:[A-Za-z\d+\/]{3}="
+IMG_REGEX += r"|[A-Za-z\d+\/]{2}==)))\)"
 
 parentDir = "/".join(os.getcwd().split("/")[:-1])
 public = parentDir + "/discoursio-web/public"
@@ -128,7 +129,7 @@ def extract_imageparts(bodyparts, prefix):
                             + " image bytes been written"
                         )
                         cache[b64encoded] = name
-                    except:
+                    except Exception:
                         raise Exception
                         # raise Exception('[extract] error decoding image %r' %b64encoded)
                 else:
@@ -145,7 +146,7 @@ def extract_imageparts(bodyparts, prefix):
                 break
     return (
         extract_imageparts(
-            newparts[i] + newparts[i + 1] + b64.join(bodyparts[i + 2 :]), prefix
+            newparts[i] + newparts[i + 1] + b64.join(bodyparts[(i + 2) :]), prefix
         )
         if len(bodyparts) > (i + 1)
         else "".join(newparts)
@@ -176,7 +177,7 @@ def extract_dataimages(parts, prefix):
                         open(public + link, "wb").write(content)
                         print("[extract] " + str(len(content)) + " image bytes")
                         cache[b64encoded] = name
-                    except:
+                    except Exception:
                         raise Exception
                         # raise Exception('[extract] error decoding image %r' %b64encoded)
                 else:
@@ -207,7 +208,6 @@ def extract_md_images(body, oid):
         .replace(" [](" + di, " ![](" + di)
     )
     parts = body.split(di)
-    i = 0
     if len(parts) > 1:
         newbody = extract_dataimages(parts, oid)
     else:
@@ -310,7 +310,8 @@ def prepare_html_body(entry):
             elif "vimeoId" in m:
                 addon += '<iframe src="https://player.vimeo.com/video/'
                 addon += m["vimeoId"]
-                addon += ' width="420" height="345" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>'
+                addon += ' width="420" height="345" frameborder="0" allow="autoplay; fullscreen"'
+                addon += " allowfullscreen></iframe>"
             else:
                 print("[extract] media is not supported")
                 print(m)

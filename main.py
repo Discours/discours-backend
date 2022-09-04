@@ -31,11 +31,17 @@ middleware = [
 async def start_up():
     await redis.connect()
     viewed_storage_task = asyncio.create_task(ViewedStorage.worker())
-    # reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
+    print(viewed_storage_task)
+    reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
+    print(reacted_storage_task)
     shouts_cache_task = asyncio.create_task(ShoutsCache.worker())
+    print(shouts_cache_task)
     shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
+    print(shout_author_task)
     topic_stat_task = asyncio.create_task(TopicStat.worker())
+    print(topic_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
+    print(git_task)
 
 
 async def shutdown():

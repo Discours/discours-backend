@@ -12,10 +12,8 @@ ERROR_URL_ON_FRONTEND = (
 )
 
 DB_URL = (
-    environ.get("DATABASE_URL")
-    or environ.get("DB_URL")
-    or "postgresql://postgres@localhost:5432/discoursio"
-    or "sqlite:///db.sqlite3"
+    environ.get("DATABASE_URL") or environ.get("DB_URL") or
+    "postgresql://postgres@localhost:5432/discoursio" or "sqlite:///db.sqlite3"
 )
 JWT_ALGORITHM = "HS256"
 JWT_SECRET_KEY = "8f1bd7696ffb482d8486dfbc6e7d16dd-secret-key"
