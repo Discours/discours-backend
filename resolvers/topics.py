@@ -7,6 +7,7 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from sqlalchemy import and_
+import random
 
 
 @query.field("topicsAll")
@@ -81,3 +82,15 @@ def topic_unfollow(user, slug):
             raise Exception("[resolvers.topics] follower not exist")
         session.delete(sub)
         session.commit()
+
+
+@query.field("topicsRandom")
+async def topics_random(_, info):
+    topics = await TopicStorage.get_topics_all(1, 700)
+    normalized_topics = []
+    for topic in topics:
+        shouts_amount = await TopicStat.get_stat(topic.slug)
+        topic.stat = shouts_amount
+        if shouts_amount > 2:
+            normalized_topics.push(topic)
+    return random.choices(topics)[0:12]

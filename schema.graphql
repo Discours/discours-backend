@@ -248,6 +248,7 @@ type Query {
 
   # topics
   topicsAll(page: Int!, size: Int!): [Topic]!
+  topicsRandom: [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
 
