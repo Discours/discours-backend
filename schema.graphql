@@ -259,6 +259,9 @@ type Query {
   # communities
   getCommunity(slug: String): Community!
   getCommunities: [Community]! # all
+
+  # search
+  searchQuery(q: String, page: Int, size: Int): Shout[]
 }
 
 ############################################ Subscription
@@ -423,6 +426,7 @@ type Stat {
   reacted: Int
   rating: Int
   commented: Int
+  ranking: Int
 }
 
 type Community {

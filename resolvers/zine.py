@@ -83,6 +83,28 @@ async def get_shout_by_slug(_, info, slug):
     return shout
 
 
+@query.field("searchQuery")
+async def get_search_results(_, info, query, page, size):
+    # TODO: remove the copy of searchByTopics
+    # with search ranking query
+    page = page - 1
+    with local_session() as session:
+        shouts = (
+            session.query(Shout)
+            .join(ShoutTopic)
+            .where(and_(ShoutTopic.topic.in_(query), bool(Shout.publishedAt)))
+            .order_by(desc(Shout.publishedAt))
+            .limit(size)
+            .offset(page * size)
+        )
+
+    for s in shouts:
+        for a in s.authors:
+            a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+        s.stat.search = 1  # FIXME
+    return shouts
+
+
 @query.field("shoutsByTopics")
 async def shouts_by_topics(_, info, slugs, page, size):
     page = page - 1
