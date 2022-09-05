@@ -247,7 +247,7 @@ type Query {
   getCollabs: [Collab]!
 
   # topics
-  topicsAll(page: Int!, size: Int!): [Topic]!
+  topicsAll: [Topic]!
   topicsRandom: [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
