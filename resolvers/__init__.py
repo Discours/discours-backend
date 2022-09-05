@@ -40,7 +40,6 @@ from resolvers.reactions import (
     create_reaction,
     delete_reaction,
     update_reaction,
-    get_all_reactions,
 )
 
 # from resolvers.collab import invite_author, remove_author
@@ -108,5 +107,4 @@ __all__ = [
     "create_reaction",
     "update_reaction",
     "delete_reaction",
-    "get_all_reactions",
 ]
