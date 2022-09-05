@@ -10,7 +10,7 @@ from orm import User, Role
 from base.orm import local_session
 from base.resolvers import mutation, query
 from resolvers.profile import get_user_info
-from base.exceptions import InvalidPassword, InvalidToken
+from base.exceptions import InvalidPassword, InvalidToken, ObjectNotExist, OperationNotAllowed
 from settings import JWT_AUTH_HEADER
 
 
@@ -23,6 +23,7 @@ async def confirm(*_, confirm_token):
         user.save()
         return {"token": auth_token, "user": user}
     else:
+        # not an error, warns user
         return {"error": "email not confirmed"}
 
 
@@ -32,7 +33,8 @@ async def register(*_, email: str, password: str = ""):
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     if user:
-        return {"error": "user already exist"}
+        raise OperationNotAllowed("User already exist")
+        # return {"error": "user already exist"}
 
     user_dict = {"email": email}
     username = email.split("@")[0]
@@ -59,7 +61,7 @@ async def auth_forget(_, info, email):
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     if not user:
-        return {"error": "user not exist"}
+        raise ObjectNotExist("User not found")
 
     await send_reset_password_email(user)
 
@@ -72,12 +74,13 @@ async def auth_reset(_, info, password, resetToken):
     try:
         user_id = await ResetPassword.verify(resetToken)
     except InvalidToken as e:
-        return {"error": e.message}
+        raise InvalidToken(e.message)
+        # return {"error": e.message}
 
     with local_session() as session:
         user = session.query(User).filter_by(id=user_id).first()
         if not user:
-            return {"error": "user not exist"}
+            raise ObjectNotExist("User not found")
         user.password = Password.encode(password)
         session.commit()
 
@@ -91,14 +94,16 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
         orm_user = session.query(User).filter(User.email == email).first()
     if orm_user is None:
         print(f"signIn {email}: email not found")
-        return {"error": "email not found"}
+        # return {"error": "email not found"}
+        raise ObjectNotExist("User not found")
 
     if not password:
         print(f"signIn {email}: send auth email")
         await send_auth_email(orm_user)
-        return {}
+        return {""}
 
     if not orm_user.emailConfirmed:
+        # not an error, warns users
         return {"error": "email not confirmed"}
 
     try:
@@ -111,7 +116,8 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
         user = Identity.identity(orm_user, password)
     except InvalidPassword:
         print(f"signIn {email}: invalid password")
-        return {"error": "invalid password"}
+        raise InvalidPassword("invalid passoword")
+        # return {"error": "invalid password"}
 
     token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
     print(f"signIn {email}: OK")

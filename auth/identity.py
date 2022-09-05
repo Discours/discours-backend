@@ -1,5 +1,5 @@
 from auth.password import Password
-from base.exceptions import InvalidPassword, ObjectNotExist
+from base.exceptions import InvalidPassword
 from orm import User as OrmUser
 from base.orm import local_session
 from auth.validations import User
@@ -11,8 +11,8 @@ class Identity:
     @staticmethod
     def identity(orm_user: OrmUser, password: str) -> User:
         user = User(**orm_user.dict())
-        if user.password is None:
-            raise InvalidPassword("Wrong user password")
+        if not user.password:
+            raise InvalidPassword("User password is empty")
         if not Password.verify(password, user.password):
             raise InvalidPassword("Wrong user password")
         return user
