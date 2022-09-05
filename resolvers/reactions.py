@@ -130,11 +130,11 @@ async def get_shout_reactions(_, info, slug, page, size):
 
 
 @query.field("reactionsForShouts")
-async def get_reactions_for_shouts(_, info, shoutslugs, page, size):
+async def get_reactions_for_shouts(_, info, shouts, page, size):
     offset = page * size
     reactions = []
     with local_session() as session:
-        for slug in shoutslugs:
+        for slug in shouts:
             reactions += (
                 session.query(Reaction)
                 .filter(Reaction.shout == slug)

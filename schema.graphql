@@ -261,7 +261,7 @@ type Query {
   getCommunities: [Community]! # all
 
   # search
-  searchQuery(q: String, page: Int, size: Int): Shout[]
+  searchQuery(q: String, page: Int, size: Int): [Shout]
 }
 
 ############################################ Subscription
