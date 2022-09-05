@@ -89,8 +89,8 @@ async def topics_random(_, info):
     topics = await TopicStorage.get_topics_all(1, 700)
     normalized_topics = []
     for topic in topics:
-        shouts_amount = await TopicStat.get_stat(topic.slug)
-        topic.stat = shouts_amount
-        if shouts_amount > 2:
+        topic_stat = await TopicStat.get_stat(topic.slug)
+        topic.stat = topic_stat
+        if topic_stat["shouts"] > 2:
             normalized_topics.push(topic)
     return random.choices(topics)[0:12]
