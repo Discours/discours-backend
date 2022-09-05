@@ -11,8 +11,8 @@ import random
 
 
 @query.field("topicsAll")
-async def topics_all(_, info, page=1, size=50):
-    topics = await TopicStorage.get_topics_all(page, size)
+async def topics_all(_, info):
+    topics = await TopicStorage.get_topics_all()
     for topic in topics:
         topic.stat = await TopicStat.get_stat(topic.slug)
     return topics
@@ -86,7 +86,7 @@ def topic_unfollow(user, slug):
 
 @query.field("topicsRandom")
 async def topics_random(_, info):
-    topics = await TopicStorage.get_topics_all(1, 700)
+    topics = await TopicStorage.get_topics_all()
     normalized_topics = []
     for topic in topics:
         topic_stat = await TopicStat.get_stat(topic.slug)
