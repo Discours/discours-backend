@@ -72,7 +72,7 @@ async def migrate(entry, storage):
             }
         else:
             userdata = User.default_user.dict()
-    assert userdata, "no user found for %s from " % [oid, len(users_by_oid.keys())]
+    assert userdata, "no user found for %s from %d" % [oid, len(users_by_oid.keys())]
     r["authors"] = [
         userdata,
     ]
@@ -220,7 +220,7 @@ async def migrate(entry, storage):
                             ShoutTopic.create(
                                 **{"shout": shout_dict["slug"], "topic": newslug}
                             )
-                        except:
+                        except Exception:
                             print("[migration] shout topic error: " + newslug)
                 session.commit()
             if newslug not in shout_dict["topics"]:
@@ -269,15 +269,14 @@ async def migrate(entry, storage):
                         )
                         reaction.update(reaction_dict)
                     else:
-                        day = (reaction_dict.get("createdAt") or ts).replace(
+                        reaction_dict['day'] = (reaction_dict.get("createdAt") or ts).replace(
                             hour=0, minute=0, second=0, microsecond=0
                         )
                         rea = Reaction.create(**reaction_dict)
                         await ReactedStorage.increment(rea)
                     # shout_dict['ratings'].append(reaction_dict)
-    except:
-        print("[migration] content_item.ratings error: \n%r" % content_rating)
-        raise Exception
+    except Exception:
+        raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
 
     # shout views
     ViewedByDay.create(shout=shout_dict["slug"], value=entry.get("views", 1))
