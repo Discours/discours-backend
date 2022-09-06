@@ -248,7 +248,7 @@ type Query {
 
   # topics
   topicsAll: [Topic]!
-  topicsRandom: [Topic]!
+  topicsRandom(amount: Int): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
 

@@ -7,7 +7,7 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from sqlalchemy import and_
-from numpy import random
+import random
 
 
 @query.field("topicsAll")
@@ -85,7 +85,7 @@ def topic_unfollow(user, slug):
 
 
 @query.field("topicsRandom")
-async def topics_random(_, info):
+async def topics_random(_, info, amount=12):
     topics = await TopicStorage.get_topics_all()
     normalized_topics = []
     for topic in topics:
@@ -93,5 +93,4 @@ async def topics_random(_, info):
         topic.stat = topic_stat
         if topic_stat["shouts"] > 2:
             normalized_topics.push(topic)
-    random.shuffle(normalized_topics)
-    return normalized_topics[0:12]
+    return random.sample(normalized_topics, k=amount)
