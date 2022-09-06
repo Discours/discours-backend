@@ -7,7 +7,7 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from auth.authenticate import login_required
 from sqlalchemy import and_
-import random
+from numpy import random
 
 
 @query.field("topicsAll")
@@ -93,4 +93,4 @@ async def topics_random(_, info):
         topic.stat = topic_stat
         if topic_stat["shouts"] > 2:
             normalized_topics.push(topic)
-    return random.choices(topics, k=12)[0:12]
+    return random.shuffle(normalized_topics)[0:12]
