@@ -93,4 +93,5 @@ async def topics_random(_, info):
         topic.stat = topic_stat
         if topic_stat["shouts"] > 2:
             normalized_topics.push(topic)
-    return random.shuffle(normalized_topics)[0:12]
+    random.shuffle(normalized_topics)
+    return normalized_topics[0:12]
