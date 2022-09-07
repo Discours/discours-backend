@@ -93,4 +93,4 @@ async def topics_random(_, info, amount=12):
         topic.stat = topic_stat
         if topic_stat["shouts"] > 2:
             normalized_topics.push(topic)
-    return random.sample(normalized_topics, k=max(len(normalized_topics), 12))
+    return random.sample(normalized_topics, k=min(len(normalized_topics), 12))
