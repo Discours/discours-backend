@@ -57,7 +57,7 @@ async def migrate(entry, storage):
     if entry.get("createdAt"):
         reaction_dict["createdAt"] = date_parse(entry.get("createdAt"))
     shout_oid = entry.get("contentItem")
-    if not shout_oid in storage["shouts"]["by_oid"]:
+    if shout_oid not in storage["shouts"]["by_oid"]:
         if len(storage["shouts"]["by_oid"]) > 0:
             return shout_oid
         else:

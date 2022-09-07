@@ -170,13 +170,13 @@ class ShoutsCache:
 
                 shout = session.query(Shout).filter(Shout.slug == a.shout).first()
 
-                if not shouts_by_author[a.author]:
-                    shouts_by_author[a.author] = []
+                if not shouts_by_author.get(a.user):
+                    shouts_by_author[a.user] = []
 
-                if shout not in shouts_by_author[a.author]:
-                    shouts_by_author[a.author].push(shout)
+                if shout not in shouts_by_author[a.user]:
+                    shouts_by_author[a.user].append(shout)
         async with ShoutsCache.lock:
-            print("[zine.cache indexed by %d authors " % len(shouts_by_author.keys()))
+            print("[zine.cache] indexed by %d authors " % len(shouts_by_author.keys()))
             ShoutsCache.by_author = shouts_by_author
 
     @staticmethod
@@ -188,11 +188,12 @@ class ShoutsCache:
 
                 shout = session.query(Shout).filter(Shout.slug == t.shout).first()
 
-                if not shouts_by_topic[t.topic]:
+                if not shouts_by_topic.get(t.topic):
                     shouts_by_topic[t.topic] = []
 
                 if shout not in shouts_by_topic[t.topic]:
-                    shouts_by_topic[t.topic].push(shout)
+                    shouts_by_topic[t.topic].append(shout)
+
         async with ShoutsCache.lock:
             print("[zine.cache] indexed by %d topics " % len(shouts_by_topic.keys()))
             ShoutsCache.by_topic = shouts_by_topic

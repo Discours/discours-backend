@@ -89,6 +89,6 @@ async def topics_random(_, info, amount=12):
         topic_stat = await TopicStat.get_stat(topic.slug)
         topic.stat = topic_stat
         if topic_stat["shouts"] > 2:
-            normalized_topics.push(topic)
+            normalized_topics.append(topic)
     sample_length = min(len(normalized_topics), amount)
     return random.sample(normalized_topics, sample_length)
