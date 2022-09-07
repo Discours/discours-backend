@@ -58,10 +58,10 @@ def reactions_unfollow(user, slug):
 async def create_reaction(_, info, inp):
     user = info.context["request"].user
 
-    # TODO: filter allowed reaction kinds
+    # TODO: filter allowed for post reaction kinds
 
     reaction = Reaction.create(**inp)
-    ReactedStorage.increment(reaction.shout, reaction.replyTo)
+    ReactedStorage.react(reaction)
     try:
         reactions_follow(user, inp["shout"], True)
     except Exception as e:

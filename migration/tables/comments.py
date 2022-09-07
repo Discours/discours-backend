@@ -74,11 +74,8 @@ async def migrate(entry, storage):
                 reaction_dict["kind"] = ReactionKind.COMMENT
 
                 # creating reaction from old comment
-                day = (reaction_dict.get("createdAt") or ts).replace(
-                    hour=0, minute=0, second=0, microsecond=0
-                )
                 reaction = Reaction.create(**reaction_dict)
-                await ReactedStorage.increment(reaction)
+                await ReactedStorage.react(reaction)
 
                 reaction_dict["id"] = reaction.id
                 for comment_rating_old in entry.get("ratings", []):
@@ -106,7 +103,7 @@ async def migrate(entry, storage):
                     try:
                         # creating reaction from old rating
                         rr = Reaction.create(**re_reaction_dict)
-                        await ReactedStorage.increment(rr)
+                        await ReactedStorage.react(rr)
 
                     except Exception as e:
                         print("[migration] comment rating error: %r" % re_reaction_dict)

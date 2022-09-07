@@ -11,8 +11,8 @@ class TopicStorage:
         self = TopicStorage
         topics = session.query(Topic)
         self.topics = dict([(topic.slug, topic) for topic in topics])
-        for topic in self.topics.values():
-            self.load_parents(topic)
+        for tpc in self.topics.values():
+            self.load_parents(tpc)
 
         print("[zine.topics] %d precached" % len(self.topics.keys()))
 
@@ -51,7 +51,16 @@ class TopicStorage:
             return list(topics)
 
     @staticmethod
-    async def add_topic(topic):
+    async def get_topics_by_author(author):
+        self = TopicStorage
+        async with self.lock:
+            topics = filter(
+                lambda topic: topic.community == author, self.topics.values()
+            )
+            return list(topics)
+
+    @staticmethod
+    async def update_topic(topic):
         self = TopicStorage
         async with self.lock:
             self.topics[topic.slug] = topic

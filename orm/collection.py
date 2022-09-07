@@ -21,3 +21,4 @@ class Collection(Base):
     pic = Column(String, nullable=True, comment="Picture")
     createdAt = Column(DateTime, default=datetime.now, comment="Created At")
     createdBy = Column(ForeignKey("user.id"), comment="Created By")
+    publishedAt = Column(DateTime, default=datetime.now, comment="Published At")

@@ -9,14 +9,14 @@ from sqlalchemy import and_
 
 @mutation.field("createCollection")
 @login_required
-async def create_collection(_, info, input):
+async def create_collection(_, _info, inp):
     # auth = info.context["request"].auth
     # user_id = auth.user_id
     collection = Collection.create(
-        slug=input.get("slug", ""),
-        title=input.get("title", ""),
-        desc=input.get("desc", ""),
-        pic=input.get("pic", ""),
+        slug=inp.get("slug", ""),
+        title=inp.get("title", ""),
+        desc=inp.get("desc", ""),
+        pic=inp.get("pic", ""),
     )
 
     return {"collection": collection}
@@ -24,7 +24,7 @@ async def create_collection(_, info, input):
 
 @mutation.field("updateCollection")
 @login_required
-async def update_collection(_, info, input):
+async def update_collection(_, info, inp):
     auth = info.context["request"].auth
     user_id = auth.user_id
     collection_slug = input.get("slug", "")
@@ -38,9 +38,9 @@ async def update_collection(_, info, input):
             return {"error": "invalid collection id"}
         if collection.createdBy not in (owner + editors):
             return {"error": "access denied"}
-        collection.title = input.get("title", "")
-        collection.desc = input.get("desc", "")
-        collection.pic = input.get("pic", "")
+        collection.title = inp.get("title", "")
+        collection.desc = inp.get("desc", "")
+        collection.pic = inp.get("pic", "")
         collection.updatedAt = datetime.now()
         session.commit()
 
@@ -63,7 +63,7 @@ async def delete_collection(_, info, slug):
 
 
 @query.field("getUserCollections")
-async def get_user_collections(_, info, userslug):
+async def get_user_collections(_, _info, userslug):
     collections = []
     with local_session() as session:
         user = session.query(User).filter(User.slug == userslug).first()

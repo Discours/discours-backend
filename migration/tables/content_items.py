@@ -269,11 +269,11 @@ async def migrate(entry, storage):
                         )
                         reaction.update(reaction_dict)
                     else:
-                        reaction_dict['day'] = (reaction_dict.get("createdAt") or ts).replace(
-                            hour=0, minute=0, second=0, microsecond=0
-                        )
+                        reaction_dict["day"] = (
+                            reaction_dict.get("createdAt") or ts
+                        ).replace(hour=0, minute=0, second=0, microsecond=0)
                         rea = Reaction.create(**reaction_dict)
-                        await ReactedStorage.increment(rea)
+                        await ReactedStorage.react(rea)
                     # shout_dict['ratings'].append(reaction_dict)
     except Exception:
         raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
