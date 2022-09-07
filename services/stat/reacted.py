@@ -221,21 +221,19 @@ class ReactedStorage:
             for slug in dict(self.reacted['shouts']).keys():
                 topics = session.query(ShoutTopic.topic).where(ShoutTopic.shout == slug).all()
                 reactions = self.reacted['shouts'].get(slug, [])
-                print('[stat.reacted] shout {' + str(slug) + "}: " + str(len(reactions)))
+                # print('[stat.reacted] shout {' + str(slug) + "}: " + str(len(reactions)))
                 for ts in list(topics):
                     tslug = ts[0]
-                    topic_reactions = self.reacted["topics"][tslug]
-                    if not topic_reactions:
-                        topic_reactions = []
+                    topic_reactions = self.reacted["topics"].get(tslug, [])
                     topic_reactions += reactions
-                    print('[stat.reacted] topic {' + str(tslug) + "}: " + str(len(topic_reactions)))
+                    # print('[stat.reacted] topic {' + str(tslug) + "}: " + str(len(topic_reactions)))
                 reactions += list(self.reacted['reactions'].values())
                 for reaction in reactions:
                     if getattr(reaction, "modified", False):
                         session.add(reaction)
                         flag_modified(reaction, "value")
                         reaction.modified = False
-            print('flushing')
+            # print('flushing')
             for reaction in self.to_flush:
                 session.add(reaction)
             self.to_flush.clear()
