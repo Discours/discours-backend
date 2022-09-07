@@ -27,7 +27,7 @@ async def topics_by_community(_, info, community):
 
 @query.field("topicsByAuthor")
 async def topics_by_author(_, _info, author):
-    topics = await ShoutsCache.get_shouts_by_author(author)
+    topics = ShoutsCache.by_author.get(author)
     author_topics = set()
     for tpc in topics:
         tpc = await TopicStorage.topics[tpc.slug]
@@ -87,8 +87,10 @@ async def topics_random(_, info, amount=12):
     normalized_topics = []
     for topic in topics:
         topic_stat = await TopicStat.get_stat(topic.slug)
+        # FIXME: expects topicstat fix
+        # #if topic_stat["shouts"] > 2:
+        #    normalized_topics.append(topic)
         topic.stat = topic_stat
-        if topic_stat["shouts"] > 2:
-            normalized_topics.append(topic)
+    normalized_topics = topics
     sample_length = min(len(normalized_topics), amount)
     return random.sample(normalized_topics, sample_length)
