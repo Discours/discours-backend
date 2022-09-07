@@ -18,41 +18,41 @@ from sqlalchemy.orm import selectinload
 @query.field("topViewed")
 async def top_viewed(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_top_viewed()[((page - 1) * size) : (page * size)]
+        return ShoutsCache.top_viewed[((page - 1) * size) : (page * size)]
 
 
 @query.field("topMonth")
 async def top_month(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_top_month()[((page - 1) * size) : (page * size)]
+        return ShoutsCache.top_month[((page - 1) * size) : (page * size)]
 
 
 @query.field("topOverall")
 async def top_overall(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_top_overall()[((page - 1) * size) : (page * size)]
+        return ShoutsCache.top_overall[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentPublished")
 async def recent_published(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_recent_published()[((page - 1) * size) : (page * size)]
+        return ShoutsCache.recent_published[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentAll")
 async def recent_all(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_recent_all()[((page - 1) * size) : (page * size)]
+        return ShoutsCache.recent_all[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentReacted")
-async def recent_reacted(_, info, page, size):
+async def recent_reacted(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_recent_reacted()[((page - 1) * size) : (page * size)]
+        return ShoutsCache.recent_reacted[((page - 1) * size) : (page * size)]
 
 
 @mutation.field("viewShout")
-async def view_shout(_, info, slug):
+async def view_shout(_, _info, slug):
     await ViewedStorage.increment(slug)
     return {"error": ""}
 
@@ -84,7 +84,7 @@ async def get_shout_by_slug(_, info, slug):
 
 
 @query.field("searchQuery")
-async def get_search_results(_, info, query, page, size):
+async def get_search_results(_, _info, query, page, size):
     # TODO: remove the copy of searchByTopics
     # with search ranking query
     page = page - 1
@@ -106,7 +106,7 @@ async def get_search_results(_, info, query, page, size):
 
 
 @query.field("shoutsByTopics")
-async def shouts_by_topics(_, info, slugs, page, size):
+async def shouts_by_topics(_, _info, slugs, page, size):
     page = page - 1
     with local_session() as session:
         shouts = (
@@ -125,7 +125,7 @@ async def shouts_by_topics(_, info, slugs, page, size):
 
 
 @query.field("shoutsByCollection")
-async def shouts_by_collection(_, info, collection, page, size):
+async def shouts_by_collection(_, _info, collection, page, size):
     page = page - 1
     shouts = []
     with local_session() as session:
@@ -144,7 +144,7 @@ async def shouts_by_collection(_, info, collection, page, size):
 
 
 @query.field("shoutsByAuthors")
-async def shouts_by_authors(_, info, slugs, page, size):
+async def shouts_by_authors(_, _info, slugs, page, size):
     page = page - 1
     with local_session() as session:
 

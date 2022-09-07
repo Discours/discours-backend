@@ -199,46 +199,6 @@ class ShoutsCache:
             ShoutsCache.by_topic = shouts_by_topic
 
     @staticmethod
-    async def get_shouts_by_author():
-        async with ShoutsCache.lock:
-            return ShoutsCache.by_author
-
-    @staticmethod
-    async def get_shouts_by_topic():
-        async with ShoutsCache.lock:
-            return ShoutsCache.by_topic
-
-    @staticmethod
-    async def get_top_overall():
-        async with ShoutsCache.lock:
-            return ShoutsCache.by_topic
-
-    @staticmethod
-    async def get_top_month():
-        async with ShoutsCache.lock:
-            return ShoutsCache.by_topic
-
-    @staticmethod
-    async def get_top_viewed():
-        async with ShoutsCache.lock:
-            return ShoutsCache.by_topic
-
-    @staticmethod
-    async def get_recent_published():
-        async with ShoutsCache.lock:
-            return ShoutsCache.recent_published
-
-    @staticmethod
-    async def get_recent_all():
-        async with ShoutsCache.lock:
-            return ShoutsCache.recent_all
-
-    @staticmethod
-    async def get_recent_reacted():
-        async with ShoutsCache.lock:
-            return ShoutsCache.recent_reacted
-
-    @staticmethod
     async def worker():
         while True:
             try:
