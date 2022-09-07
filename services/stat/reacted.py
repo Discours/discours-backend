@@ -221,12 +221,9 @@ class ReactedStorage:
             for slug in dict(self.reacted['shouts']).keys():
                 topics = session.query(ShoutTopic.topic).where(ShoutTopic.shout == slug).all()
                 reactions = self.reacted['shouts'].get(slug, [])
+                print('[stat.reacted] shout {' + str(slug) + "}: " + str(len(reactions)))
                 for ts in list(topics):
-                    try:
-                        tslug = ts.pop()
-                    except Exception:
-                        print(ts)
-                        raise Exception('error')
+                    tslug = ts[0]
                     topic_reactions = self.reacted["topics"][tslug]
                     if not topic_reactions:
                         topic_reactions = []
