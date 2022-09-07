@@ -6,6 +6,15 @@ from services.zine.shoutauthor import ShoutAuthorStorage
 from orm.topic import ShoutTopic, TopicFollower
 
 
+def unique(list1):
+
+    # insert the list to the set
+    list_set = set(list1)
+    # convert the set to the list
+    unique_list = (list(list_set))
+    return unique_list
+
+
 class TopicStat:
     shouts_by_topic = {}
     authors_by_topic = {}
@@ -16,23 +25,17 @@ class TopicStat:
     @staticmethod
     async def load_stat(session):
         self = TopicStat
-        self.shouts_by_topic = {}
-        self.authors_by_topic = {}
         shout_topics = session.query(ShoutTopic).all()
         for shout_topic in shout_topics:
             topic = shout_topic.topic
             shout = shout_topic.shout
             if not self.shouts_by_topic.get(topic):
                 self.shouts_by_topic[topic] = []
-            if shout not in self.shouts_by_topic[topic]:
-                self.shouts_by_topic[topic].append(shout)
-
+            self.shouts_by_topic[topic].append(shout)
             authors = await ShoutAuthorStorage.get_authors(shout)
-            if topic in self.authors_by_topic:
-                self.authors_by_topic[topic].update(authors)
-            else:
-                self.authors_by_topic[topic] = list(set(authors))
-
+            if not self.authors_by_topic.get(topic):
+                self.authors_by_topic[topic] = []
+            self.authors_by_topic[topic] = unique(self.authors_by_topic[topic] + authors)
         print("[stat.topics] authors sorted")
         print("[stat.topics] shouts sorted")
 

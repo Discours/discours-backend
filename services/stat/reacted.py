@@ -88,7 +88,7 @@ class ReactedStorage:
         self = ReactedStorage
         async with self.lock:
             return list(
-                filter(lambda r: r.comment, self.reacted["topics"].get(topic_slug, {}))
+                filter(lambda r: r.comment, self.reacted["topics"].get(topic_slug, []))
             )
 
     @staticmethod
