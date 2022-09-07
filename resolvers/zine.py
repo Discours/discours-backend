@@ -16,39 +16,39 @@ from sqlalchemy.orm import selectinload
 
 
 @query.field("topViewed")
-async def top_viewed(_, info, page, size):
+async def top_viewed(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_top_viewed[((page - 1) * size) : (page * size)]
+        return ShoutsCache.get_top_viewed()[((page - 1) * size) : (page * size)]
 
 
 @query.field("topMonth")
-async def top_month(_, info, page, size):
+async def top_month(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_top_month[((page - 1) * size) : (page * size)]
+        return ShoutsCache.get_top_month()[((page - 1) * size) : (page * size)]
 
 
 @query.field("topOverall")
-async def top_overall(_, info, page, size):
+async def top_overall(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_top_overall[((page - 1) * size) : (page * size)]
+        return ShoutsCache.get_top_overall()[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentPublished")
-async def recent_published(_, info, page, size):
+async def recent_published(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_recent_published[((page - 1) * size) : (page * size)]
+        return ShoutsCache.get_recent_published()[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentAll")
-async def recent_all(_, info, page, size):
+async def recent_all(_, _info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_recent_all[((page - 1) * size) : (page * size)]
+        return ShoutsCache.get_recent_all()[((page - 1) * size) : (page * size)]
 
 
 @query.field("recentReacted")
 async def recent_reacted(_, info, page, size):
     async with ShoutsCache.lock:
-        return ShoutsCache.get_recent_reacted[((page - 1) * size) : (page * size)]
+        return ShoutsCache.get_recent_reacted()[((page - 1) * size) : (page * size)]
 
 
 @mutation.field("viewShout")

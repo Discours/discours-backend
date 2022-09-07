@@ -216,11 +216,11 @@ class ReactedStorage:
 
     @staticmethod
     async def flush_changes(session):
-        self = ReactedStorage()
+        self = ReactedStorage
         async with self.lock:
             for slug in dict(self.reacted['shouts']).keys():
                 topics = session.query(ShoutTopic.topic).where(ShoutTopic.shout == slug).all()
-                reactions = self.reacted['shouts'][slug]
+                reactions = self.reacted['shouts'].get(slug, [])
                 for ts in list(topics):
                     try:
                         tslug = ts.pop()
@@ -238,6 +238,7 @@ class ReactedStorage:
                         session.add(reaction)
                         flag_modified(reaction, "value")
                         reaction.modified = False
+            print('flushing')
             for reaction in self.to_flush:
                 session.add(reaction)
             self.to_flush.clear()

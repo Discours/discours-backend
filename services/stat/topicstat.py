@@ -22,18 +22,16 @@ class TopicStat:
         for shout_topic in shout_topics:
             topic = shout_topic.topic
             shout = shout_topic.shout
-            if topic in self.shouts_by_topic:
+            if not self.shouts_by_topic.get(topic):
+                self.shouts_by_topic[topic] = []
+            if shout not in self.shouts_by_topic[topic]:
                 self.shouts_by_topic[topic].append(shout)
-            else:
-                self.shouts_by_topic[topic] = [
-                    shout,
-                ]
 
             authors = await ShoutAuthorStorage.get_authors(shout)
             if topic in self.authors_by_topic:
                 self.authors_by_topic[topic].update(authors)
             else:
-                self.authors_by_topic[topic] = set(authors)
+                self.authors_by_topic[topic] = list(set(authors))
 
         print("[stat.topics] authors sorted")
         print("[stat.topics] shouts sorted")
@@ -46,7 +44,7 @@ class TopicStat:
             if topic in self.followers_by_topic:
                 self.followers_by_topic[topic].append(user)
             else:
-                self.followers_by_topic[topic] = [user]
+                self.followers_by_topic[topic] = [user, ]
         print("[stat.topics] followers sorted")
 
     @staticmethod
