@@ -174,10 +174,9 @@ type Mutation {
 
 
   # reactions
-  createReaction(input: ReactionInput!): Result!
-  updateReaction(id: Int!, body: String!): Result!
+  createReaction(reaction: ReactionInput!): Result!
+  updateReaction(reaction: ReactionInput!): Result!
   deleteReaction(id: Int!): Result!
-  rateReaction(id: Int!, value: Int!): Result!
 
   # community
   createCommunity(community: CommunityInput!): Result!
