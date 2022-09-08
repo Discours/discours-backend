@@ -197,6 +197,9 @@ type Mutation {
   unfollow(what: FollowingEntity!, slug: String!): Result!
 
   # TODO: transform reaction with body to shout
+
+  # seen
+  incrementView(shout: String!): Result!
 }
 
 ################################### Query

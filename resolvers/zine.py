@@ -15,6 +15,12 @@ from sqlalchemy import select, desc, and_
 from sqlalchemy.orm import selectinload
 
 
+@mutation.field("incrementView")
+async def increment_view(_, _info, shout):
+    async with ViewedStorage.lock:
+        return ViewedStorage.increment(shout)
+
+
 @query.field("topViewed")
 async def top_viewed(_, _info, page, size):
     async with ShoutsCache.lock:
