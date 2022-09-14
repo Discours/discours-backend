@@ -78,7 +78,7 @@ async def update_reaction(_, info, inp):
 
     with local_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
-        reaction = session.query(Reaction).filter(Reaction.id == id).first()
+        reaction = session.query(Reaction).filter(Reaction.id == inp.id).first()
         if not reaction:
             return {"error": "invalid reaction id"}
         if reaction.createdBy != user.slug:
@@ -148,14 +148,13 @@ async def get_reactions_for_shouts(_, info, shouts, offset, limit):
 
 
 @query.field("reactionsByAuthor")
-async def get_reactions_by_author(_, info, slug, page=1, size=50):
-    offset = page * size
+async def get_reactions_by_author(_, info, slug, limit=50, offset=0):
     reactions = []
     with local_session() as session:
         reactions = (
             session.query(Reaction)
             .filter(Reaction.createdBy == slug)
-            .limit(size)
+            .limit(limit)
             .offset(offset)
         )
     for r in reactions:
