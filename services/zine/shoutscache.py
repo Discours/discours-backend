@@ -38,8 +38,8 @@ class ShoutsCache:
                 select(Shout)
                 .options(selectinload(Shout.authors), selectinload(Shout.topics))
                 .where(bool(Shout.publishedAt))
+                .group_by(Shout.slug)
                 .order_by(desc("publishedAt"))
-                .order_by(desc("createdAt"))
                 .limit(ShoutsCache.limit)
             ))
         async with ShoutsCache.lock:
@@ -52,6 +52,8 @@ class ShoutsCache:
             shouts = await prepare_shouts(session, (
                 select(Shout)
                 .options(selectinload(Shout.authors), selectinload(Shout.topics))
+                .where(and_(bool(Shout.publishedAt), bool(Reaction.deletedAt)))
+                .group_by(Shout.slug)
                 .order_by(desc("createdAt"))
                 .limit(ShoutsCache.limit)
             ))

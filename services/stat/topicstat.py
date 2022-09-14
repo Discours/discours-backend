@@ -1,5 +1,6 @@
 import asyncio
 from base.orm import local_session
+from orm.shout import Shout
 from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
@@ -26,16 +27,23 @@ class TopicStat:
     async def load_stat(session):
         self = TopicStat
         shout_topics = session.query(ShoutTopic).all()
+        print('[stat.topics] shout topics amount', len(shout_topics))
         for shout_topic in shout_topics:
+
+            # shouts by topics
             topic = shout_topic.topic
             shout = shout_topic.shout
-            if not self.shouts_by_topic.get(topic):
-                self.shouts_by_topic[topic] = []
-            self.shouts_by_topic[topic].append(shout)
+            sss = set(self.shouts_by_topic.get(topic, []))
+            shout = session.query(Shout).where(Shout.slug == shout).first()
+            sss.union([shout, ])
+            self.shouts_by_topic[topic] = list(sss)
+
+            # authors by topics
             authors = await ShoutAuthorStorage.get_authors(shout)
-            if not self.authors_by_topic.get(topic):
-                self.authors_by_topic[topic] = []
-            self.authors_by_topic[topic] = unique(self.authors_by_topic[topic] + authors)
+            aaa = set(self.authors_by_topic.get(topic, []))
+            aaa.union(authors)
+            self.authors_by_topic[topic] = list(aaa)
+
         print("[stat.topics] authors sorted")
         print("[stat.topics] shouts sorted")
 
@@ -44,10 +52,9 @@ class TopicStat:
         for flw in followings:
             topic = flw.topic
             user = flw.follower
-            if topic in self.followers_by_topic:
-                self.followers_by_topic[topic].append(user)
-            else:
-                self.followers_by_topic[topic] = [user, ]
+            if topic not in self.followers_by_topic:
+                self.followers_by_topic[topic] = []
+            self.followers_by_topic[topic].append(user)
         print("[stat.topics] followers sorted")
 
     @staticmethod
