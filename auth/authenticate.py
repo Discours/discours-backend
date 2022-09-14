@@ -67,7 +67,7 @@ class JWTAuthenticate(AuthenticationBackend):
         if payload is None:
             return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-        if not payload.device in ("pc", "mobile"):
+        if payload.device not in ("pc", "mobile"):
             return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
         user = await UserStorage.get_user(payload.user_id)
