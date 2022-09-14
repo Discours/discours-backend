@@ -70,16 +70,15 @@ class TopicStat:
             shouts = self.shouts_by_topic.get(topic, [])
             followers = self.followers_by_topic.get(topic, [])
             authors = self.authors_by_topic.get(topic, [])
-
-        return {
-            "shouts": len(shouts),
-            "authors": len(authors),
-            "followers": len(followers),
-            "viewed": await ViewedStorage.get_topic(topic),
-            "reacted": len(await ReactedStorage.get_topic(topic)),
-            "commented": len(await ReactedStorage.get_topic_comments(topic)),
-            "rating": await ReactedStorage.get_topic_rating(topic),
-        }
+            return {
+                "shouts": len(shouts),
+                "authors": len(authors),
+                "followers": len(followers),
+                "viewed": await ViewedStorage.get_topic(topic),
+                "reacted": len(await ReactedStorage.get_topic(topic)),
+                "commented": len(await ReactedStorage.get_topic_comments(topic)),
+                "rating": await ReactedStorage.get_topic_rating(topic),
+            }
 
     @staticmethod
     async def worker():

@@ -10,7 +10,7 @@ from services.zine.shoutscache import ShoutsCache
 
 
 @query.field("topicsAll")
-async def topics_all(_, info):
+async def topics_all(_, _info):
     topics = await TopicStorage.get_topics_all()
     for topic in topics:
         topic.stat = await TopicStat.get_stat(topic.slug)

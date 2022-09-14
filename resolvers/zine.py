@@ -11,7 +11,7 @@ from resolvers.topics import topic_follow, topic_unfollow
 from resolvers.community import community_follow, community_unfollow
 from resolvers.reactions import reactions_follow, reactions_unfollow
 from auth.authenticate import login_required
-from sqlalchemy import select, desc, and_
+from sqlalchemy import select, desc, asc, and_
 from sqlalchemy.orm import selectinload
 
 
@@ -42,7 +42,7 @@ async def top_overall(_, _info, offset, limit):
 @query.field("recentPublished")
 async def recent_published(_, _info, offset, limit):
     async with ShoutsCache.lock:
-        return ShoutsCache.top_overall[offset : offset + limit]
+        return ShoutsCache.recent_published[offset : offset + limit]
 
 
 @query.field("recentAll")
@@ -54,7 +54,7 @@ async def recent_all(_, _info, offset, limit):
 @query.field("recentReacted")
 async def recent_reacted(_, _info, offset, limit):
     async with ShoutsCache.lock:
-        return ShoutsCache.recent_all[offset : offset + limit]
+        return ShoutsCache.recent_reacted[offset : offset + limit]
 
 
 @mutation.field("viewShout")
@@ -116,7 +116,7 @@ async def shouts_by_topics(_, _info, slugs, offset, limit):
             session.query(Shout)
             .join(ShoutTopic)
             .where(and_(ShoutTopic.topic.in_(slugs), bool(Shout.publishedAt)))
-            .order_by(desc(Shout.publishedAt))
+            .order_by(asc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
         )
@@ -134,7 +134,7 @@ async def shouts_by_collection(_, _info, collection, offset, limit):
             session.query(Shout)
             .join(ShoutCollection, ShoutCollection.collection == collection)
             .where(and_(ShoutCollection.shout == Shout.slug, bool(Shout.publishedAt)))
-            .order_by(desc(Shout.publishedAt))
+            .order_by(asc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
         )
@@ -151,7 +151,7 @@ async def shouts_by_authors(_, _info, slugs, offset, limit):
             session.query(Shout)
             .join(ShoutAuthor)
             .where(and_(ShoutAuthor.user.in_(slugs), bool(Shout.publishedAt)))
-            .order_by(desc(Shout.publishedAt))
+            .order_by(asc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
         )
