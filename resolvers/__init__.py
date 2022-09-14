@@ -26,6 +26,7 @@ from resolvers.profile import (
     get_current_user,
     get_user_reacted_shouts,
     get_user_roles,
+    get_top_authors
 )
 from resolvers.topics import (
     topic_follow,
@@ -66,6 +67,7 @@ __all__ = [
     "get_current_user",
     "get_users_by_slugs",
     "get_user_roles",
+    "get_top_authors",
     # zine
     "shouts_for_feed",
     "my_candidates",
