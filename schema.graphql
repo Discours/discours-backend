@@ -223,28 +223,28 @@ type Query {
   userFollowedCommunities(slug: String!): [Community]!
   userReactedShouts(slug: String!): [Shout]! # test
   getUserRoles(slug: String!): [Role]!
-  authorsAll(page: Int!, size: Int!): [User]!
+  authorsAll(offset: Int!, limit: Int!): [User]!
 
   # shouts
   getShoutBySlug(slug: String!): Shout!
-  shoutsForFeed(page: Int!, size: Int!): [Shout]! # test
-  shoutsByTopics(slugs: [String]!, page: Int!, size: Int!): [Shout]!
-  shoutsByAuthors(slugs: [String]!, page: Int!, size: Int!): [Shout]!
-  shoutsByCommunities(slugs: [String]!, page: Int!, size: Int!): [Shout]!
-  myCandidates(page: Int!, size: Int!): [Shout]! # test
-  topViewed(page: Int!, size: Int!): [Shout]!
-  # topReacted(page: Int!, size: Int!): [Shout]!
-  topAuthors(page: Int!, size: Int!): [Author]!
-  topMonth(page: Int!, size: Int!): [Shout]!
-  topOverall(page: Int!, size: Int!): [Shout]!
-  recentPublished(page: Int!, size: Int!): [Shout]! # homepage
-  recentReacted(page: Int!, size: Int!): [Shout]! # test
-  recentAll(page: Int!, size: Int!): [Shout]!
+  shoutsForFeed(offset: Int!, limit: Int!): [Shout]! # test
+  shoutsByTopics(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
+  shoutsByAuthors(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
+  shoutsByCommunities(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
+  myCandidates(offset: Int!, limit: Int!): [Shout]! # test
+  topViewed(offset: Int!, limit: Int!): [Shout]!
+  # topReacted(offset: Int!, limit: Int!): [Shout]!
+  topAuthors(offset: Int!, limit: Int!): [Author]!
+  topMonth(offset: Int!, limit: Int!): [Shout]!
+  topOverall(offset: Int!, limit: Int!): [Shout]!
+  recentPublished(offset: Int!, limit: Int!): [Shout]! # homepage
+  recentReacted(offset: Int!, limit: Int!): [Shout]! # test
+  recentAll(offset: Int!, limit: Int!): [Shout]!
 
   # reactons
-  reactionsByAuthor(slug: String!, page: Int!, size: Int!): [Reaction]!
-  reactionsByShout(slug: String!, page: Int!, size: Int!): [Reaction]!
-  reactionsForShouts(shouts: [String]!, page: Int!, size: Int!): [Reaction]!
+  reactionsByAuthor(slug: String!, offset: Int!, limit: Int!): [Reaction]!
+  reactionsByShout(slug: String!, offset: Int!, limit: Int!): [Reaction]!
+  reactionsForShouts(shouts: [String]!, offset: Int!, limit: Int!): [Reaction]!
 
   # collab
   getCollabs: [Collab]!
@@ -258,14 +258,14 @@ type Query {
   # collections
   collectionsAll: [Collection]!
   getUserCollections(author: String!): [Collection]!
-  shoutsByCollection(collection: String!, page: Int, size: Int): [Shout]!
+  shoutsByCollection(collection: String!, offset: Int!, limit: Int!): [Shout]!
 
   # communities
   getCommunity(slug: String): Community!
   getCommunities: [Community]! # all
 
   # search
-  searchQuery(q: String, page: Int, size: Int): [Shout]
+  searchQuery(q: String, offset: Int!, limit: Int!): [Shout]
 }
 
 ############################################ Subscription

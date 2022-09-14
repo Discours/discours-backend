@@ -6,11 +6,12 @@ from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import TopicFollower
 from orm.user import AuthorFollower
 from typing import List
+from services.zine.shoutscache import prepare_shouts
 
 
 @query.field("shoutsForFeed")
 @login_required
-def get_user_feed(_, info, page, size) -> List[Shout]:
+def get_user_feed(_, info, offset, limit) -> List[Shout]:
     user = info.context["request"].user
     shouts = []
     with local_session() as session:
@@ -28,23 +29,23 @@ def get_user_feed(_, info, page, size) -> List[Shout]:
             .where(TopicFollower.follower == user.slug)
             .order_by(desc(Shout.createdAt))
         )
-        shouts = shouts.union(topicrows).limit(size).offset(page * size).all()
+        shouts = shouts.union(topicrows).limit(limit).offset(offset).all()
     return shouts
 
 
 @query.field("myCandidates")
 @login_required
-async def user_unpublished_shouts(_, info, page=1, size=10) -> List[Shout]:
+async def user_unpublished_shouts(_, info, offset, limit) -> List[Shout]:
     user = info.context["request"].user
     shouts = []
     with local_session() as session:
-        shouts = (
+        shouts = prepare_shouts(
             session.query(Shout)
             .join(ShoutAuthor)
             .where(and_(not bool(Shout.publishedAt), ShoutAuthor.user == user.slug))
             .order_by(desc(Shout.createdAt))
-            .limit(size)
-            .offset(page * size)
+            .limit(limit)
+            .offset(offset)
             .all()
         )
     return shouts

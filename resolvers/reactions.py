@@ -113,7 +113,7 @@ async def delete_reaction(_, info, id):
 
 
 @query.field("reactionsByShout")
-async def get_shout_reactions(_, info, slug, page, size):
+async def get_shout_reactions(_, info, slug, offset, limit):
     offset = page * size
     reactions = []
     with local_session() as session:
@@ -130,7 +130,7 @@ async def get_shout_reactions(_, info, slug, page, size):
 
 
 @query.field("reactionsForShouts")
-async def get_reactions_for_shouts(_, info, shouts, page, size):
+async def get_reactions_for_shouts(_, info, shouts, offset, limit):
     offset = page * size
     reactions = []
     with local_session() as session:

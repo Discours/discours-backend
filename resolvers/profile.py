@@ -16,7 +16,7 @@ from typing import List
 
 
 @query.field("userReactedShouts")
-async def get_user_reacted_shouts(_, info, slug, page, size) -> List[Shout]:
+async def get_user_reacted_shouts(_, _info, slug, offset, limit) -> List[Shout]:
     user = await UserStorage.get_user_by_slug(slug)
     if not user:
         return []
@@ -26,8 +26,8 @@ async def get_user_reacted_shouts(_, info, slug, page, size) -> List[Shout]:
             .join(Reaction)
             .where(Reaction.createdBy == user.slug)
             .order_by(desc(Reaction.createdAt))
-            .limit(size)
-            .offset(page * size)
+            .limit(limit)
+            .offset()
             .all()
         )
     return shouts
@@ -99,7 +99,7 @@ async def get_current_user(_, info):
 
 
 @query.field("getUsersBySlugs")
-async def get_users_by_slugs(_, info, slugs):
+async def get_users_by_slugs(_, _info, slugs):
     with local_session() as session:
         users = (
             session.query(User)
@@ -111,7 +111,7 @@ async def get_users_by_slugs(_, info, slugs):
 
 
 @query.field("getUserRoles")
-async def get_user_roles(_, info, slug):
+async def get_user_roles(_, _info, slug):
     with local_session() as session:
         user = session.query(User).where(User.slug == slug).first()
         roles = (
@@ -183,14 +183,10 @@ def author_unfollow(user, slug):
 
 
 @query.field("authorsAll")
-def get_authors_all(_, info, page, size):
-    end = page * size
-    start = end - size
-    return list(UserStorage.get_all_users())[start:end]  # type: ignore
+def get_authors_all(_, _info, offset, limit):
+    return list(UserStorage.get_all_users())[offset : offset + limit]  # type: ignore
 
 
 @query.field("topAuthors")
-def get_top_authors(_, info, page, size):
-    end = page * size
-    start = end - size
-    return list(UserStorage.get_top_users())[start:end]  # type: ignore
+def get_top_authors(_, _info, offset, limit):
+    return list(UserStorage.get_top_users())[offset : offset + limit]  # type: ignore

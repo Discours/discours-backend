@@ -4,7 +4,7 @@ from orm.topic import Topic
 from base.orm import local_session
 from base.resolvers import mutation, query
 from services.zine.shoutauthor import ShoutAuthorStorage
-from services.zine.shoutscache import ShoutsCache
+from services.zine.shoutscache import ShoutsCache, prepare_shouts
 from services.stat.viewed import ViewedStorage
 from resolvers.profile import author_follow, author_unfollow
 from resolvers.topics import topic_follow, topic_unfollow
@@ -22,39 +22,39 @@ async def increment_view(_, _info, shout):
 
 
 @query.field("topViewed")
-async def top_viewed(_, _info, page, size):
+async def top_viewed(_, _info, offset, limit):
     async with ShoutsCache.lock:
-        return ShoutsCache.top_viewed[((page - 1) * size) : (page * size)]
+        return ShoutsCache.top_viewed[offset : offset + limit]
 
 
 @query.field("topMonth")
-async def top_month(_, _info, page, size):
+async def top_month(_, _info, offset, limit):
     async with ShoutsCache.lock:
-        return ShoutsCache.top_month[((page - 1) * size) : (page * size)]
+        return ShoutsCache.top_month[offset : offset + limit]
 
 
 @query.field("topOverall")
-async def top_overall(_, _info, page, size):
+async def top_overall(_, _info, offset, limit):
     async with ShoutsCache.lock:
-        return ShoutsCache.top_overall[((page - 1) * size) : (page * size)]
+        return ShoutsCache.top_overall[offset : offset + limit]
 
 
 @query.field("recentPublished")
-async def recent_published(_, _info, page, size):
+async def recent_published(_, _info, offset, limit):
     async with ShoutsCache.lock:
-        return ShoutsCache.recent_published[((page - 1) * size) : (page * size)]
+        return ShoutsCache.top_overall[offset : offset + limit]
 
 
 @query.field("recentAll")
-async def recent_all(_, _info, page, size):
+async def recent_all(_, _info, offset, limit):
     async with ShoutsCache.lock:
-        return ShoutsCache.recent_all[((page - 1) * size) : (page * size)]
+        return ShoutsCache.recent_all[offset : offset + limit]
 
 
 @query.field("recentReacted")
-async def recent_reacted(_, _info, page, size):
+async def recent_reacted(_, _info, offset, limit):
     async with ShoutsCache.lock:
-        return ShoutsCache.recent_reacted[((page - 1) * size) : (page * size)]
+        return ShoutsCache.recent_all[offset : offset + limit]
 
 
 @mutation.field("viewShout")
@@ -70,7 +70,6 @@ async def get_shout_by_slug(_, info, slug):
     ]
     selected_fields = set(["authors", "topics"]).intersection(all_fields)
     select_options = [selectinload(getattr(Shout, field)) for field in selected_fields]
-    shout = {}
     with local_session() as session:
         # s = text(open("src/queries/shout-by-slug.sql", "r").read() % slug)
         shout = (
@@ -90,18 +89,17 @@ async def get_shout_by_slug(_, info, slug):
 
 
 @query.field("searchQuery")
-async def get_search_results(_, _info, query, page, size):
+async def get_search_results(_, _info, query, offset, limit):
     # TODO: remove the copy of searchByTopics
     # with search ranking query
-    page = page - 1
     with local_session() as session:
         shouts = (
             session.query(Shout)
             .join(ShoutTopic)
             .where(and_(ShoutTopic.topic.in_(query), bool(Shout.publishedAt)))
             .order_by(desc(Shout.publishedAt))
-            .limit(size)
-            .offset(page * size)
+            .limit(limit)
+            .offset(offset)
         )
 
     for s in shouts:
@@ -112,16 +110,15 @@ async def get_search_results(_, _info, query, page, size):
 
 
 @query.field("shoutsByTopics")
-async def shouts_by_topics(_, _info, slugs, page, size):
-    page = page - 1
+async def shouts_by_topics(_, _info, slugs, offset, limit):
     with local_session() as session:
-        shouts = (
+        shouts = prepare_shouts(
             session.query(Shout)
             .join(ShoutTopic)
             .where(and_(ShoutTopic.topic.in_(slugs), bool(Shout.publishedAt)))
             .order_by(desc(Shout.publishedAt))
-            .limit(size)
-            .offset(page * size)
+            .limit(limit)
+            .offset(offset)
         )
 
     for s in shouts:
@@ -131,17 +128,15 @@ async def shouts_by_topics(_, _info, slugs, page, size):
 
 
 @query.field("shoutsByCollection")
-async def shouts_by_collection(_, _info, collection, page, size):
-    page = page - 1
-    shouts = []
+async def shouts_by_collection(_, _info, collection, offset, limit):
     with local_session() as session:
-        shouts = (
+        shouts = prepare_shouts(
             session.query(Shout)
             .join(ShoutCollection, ShoutCollection.collection == collection)
             .where(and_(ShoutCollection.shout == Shout.slug, bool(Shout.publishedAt)))
             .order_by(desc(Shout.publishedAt))
-            .limit(size)
-            .offset(page * size)
+            .limit(limit)
+            .offset(offset)
         )
     for s in shouts:
         for a in s.authors:
@@ -150,17 +145,15 @@ async def shouts_by_collection(_, _info, collection, page, size):
 
 
 @query.field("shoutsByAuthors")
-async def shouts_by_authors(_, _info, slugs, page, size):
-    page = page - 1
+async def shouts_by_authors(_, _info, slugs, offset, limit):
     with local_session() as session:
-
         shouts = (
             session.query(Shout)
             .join(ShoutAuthor)
             .where(and_(ShoutAuthor.user.in_(slugs), bool(Shout.publishedAt)))
             .order_by(desc(Shout.publishedAt))
-            .limit(size)
-            .offset(page * size)
+            .limit(limit)
+            .offset(offset)
         )
 
     for s in shouts:
@@ -173,11 +166,10 @@ SINGLE_COMMUNITY = True
 
 
 @query.field("shoutsByCommunities")
-async def shouts_by_communities(_, info, slugs, page, size):
+async def shouts_by_communities(_, info, slugs, offset, limit):
     if SINGLE_COMMUNITY:
-        return recent_published(_, info, page, size)
+        return recent_published(_, info, offset, limit)
     else:
-        page = page - 1
         with local_session() as session:
             # TODO fix postgres high load
             shouts = (
@@ -193,8 +185,8 @@ async def shouts_by_communities(_, info, slugs, page, size):
                     )
                 )
                 .order_by(desc(Shout.publishedAt))
-                .limit(size)
-                .offset(page * size)
+                .limit(limit)
+                .offset(offset)
             )
 
         for s in shouts:
