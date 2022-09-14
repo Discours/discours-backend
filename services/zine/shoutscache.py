@@ -39,6 +39,7 @@ class ShoutsCache:
                 .options(selectinload(Shout.authors), selectinload(Shout.topics))
                 .where(bool(Shout.publishedAt))
                 .order_by(desc("publishedAt"))
+                .order_by(desc("createdAt"))
                 .limit(ShoutsCache.limit)
             ))
         async with ShoutsCache.lock:

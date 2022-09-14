@@ -4,7 +4,7 @@ from orm.topic import Topic
 from base.orm import local_session
 from base.resolvers import mutation, query
 from services.zine.shoutauthor import ShoutAuthorStorage
-from services.zine.shoutscache import ShoutsCache, prepare_shouts
+from services.zine.shoutscache import ShoutsCache
 from services.stat.viewed import ViewedStorage
 from resolvers.profile import author_follow, author_unfollow
 from resolvers.topics import topic_follow, topic_unfollow
@@ -112,7 +112,7 @@ async def get_search_results(_, _info, query, offset, limit):
 @query.field("shoutsByTopics")
 async def shouts_by_topics(_, _info, slugs, offset, limit):
     with local_session() as session:
-        shouts = prepare_shouts(
+        shouts = (
             session.query(Shout)
             .join(ShoutTopic)
             .where(and_(ShoutTopic.topic.in_(slugs), bool(Shout.publishedAt)))
@@ -130,7 +130,7 @@ async def shouts_by_topics(_, _info, slugs, offset, limit):
 @query.field("shoutsByCollection")
 async def shouts_by_collection(_, _info, collection, offset, limit):
     with local_session() as session:
-        shouts = prepare_shouts(
+        shouts = (
             session.query(Shout)
             .join(ShoutCollection, ShoutCollection.collection == collection)
             .where(and_(ShoutCollection.shout == Shout.slug, bool(Shout.publishedAt)))
