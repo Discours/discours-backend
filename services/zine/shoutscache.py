@@ -5,7 +5,6 @@ from sqlalchemy.orm import selectinload
 from base.orm import local_session
 from orm.reaction import Reaction
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
-from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedByDay
 
 
@@ -27,18 +26,14 @@ class ShoutsCache:
     @staticmethod
     async def prepare_recent_published():
         with local_session() as session:
-            stmt = (
+            shouts = session.execute(
                 select(Shout)
                 .options(selectinload(Shout.authors), selectinload(Shout.topics))
                 .where(bool(Shout.publishedAt))
                 .order_by(desc("publishedAt"))
                 .limit(ShoutsCache.limit)
+                .all()
             )
-            shouts = []
-            for row in session.execute(stmt):
-                shout = row.Shout
-                shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
-                shouts.append(shout)
         async with ShoutsCache.lock:
             ShoutsCache.recent_published = shouts
             print("[zine.cache] %d recently published shouts " % len(shouts))
@@ -46,18 +41,13 @@ class ShoutsCache:
     @staticmethod
     async def prepare_recent_all():
         with local_session() as session:
-            stmt = (
+            shouts = session.execute(
                 select(Shout)
                 .options(selectinload(Shout.authors), selectinload(Shout.topics))
                 .order_by(desc("createdAt"))
                 .limit(ShoutsCache.limit)
+                .all()
             )
-            shouts = []
-            for row in session.execute(stmt):
-                shout = row.Shout
-                # shout.topics = [t.slug for t in shout.topics]
-                shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
-                shouts.append(shout)
         async with ShoutsCache.lock:
             ShoutsCache.recent_all = shouts
             print("[zine.cache] %d recently created shouts " % len(shouts))
@@ -65,7 +55,7 @@ class ShoutsCache:
     @staticmethod
     async def prepare_recent_reacted():
         with local_session() as session:
-            stmt = (
+            shouts = session.execute(
                 select(Shout, func.max(Reaction.createdAt).label("reactionCreatedAt"))
                 .options(
                     selectinload(Shout.authors),
@@ -76,13 +66,8 @@ class ShoutsCache:
                 .group_by(Shout.slug)
                 .order_by(desc("reactionCreatedAt"))
                 .limit(ShoutsCache.limit)
+                .all()
             )
-            shouts = []
-            for row in session.execute(stmt):
-                shout = row.Shout
-                # shout.topics = [t.slug for t in shout.topics]
-                shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
-                shouts.append(shout)
             async with ShoutsCache.lock:
                 ShoutsCache.recent_reacted = shouts
                 print("[zine.cache] %d recently reacted shouts " % len(shouts))
@@ -91,7 +76,7 @@ class ShoutsCache:
     async def prepare_top_overall():
         with local_session() as session:
             # with reacted times counter
-            stmt = (
+            shouts = session.execute(
                 select(Shout, func.count(Reaction.id).label("reacted"))
                 .options(
                     selectinload(Shout.authors),
@@ -103,13 +88,8 @@ class ShoutsCache:
                 .group_by(Shout.slug)
                 .order_by(desc("reacted"))
                 .limit(ShoutsCache.limit)
+                .all()
             )
-            shouts = []
-            # with rating synthetic counter
-            for row in session.execute(stmt):
-                shout = row.Shout
-                shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
-                shouts.append(shout)
             shouts.sort(key=lambda shout: shout.rating, reverse=True)
             async with ShoutsCache.lock:
                 print("[zine.cache] %d top shouts " % len(shouts))
@@ -119,7 +99,7 @@ class ShoutsCache:
     async def prepare_top_month():
         month_ago = datetime.now() - timedelta(days=30)
         with local_session() as session:
-            stmt = (
+            shouts = session.execute(
                 select(Shout, func.count(Reaction.id).label("reacted"))
                 .options(selectinload(Shout.authors), selectinload(Shout.topics))
                 .join(Reaction)
@@ -127,13 +107,9 @@ class ShoutsCache:
                 .group_by(Shout.slug)
                 .order_by(desc("reacted"))
                 .limit(ShoutsCache.limit)
+                .all()
             )
-            shouts = []
-            for row in session.execute(stmt):
-                shout = row.Shout
-                shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
-                shouts.append(shout)
-            shouts.sort(key=lambda shout: shout.rating, reverse=True)
+            shouts.sort(key=lambda shout: shout.stat.rating, reverse=True)
             async with ShoutsCache.lock:
                 print("[zine.cache] %d top month shouts " % len(shouts))
                 ShoutsCache.top_month = shouts
@@ -142,7 +118,7 @@ class ShoutsCache:
     async def prepare_top_viewed():
         month_ago = datetime.now() - timedelta(days=30)
         with local_session() as session:
-            stmt = (
+            shouts = session.execute(
                 select(Shout, func.sum(ViewedByDay.value).label("viewed"))
                 .options(selectinload(Shout.authors), selectinload(Shout.topics))
                 .join(ViewedByDay)
@@ -150,13 +126,8 @@ class ShoutsCache:
                 .group_by(Shout.slug)
                 .order_by(desc("viewed"))
                 .limit(ShoutsCache.limit)
+                .all()
             )
-            shouts = []
-            for row in session.execute(stmt):
-                shout = row.Shout
-                shout.rating = await ReactedStorage.get_rating(shout.slug) or 0
-                shouts.append(shout)
-        # shouts.sort(key = lambda shout: shout.viewed, reverse = True)
         async with ShoutsCache.lock:
             print("[zine.cache] %d top viewed shouts " % len(shouts))
             ShoutsCache.top_viewed = shouts
