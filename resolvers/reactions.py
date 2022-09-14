@@ -97,12 +97,12 @@ async def update_reaction(_, info, inp):
 
 @mutation.field("deleteReaction")
 @login_required
-async def delete_reaction(_, info, id):
+async def delete_reaction(_, info, rid):
     auth = info.context["request"].auth
     user_id = auth.user_id
     with local_session() as session:
         user = session.query(User).filter(User.id == user_id).first()
-        reaction = session.query(Reaction).filter(Reaction.id == id).first()
+        reaction = session.query(Reaction).filter(Reaction.id == rid).first()
         if not reaction:
             return {"error": "invalid reaction id"}
         if reaction.createdBy != user.slug:
@@ -114,13 +114,12 @@ async def delete_reaction(_, info, id):
 
 @query.field("reactionsByShout")
 async def get_shout_reactions(_, info, slug, offset, limit):
-    offset = page * size
     reactions = []
     with local_session() as session:
         reactions = (
             session.query(Reaction)
             .filter(Reaction.shout == slug)
-            .limit(size)
+            .limit(limit)
             .offset(offset)
             .all()
         )
@@ -131,7 +130,6 @@ async def get_shout_reactions(_, info, slug, offset, limit):
 
 @query.field("reactionsForShouts")
 async def get_reactions_for_shouts(_, info, shouts, offset, limit):
-    offset = page * size
     reactions = []
     with local_session() as session:
         for slug in shouts:
@@ -141,7 +139,7 @@ async def get_reactions_for_shouts(_, info, shouts, offset, limit):
                 .where(not bool(Reaction.deletedAt))
                 .order_by(desc("createdAt"))
                 .offset(offset)
-                .limit(size)
+                .limit(limit)
                 .all()
             )
     for r in reactions:
