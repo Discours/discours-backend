@@ -187,3 +187,10 @@ def get_authors_all(_, info, page, size):
     end = page * size
     start = end - size
     return list(UserStorage.get_all_users())[start:end]  # type: ignore
+
+
+@query.field("topAuthors")
+def get_top_authors(_, info, page, size):
+    end = page * size
+    start = end - size
+    return list(UserStorage.get_top_users())[start:end]  # type: ignore

@@ -134,9 +134,8 @@ async def migrate(entry, storage):
     s = object()
     shout_dict = r.copy()
     user = None
-    del shout_dict[
-        "topics"
-    ]  # NOTE: AttributeError: 'str' object has no attribute '_sa_instance_state'
+    del shout_dict["topics"]
+    # NOTE: AttributeError: 'str' object has no attribute '_sa_instance_state'
     # del shout_dict['rating'] # NOTE: TypeError: 'rating' is an invalid keyword argument for Shout
     # del shout_dict['ratings']
     email = userdata.get("email")
@@ -160,10 +159,9 @@ async def migrate(entry, storage):
             storage["users"]["by_slug"][userdata["slug"]] = userdata
             storage["users"]["by_oid"][entry["_id"]] = userdata
     assert user, "could not get a user"
-    shout_dict["authors"] = [
-        user,
-    ]
+    shout_dict["authors"] = [user, ]
 
+    # TODO: subscribe shout user on shout topics
     try:
         s = Shout.create(**shout_dict)
     except sqlalchemy.exc.IntegrityError as e:

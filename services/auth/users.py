@@ -33,6 +33,14 @@ class UserStorage:
             return aaa
 
     @staticmethod
+    async def get_top_users():
+        self = UserStorage
+        async with self.lock:
+            aaa = list(self.users.values())
+            aaa.sort(key=lambda user: user.rating)
+            return aaa
+
+    @staticmethod
     async def get_user_by_slug(slug):
         self = UserStorage
         async with self.lock:

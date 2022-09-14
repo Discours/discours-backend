@@ -234,6 +234,7 @@ type Query {
   myCandidates(page: Int!, size: Int!): [Shout]! # test
   topViewed(page: Int!, size: Int!): [Shout]!
   # topReacted(page: Int!, size: Int!): [Shout]!
+  topAuthors(page: Int!, size: Int!): [Author]!
   topMonth(page: Int!, size: Int!): [Shout]!
   topOverall(page: Int!, size: Int!): [Shout]!
   recentPublished(page: Int!, size: Int!): [Shout]! # homepage
