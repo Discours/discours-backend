@@ -1,6 +1,7 @@
+import asyncio
 import subprocess
 from pathlib import Path
-import asyncio
+
 from settings import SHOUTS_REPO
 
 

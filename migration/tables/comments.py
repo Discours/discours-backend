@@ -1,8 +1,10 @@
 from datetime import datetime
+
 from dateutil.parser import parse as date_parse
-from orm import Reaction, User
+
 from base.orm import local_session
 from migration.html2text import html2text
+from orm import Reaction, User
 from orm.reaction import ReactionKind
 from services.stat.reacted import ReactedStorage
 
@@ -46,16 +48,13 @@ async def migrate(entry, storage):
             old_thread: String
             }
     """
-    reaction_dict = {}
-    reaction_dict["createdAt"] = (
-        ts if not entry.get("createdAt") else date_parse(entry.get("createdAt"))
-    )
-    print("[migration] reaction original date %r" % entry.get("createdAt"))
-    # print('[migration] comment date %r ' % comment_dict['createdAt'])
-    reaction_dict["body"] = html2text(entry.get("body", ""))
-    reaction_dict["oid"] = entry["_id"]
-    if entry.get("createdAt"):
-        reaction_dict["createdAt"] = date_parse(entry.get("createdAt"))
+    reaction_dict = {
+        "createdAt": (
+            ts if not entry.get("createdAt") else date_parse(entry.get("createdAt"))
+        ),
+        "body": html2text(entry.get("body", "")),
+        "oid": entry["_id"],
+    }
     shout_oid = entry.get("contentItem")
     if shout_oid not in storage["shouts"]["by_oid"]:
         if len(storage["shouts"]["by_oid"]) > 0:
@@ -126,7 +125,7 @@ def migrate_2stage(rr, old_new_id):
     with local_session() as session:
         comment = session.query(Reaction).filter(Reaction.id == new_id).first()
         comment.replyTo = old_new_id.get(reply_oid)
-        comment.save()
+        session.add(comment)
         session.commit()
     if not rr["body"]:
         raise Exception(rr)

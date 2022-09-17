@@ -1,6 +1,7 @@
+import base64
 import os
 import re
-import base64
+
 from .html2text import html2text
 
 TOOLTIP_REGEX = r"(\/\/\/(.+)\/\/\/)"

@@ -1,7 +1,9 @@
 import asyncio
 from datetime import datetime
+
 from sqlalchemy import Column, DateTime, ForeignKey, Integer
 from sqlalchemy.orm.attributes import flag_modified
+
 from base.orm import Base, local_session
 from orm.topic import ShoutTopic
 

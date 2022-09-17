@@ -1,10 +1,11 @@
-from base.resolvers import mutation, query, subscription
-from auth.authenticate import login_required
 import asyncio
-import uuid
 import json
+import uuid
 from datetime import datetime
+
+from auth.authenticate import login_required
 from base.redis import redis
+from base.resolvers import mutation, query, subscription
 
 
 class ChatFollowing:

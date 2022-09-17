@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, JSON as JSONType
+
 from base.orm import Base
 
 

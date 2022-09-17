@@ -1,6 +1,7 @@
-import os
-import bson
 import json
+import os
+
+import bson
 
 from .utils import DateTimeEncoder
 

@@ -1,7 +1,9 @@
 from datetime import datetime
+
 from sqlalchemy import Column, String, ForeignKey, DateTime
-from base.orm import Base
 from sqlalchemy import Enum
+
+from base.orm import Base
 from services.stat.reacted import ReactedStorage, ReactionKind
 from services.stat.viewed import ViewedStorage
 

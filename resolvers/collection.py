@@ -1,10 +1,12 @@
-from orm.collection import Collection, ShoutCollection
-from base.orm import local_session
-from orm.user import User
-from base.resolvers import mutation, query
-from auth.authenticate import login_required
 from datetime import datetime
+
 from sqlalchemy import and_
+
+from auth.authenticate import login_required
+from base.orm import local_session
+from base.resolvers import mutation, query
+from orm.collection import Collection, ShoutCollection
+from orm.user import User
 
 
 @mutation.field("createCollection")
@@ -27,7 +29,7 @@ async def create_collection(_, _info, inp):
 async def update_collection(_, info, inp):
     auth = info.context["request"].auth
     user_id = auth.user_id
-    collection_slug = input.get("slug", "")
+    collection_slug = inp.get("slug", "")
     with local_session() as session:
         owner = session.query(User).filter(User.id == user_id)  # note list here
         collection = (
@@ -57,6 +59,7 @@ async def delete_collection(_, info, slug):
         if collection.owner != user_id:
             return {"error": "access denied"}
         collection.deletedAt = datetime.now()
+        session.add(collection)
         session.commit()
 
     return {}

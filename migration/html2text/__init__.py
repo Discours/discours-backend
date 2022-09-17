@@ -379,16 +379,16 @@ class HTML2Text(html.parser.HTMLParser):
             if start:
                 if (
                     self.current_class == "highlight"
-                    and self.inheader == False
-                    and self.span_lead == False
-                    and self.astack == False
+                    and not self.inheader
+                    and not self.span_lead
+                    and not self.astack
                 ):
                     self.o("`")  # NOTE: same as <code>
                     self.span_highlight = True
                 elif (
                     self.current_class == "lead"
-                    and self.inheader == False
-                    and self.span_highlight == False
+                    and not self.inheader
+                    and not self.span_highlight
                 ):
                     # self.o("==") # NOTE:  CriticMarkup {==
                     self.span_lead = True

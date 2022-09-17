@@ -1,14 +1,18 @@
-from dateutil.parser import parse as date_parse
-import sqlalchemy
-from orm.shout import Shout, ShoutTopic, User
-from services.stat.reacted import ReactedStorage
-from services.stat.viewed import ViewedByDay
-from transliterate import translit
 from datetime import datetime
+
+from dateutil.parser import parse as date_parse
+from sqlalchemy.exc import IntegrityError
+from transliterate import translit
+
 from base.orm import local_session
 from migration.extract import prepare_html_body
 from orm.community import Community
 from orm.reaction import Reaction, ReactionKind
+from orm.shout import Shout, ShoutTopic, User
+from orm.topic import TopicFollower
+from services.stat.reacted import ReactedStorage
+from services.stat.viewed import ViewedByDay
+from services.zine.topics import TopicStorage
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
 ts = datetime.now()
@@ -72,7 +76,10 @@ async def migrate(entry, storage):
             }
         else:
             userdata = User.default_user.dict()
-    assert userdata, "no user found for %s from %d" % [oid, len(users_by_oid.keys())]
+    if not userdata:
+        raise Exception(
+            "no user found for %s from %d" % [oid, len(users_by_oid.keys())]
+        )
     r["authors"] = [
         userdata,
     ]
@@ -139,32 +146,40 @@ async def migrate(entry, storage):
     # del shout_dict['rating'] # NOTE: TypeError: 'rating' is an invalid keyword argument for Shout
     # del shout_dict['ratings']
     email = userdata.get("email")
-    slug = userdata.get("slug")
-    if not slug:
+    userslug = userdata.get("slug")
+    if not userslug:
         raise Exception
     with local_session() as session:
         # c = session.query(Community).all().pop()
         if email:
             user = session.query(User).filter(User.email == email).first()
-        if not user and slug:
-            user = session.query(User).filter(User.slug == slug).first()
+        if not user and userslug:
+            user = session.query(User).filter(User.slug == userslug).first()
         if not user and userdata:
             try:
                 userdata["slug"] = userdata["slug"].lower().strip().replace(" ", "-")
                 user = User.create(**userdata)
-            except sqlalchemy.exc.IntegrityError:
+            except IntegrityError:
                 print("[migration] user error: " + userdata)
             userdata["id"] = user.id
             userdata["createdAt"] = user.createdAt
             storage["users"]["by_slug"][userdata["slug"]] = userdata
             storage["users"]["by_oid"][entry["_id"]] = userdata
-    assert user, "could not get a user"
-    shout_dict["authors"] = [user, ]
+    if not user:
+        raise Exception("could not get a user")
+    shout_dict["authors"] = [
+        user,
+    ]
 
     # TODO: subscribe shout user on shout topics
     try:
         s = Shout.create(**shout_dict)
-    except sqlalchemy.exc.IntegrityError as e:
+        with local_session() as session:
+            topics = session.query(ShoutTopic).where(ShoutTopic.shout == s.slug).all()
+            for tpc in topics:
+                TopicFollower.create(topic=tpc.slug, follower=userslug)
+                await TopicStorage.update_topic(tpc.slug)
+    except IntegrityError as e:
         with local_session() as session:
             s = session.query(Shout).filter(Shout.slug == shout_dict["slug"]).first()
             bump = False
@@ -267,9 +282,9 @@ async def migrate(entry, storage):
                         )
                         reaction.update(reaction_dict)
                     else:
-                        reaction_dict["day"] = (
-                            reaction_dict.get("createdAt") or ts
-                        ).replace(hour=0, minute=0, second=0, microsecond=0)
+                        # day = (
+                        #     reaction_dict.get("createdAt") or ts
+                        # ).replace(hour=0, minute=0, second=0, microsecond=0)
                         rea = Reaction.create(**reaction_dict)
                         await ReactedStorage.react(rea)
                     # shout_dict['ratings'].append(reaction_dict)

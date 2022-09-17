@@ -1,11 +1,13 @@
+from datetime import datetime
+
 from sqlalchemy import desc
-from orm.reaction import Reaction
+
+from auth.authenticate import login_required
 from base.orm import local_session
+from base.resolvers import mutation, query
+from orm.reaction import Reaction
 from orm.shout import ShoutReactionsFollower
 from orm.user import User
-from base.resolvers import mutation, query
-from auth.authenticate import login_required
-from datetime import datetime
 from services.auth.users import UserStorage
 from services.stat.reacted import ReactedStorage
 

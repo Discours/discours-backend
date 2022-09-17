@@ -1,12 +1,14 @@
-from orm.topic import Topic, TopicFollower
-from services.zine.topics import TopicStorage
-from services.stat.topicstat import TopicStat
+import random
+
+from sqlalchemy import and_
+
+from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
-from auth.authenticate import login_required
-from sqlalchemy import and_
-import random
+from orm.topic import Topic, TopicFollower
+from services.stat.topicstat import TopicStat
 from services.zine.shoutscache import ShoutsCache
+from services.zine.topics import TopicStorage
 
 
 @query.field("topicsAll")
@@ -60,7 +62,7 @@ async def update_topic(_, _info, inp):
 
 
 async def topic_follow(user, slug):
-    TopicFollower.create(follower=user.slug, topic=slug)
+    TopicFollower.create(topic=slug, follower=user.slug)
     await TopicStorage.update_topic(slug)
 
 

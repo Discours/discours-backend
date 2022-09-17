@@ -148,11 +148,10 @@ type Mutation {
   markAsRead(chatId: String!, ids: [Int]!): Result!
 
   # auth
-  confirmEmail(token: String!): AuthResult!
   refreshSession: AuthResult!
   registerUser(email: String!, password: String): AuthResult!
-  requestPasswordUpdate(email: String!): Result!
-  updatePassword(password: String!, token: String!): Result!
+  sendLink(email: String!): Result!
+  confirmEmail(code: String!): AuthResult!
 
   # shout
   createShout(input: ShoutInput!): Result!
@@ -237,6 +236,7 @@ type Query {
   topAuthors(offset: Int!, limit: Int!): [Author]!
   topMonth(offset: Int!, limit: Int!): [Shout]!
   topOverall(offset: Int!, limit: Int!): [Shout]!
+  topCommented(offset: Int!, limit: Int!): [Shout]!
   recentPublished(offset: Int!, limit: Int!): [Shout]! # homepage
   recentReacted(offset: Int!, limit: Int!): [Shout]! # test
   recentAll(offset: Int!, limit: Int!): [Shout]!

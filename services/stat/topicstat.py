@@ -1,19 +1,11 @@
 import asyncio
+
 from base.orm import local_session
 from orm.shout import Shout
+from orm.topic import ShoutTopic, TopicFollower
 from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
-from orm.topic import ShoutTopic, TopicFollower
-
-
-def unique(list1):
-
-    # insert the list to the set
-    list_set = set(list1)
-    # convert the set to the list
-    unique_list = (list(list_set))
-    return unique_list
 
 
 class TopicStat:
@@ -27,7 +19,7 @@ class TopicStat:
     async def load_stat(session):
         self = TopicStat
         shout_topics = session.query(ShoutTopic).all()
-        print('[stat.topics] shout topics amount', len(shout_topics))
+        print("[stat.topics] shout topics amount", len(shout_topics))
         for shout_topic in shout_topics:
 
             # shouts by topics
@@ -35,7 +27,11 @@ class TopicStat:
             shout = shout_topic.shout
             sss = set(self.shouts_by_topic.get(topic, []))
             shout = session.query(Shout).where(Shout.slug == shout).first()
-            sss.union([shout, ])
+            sss.union(
+                [
+                    shout,
+                ]
+            )
             self.shouts_by_topic[topic] = list(sss)
 
             # authors by topics

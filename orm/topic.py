@@ -1,5 +1,7 @@
 from datetime import datetime
+
 from sqlalchemy import Column, String, ForeignKey, DateTime, JSON as JSONType
+
 from base.orm import Base
 
 

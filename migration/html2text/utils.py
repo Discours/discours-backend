@@ -68,13 +68,11 @@ def element_style(
     :rtype: dict
     """
     style = parent_style.copy()
-    if "class" in attrs:
-        assert attrs["class"] is not None
+    if attrs.get("class"):
         for css_class in attrs["class"].split():
             css_style = style_def.get("." + css_class, {})
             style.update(css_style)
-    if "style" in attrs:
-        assert attrs["style"] is not None
+    if attrs.get("style"):
         immediate_style = dumb_property_dict(attrs["style"])
         style.update(immediate_style)
 
@@ -149,8 +147,7 @@ def list_numbering_start(attrs: Dict[str, Optional[str]]) -> int:
 
     :rtype: int or None
     """
-    if "start" in attrs:
-        assert attrs["start"] is not None
+    if attrs.get("start"):
         try:
             return int(attrs["start"]) - 1
         except ValueError:

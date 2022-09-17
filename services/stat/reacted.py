@@ -1,11 +1,13 @@
 import asyncio
 from datetime import datetime
+from enum import Enum as Enumeration
+
 from sqlalchemy import Column, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.types import Enum as ColumnEnum
+
 from base.orm import Base, local_session
 from orm.topic import ShoutTopic
-from enum import Enum as Enumeration
-from sqlalchemy.types import Enum as ColumnEnum
 
 
 class ReactionKind(Enumeration):
@@ -139,26 +141,23 @@ class ReactedStorage:
         self = ReactedStorage
 
         async with self.lock:
-            reactions = self.reacted["shouts"].get(reaction.shout)
-            if reaction.replyTo:
-                reactions = self.reacted["reactions"].get(reaction.id)
-                for r in reactions.values():
-                    r = {
-                        "day": datetime.now().replace(
-                            hour=0, minute=0, second=0, microsecond=0
-                        ),
-                        "reaction": reaction.id,
-                        "kind": reaction.kind,
-                        "shout": reaction.shout,
-                    }
-                if reaction.replyTo:
-                    r["replyTo"] = reaction.replyTo
-                if reaction.body:
-                    r["comment"] = True
-                reaction: ReactedByDay = ReactedByDay.create(**r)  # type: ignore
-                self.reacted["shouts"][reaction.shout] = self.reacted["shouts"].get(
-                    reaction.shout, []
-                )
+            reactions = {}
+
+            # iterate sibling reactions
+            reactions = self.reacted["shouts"].get(reaction.shout, {})
+            for r in reactions.values():
+                reaction = ReactedByDay.create({
+                    "day": datetime.now().replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    ),
+                    "reaction": r.id,
+                    "kind": r.kind,
+                    "shout": r.shout,
+                    "comment": bool(r.body),
+                    "replyTo": r.replyTo
+                })
+                # renew sorted by shouts store
+                self.reacted["shouts"][reaction.shout] = self.reacted["shouts"].get(reaction.shout, [])
                 self.reacted["shouts"][reaction.shout].append(reaction)
                 if reaction.replyTo:
                     self.reacted["reaction"][reaction.replyTo] = self.reacted[
@@ -169,11 +168,12 @@ class ReactedStorage:
                         "reactions"
                     ].get(reaction.replyTo, 0) + kind_to_rate(reaction.kind)
                 else:
+                    # rate only by root reactions on shout
                     self.rating["shouts"][reaction.replyTo] = self.rating["shouts"].get(
                         reaction.shout, 0
                     ) + kind_to_rate(reaction.kind)
 
-                flag_modified(r, "value")
+                flag_modified(reaction, "value")
 
     @staticmethod
     def init(session):
@@ -218,16 +218,20 @@ class ReactedStorage:
     async def flush_changes(session):
         self = ReactedStorage
         async with self.lock:
-            for slug in dict(self.reacted['shouts']).keys():
-                topics = session.query(ShoutTopic.topic).where(ShoutTopic.shout == slug).all()
-                reactions = self.reacted['shouts'].get(slug, [])
+            for slug in dict(self.reacted["shouts"]).keys():
+                topics = (
+                    session.query(ShoutTopic.topic)
+                    .where(ShoutTopic.shout == slug)
+                    .all()
+                )
+                reactions = self.reacted["shouts"].get(slug, [])
                 # print('[stat.reacted] shout {' + str(slug) + "}: " + str(len(reactions)))
                 for ts in list(topics):
                     tslug = ts[0]
                     topic_reactions = self.reacted["topics"].get(tslug, [])
                     topic_reactions += reactions
                     # print('[stat.reacted] topic {' + str(tslug) + "}: " + str(len(topic_reactions)))
-                reactions += list(self.reacted['reactions'].values())
+                reactions += list(self.reacted["reactions"].values())
                 for reaction in reactions:
                     if getattr(reaction, "modified", False):
                         session.add(reaction)

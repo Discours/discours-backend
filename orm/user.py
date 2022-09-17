@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -9,6 +10,7 @@ from sqlalchemy import (
     JSON as JSONType,
 )
 from sqlalchemy.orm import relationship
+
 from base.orm import Base, local_session
 from orm.rbac import Role
 from services.auth.roles import RoleStorage

@@ -1,8 +1,9 @@
-import sqlalchemy
+from dateutil.parser import parse
+from sqlalchemy.exc import IntegrityError
+
+from base.orm import local_session
 from migration.html2text import html2text
 from orm import User, UserRating
-from dateutil.parser import parse
-from base.orm import local_session
 
 
 def migrate(entry):
@@ -21,9 +22,6 @@ def migrate(entry):
         "muted": False,  # amnesty
         "bio": entry["profile"].get("bio", ""),
         "notifications": [],
-        "createdAt": parse(entry["createdAt"]),
-        "roles": [],  # entry['roles'] # roles by community
-        "ratings": [],  # entry['ratings']
         "links": [],
         "name": "anonymous",
     }
@@ -86,7 +84,7 @@ def migrate(entry):
     user_dict["slug"] = user_dict["slug"].lower().strip().replace(" ", "-")
     try:
         user = User.create(**user_dict.copy())
-    except sqlalchemy.exc.IntegrityError:
+    except IntegrityError:
         print("[migration] cannot create user " + user_dict["slug"])
         with local_session() as session:
             old_user = (
@@ -120,28 +118,10 @@ def migrate_2stage(entry, id_map):
         with local_session() as session:
             try:
                 user_rating = UserRating.create(**user_rating_dict)
-            except sqlalchemy.exc.IntegrityError:
-                old_rating = (
-                    session.query(UserRating)
-                    .filter(UserRating.rater == rater_slug)
-                    .first()
-                )
-                print(
-                    "[migration] cannot create "
-                    + author_slug
-                    + "`s rate from "
-                    + rater_slug
-                )
-                print(
-                    "[migration] concat rating value %d+%d=%d"
-                    % (
-                        old_rating.value,
-                        rating_entry["value"],
-                        old_rating.value + rating_entry["value"],
-                    )
-                )
-                old_rating.update({"value": old_rating.value + rating_entry["value"]})
+                session.add(user_rating)
                 session.commit()
+            except IntegrityError:
+                print("[migration] cannot rate " + author_slug + "`s by " + rater_slug)
             except Exception as e:
                 print(e)
     return ce

@@ -1,8 +1,10 @@
 from typing import TypeVar, Any, Dict, Generic, Callable
+
 from sqlalchemy import create_engine, Column, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.schema import Table
+
 from settings import DB_URL
 
 if DB_URL.startswith("sqlite"):

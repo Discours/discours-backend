@@ -1,7 +1,9 @@
-from datetime import datetime
 import json
 import os
+from datetime import datetime
+
 import frontmatter
+
 from .extract import extract_html, prepare_html_body
 from .utils import DateTimeEncoder
 
@@ -67,22 +69,40 @@ def export_slug(slug, storage):
 
 
 def export_email_subscriptions():
-    email_subscriptions_data = json.loads(open("migration/data/email_subscriptions.json").read())
+    email_subscriptions_data = json.loads(
+        open("migration/data/email_subscriptions.json").read()
+    )
     for data in email_subscriptions_data:
         # TODO: migrate to mailgun list manually
         # migrate_email_subscription(data)
         pass
-    print("[migration] " + str(len(email_subscriptions_data)) + " email subscriptions exported")
+    print(
+        "[migration] "
+        + str(len(email_subscriptions_data))
+        + " email subscriptions exported"
+    )
 
 
 def export_shouts(storage):
     # update what was just migrated or load json again
     if len(storage["users"]["by_slugs"].keys()) == 0:
-        storage["users"]["by_slugs"] = json.loads(open(EXPORT_DEST + "authors.json").read())
-        print("[migration] " + str(len(storage["users"]["by_slugs"].keys())) + " exported authors ")
+        storage["users"]["by_slugs"] = json.loads(
+            open(EXPORT_DEST + "authors.json").read()
+        )
+        print(
+            "[migration] "
+            + str(len(storage["users"]["by_slugs"].keys()))
+            + " exported authors "
+        )
     if len(storage["shouts"]["by_slugs"].keys()) == 0:
-        storage["shouts"]["by_slugs"] = json.loads(open(EXPORT_DEST + "articles.json").read())
-        print("[migration] " + str(len(storage["shouts"]["by_slugs"].keys())) + " exported articles ")
+        storage["shouts"]["by_slugs"] = json.loads(
+            open(EXPORT_DEST + "articles.json").read()
+        )
+        print(
+            "[migration] "
+            + str(len(storage["shouts"]["by_slugs"].keys()))
+            + " exported articles "
+        )
     for slug in storage["shouts"]["by_slugs"].keys():
         export_slug(slug, storage)
 
@@ -130,4 +150,8 @@ def export_json(
             ensure_ascii=False,
         )
     )
-    print("[migration] " + str(len(export_comments.items())) + " exported articles with comments")
+    print(
+        "[migration] "
+        + str(len(export_comments.items()))
+        + " exported articles with comments"
+    )

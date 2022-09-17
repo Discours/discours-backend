@@ -1,18 +1,19 @@
+from sqlalchemy.orm import selectinload
+from sqlalchemy.sql.expression import and_, select, desc
+
+from auth.authenticate import login_required
+from base.orm import local_session
+from base.resolvers import mutation, query
 from orm.collection import ShoutCollection
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
-from base.orm import local_session
-from base.resolvers import mutation, query
+from resolvers.community import community_follow, community_unfollow
+from resolvers.profile import author_follow, author_unfollow
+from resolvers.reactions import reactions_follow, reactions_unfollow
+from resolvers.topics import topic_follow, topic_unfollow
+from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
 from services.zine.shoutscache import ShoutsCache
-from services.stat.viewed import ViewedStorage
-from resolvers.profile import author_follow, author_unfollow
-from resolvers.topics import topic_follow, topic_unfollow
-from resolvers.community import community_follow, community_unfollow
-from resolvers.reactions import reactions_follow, reactions_unfollow
-from auth.authenticate import login_required
-from sqlalchemy import select, desc, asc, and_
-from sqlalchemy.orm import selectinload
 
 
 @mutation.field("incrementView")
@@ -31,6 +32,12 @@ async def top_viewed(_, _info, offset, limit):
 async def top_month(_, _info, offset, limit):
     async with ShoutsCache.lock:
         return ShoutsCache.top_month[offset : offset + limit]
+
+
+@query.field("topCommented")
+async def top_commented(_, _info, offset, limit):
+    async with ShoutsCache.lock:
+        return ShoutsCache.top_commented[offset : offset + limit]
 
 
 @query.field("topOverall")
@@ -105,7 +112,7 @@ async def get_search_results(_, _info, query, offset, limit):
     for s in shouts:
         for a in s.authors:
             a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-        s.stat.search = 1  # FIXME
+        s.stat.relevance = 1  # FIXME
     return shouts
 
 
@@ -116,7 +123,7 @@ async def shouts_by_topics(_, _info, slugs, offset, limit):
             session.query(Shout)
             .join(ShoutTopic)
             .where(and_(ShoutTopic.topic.in_(slugs), bool(Shout.publishedAt)))
-            .order_by(asc(Shout.publishedAt))
+            .order_by(desc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
         )
@@ -134,7 +141,7 @@ async def shouts_by_collection(_, _info, collection, offset, limit):
             session.query(Shout)
             .join(ShoutCollection, ShoutCollection.collection == collection)
             .where(and_(ShoutCollection.shout == Shout.slug, bool(Shout.publishedAt)))
-            .order_by(asc(Shout.publishedAt))
+            .order_by(desc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
         )
@@ -151,7 +158,7 @@ async def shouts_by_authors(_, _info, slugs, offset, limit):
             session.query(Shout)
             .join(ShoutAuthor)
             .where(and_(ShoutAuthor.user.in_(slugs), bool(Shout.publishedAt)))
-            .order_by(asc(Shout.publishedAt))
+            .order_by(desc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
         )
@@ -184,7 +191,7 @@ async def shouts_by_communities(_, info, slugs, offset, limit):
                         ),
                     )
                 )
-                .order_by(desc(Shout.publishedAt))
+                .order_by(desc("publishedAt"))
                 .limit(limit)
                 .offset(offset)
             )

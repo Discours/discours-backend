@@ -1,4 +1,5 @@
 import asyncio
+
 from base.orm import local_session
 from orm.shout import ShoutAuthor
 

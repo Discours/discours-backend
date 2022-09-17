@@ -1,37 +1,38 @@
-from orm import Shout
+from datetime import datetime
+
+from auth.authenticate import login_required
 from base.orm import local_session
+from base.resolvers import mutation
+from orm import Shout
 from orm.rbac import Resource
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.user import User
-from base.resolvers import mutation
 from resolvers.reactions import reactions_follow, reactions_unfollow
-from auth.authenticate import login_required
-from datetime import datetime
 from services.zine.gittask import GitTask
 
 
 @mutation.field("createShout")
 @login_required
-async def create_shout(_, info, input):
+async def create_shout(_, info, inp):
     user = info.context["request"].user
 
-    topic_slugs = input.get("topic_slugs", [])
+    topic_slugs = inp.get("topic_slugs", [])
     if topic_slugs:
-        del input["topic_slugs"]
+        del inp["topic_slugs"]
 
-    new_shout = Shout.create(**input)
+    new_shout = Shout.create(**inp)
     ShoutAuthor.create(shout=new_shout.slug, user=user.slug)
 
     reactions_follow(user, new_shout.slug, True)
 
-    if "mainTopic" in input:
-        topic_slugs.append(input["mainTopic"])
+    if "mainTopic" in inp:
+        topic_slugs.append(inp["mainTopic"])
 
     for slug in topic_slugs:
         ShoutTopic.create(shout=new_shout.slug, topic=slug)
     new_shout.topic_slugs = topic_slugs
 
-    GitTask(input, user.username, user.email, "new shout %s" % (new_shout.slug))
+    GitTask(inp, user.username, user.email, "new shout %s" % (new_shout.slug))
 
     # await ShoutCommentsStorage.send_shout(new_shout)
 
@@ -40,11 +41,11 @@ async def create_shout(_, info, input):
 
 @mutation.field("updateShout")
 @login_required
-async def update_shout(_, info, input):
+async def update_shout(_, info, inp):
     auth = info.context["request"].auth
     user_id = auth.user_id
 
-    slug = input["slug"]
+    slug = inp["slug"]
 
     session = local_session()
     user = session.query(User).filter(User.id == user_id).first()
@@ -60,15 +61,16 @@ async def update_shout(_, info, input):
         if Resource.shout_id not in scopes:
             return {"error": "access denied"}
 
-    shout.update(input)
+    shout.update(inp)
     shout.updatedAt = datetime.now()
+    session.add(shout)
     session.commit()
     session.close()
 
-    for topic in input.get("topic_slugs", []):
+    for topic in inp.get("topic_slugs", []):
         ShoutTopic.create(shout=slug, topic=topic)
 
-    GitTask(input, user.username, user.email, "update shout %s" % (slug))
+    GitTask(inp, user.username, user.email, "update shout %s" % (slug))
 
     return {"shout": shout}
 
@@ -89,6 +91,7 @@ async def delete_shout(_, info, slug):
         for a in authors:
             reactions_unfollow(a.slug, slug, True)
         shout.deletedAt = datetime.now()
+        session.add(shout)
         session.commit()
 
     return {}

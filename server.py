@@ -1,7 +1,6 @@
+import sys
 import uvicorn
 from settings import PORT
-
-import sys
 
 if __name__ == "__main__":
     x = ""

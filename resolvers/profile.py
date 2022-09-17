@@ -1,18 +1,21 @@
 from datetime import datetime
-from orm.user import User, UserRole, Role, UserRating, AuthorFollower
-from services.auth.users import UserStorage
-from orm.shout import Shout
-from orm.reaction import Reaction
-from base.orm import local_session
-from orm.topic import Topic, TopicFollower
-from base.resolvers import mutation, query
-from resolvers.community import get_followed_communities
-from resolvers.reactions import get_shout_reactions
-from auth.authenticate import login_required
-from resolvers.inbox import get_unread_counter
+from typing import List
+
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import selectinload
-from typing import List
+
+from auth.authenticate import login_required
+from auth.tokenstorage import TokenStorage
+from base.orm import local_session
+from base.resolvers import mutation, query
+from orm.reaction import Reaction
+from orm.shout import Shout
+from orm.topic import Topic, TopicFollower
+from orm.user import User, UserRole, Role, UserRating, AuthorFollower
+from resolvers.community import get_followed_communities
+from resolvers.inbox import get_unread_counter
+from resolvers.reactions import get_shout_reactions
+from services.auth.users import UserStorage
 
 
 @query.field("userReactedShouts")
@@ -87,12 +90,13 @@ async def get_user_info(slug):
 @login_required
 async def get_current_user(_, info):
     user = info.context["request"].user
+    user.lastSeen = datetime.now()
     with local_session() as session:
-        user.lastSeen = datetime.now()
-        user.save()
+        session.add(user)
         session.commit()
+    token = await TokenStorage.create_session(user)
     return {
-        "token": "",  # same token?
+        "token": token,
         "user": user,
         "info": await get_user_info(user.slug),
     }
@@ -133,7 +137,8 @@ async def update_profile(_, info, profile):
         user = session.query(User).filter(User.id == user_id).first()
         if user:
             User.update(user, **profile)
-        session.commit()
+            session.add(user)
+            session.commit()
     return {}
 
 

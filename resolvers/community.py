@@ -1,11 +1,13 @@
-from orm.community import Community, CommunityFollower
-from base.orm import local_session
-from orm.user import User
-from base.resolvers import mutation, query
-from auth.authenticate import login_required
 from datetime import datetime
 from typing import List
+
 from sqlalchemy import and_
+
+from auth.authenticate import login_required
+from base.orm import local_session
+from base.resolvers import mutation, query
+from orm.community import Community, CommunityFollower
+from orm.user import User
 
 
 @mutation.field("createCommunity")
@@ -23,6 +25,8 @@ async def create_community(_, info, input):
             createdBy=user.slug,
             createdAt=datetime.now(),
         )
+        session.add(community)
+        session.commit()
 
     return {"community": community}
 
@@ -48,6 +52,7 @@ async def update_community(_, info, input):
         community.desc = input.get("desc", "")
         community.pic = input.get("pic", "")
         community.updatedAt = datetime.now()
+        session.add(community)
         session.commit()
 
 
@@ -64,6 +69,7 @@ async def delete_community(_, info, slug):
         if community.owner != user_id:
             return {"error": "access denied"}
         community.deletedAt = datetime.now()
+        session.add(community)
         session.commit()
 
     return {}

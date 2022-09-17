@@ -1,8 +1,7 @@
 from authlib.integrations.starlette_client import OAuth
 from starlette.responses import RedirectResponse
-from auth.authorize import Authorize
 from auth.identity import Identity
-
+from auth.tokenstorage import TokenStorage
 from settings import OAUTH_CLIENTS, BACKEND_URL, OAUTH_CALLBACK_URL
 
 oauth = OAuth()
@@ -83,9 +82,8 @@ async def oauth_authorize(request):
         "email": profile["email"],
         "username": profile["name"],
     }
-    user = Identity.identity_oauth(user_input)
-    token = await Authorize.authorize(user, device="pc")
-
+    user = Identity.oauth(user_input)
+    session_token = await TokenStorage.create_session(user)
     response = RedirectResponse(url=OAUTH_CALLBACK_URL)
-    response.set_cookie("token", token)
+    response.set_cookie("token", session_token)
     return response

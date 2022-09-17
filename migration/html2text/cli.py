@@ -4,6 +4,7 @@ import sys
 from . import HTML2Text, __version__, config
 
 
+# noinspection DuplicatedCode
 def main() -> None:
     baseurl = ""
 

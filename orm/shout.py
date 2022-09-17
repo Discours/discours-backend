@@ -1,12 +1,14 @@
 from datetime import datetime
+
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
-from orm.user import User
-from orm.topic import Topic, ShoutTopic
+
+from base.orm import Base
 from orm.reaction import Reaction
+from orm.topic import Topic, ShoutTopic
+from orm.user import User
 from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
-from base.orm import Base
 
 
 class ShoutReactionsFollower(Base):

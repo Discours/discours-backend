@@ -1,33 +1,31 @@
 """ cmd managed migration """
-import csv
 import asyncio
-from datetime import datetime
 import json
+import os
 import subprocess
 import sys
-import os
+from datetime import datetime
+
 import bs4
-import numpy as np
+
+from migration.tables.comments import migrate as migrateComment
+from migration.tables.comments import migrate_2stage as migrateComment_2stage
+from migration.tables.content_items import get_shout_slug, migrate as migrateShout
+from migration.tables.topics import migrate as migrateTopic
+from migration.tables.users import migrate as migrateUser
+from migration.tables.users import migrate_2stage as migrateUser_2stage
+from orm.reaction import Reaction
+from settings import DB_URL
 
 # from export import export_email_subscriptions
 from .export import export_mdx, export_slug
-from orm.reaction import Reaction
-from .tables.users import migrate as migrateUser
-from .tables.users import migrate_2stage as migrateUser_2stage
-from .tables.content_items import get_shout_slug, migrate as migrateShout
-from .tables.topics import migrate as migrateTopic
-from .tables.comments import migrate as migrateComment
-from .tables.comments import migrate_2stage as migrateComment_2stage
-
-from settings import DB_URL
-
 
 TODAY = datetime.strftime(datetime.now(), "%Y%m%d")
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
 
 
-def users_handle(storage):
+async def users_handle(storage):
     """migrating users first"""
     counter = 0
     id_map = {}
@@ -47,10 +45,9 @@ def users_handle(storage):
     ce = 0
     for entry in storage["users"]["data"]:
         ce += migrateUser_2stage(entry, id_map)
-    return storage
 
 
-def topics_handle(storage):
+async def topics_handle(storage):
     """topics from categories and tags"""
     counter = 0
     for t in storage["topics"]["tags"] + storage["topics"]["cats"]:
@@ -78,8 +75,6 @@ def topics_handle(storage):
         + str(len(storage["topics"]["by_slug"].values()))
         + " topics by slug"
     )
-    # raise Exception
-    return storage
 
 
 async def shouts_handle(storage, args):
@@ -105,9 +100,9 @@ async def shouts_handle(storage, args):
         if not shout["topics"]:
             print("[migration] no topics!")
 
-        # wuth author
-        author = shout["authors"][0].slug
-        if author == "discours":
+        # with author
+        author: str = shout["authors"][0].dict()
+        if author["slug"] == "discours":
             discours_author += 1
         # print('[migration] ' + shout['slug'] + ' with author ' + author)
 
@@ -118,21 +113,21 @@ async def shouts_handle(storage, args):
 
         # print main counter
         counter += 1
-        line = str(counter + 1) + ": " + shout["slug"] + " @" + author
+        line = str(counter + 1) + ": " + shout["slug"] + " @" + author["slug"]
         print(line)
+
         b = bs4.BeautifulSoup(shout["body"], "html.parser")
-        texts = []
-        texts.append(shout["title"].lower().replace(r"[^а-яА-Яa-zA-Z]", ""))
-        texts = b.findAll(text=True)
+        texts = [shout["title"].lower().replace(r"[^а-яА-Яa-zA-Z]", "")]
+        texts = texts + b.findAll(text=True)
         topics_dataset_bodies.append(" ".join([x.strip().lower() for x in texts]))
         topics_dataset_tlist.append(shout["topics"])
 
-    # np.savetxt('topics_dataset.csv', (topics_dataset_bodies, topics_dataset_tlist), delimiter=',', fmt='%s')
+    # np.savetxt('topics_dataset.csv', (topics_dataset_bodies, topics_dataset_tlist), delimiter=',
+    # ', fmt='%s')
 
     print("[migration] " + str(counter) + " content items were migrated")
     print("[migration] " + str(pub_counter) + " have been published")
     print("[migration] " + str(discours_author) + " authored by @discours")
-    return storage
 
 
 async def comments_handle(storage):
@@ -146,9 +141,9 @@ async def comments_handle(storage):
                 missed_shouts[reaction] = oldcomment
             elif type(reaction) == Reaction:
                 reaction = reaction.dict()
-                id = reaction["id"]
+                rid = reaction["id"]
                 oid = reaction["oid"]
-                id_map[oid] = id
+                id_map[oid] = rid
             else:
                 ignored_counter += 1
 
@@ -161,7 +156,6 @@ async def comments_handle(storage):
     for missed in missed_shouts.values():
         missed_counter += len(missed)
     print("[migration] " + str(missed_counter) + " comments dropped")
-    return storage
 
 
 def bson_handle():
@@ -180,8 +174,8 @@ def export_one(slug, storage, args=None):
 
 async def all_handle(storage, args):
     print("[migration] handle everything")
-    users_handle(storage)
-    topics_handle(storage)
+    await users_handle(storage)
+    await topics_handle(storage)
     await shouts_handle(storage, args)
     await comments_handle(storage)
     # export_email_subscriptions()
@@ -205,11 +199,6 @@ def data_load():
         "users": {"by_oid": {}, "by_slug": {}, "data": []},
         "replacements": json.loads(open("migration/tables/replacements.json").read()),
     }
-    users_data = []
-    tags_data = []
-    cats_data = []
-    comments_data = []
-    content_data = []
     try:
         users_data = json.loads(open("migration/data/users.json").read())
         print("[migration.load] " + str(len(users_data)) + " users ")
@@ -265,13 +254,13 @@ def data_load():
             + str(len(storage["reactions"]["by_content"].keys()))
             + " with comments"
         )
+        storage["users"]["data"] = users_data
+        storage["topics"]["tags"] = tags_data
+        storage["topics"]["cats"] = cats_data
+        storage["shouts"]["data"] = content_data
+        storage["reactions"]["data"] = comments_data
     except Exception as e:
         raise e
-    storage["users"]["data"] = users_data
-    storage["topics"]["tags"] = tags_data
-    storage["topics"]["cats"] = cats_data
-    storage["shouts"]["data"] = content_data
-    storage["reactions"]["data"] = comments_data
     return storage
 
 
@@ -301,7 +290,7 @@ def create_pgdump():
 
 
 async def handle_auto():
-    print("[migration] no command given, auto mode")
+    print("[migration] no option given, auto mode")
     url = os.getenv("MONGODB_URL")
     if url:
         mongo_download(url)

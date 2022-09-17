@@ -1,5 +1,8 @@
 from typing import List, Optional, Text
+
 from pydantic import BaseModel
+
+from base.exceptions import OperationNotAllowed
 
 
 class Permission(BaseModel):
@@ -17,7 +20,8 @@ class AuthCredentials(BaseModel):
         return True
 
     async def permissions(self) -> List[Permission]:
-        assert self.user_id is not None, "Please login first"
+        if self.user_id is not None:
+            raise OperationNotAllowed("Please login first")
         return NotImplemented()
 
 

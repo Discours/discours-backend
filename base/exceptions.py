@@ -1,4 +1,4 @@
-from graphql import GraphQLError
+from graphql.error import GraphQLError
 
 
 class BaseHttpException(GraphQLError):

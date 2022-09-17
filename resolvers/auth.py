@@ -1,29 +1,42 @@
-from graphql import GraphQLResolveInfo
-from transliterate import translit
 from urllib.parse import quote_plus
-from auth.authenticate import login_required, ResetPassword
-from auth.authorize import Authorize
-from auth.identity import Identity
-from auth.password import Password
-from auth.email import send_confirm_email, send_auth_email, send_reset_password_email
-from orm import User, Role
+
+from auth.tokenstorage import TokenStorage
+from graphql.type import GraphQLResolveInfo
+from transliterate import translit
+
+from auth.authenticate import login_required
+from auth.email import send_auth_email
+from auth.identity import Identity, Password
+from base.exceptions import (
+    InvalidPassword,
+    InvalidToken,
+    ObjectNotExist,
+    OperationNotAllowed,
+)
 from base.orm import local_session
 from base.resolvers import mutation, query
+from orm import User, Role
 from resolvers.profile import get_user_info
-from base.exceptions import InvalidPassword, InvalidToken, ObjectNotExist, OperationNotAllowed
-from settings import JWT_AUTH_HEADER
+from settings import SESSION_TOKEN_HEADER
 
 
 @mutation.field("confirmEmail")
-async def confirm(*_, confirm_token):
+async def confirm_email(*_, confirm_token):
     """confirm owning email address"""
-    auth_token, user = await Authorize.confirm(confirm_token)
-    if auth_token:
-        user.emailConfirmed = True
-        user.save()
-        return {"token": auth_token, "user": user}
-    else:
-        # not an error, warns user
+    user_id = None
+    try:
+        user_id = await TokenStorage.get(confirm_token)
+        with local_session() as session:
+            user = session.query(User).where(User.id == user_id).first()
+            session_token = TokenStorage.create_session(user)
+            user.emailConfirmed = True
+            session.add(user)
+            session.commit()
+        return {"token": session_token, "user": user}
+    except InvalidToken as e:
+        raise InvalidToken(e.message)
+    except Exception as e:
+        print(e)  # FIXME: debug only
         return {"error": "email not confirmed"}
 
 
@@ -50,40 +63,21 @@ async def register(*_, email: str, password: str = ""):
         session.add(user)
         session.commit()
 
-    await send_confirm_email(user)
+    token = await TokenStorage.create_onetime(user)
+    await send_auth_email(user, token)
 
     return {"user": user}
 
 
-@mutation.field("requestPasswordUpdate")
-async def auth_forget(_, info, email):
-    """send email to recover account"""
+@mutation.field("sendLink")
+async def auth_send_link(_, info, email):
+    """send link with confirm code to email"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     if not user:
         raise ObjectNotExist("User not found")
-
-    await send_reset_password_email(user)
-
-    return {}
-
-
-@mutation.field("updatePassword")
-async def auth_reset(_, info, password, resetToken):
-    """set the new password"""
-    try:
-        user_id = await ResetPassword.verify(resetToken)
-    except InvalidToken as e:
-        raise InvalidToken(e.message)
-        # return {"error": e.message}
-
-    with local_session() as session:
-        user = session.query(User).filter_by(id=user_id).first()
-        if not user:
-            raise ObjectNotExist("User not found")
-        user.password = Password.encode(password)
-        session.commit()
-
+    token = await TokenStorage.create_onetime(user)
+    await send_auth_email(user, token)
     return {}
 
 
@@ -92,48 +86,44 @@ async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
 
     with local_session() as session:
         orm_user = session.query(User).filter(User.email == email).first()
-    if orm_user is None:
-        print(f"signIn {email}: email not found")
-        # return {"error": "email not found"}
-        raise ObjectNotExist("User not found")
+        if orm_user is None:
+            print(f"[auth] {email}: email not found")
+            # return {"error": "email not found"}
+            raise ObjectNotExist("User not found")  # contains webserver status
 
-    if not password:
-        print(f"signIn {email}: send auth email")
-        await send_auth_email(orm_user)
-        return {""}
+        if not password:
+            print(f"[auth] send confirm link to {email}")
+            token = await TokenStorage.create_onetime(orm_user)
+            await send_auth_email(orm_user, token)
+            # FIXME: not an error, warning
+            return {"error": "no password, email link was sent"}
 
-    if not orm_user.emailConfirmed:
-        # not an error, warns users
-        return {"error": "email not confirmed"}
-
-    try:
-        device = info.context["request"].headers["device"]
-    except KeyError:
-        device = "pc"
-    auto_delete = False if device == "mobile" else True  # why autodelete with mobile?
-
-    try:
-        user = Identity.identity(orm_user, password)
-    except InvalidPassword:
-        print(f"signIn {email}: invalid password")
-        raise InvalidPassword("invalid passoword")
-        # return {"error": "invalid password"}
-
-    token = await Authorize.authorize(user, device=device, auto_delete=auto_delete)
-    print(f"signIn {email}: OK")
-
-    return {
-        "token": token,
-        "user": orm_user,
-        "info": await get_user_info(orm_user.slug),
-    }
+        else:
+            # sign in using password
+            if not orm_user.emailConfirmed:
+                # not an error, warns users
+                return {"error": "please, confirm email"}
+            else:
+                try:
+                    user = Identity.password(orm_user, password)
+                    session_token = await TokenStorage.create_session(user)
+                    print(f"[auth] user {email} authorized")
+                    return {
+                        "token": session_token,
+                        "user": user,
+                        "info": await get_user_info(user.slug),
+                    }
+                except InvalidPassword:
+                    print(f"[auth] {email}: invalid password")
+                    raise InvalidPassword("invalid passoword")  # contains webserver status
+                    # return {"error": "invalid password"}
 
 
 @query.field("signOut")
 @login_required
 async def sign_out(_, info: GraphQLResolveInfo):
-    token = info.context["request"].headers[JWT_AUTH_HEADER]
-    status = await Authorize.revoke(token)
+    token = info.context["request"].headers[SESSION_TOKEN_HEADER]
+    status = await TokenStorage.revoke(token)
     return status
 
 

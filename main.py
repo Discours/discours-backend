@@ -1,4 +1,6 @@
+import asyncio
 from importlib import import_module
+
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
 from starlette.applications import Starlette
@@ -6,19 +8,18 @@ from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.routing import Route
+
 from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
-from auth.email import email_authorize
 from base.redis import redis
 from base.resolvers import resolvers
 from resolvers.zine import ShoutsCache
+from services.main import storages_init
 from services.stat.reacted import ReactedStorage
+from services.stat.topicstat import TopicStat
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
-from services.stat.topicstat import TopicStat
 from services.zine.shoutauthor import ShoutAuthorStorage
-import asyncio
-
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
 
@@ -42,6 +43,8 @@ async def start_up():
     print(topic_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
+    await storages_init()
+    print()
 
 
 async def shutdown():
@@ -51,7 +54,7 @@ async def shutdown():
 routes = [
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth_authorize", endpoint=oauth_authorize),
-    Route("/email_authorize", endpoint=email_authorize),
+    # Route("/confirm_email", endpoint=),  # should be called on client
 ]
 
 app = Starlette(
