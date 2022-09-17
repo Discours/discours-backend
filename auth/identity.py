@@ -24,7 +24,7 @@ class Password:
 class Identity:
     @staticmethod
     def password(orm_user: User, password: str) -> User:
-        user = AuthInput(**orm_user.dict())
+        user = User(**orm_user.dict())
         if not user.password:
             raise InvalidPassword("User password is empty")
         if not Password.verify(password, user.password):
