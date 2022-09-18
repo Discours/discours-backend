@@ -35,6 +35,55 @@ def get_shout_slug(entry):
     return slug
 
 
+def create_author_from_app(app):
+    try:
+        with local_session() as session:
+            # check if email is used
+            user = session.query(User).where(User.email == app['email']).first()
+            if not user:
+                name = app.get('name')
+                slug = (
+                    translit(name, "ru", reversed=True)
+                    .replace(" ", "-")
+                    .replace("'", "")
+                    .replace(".", "-")
+                    .lower()
+                )
+                # check if nameslug is used
+                user = session.query(User).where(User.slug == slug).first()
+                # get slug from email
+                if user:
+                    slug = app['email'].split('@')[0]
+                    user = session.query(User).where(User.slug == slug).first()
+                # one more try
+                if user:
+                    slug += '-author'
+                    user = session.query(User).where(User.slug == slug).first()
+
+                # create user with application data
+                if not user:
+                    userdata = {
+                        "username": app["email"],
+                        "email": app["email"],
+                        "name": app.get("name", ""),
+                        "bio": app.get("bio", ""),
+                        "emailConfirmed": False,
+                        "slug": slug,
+                        "createdAt": ts,
+                        "wasOnlineAt": ts,
+                    }
+                    user = User.create(**userdata)
+                    session.add(user)
+                    session.commit()
+            userdata = user.dict()
+        if not userdata:
+            userdata = User.default_user.dict()
+    except Exception as e:
+        print(app)
+        raise e
+    return userdata
+
+
 async def create_shout(shout_dict, userslug):
     s = Shout.create(**shout_dict)
     with local_session() as session:
@@ -77,43 +126,22 @@ async def migrate(entry, storage):
     }
     topics_by_oid = storage["topics"]["by_oid"]
     users_by_oid = storage["users"]["by_oid"]
-
     # author
-
     oid = entry.get("createdBy", entry.get("_id", entry.get("oid")))
     userdata = users_by_oid.get(oid)
+    user = None
     if not userdata:
         app = entry.get("application")
         if app:
-            userslug = (
-                translit(app["name"], "ru", reversed=True)
-                .replace(" ", "-")
-                .replace("'", "")
-                .replace(".", "-")
-                .lower()
-            )
-            userdata = {
-                "username": app["email"],
-                "email": app["email"],
-                "name": app["name"],
-                "bio": app.get("bio", ""),
-                "emailConfirmed": False,
-                "slug": userslug,
-                "createdAt": ts,
-                "wasOnlineAt": ts,
-            }
-        else:
-            userdata = User.default_user.dict()
-    if not userdata:
-        raise Exception(
-            "no user found for %s from %d" % [oid, len(users_by_oid.keys())]
-        )
-    r["authors"] = [
-        userdata,
-    ]
+            userdata = create_author_from_app(app)
+    if userdata:
+        userslug = userdata.get('slug')
+    else:
+        userslug = "discours"  # bad old id slug is used here to change later
+        print('DISCOURS AUTHORED: ' + oid)
+    r["authors"] = [userslug, ]
 
     # slug
-
     slug = get_shout_slug(entry)
     if slug:
         r["slug"] = slug
@@ -131,7 +159,6 @@ async def migrate(entry, storage):
     r["cover"] = c
 
     # timestamps
-
     r["createdAt"] = date_parse(entry.get("createdAt", OLD_DATE))
     r["updatedAt"] = date_parse(entry["updatedAt"]) if "updatedAt" in entry else ts
     if entry.get("published"):
@@ -155,7 +182,6 @@ async def migrate(entry, storage):
 
     entry["topics"] = r["topics"]
     entry["cover"] = r["cover"]
-    entry["authors"] = r["authors"]
 
     # body
     r["body"] = prepare_html_body(entry)
@@ -165,29 +191,23 @@ async def migrate(entry, storage):
     shout_dict = r.copy()
     user = None
     del shout_dict["topics"]
-    # NOTE: AttributeError: 'str' object has no attribute '_sa_instance_state'
-    # del shout_dict['rating'] # NOTE: TypeError: 'rating' is an invalid keyword argument for Shout
-    # del shout_dict['ratings']
-    email = userdata.get("email")
-    userslug = userdata.get("slug")
-    if not userslug:
-        raise Exception
     with local_session() as session:
         # c = session.query(Community).all().pop()
-        if email:
-            user = session.query(User).filter(User.email == email).first()
         if not user and userslug:
             user = session.query(User).filter(User.slug == userslug).first()
         if not user and userdata:
             try:
                 userdata["slug"] = userdata["slug"].lower().strip().replace(" ", "-")
                 user = User.create(**userdata)
+                session.add(user)
+                session.commit()
             except IntegrityError:
                 print("[migration] user error: " + userdata)
             userdata["id"] = user.id
             userdata["createdAt"] = user.createdAt
             storage["users"]["by_slug"][userdata["slug"]] = userdata
             storage["users"]["by_oid"][entry["_id"]] = userdata
+
     if not user:
         raise Exception("could not get a user")
     shout_dict["authors"] = [user, ]
