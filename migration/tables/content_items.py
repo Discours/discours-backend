@@ -35,6 +35,34 @@ def get_shout_slug(entry):
     return slug
 
 
+async def create_shout(shout_dict, userslug):
+    s = Shout.create(**shout_dict)
+    with local_session() as session:
+        topics = session.query(ShoutTopic).where(ShoutTopic.shout == s.slug).all()
+        for tpc in topics:
+            tf = session.query(
+                TopicFollower
+            ).where(
+                TopicFollower.follower == userslug
+            ).filter(
+                TopicFollower.topic == tpc.slug
+            ).first()
+            if not tf:
+                tf = TopicFollower.create(topic=tpc.slug, follower=userslug, auto=True)
+                session.add(tf)
+            await TopicStorage.update_topic(tpc.slug)
+
+        srf = session.query(ShoutReactionsFollower).where(
+            ShoutReactionsFollower.shout == s.slug
+        ).filter(
+            ShoutReactionsFollower.follower == userslug
+        ).first()
+        if not srf:
+            srf = ShoutReactionsFollower.create(shout=s.slug, follower=userslug, auto=True)
+            session.add(srf)
+        session.commit()
+
+
 async def migrate(entry, storage):
     # init, set title and layout
     r = {
@@ -164,45 +192,35 @@ async def migrate(entry, storage):
         raise Exception("could not get a user")
     shout_dict["authors"] = [user, ]
     try:
-        s = Shout.create(**shout_dict)
-        with local_session() as session:
-            topics = session.query(ShoutTopic).where(ShoutTopic.shout == s.slug).all()
-            for tpc in topics:
-                tf = session.query(TopicFollower).where(TopicFollower.follower ==
-                                                        userslug).filter(TopicFollower.topic ==
-                                                                         tpc.slug).first()
-                if not tf:
-                    tf = TopicFollower.create(topic=tpc.slug, follower=userslug, auto=True)
-                    session.add(tf)
-                await TopicStorage.update_topic(tpc.slug)
-
-            srf = session.query(ShoutReactionsFollower).where(
-                ShoutReactionsFollower.shout == s.slug
-            ).filter(
-                ShoutReactionsFollower.follower == userslug
-            ).first()
-            if not srf:
-                srf = ShoutReactionsFollower.create(shout=s.slug, follower=userslug, auto=True)
-                session.add(srf)
-            session.commit()
+        await create_shout(shout_dict, userslug)
     except IntegrityError as e:
         with local_session() as session:
             s = session.query(Shout).filter(Shout.slug == shout_dict["slug"]).first()
             bump = False
             if s:
-                for key in shout_dict:
-                    if key in s.__dict__:
-                        if s.__dict__[key] != shout_dict[key]:
-                            print(
-                                "[migration] shout already exists, but differs in %s"
-                                % key
-                            )
-                            bump = True
-                    else:
-                        print("[migration] shout already exists, but lacks %s" % key)
+                if s.authors[0] != userslug:
+                    # create new with different slug
+                    shout_dict["slug"] += '-' + shout_dict["layout"]
+                    try:
+                        await create_shout(shout_dict, userslug)
+                    except IntegrityError as e:
+                        print(e)
                         bump = True
-                if bump:
-                    s.update(shout_dict)
+                else:
+                    # update old
+                    for key in shout_dict:
+                        if key in s.__dict__:
+                            if s.__dict__[key] != shout_dict[key]:
+                                print(
+                                    "[migration] shout already exists, but differs in %s"
+                                    % key
+                                )
+                                bump = True
+                        else:
+                            print("[migration] shout already exists, but lacks %s" % key)
+                            bump = True
+                    if bump:
+                        s.update(shout_dict)
             else:
                 print("[migration] something went wrong with shout: \n%r" % shout_dict)
                 raise e
