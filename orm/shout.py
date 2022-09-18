@@ -47,6 +47,7 @@ class Shout(Base):
     id = None  # type: ignore
     slug = Column(String, primary_key=True)
     community = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
+    lang = Column(String, nullable=False, default='ru', comment="Language")
     body = Column(String, nullable=False, comment="Body")
     title = Column(String, nullable=True)
     subtitle = Column(String, nullable=True)

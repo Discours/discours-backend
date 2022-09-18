@@ -1,9 +1,9 @@
-import aioredis
+from aioredis import from_url
 
 from settings import REDIS_URL
 
 
-class Redis:
+class RedisCache:
     def __init__(self, uri=REDIS_URL):
         self._uri: str = uri
         self._instance = None
@@ -11,13 +11,13 @@ class Redis:
     async def connect(self):
         if self._instance is not None:
             return
-        self._instance = aioredis.from_url(self._uri, encoding="utf-8")
+        self._instance = await from_url(self._uri, encoding="utf-8")
 
     async def disconnect(self):
         if self._instance is None:
             return
         self._instance.close()
-        await self._instance.wait_closed()
+        # await self._instance.wait_closed()  # deprecated
         self._instance = None
 
     async def execute(self, command, *args, **kwargs):
@@ -30,6 +30,6 @@ class Redis:
         return await self._instance.mget(key, *keys)
 
 
-redis = Redis()
+redis = RedisCache()
 
 __all__ = ["redis"]
