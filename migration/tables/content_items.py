@@ -8,7 +8,7 @@ from base.orm import local_session
 from migration.extract import prepare_html_body
 from orm.community import Community
 from orm.reaction import Reaction, ReactionKind
-from orm.shout import Shout, ShoutTopic, User
+from orm.shout import Shout, ShoutTopic, User, ShoutReactionsFollower
 from orm.topic import TopicFollower
 from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedByDay
@@ -115,12 +115,8 @@ async def migrate(entry, storage):
     category = entry["category"]
     mainTopic = topics_by_oid.get(category)
     if mainTopic:
-        r["mainTopic"] = storage["replacements"].get(
-            mainTopic["slug"], mainTopic["slug"]
-        )
-    topic_oids = [
-        category,
-    ]
+        r["mainTopic"] = storage["replacements"].get(mainTopic["slug"], mainTopic["slug"])
+    topic_oids = [category, ]
     topic_oids.extend(entry.get("tags", []))
     for oid in topic_oids:
         if oid in storage["topics"]["by_oid"]:
@@ -137,7 +133,6 @@ async def migrate(entry, storage):
     r["body"] = prepare_html_body(entry)
 
     # save shout to db
-
     s = object()
     shout_dict = r.copy()
     user = None
@@ -167,18 +162,29 @@ async def migrate(entry, storage):
             storage["users"]["by_oid"][entry["_id"]] = userdata
     if not user:
         raise Exception("could not get a user")
-    shout_dict["authors"] = [
-        user,
-    ]
-
-    # TODO: subscribe shout user on shout topics
+    shout_dict["authors"] = [user, ]
     try:
         s = Shout.create(**shout_dict)
         with local_session() as session:
             topics = session.query(ShoutTopic).where(ShoutTopic.shout == s.slug).all()
             for tpc in topics:
-                TopicFollower.create(topic=tpc.slug, follower=userslug)
+                tf = session.query(TopicFollower).where(TopicFollower.follower ==
+                                                        userslug).filter(TopicFollower.topic ==
+                                                                         tpc.slug).first()
+                if not tf:
+                    tf = TopicFollower.create(topic=tpc.slug, follower=userslug, auto=True)
+                    session.add(tf)
                 await TopicStorage.update_topic(tpc.slug)
+
+            srf = session.query(ShoutReactionsFollower).where(
+                ShoutReactionsFollower.shout == s.slug
+            ).filter(
+                ShoutReactionsFollower.follower == userslug
+            ).first()
+            if not srf:
+                srf = ShoutReactionsFollower.create(shout=s.slug, follower=userslug, auto=True)
+                session.add(srf)
+            session.commit()
     except IntegrityError as e:
         with local_session() as session:
             s = session.query(Shout).filter(Shout.slug == shout_dict["slug"]).first()

@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 
 from base.orm import local_session
 from migration.html2text import html2text
-from orm import User, UserRating
+from orm.user import User, UserRating, AuthorFollower
 
 
 def migrate(entry):
@@ -118,6 +118,13 @@ def migrate_2stage(entry, id_map):
         with local_session() as session:
             try:
                 user_rating = UserRating.create(**user_rating_dict)
+                if user_rating_dict['value'] > 0:
+                    af = AuthorFollower.create(
+                        author=user_rating_dict['user'],
+                        follower=user_rating_dict['rater'],
+                        auto=True
+                    )
+                    session.add(af)
                 session.add(user_rating)
                 session.commit()
             except IntegrityError:

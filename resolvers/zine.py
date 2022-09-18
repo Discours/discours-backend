@@ -112,7 +112,7 @@ async def get_search_results(_, _info, query, offset, limit):
     for s in shouts:
         for a in s.authors:
             a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-        s.stat.relevance = 1  # FIXME
+        s.stat.relevance = 1  # FIXME: expecting search engine rated relevance
     return shouts
 
 

@@ -50,20 +50,23 @@ async def create_topic(_, _info, inp):
 @login_required
 async def update_topic(_, _info, inp):
     slug = inp["slug"]
-    session = local_session()
-    topic = session.query(Topic).filter(Topic.slug == slug).first()
-    if not topic:
-        return {"error": "topic not found"}
-    topic.update(**inp)
-    session.commit()
-    session.close()
-    await TopicStorage.update_topic(topic.slug)
-    return {"topic": topic}
+    with local_session() as session:
+        topic = session.query(Topic).filter(Topic.slug == slug).first()
+        if not topic:
+            return {"error": "topic not found"}
+        else:
+            topic.update(**inp)
+            session.commit()
+            await TopicStorage.update_topic(topic.slug)
+            return {"topic": topic}
 
 
 async def topic_follow(user, slug):
-    TopicFollower.create(topic=slug, follower=user.slug)
-    await TopicStorage.update_topic(slug)
+    with local_session() as session:
+        following = TopicFollower.create(topic=slug, follower=user.slug)
+        session.add(following)
+        session.commit()
+        await TopicStorage.update_topic(slug)
 
 
 async def topic_unfollow(user, slug):

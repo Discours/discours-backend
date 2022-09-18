@@ -14,25 +14,22 @@ from services.stat.reacted import ReactedStorage
 
 def reactions_follow(user, slug, auto=False):
     with local_session() as session:
-        fw = (
+        following = (
             session.query(ShoutReactionsFollower)
             .filter(
                 ShoutReactionsFollower.follower == user.slug,
-                ShoutReactionsFollower.shout == slug,
+                ShoutReactionsFollower.shout == slug
             )
             .first()
         )
-        if auto and fw:
-            return
-        elif not auto and fw:
-            if bool(fw.deletedAt):
-                fw.deletedAt = None
-                fw.auto = False
-                session.commit()
-                return
-            # print("[resolvers.reactions] was followed before")
-
-    ShoutReactionsFollower.create(follower=user.slug, shout=slug, auto=auto)
+        if not following:
+            following = ShoutReactionsFollower.create(
+                follower=user.slug,
+                shout=slug,
+                auto=auto
+            )
+            session.add(following)
+            session.commit()
 
 
 def reactions_unfollow(user, slug):
@@ -45,14 +42,9 @@ def reactions_unfollow(user, slug):
             )
             .first()
         )
-        if not following:
-            # print("[resolvers.reactions] was not followed", slug)
-            return
-        if following.auto:
-            following.deletedAt = datetime.now()
-        else:
+        if following:
             session.delete(following)
-        session.commit()
+            session.commit()
 
 
 @mutation.field("createReaction")

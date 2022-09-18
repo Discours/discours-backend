@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, String, ForeignKey, DateTime
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean
 
 from base.orm import Base, local_session
 
@@ -14,6 +14,7 @@ class CommunityFollower(Base):
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
+    auto = Column(Boolean, nullable=False, default=False)
 
 
 class Community(Base):

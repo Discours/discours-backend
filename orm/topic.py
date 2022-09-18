@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, String, ForeignKey, DateTime, JSON as JSONType
+from sqlalchemy import Column, Boolean, String, ForeignKey, DateTime, JSON as JSONType
 
 from base.orm import Base
 
@@ -22,6 +22,7 @@ class TopicFollower(Base):
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
+    auto = Column(Boolean, nullable=False, default=False)
 
 
 class Topic(Base):

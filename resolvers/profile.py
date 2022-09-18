@@ -165,7 +165,10 @@ async def rate_user(_, info, slug, value):
 
 # for mutation.field("follow")
 def author_follow(user, slug):
-    AuthorFollower.create(follower=user.slug, author=slug)
+    with local_session() as session:
+        af = AuthorFollower.create(follower=user.slug, author=slug)
+        session.add(af)
+        session.commit()
 
 
 # for mutation.field("unfollow")

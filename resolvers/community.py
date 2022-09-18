@@ -93,7 +93,10 @@ async def get_communities(_, info):
 
 
 def community_follow(user, slug):
-    CommunityFollower.create(follower=user.slug, community=slug)
+    with local_session() as session:
+        cf = CommunityFollower.create(follower=user.slug, community=slug)
+        session.add(cf)
+        session.commit()
 
 
 def community_unfollow(user, slug):

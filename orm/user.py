@@ -50,6 +50,7 @@ class AuthorFollower(Base):
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
+    auto = Column(Boolean, nullable=False, default=False)
 
 
 class User(Base):

@@ -4,10 +4,11 @@ from dateutil.parser import parse as date_parse
 
 from base.orm import local_session
 from migration.html2text import html2text
-from orm import Reaction, User
-from orm.reaction import ReactionKind
+from orm.user import User
+from orm.topic import TopicFollower
+from orm.reaction import Reaction, ReactionKind
 from services.stat.reacted import ReactedStorage
-
+from orm.shout import ShoutReactionsFollower
 ts = datetime.now()
 
 
@@ -74,7 +75,41 @@ async def migrate(entry, storage):
 
                 # creating reaction from old comment
                 reaction = Reaction.create(**reaction_dict)
+                session.add(reaction)
                 await ReactedStorage.react(reaction)
+
+                # creating shout's reactions following for reaction author
+                following1 = session.query(
+                    ShoutReactionsFollower
+                ).where(
+                    ShoutReactionsFollower.follower == reaction_dict["createdBy"]
+                ).filter(
+                    ShoutReactionsFollower.shout == reaction.shout
+                ).first()
+                if not following1:
+                    following1 = ShoutReactionsFollower.create(
+                        follower=reaction_dict["createdBy"],
+                        shout=reaction.shout,
+                        auto=True
+                    )
+                    session.add(following1)
+
+                # creating topics followings for reaction author
+                for t in shout_dict["topics"]:
+                    tf = session.query(
+                        TopicFollower
+                    ).where(
+                        TopicFollower.follower == reaction_dict["createdBy"]
+                    ).filter(
+                        TopicFollower.topic == t
+                    ).first()
+                    if not tf:
+                        topic_following = TopicFollower.create(
+                            follower=reaction_dict["createdBy"],
+                            topic=t,
+                            auto=True
+                        )
+                        session.add(topic_following)
 
                 reaction_dict["id"] = reaction.id
                 for comment_rating_old in entry.get("ratings", []):
@@ -83,18 +118,13 @@ async def migrate(entry, storage):
                         .filter(User.oid == comment_rating_old["createdBy"])
                         .first()
                     )
-                    reactedBy = (
-                        rater
-                        if rater
-                        else session.query(User).filter(User.slug == "noname").first()
-                    )
                     re_reaction_dict = {
                         "shout": reaction_dict["shout"],
                         "replyTo": reaction.id,
                         "kind": ReactionKind.LIKE
                         if comment_rating_old["value"] > 0
                         else ReactionKind.DISLIKE,
-                        "createdBy": reactedBy.slug if reactedBy else "discours",
+                        "createdBy": rater.slug if rater else "discours",
                     }
                     cts = comment_rating_old.get("createdAt")
                     if cts:
@@ -102,11 +132,27 @@ async def migrate(entry, storage):
                     try:
                         # creating reaction from old rating
                         rr = Reaction.create(**re_reaction_dict)
+                        following2 = session.query(
+                            ShoutReactionsFollower
+                        ).where(
+                            ShoutReactionsFollower.follower == re_reaction_dict['createdBy']
+                        ).filter(
+                            ShoutReactionsFollower.shout == rr.shout
+                        ).first()
+                        if not following2:
+                            following2 = ShoutReactionsFollower.create(
+                                follower=re_reaction_dict['createdBy'],
+                                shout=rr.shout,
+                                auto=True
+                            )
+                            session.add(following2)
+                        session.add(rr)
                         await ReactedStorage.react(rr)
 
                     except Exception as e:
                         print("[migration] comment rating error: %r" % re_reaction_dict)
                         raise e
+                session.commit()
             else:
                 print(
                     "[migration] error: cannot find shout for comment %r"
@@ -126,6 +172,15 @@ def migrate_2stage(rr, old_new_id):
         comment = session.query(Reaction).filter(Reaction.id == new_id).first()
         comment.replyTo = old_new_id.get(reply_oid)
         session.add(comment)
+
+        srf = session.query(ShoutReactionsFollower).where(
+            ShoutReactionsFollower.shout == comment.shout
+        ).filter(
+            ShoutReactionsFollower.follower == comment.createdBy
+        ).first()
+        if not srf:
+            srf = ShoutReactionsFollower.create(shout=comment.shout, follower=comment.createdBy, auto=True)
+            session.add(srf)
         session.commit()
     if not rr["body"]:
         raise Exception(rr)

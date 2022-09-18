@@ -46,29 +46,25 @@ class Shout(Base):
 
     id = None  # type: ignore
     slug = Column(String, primary_key=True)
-    community = Column(
-        Integer, ForeignKey("community.id"), nullable=False, comment="Community"
-    )
+    community = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
     body = Column(String, nullable=False, comment="Body")
-    createdAt = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Created at"
-    )
-    updatedAt = Column(DateTime, nullable=True, comment="Updated at")
-    replyTo = Column(ForeignKey("shout.slug"), nullable=True)
-    versionOf = Column(ForeignKey("shout.slug"), nullable=True)
-    tags = Column(String, nullable=True)
-    publishedBy = Column(ForeignKey("user.id"), nullable=True)
-    publishedAt = Column(DateTime, nullable=True)
-    cover = Column(String, nullable=True)
     title = Column(String, nullable=True)
     subtitle = Column(String, nullable=True)
     layout = Column(String, nullable=True)
-    reactions = relationship(lambda: Reaction)
+    mainTopic = Column(ForeignKey("topic.slug"), nullable=True)
+    cover = Column(String, nullable=True)
     authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__)
     topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
-    mainTopic = Column(ForeignKey("topic.slug"), nullable=True)
+    reactions = relationship(lambda: Reaction)
     visibleFor = relationship(lambda: User, secondary=ShoutAllowed.__tablename__)
-    draft = Column(Boolean, default=True)
+
+    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
+    updatedAt = Column(DateTime, nullable=True, comment="Updated at")
+    publishedAt = Column(DateTime, nullable=True)
+
+    versionOf = Column(ForeignKey("shout.slug"), nullable=True)
+    draft = Column(Boolean, default=False)
+    lang = Column(String, default='ru')
     oid = Column(String, nullable=True)
 
     @property
