@@ -232,11 +232,11 @@ type Query {
   topViewed(offset: Int!, limit: Int!): [Shout]!
   # topReacted(offset: Int!, limit: Int!): [Shout]!
   topAuthors(offset: Int!, limit: Int!): [Author]!
-  topMonth(offset: Int!, limit: Int!): [Shout]!
-  topOverall(offset: Int!, limit: Int!): [Shout]!
+  topMonth(offset: Int!, limit: Int!): [Shout]!     # TODO: rename topRatedMonth
+  topOverall(offset: Int!, limit: Int!): [Shout]!  # TODO: rename topRated
   topCommented(offset: Int!, limit: Int!): [Shout]!
   recentPublished(offset: Int!, limit: Int!): [Shout]! # homepage
-  recentReacted(offset: Int!, limit: Int!): [Shout]!
+  recentReacted(offset: Int!, limit: Int!): [Shout]!  # TODO: use in design!
   recentCommented(offset: Int!, limit: Int!): [Shout]!
   recentAll(offset: Int!, limit: Int!): [Shout]!
 
