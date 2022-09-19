@@ -5,10 +5,16 @@ from sqlalchemy.orm import relationship
 
 from base.orm import Base
 from orm.reaction import Reaction
-from orm.topic import Topic, ShoutTopic
+from orm.topic import Topic
 from orm.user import User
-from services.stat.reacted import ReactedStorage
-from services.stat.viewed import ViewedStorage
+
+
+class ShoutTopic(Base):
+    __tablename__ = "shout_topic"
+
+    id = None  # type: ignore
+    shout = Column(ForeignKey("shout.slug"), primary_key=True)
+    topic = Column(ForeignKey("topic.slug"), primary_key=True)
 
 
 class ShoutReactionsFollower(Base):
@@ -62,17 +68,9 @@ class Shout(Base):
     createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
     publishedAt = Column(DateTime, nullable=True)
+    deletedAt = Column(DateTime, nullable=True)
 
     versionOf = Column(ForeignKey("shout.slug"), nullable=True)
     draft = Column(Boolean, default=False)
     lang = Column(String, default='ru')
     oid = Column(String, nullable=True)
-
-    @property
-    async def stat(self):
-        return {
-            "viewed": await ViewedStorage.get_shout(self.slug),
-            "reacted": len(await ReactedStorage.get_shout(self.slug)),
-            "commented": len(await ReactedStorage.get_comments(self.slug)),
-            "rating": await ReactedStorage.get_rating(self.slug),
-        }

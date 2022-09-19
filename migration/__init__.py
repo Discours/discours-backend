@@ -81,6 +81,7 @@ async def shouts_handle(storage, args):
     """migrating content items one by one"""
     counter = 0
     discours_author = 0
+    anonymous_author = 0
     pub_counter = 0
     topics_dataset_bodies = []
     topics_dataset_tlist = []
@@ -104,6 +105,8 @@ async def shouts_handle(storage, args):
         author: str = shout["authors"][0].dict()
         if author["slug"] == "discours":
             discours_author += 1
+        if author["slug"] == "anonymous":
+            anonymous_author += 1
         # print('[migration] ' + shout['slug'] + ' with author ' + author)
 
         if entry.get("published"):
@@ -128,6 +131,7 @@ async def shouts_handle(storage, args):
     print("[migration] " + str(counter) + " content items were migrated")
     print("[migration] " + str(pub_counter) + " have been published")
     print("[migration] " + str(discours_author) + " authored by @discours")
+    print("[migration] " + str(anonymous_author) + " authored by @anonymous")
 
 
 async def comments_handle(storage):

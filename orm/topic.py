@@ -5,14 +5,6 @@ from sqlalchemy import Column, Boolean, String, ForeignKey, DateTime, JSON as JS
 from base.orm import Base
 
 
-class ShoutTopic(Base):
-    __tablename__ = "shout_topic"
-
-    id = None  # type: ignore
-    shout = Column(ForeignKey("shout.slug"), primary_key=True)
-    topic = Column(ForeignKey("topic.slug"), primary_key=True)
-
-
 class TopicFollower(Base):
     __tablename__ = "topic_followers"
 

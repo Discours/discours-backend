@@ -99,3 +99,6 @@ async def get_my_collections(_, info):
             session.query(Collection).when(Collection.createdBy == user_id).all()
         )
     return collections
+
+
+# TODO: get shouts list by collection

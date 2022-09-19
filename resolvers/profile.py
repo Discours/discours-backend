@@ -1,21 +1,37 @@
-from datetime import datetime
 from typing import List
 
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import selectinload
 
 from auth.authenticate import login_required
-from auth.tokenstorage import TokenStorage
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRole, Role, UserRating, AuthorFollower
-from resolvers.community import get_followed_communities
-from resolvers.inbox import get_unread_counter
-from resolvers.reactions import get_shout_reactions
+from .community import get_followed_communities
+from .inbox import get_unread_counter
+from .reactions import get_shout_reactions
+from .topics import get_topic_stat
 from services.auth.users import UserStorage
+
+
+async def get_user_info(slug):
+    return {
+        "unread": await get_unread_counter(slug),       # unread inbox messages counter
+        "topics": [t.slug for t in get_followed_topics(0, slug)],  # followed topics slugs
+        "authors": [a.slug for a in get_followed_authors(0, slug)],  # followed authors slugs
+        "reactions": [r.shout for r in get_shout_reactions(0, slug)],  # followed reacted shouts slugs
+        "communities": [c.slug for c in get_followed_communities(0, slug)],  # followed communities slugs
+    }
+
+
+async def get_author_stat(slug):
+    # TODO: implement author stat
+    return {
+
+    }
 
 
 @query.field("userReactedShouts")
@@ -38,20 +54,22 @@ async def get_user_reacted_shouts(_, _info, slug, offset, limit) -> List[Shout]:
 
 @query.field("userFollowedTopics")
 @login_required
-def get_followed_topics(_, slug) -> List[Topic]:
-    rows = []
+async def get_followed_topics(_, slug) -> List[Topic]:
+    topics = []
     with local_session() as session:
-        rows = (
+        topics = (
             session.query(Topic)
             .join(TopicFollower)
             .where(TopicFollower.follower == slug)
             .all()
         )
-    return rows
+        for topic in topics:
+            topic.stat = await get_topic_stat(topic.slug)
+    return topics
 
 
 @query.field("userFollowedAuthors")
-def get_followed_authors(_, slug) -> List[User]:
+async def get_followed_authors(_, slug) -> List[User]:
     authors = []
     with local_session() as session:
         authors = (
@@ -60,6 +78,8 @@ def get_followed_authors(_, slug) -> List[User]:
             .where(AuthorFollower.follower == slug)
             .all()
         )
+        for author in authors:
+            author.stat = await get_author_stat(author.slug)
     return authors
 
 
@@ -73,33 +93,6 @@ async def user_followers(_, slug) -> List[User]:
             .all()
         )
     return users
-
-
-# for mutation.field("refreshSession")
-async def get_user_info(slug):
-    return {
-        "unread": await get_unread_counter(slug),
-        "topics": [t.slug for t in get_followed_topics(0, slug)],
-        "authors": [a.slug for a in get_followed_authors(0, slug)],
-        "reactions": [r.shout for r in get_shout_reactions(0, slug)],
-        "communities": [c.slug for c in get_followed_communities(0, slug)],
-    }
-
-
-@mutation.field("refreshSession")
-@login_required
-async def get_current_user(_, info):
-    user = info.context["request"].user
-    user.lastSeen = datetime.now()
-    with local_session() as session:
-        session.add(user)
-        session.commit()
-    token = await TokenStorage.create_session(user)
-    return {
-        "token": token,
-        "user": user,
-        "info": await get_user_info(user.slug),
-    }
 
 
 @query.field("getUsersBySlugs")

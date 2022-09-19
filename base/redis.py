@@ -16,7 +16,7 @@ class RedisCache:
     async def disconnect(self):
         if self._instance is None:
             return
-        self._instance.close()
+        await self._instance.close()
         # await self._instance.wait_closed()  # deprecated
         self._instance = None
 

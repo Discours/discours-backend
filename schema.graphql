@@ -157,8 +157,6 @@ type Mutation {
   createShout(input: ShoutInput!): Result!
   updateShout(input: ShoutInput!): Result!
   deleteShout(slug: String!): Result!
-  viewShout(slug: String!): Result!
-  viewReaction(reaction_id: Int!): Result!
 
   # user profile
   rateUser(slug: String!, value: Int!): Result!

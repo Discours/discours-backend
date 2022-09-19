@@ -13,7 +13,7 @@ from services.zine.shoutscache import prepare_shouts
 
 @query.field("shoutsForFeed")
 @login_required
-def get_user_feed(_, info, offset, limit) -> List[Shout]:
+async def get_user_feed(_, info, offset, limit) -> List[Shout]:
     user = info.context["request"].user
     shouts = []
     with local_session() as session:

@@ -1,9 +1,10 @@
 from urllib.parse import quote_plus
+from datetime import datetime
 
-from auth.tokenstorage import TokenStorage
 from graphql.type import GraphQLResolveInfo
 from transliterate import translit
 
+from auth.tokenstorage import TokenStorage
 from auth.authenticate import login_required
 from auth.email import send_auth_email
 from auth.identity import Identity, Password
@@ -18,6 +19,22 @@ from base.resolvers import mutation, query
 from orm import User, Role
 from resolvers.profile import get_user_info
 from settings import SESSION_TOKEN_HEADER
+
+
+@mutation.field("refreshSession")
+@login_required
+async def get_current_user(_, info):
+    user = info.context["request"].user
+    user.lastSeen = datetime.now()
+    with local_session() as session:
+        session.add(user)
+        session.commit()
+    token = await TokenStorage.create_session(user)
+    return {
+        "token": token,
+        "user": user,
+        "info": await get_user_info(user.slug),
+    }
 
 
 @mutation.field("confirmEmail")

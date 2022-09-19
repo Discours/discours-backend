@@ -64,12 +64,6 @@ async def recent_reacted(_, _info, offset, limit):
         return ShoutsCache.recent_reacted[offset : offset + limit]
 
 
-@mutation.field("viewShout")
-async def view_shout(_, _info, slug):
-    await ViewedStorage.increment(slug)
-    return {"error": ""}
-
-
 @query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
     all_fields = [

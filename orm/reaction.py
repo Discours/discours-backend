@@ -2,10 +2,25 @@ from datetime import datetime
 
 from sqlalchemy import Column, String, ForeignKey, DateTime
 from sqlalchemy import Enum
+from enum import Enum as Enumeration
 
 from base.orm import Base
-from services.stat.reacted import ReactedStorage, ReactionKind
-from services.stat.viewed import ViewedStorage
+
+
+class ReactionKind(Enumeration):
+    AGREE = 1  # +1
+    DISAGREE = 2  # -1
+    PROOF = 3  # +1
+    DISPROOF = 4  # -1
+    ASK = 5  # +0 bookmark
+    PROPOSE = 6  # +0
+    QUOTE = 7  # +0 bookmark
+    COMMENT = 8  # +0
+    ACCEPT = 9  # +1
+    REJECT = 0  # -1
+    LIKE = 11  # +1
+    DISLIKE = 12  # -1
+    # TYPE = <reaction index> # rating diff
 
 
 class Reaction(Base):
@@ -26,12 +41,3 @@ class Reaction(Base):
     range = Column(String, nullable=True, comment="Range in format <start index>:<end>")
     kind = Column(Enum(ReactionKind), nullable=False, comment="Reaction kind")
     oid = Column(String, nullable=True, comment="Old ID")
-
-    @property
-    async def stat(self):
-        return {
-            "viewed": await ViewedStorage.get_reaction(self.id),
-            "reacted": len(await ReactedStorage.get_reaction(self.id)),
-            "rating": await ReactedStorage.get_reaction_rating(self.id),
-            "commented": len(await ReactedStorage.get_reaction_comments(self.id)),
-        }

@@ -5,6 +5,7 @@ from resolvers.auth import (
     register,
     confirm_email,
     auth_send_link,
+    get_current_user,
 )
 from resolvers.collab import remove_author, invite_author
 from resolvers.community import (
@@ -18,7 +19,6 @@ from resolvers.community import (
 from resolvers.editor import create_shout, delete_shout, update_shout
 from resolvers.profile import (
     get_users_by_slugs,
-    get_current_user,
     get_user_reacted_shouts,
     get_user_roles,
     get_top_authors,
@@ -44,7 +44,7 @@ from resolvers.zine import (
     get_shout_by_slug,
     follow,
     unfollow,
-    view_shout,
+    increment_view,
     top_month,
     top_overall,
     recent_published,
@@ -65,8 +65,8 @@ __all__ = [
     "confirm_email",
     "auth_send_link",
     "sign_out",
-    # profile
     "get_current_user",
+    # profile
     "get_users_by_slugs",
     "get_user_roles",
     "get_top_authors",
@@ -80,7 +80,7 @@ __all__ = [
     "top_month",
     "top_overall",
     "top_viewed",
-    "view_shout",
+    "increment_view",
     "get_shout_by_slug",
     # editor
     "create_shout",

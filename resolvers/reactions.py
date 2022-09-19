@@ -10,6 +10,16 @@ from orm.shout import ShoutReactionsFollower
 from orm.user import User
 from services.auth.users import UserStorage
 from services.stat.reacted import ReactedStorage
+from services.stat.viewed import ViewedStorage
+
+
+async def get_reaction_stat(reaction_id):
+    return {
+        "viewed": await ViewedStorage.get_reaction(reaction_id),
+        "reacted": len(await ReactedStorage.get_reaction(reaction_id)),
+        "rating": await ReactedStorage.get_reaction_rating(reaction_id),
+        "commented": len(await ReactedStorage.get_reaction_comments(reaction_id)),
+    }
 
 
 def reactions_follow(user, slug, auto=False):
@@ -61,6 +71,8 @@ async def create_reaction(_, info, inp):
     except Exception as e:
         print(f"[resolvers.reactions] error on reactions autofollowing: {e}")
 
+    reaction.stat = await get_reaction_stat(reaction.id)
+
     return {"reaction": reaction}
 
 
@@ -85,6 +97,8 @@ async def update_reaction(_, info, inp):
         if inp.get("range"):
             reaction.range = inp.get("range")
         session.commit()
+
+        reaction.stat = await get_reaction_stat(reaction.id)
 
     return {"reaction": reaction}
 
@@ -118,6 +132,7 @@ async def get_shout_reactions(_, info, slug, offset, limit):
             .all()
         )
     for r in reactions:
+        r.stat = await get_reaction_stat(r.id)
         r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
     return reactions
 
@@ -137,6 +152,7 @@ async def get_reactions_for_shouts(_, info, shouts, offset, limit):
                 .all()
             )
     for r in reactions:
+        r.stat = await get_reaction_stat(r.id)
         r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
     return reactions
 
@@ -152,5 +168,6 @@ async def get_reactions_by_author(_, info, slug, limit=50, offset=0):
             .offset(offset)
         )
     for r in reactions:
+        r.stat = await get_reaction_stat(r.id)
         r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
     return reactions

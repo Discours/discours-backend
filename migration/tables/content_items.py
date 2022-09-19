@@ -8,10 +8,11 @@ from base.orm import local_session
 from migration.extract import prepare_html_body
 from orm.community import Community
 from orm.reaction import Reaction, ReactionKind
-from orm.shout import Shout, ShoutTopic, User, ShoutReactionsFollower
+from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
+from orm.user import User
 from orm.topic import TopicFollower
 from services.stat.reacted import ReactedStorage
-from services.stat.viewed import ViewedByDay
+from services.stat.viewed import ViewedStorage
 from services.zine.topics import TopicStorage
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
@@ -137,8 +138,7 @@ async def migrate(entry, storage):
     if userdata:
         userslug = userdata.get('slug')
     else:
-        userslug = "discours"  # bad old id slug is used here to change later
-        print('DISCOURS AUTHORED: ' + oid)
+        userslug = "anonymous"  # bad old id slug was found
     r["authors"] = [userslug, ]
 
     # slug
@@ -336,7 +336,7 @@ async def migrate(entry, storage):
         raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
 
     # shout views
-    ViewedByDay.create(shout=shout_dict["slug"], value=entry.get("views", 1))
+    ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1))
     # del shout_dict['ratings']
     shout_dict["oid"] = entry.get("_id")
     storage["shouts"]["by_oid"][entry["_id"]] = shout_dict

@@ -1,20 +1,12 @@
 import asyncio
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer
+from base.orm import local_session
+
 from sqlalchemy.orm.attributes import flag_modified
 
-from base.orm import Base, local_session
-from orm.topic import ShoutTopic
-
-
-class ViewedByDay(Base):
-    __tablename__ = "viewed_by_day"
-
-    id = None
-    shout = Column(ForeignKey("shout.slug"), primary_key=True)
-    day = Column(DateTime, primary_key=True, default=datetime.now)
-    value = Column(Integer)
+from orm.shout import ShoutTopic
+from orm.viewed import ViewedByDay
 
 
 class ViewedStorage:
@@ -47,7 +39,7 @@ class ViewedStorage:
             if this_day_view.day < view.day:
                 self.this_day_views[shout] = view
 
-        print("[stat.viewed] %d shouts viewed" % len(views))
+        print("[stat.viewed] %d shouts viewed" % len(self.viewed['shouts']))
 
     @staticmethod
     async def get_shout(shout_slug):
@@ -68,7 +60,7 @@ class ViewedStorage:
             return self.viewed["reactions"].get(reaction_id, 0)
 
     @staticmethod
-    async def increment(shout_slug):
+    async def increment(shout_slug, amount=1):
         self = ViewedStorage
         async with self.lock:
             this_day_view = self.this_day_views.get(shout_slug)
@@ -79,11 +71,9 @@ class ViewedStorage:
                 this_day_view = ViewedByDay.create(shout=shout_slug, value=1)
                 self.this_day_views[shout_slug] = this_day_view
             else:
-                this_day_view.value = this_day_view.value + 1
+                this_day_view.value = this_day_view.value + amount
             this_day_view.modified = True
-            self.viewed["shouts"][shout_slug] = (
-                self.viewed["shouts"].get(shout_slug, 0) + 1
-            )
+            self.viewed["shouts"][shout_slug] = (self.viewed["shouts"].get(shout_slug, 0) + amount)
             with local_session() as session:
                 topics = (
                     session.query(ShoutTopic.topic)
@@ -91,7 +81,7 @@ class ViewedStorage:
                     .all()
                 )
                 for t in topics:
-                    self.viewed["topics"][t] = self.viewed["topics"].get(t, 0) + 1
+                    self.viewed["topics"][t] = self.viewed["topics"].get(t, 0) + amount
             flag_modified(this_day_view, "value")
 
     @staticmethod
