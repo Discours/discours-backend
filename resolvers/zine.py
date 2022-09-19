@@ -64,6 +64,12 @@ async def recent_reacted(_, _info, offset, limit):
         return ShoutsCache.recent_reacted[offset : offset + limit]
 
 
+@query.field("recentCommented")
+async def recent_commented(_, _info, offset, limit):
+    async with ShoutsCache.lock:
+        return ShoutsCache.recent_commented[offset : offset + limit]
+
+
 @query.field("getShoutBySlug")
 async def get_shout_by_slug(_, info, slug):
     all_fields = [

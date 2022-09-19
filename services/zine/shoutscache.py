@@ -36,6 +36,7 @@ class ShoutsCache:
     recent_published = []
     recent_all = []
     recent_reacted = []
+    recent_commented = []
     top_month = []
     top_overall = []
     top_viewed = []
@@ -102,7 +103,7 @@ class ShoutsCache:
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
                     )
-                    .where(and_(bool(Shout.publishedAt), Shout.slug.in_(list(reacted_slugs))))
+                    .where(Shout.slug.in_(list(reacted_slugs)))
                     .filter(not bool(Shout.deletedAt))
                     .group_by(Shout.slug)
                     .order_by(Shout.publishedAt)
@@ -112,6 +113,33 @@ class ShoutsCache:
             async with ShoutsCache.lock:
                 ShoutsCache.recent_reacted = shouts
                 print("[zine.cache] %d recently reacted shouts " % len(shouts))
+
+    @staticmethod
+    async def prepare_recent_commented():
+        with local_session() as session:
+            reactions = session.query(Reaction).order_by(Reaction.createdAt).limit(ShoutsCache.limit)
+            commented_slugs = set([])
+            for r in reactions:
+                if bool(r.body):
+                    commented_slugs.add(r.shout)
+            shouts = await prepare_shouts(
+                session,
+                (
+                    select(Shout)
+                    .options(
+                        selectinload(Shout.authors),
+                        selectinload(Shout.topics),
+                    )
+                    .where(Shout.slug.in_(list(commented_slugs)))
+                    .filter(not bool(Shout.deletedAt))
+                    .group_by(Shout.slug)
+                    .order_by(Shout.publishedAt)
+                    .limit(ShoutsCache.limit)
+                )
+            )
+            async with ShoutsCache.lock:
+                ShoutsCache.recent_commented = shouts
+                print("[zine.cache] %d recently commented shouts " % len(shouts))
 
     @staticmethod
     async def prepare_top_overall():
@@ -240,6 +268,7 @@ class ShoutsCache:
                 await ShoutsCache.prepare_recent_published()
                 await ShoutsCache.prepare_recent_all()
                 await ShoutsCache.prepare_recent_reacted()
+                await ShoutsCache.prepare_recent_commented()
 
                 await ShoutsCache.prepare_by_author()
                 await ShoutsCache.prepare_by_topic()

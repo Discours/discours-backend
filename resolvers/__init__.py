@@ -40,6 +40,7 @@ from resolvers.topics import (
     topics_by_community,
     topics_all,
 )
+
 from resolvers.zine import (
     get_shout_by_slug,
     follow,
@@ -49,6 +50,8 @@ from resolvers.zine import (
     top_overall,
     recent_published,
     recent_all,
+    recent_commented,
+    recent_reacted,
     top_viewed,
     shouts_by_authors,
     shouts_by_topics,
@@ -72,6 +75,8 @@ __all__ = [
     "get_top_authors",
     # zine
     "recent_published",
+    "recent_commented",
+    "recent_reacted",
     "recent_all",
     "shouts_by_topics",
     "shouts_by_authors",
