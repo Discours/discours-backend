@@ -13,7 +13,6 @@ from orm.user import User
 from orm.topic import TopicFollower
 from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
-from services.zine.topics import TopicStorage
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
 ts = datetime.now()
@@ -88,20 +87,6 @@ def create_author_from_app(app):
 async def create_shout(shout_dict, userslug):
     s = Shout.create(**shout_dict)
     with local_session() as session:
-        topics = session.query(ShoutTopic).where(ShoutTopic.shout == s.slug).all()
-        for tpc in topics:
-            tf = session.query(
-                TopicFollower
-            ).where(
-                TopicFollower.follower == userslug
-            ).filter(
-                TopicFollower.topic == tpc.slug
-            ).first()
-            if not tf:
-                tf = TopicFollower.create(topic=tpc.slug, follower=userslug, auto=True)
-                session.add(tf)
-            await TopicStorage.update_topic(tpc.slug)
-
         srf = session.query(ShoutReactionsFollower).where(
             ShoutReactionsFollower.shout == s.slug
         ).filter(
@@ -179,6 +164,24 @@ async def migrate(entry, storage):
         else:
             print("[migration] unknown old topic id: " + oid)
     r["topics"] = list(r["topics"])
+
+    # add author as TopicFollower
+    with local_session() as session:
+        for tpc in r['topics']:
+            tf = session.query(
+                TopicFollower
+            ).where(
+                TopicFollower.follower == userslug
+            ).filter(
+                TopicFollower.topic == tpc
+            ).first()
+            if not tf:
+                tf = TopicFollower.create(
+                    topic=tpc,
+                    follower=userslug,
+                    auto=True
+                )
+                session.add(tf)
 
     entry["topics"] = r["topics"]
     entry["cover"] = r["cover"]
