@@ -29,6 +29,12 @@ async def top_month(_, _info, offset, limit):
         return ShoutsCache.top_month[offset : offset + limit]
 
 
+@query.field("topPublished")
+async def top_published(_, _info, daysago, offset, limit):
+    async with ShoutsCache.lock:
+        return ShoutsCache.get_top_published_before(daysago, offset, limit)
+
+
 @query.field("topCommented")
 async def top_commented(_, _info, offset, limit):
     async with ShoutsCache.lock:

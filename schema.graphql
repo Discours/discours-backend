@@ -230,9 +230,10 @@ type Query {
   shoutsByCommunities(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
   myCandidates(offset: Int!, limit: Int!): [Shout]! # test
   # topReacted(offset: Int!, limit: Int!): [Shout]!
-  topAuthors(offset: Int!, limit: Int!): [Author]!
-  topMonth(offset: Int!, limit: Int!): [Shout]!     # TODO: rename topRatedMonth
-  topOverall(offset: Int!, limit: Int!): [Shout]!  # TODO: rename topRated
+  topAuthors(offset: Int!, limit: Int!): [Author]!  # by User.rating
+  topPublished(daysago: Int!, offset: Int!, limit: Int!): [Shout]!
+  topMonth(offset: Int!, limit: Int!): [Shout]!     # TODO: implement topPublishedAfter(day, offset, limit)
+  topOverall(offset: Int!, limit: Int!): [Shout]!
   topCommented(offset: Int!, limit: Int!): [Shout]!
   recentPublished(offset: Int!, limit: Int!): [Shout]! # homepage
   recentReacted(offset: Int!, limit: Int!): [Shout]!  # TODO: use in design!
