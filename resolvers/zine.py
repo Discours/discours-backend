@@ -18,14 +18,9 @@ from services.zine.shoutscache import ShoutsCache
 
 @mutation.field("incrementView")
 async def increment_view(_, _info, shout):
+    # TODO: use ackee to collect views
     async with ViewedStorage.lock:
         return ViewedStorage.increment(shout)
-
-
-@query.field("topViewed")
-async def top_viewed(_, _info, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.top_viewed[offset : offset + limit]
 
 
 @query.field("topMonth")

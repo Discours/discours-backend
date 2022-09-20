@@ -1,19 +1,19 @@
 import asyncio
 from datetime import datetime, timedelta
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import selectinload
 
 from base.orm import local_session
-from orm.reaction import Reaction
+from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
-from services.stat.viewed import ViewedByDay, ViewedStorage
 from services.stat.reacted import ReactedStorage
 
 
 async def get_shout_stat(slug):
     return {
-        "viewed": await ViewedStorage.get_shout(slug),
+        # TODO: use ackee as datasource
+        "viewed": 0,  # await ViewedStorage.get_shout(slug),
         "reacted": len(await ReactedStorage.get_shout(slug)),
         "commented": len(await ReactedStorage.get_comments(slug)),
         "rating": await ReactedStorage.get_rating(slug),
@@ -22,6 +22,7 @@ async def get_shout_stat(slug):
 
 async def prepare_shouts(session, stmt):
     shouts = []
+    print(stmt)
     for s in list(map(lambda r: r.Shout, session.execute(stmt))):
         s.stat = await get_shout_stat(s.slug)
         shouts.append(s)
@@ -39,7 +40,6 @@ class ShoutsCache:
     recent_commented = []
     top_month = []
     top_overall = []
-    top_viewed = []
     top_commented = []
 
     by_author = {}
@@ -56,7 +56,8 @@ class ShoutsCache:
                         selectinload(Shout.authors),
                         selectinload(Shout.topics)
                     )
-                    .where(bool(Shout.publishedAt))
+                    .where(Shout.deletedAt.is_(None))
+                    .filter(Shout.publishedAt.is_not(None))
                     .order_by(desc("publishedAt"))
                     .limit(ShoutsCache.limit)
                 ),
@@ -76,9 +77,10 @@ class ShoutsCache:
                         selectinload(Shout.authors),
                         selectinload(Shout.topics)
                     )
+                    .where(Shout.deletedAt.is_(None))
                     .order_by(desc("createdAt"))
                     .limit(ShoutsCache.limit)
-                ),
+                )
             )
         async with ShoutsCache.lock:
             ShoutsCache.recent_all = shouts[0:ShoutsCache.limit]
@@ -94,15 +96,18 @@ class ShoutsCache:
             shouts = await prepare_shouts(
                 session,
                 (
-                    select(Shout, Reaction.createdAt.label('reactedAt'))
+                    select(
+                        Shout,
+                        Reaction.createdAt.label('reactedAt')
+                    )
                     .options(
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
                         selectinload(Shout.reactions),
                     )
                     .join(Reaction)
-                    .where(Shout.slug.in_(reacted_slugs))
-                    .filter(bool(Shout.publishedAt))
+                    .where(and_(Shout.deletedAt.is_(None), Shout.slug.in_(reacted_slugs)))
+                    .filter(Shout.publishedAt.is_not(None))
                     .group_by(Shout.slug, "reactedAt")
                     .order_by(desc("reactedAt"))
                     .limit(ShoutsCache.limit)
@@ -123,15 +128,17 @@ class ShoutsCache:
             shouts = await prepare_shouts(
                 session,
                 (
-                    select(Shout, Reaction.createdAt.label('reactedAt'))
+                    select(
+                        Shout,
+                        Reaction.createdAt.label('reactedAt')
+                    )
                     .options(
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
                         selectinload(Shout.reactions),
                     )
-                    .join(Reaction, Reaction.shout == Shout.slug)
-                    .where(Shout.slug.in_(commented_slugs))
-                    .filter(bool(Shout.publishedAt))
+                    .join(Reaction)
+                    .where(and_(Shout.deletedAt.is_(None), Shout.slug.in_(commented_slugs)))
                     .group_by(Shout.slug, "reactedAt")
                     .order_by(desc("reactedAt"))
                     .limit(ShoutsCache.limit)
@@ -147,15 +154,20 @@ class ShoutsCache:
             shouts = await prepare_shouts(
                 session,
                 (
-                    select(Shout)
+                    select(
+                        Shout,
+                        func.sum(int(bool(Reaction.kind == ReactionKind.LIKE))).label('liked')
+                    )
                     .options(
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
                         selectinload(Shout.reactions),
                     )
                     .join(Reaction)
-                    .where(bool(Shout.publishedAt))
+                    .where(Shout.deletedAt.is_(None))
+                    .filter(Shout.publishedAt.is_not(None))
                     .group_by(Shout.slug)
+                    .order_by(desc("liked"))
                     .limit(ShoutsCache.limit)
                 ),
             )
@@ -171,15 +183,20 @@ class ShoutsCache:
             shouts = await prepare_shouts(
                 session,
                 (
-                    select(Shout)
+                    select(
+                        Shout,
+                        func.sum(int(bool(Reaction.kind == ReactionKind.LIKE))).label('liked')
+                    )
                     .options(
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
                         selectinload(Shout.reactions),
                     )
                     .join(Reaction)
-                    .where(Shout.publishedAt > month_ago)
+                    .where(Shout.deletedAt.is_(None))
+                    .filter(Shout.publishedAt > month_ago)
                     .group_by(Shout.slug)
+                    .order_by(desc("liked"))
                     .limit(ShoutsCache.limit)
                 ),
             )
@@ -195,14 +212,18 @@ class ShoutsCache:
             shouts = await prepare_shouts(
                 session,
                 (
-                    select(Shout, func.sum(int(bool(Reaction.body))).label("commented"))
+                    select(
+                        Shout,
+                        func.sum(int(bool(Reaction.body))).label("commented")
+                    )
                     .options(
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
                         selectinload(Shout.reactions)
                     )
                     .join(Reaction)
-                    .filter(Shout.createdAt > month_ago)
+                    .where(Shout.deletedAt.is_(None))
+                    .filter(Shout.publishedAt > month_ago)
                     .group_by(Shout.slug)
                     .order_by(desc("commented"))
                     .limit(ShoutsCache.limit)
@@ -214,37 +235,11 @@ class ShoutsCache:
             print("[zine.cache] %d last month top commented shouts " % len(ShoutsCache.top_commented))
 
     @staticmethod
-    async def prepare_top_viewed():
-        month_ago = datetime.now() - timedelta(days=30)
-        with local_session() as session:
-            shouts = await prepare_shouts(
-                session,
-                (
-                    select(Shout, func.sum(ViewedByDay.value).label("viewed"))
-                    .options(
-                        selectinload(Shout.authors),
-                        selectinload(Shout.topics),
-                        selectinload(Shout.reactions)
-                    )
-                    .join(Reaction)
-                    .join(ViewedByDay, ViewedByDay.shout == Shout.slug)
-                    .filter(Shout.createdAt > month_ago)
-                    .group_by(Shout.slug)
-                    .order_by(desc("viewed"))
-                    .limit(ShoutsCache.limit)
-                )
-            )
-            shouts.sort(key=lambda s: s.stat["viewed"], reverse=True)
-        async with ShoutsCache.lock:
-            print("[zine.cache] %d last month top viewed shouts " % len(shouts))
-            ShoutsCache.top_viewed = shouts
-
-    @staticmethod
     async def prepare_by_author():
         shouts_by_author = {}
         with local_session() as session:
             for a in session.query(ShoutAuthor).all():
-                shout = session.query(Shout).filter(Shout.slug == a.shout).first()
+                shout = session.query(Shout).where(Shout.slug == a.shout).first()
                 shout.stat = await get_shout_stat(shout.slug)
                 shouts_by_author[a.user] = shouts_by_author.get(a.user, [])
                 if shout not in shouts_by_author[a.user]:
@@ -258,7 +253,7 @@ class ShoutsCache:
         shouts_by_topic = {}
         with local_session() as session:
             for a in session.query(ShoutTopic).all():
-                shout = session.query(Shout).filter(Shout.slug == a.shout).first()
+                shout = session.query(Shout).where(Shout.slug == a.shout).first()
                 shout.stat = await get_shout_stat(shout.slug)
                 shouts_by_topic[a.topic] = shouts_by_topic.get(a.topic, [])
                 if shout not in shouts_by_topic[a.topic]:
@@ -273,7 +268,6 @@ class ShoutsCache:
             try:
                 await ShoutsCache.prepare_top_month()
                 await ShoutsCache.prepare_top_overall()
-                await ShoutsCache.prepare_top_viewed()
                 await ShoutsCache.prepare_top_commented()
 
                 await ShoutsCache.prepare_recent_published()

@@ -52,7 +52,6 @@ from resolvers.zine import (
     recent_all,
     recent_commented,
     recent_reacted,
-    top_viewed,
     shouts_by_authors,
     shouts_by_topics,
     shouts_by_communities,
@@ -84,7 +83,6 @@ __all__ = [
     "get_user_reacted_shouts",
     "top_month",
     "top_overall",
-    "top_viewed",
     "increment_view",
     "get_shout_by_slug",
     # editor

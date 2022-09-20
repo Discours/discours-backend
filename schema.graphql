@@ -229,7 +229,6 @@ type Query {
   shoutsByAuthors(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
   shoutsByCommunities(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
   myCandidates(offset: Int!, limit: Int!): [Shout]! # test
-  topViewed(offset: Int!, limit: Int!): [Shout]!
   # topReacted(offset: Int!, limit: Int!): [Shout]!
   topAuthors(offset: Int!, limit: Int!): [Author]!
   topMonth(offset: Int!, limit: Int!): [Shout]!     # TODO: rename topRatedMonth
