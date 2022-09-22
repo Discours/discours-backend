@@ -75,7 +75,7 @@ async def get_user_collections(_, _info, userslug):
             collections = (
                 session.query(Collection)
                 .where(
-                    and_(Collection.createdBy == userslug, bool(Collection.publishedAt))
+                    and_(Collection.createdBy == userslug, Collection.publishedAt.is_not(None))
                 )
                 .all()
             )

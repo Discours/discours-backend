@@ -35,7 +35,7 @@ async def get_user_feed(_, info, offset, limit) -> List[Shout]:
     return shouts
 
 
-@query.field("myCandidates")
+@query.field("recentCandidates")
 @login_required
 async def user_unpublished_shouts(_, info, offset, limit) -> List[Shout]:
     user = info.context["request"].user
@@ -43,7 +43,7 @@ async def user_unpublished_shouts(_, info, offset, limit) -> List[Shout]:
         shouts = prepare_shouts(
             session.query(Shout)
             .join(ShoutAuthor)
-            .where(and_(not bool(Shout.publishedAt), ShoutAuthor.user == user.slug))
+            .where(and_(Shout.publishedAt.is_(None), ShoutAuthor.user == user.slug))
             .order_by(desc(Shout.createdAt))
             .limit(limit)
             .offset(offset)

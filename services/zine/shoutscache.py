@@ -123,7 +123,7 @@ class ShoutsCache:
             reactions = session.query(Reaction).order_by(Reaction.createdAt).limit(ShoutsCache.limit)
             commented_slugs = set([])
             for r in reactions:
-                if bool(r.body):
+                if len(r.body) > 0:
                     commented_slugs.add(r.shout)
             shouts = await prepare_shouts(
                 session,
@@ -156,18 +156,18 @@ class ShoutsCache:
                 (
                     select(
                         Shout,
-                        func.sum(int(bool(Reaction.kind == ReactionKind.LIKE))).label('liked')
+                        func.sum(Reaction.id).label('reacted')
                     )
                     .options(
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
                         selectinload(Shout.reactions),
                     )
-                    .join(Reaction)
+                    .join(Reaction, Reaction.kind == ReactionKind.LIKE)
                     .where(Shout.deletedAt.is_(None))
                     .filter(Shout.publishedAt.is_not(None))
                     .group_by(Shout.slug)
-                    .order_by(desc("liked"))
+                    .order_by(desc("reacted"))
                     .limit(ShoutsCache.limit)
                 ),
             )
@@ -183,10 +183,7 @@ class ShoutsCache:
             shouts = await prepare_shouts(
                 session,
                 (
-                    select(
-                        Shout,
-                        func.sum(int(bool(Reaction.kind == ReactionKind.LIKE))).label('liked')
-                    )
+                    select(Shout)
                     .options(
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
@@ -196,7 +193,6 @@ class ShoutsCache:
                     .where(Shout.deletedAt.is_(None))
                     .filter(Shout.publishedAt > month_ago)
                     .group_by(Shout.slug)
-                    .order_by(desc("liked"))
                     .limit(ShoutsCache.limit)
                 ),
             )
@@ -214,14 +210,14 @@ class ShoutsCache:
                 (
                     select(
                         Shout,
-                        func.sum(int(bool(Reaction.body))).label("commented")
+                        func.sum(Reaction.id).label("commented")
                     )
                     .options(
                         selectinload(Shout.authors),
                         selectinload(Shout.topics),
                         selectinload(Shout.reactions)
                     )
-                    .join(Reaction)
+                    .join(Reaction, func.length(Reaction.body) > 0)
                     .where(Shout.deletedAt.is_(None))
                     .filter(Shout.publishedAt > month_ago)
                     .group_by(Shout.slug)
@@ -255,6 +251,7 @@ class ShoutsCache:
         for s in ShoutsCache.recent_published:
             if s.publishedAt >= before:
                 shouts_by_rating.append(s)
+        shouts_by_rating.sort(lambda s: s.stat["rating"], reverse=True)
         return shouts_by_rating
 
     @staticmethod

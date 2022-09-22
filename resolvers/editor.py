@@ -3,9 +3,9 @@ from datetime import datetime
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation
-from orm import Shout
 from orm.rbac import Resource
-from orm.shout import ShoutAuthor, ShoutTopic
+from orm.shout import Shout, ShoutAuthor, ShoutTopic
+from orm.topic import TopicFollower
 from orm.user import User
 from resolvers.reactions import reactions_follow, reactions_unfollow
 from services.zine.gittask import GitTask
@@ -20,21 +20,32 @@ async def create_shout(_, info, inp):
     if topic_slugs:
         del inp["topic_slugs"]
 
-    new_shout = Shout.create(**inp)
-    ShoutAuthor.create(shout=new_shout.slug, user=user.slug)
+    with local_session() as session:
+        new_shout = Shout.create(**inp)
 
-    reactions_follow(user, new_shout.slug, True)
+        # NOTE: shout made by one first author
+        sa = ShoutAuthor.create(shout=new_shout.slug, user=user.slug)
+        session.add(sa)
 
-    if "mainTopic" in inp:
-        topic_slugs.append(inp["mainTopic"])
+        reactions_follow(user, new_shout.slug, True)
 
-    for slug in topic_slugs:
-        ShoutTopic.create(shout=new_shout.slug, topic=slug)
-    new_shout.topic_slugs = topic_slugs
+        if "mainTopic" in inp:
+            topic_slugs.append(inp["mainTopic"])
+
+        for slug in topic_slugs:
+            st = ShoutTopic.create(shout=new_shout.slug, topic=slug)
+            session.add(st)
+            tf = session.query(TopicFollower).where(follower=user.slug, topic=slug)
+            if not tf:
+                tf = TopicFollower.create(follower=user.slug, topic=slug, auto=True)
+                session.add(tf)
+
+        new_shout.topic_slugs = topic_slugs
+        session.add(new_shout)
+
+        session.commit()
 
     GitTask(inp, user.username, user.email, "new shout %s" % (new_shout.slug))
-
-    # await ShoutCommentsStorage.send_shout(new_shout)
 
     return {"shout": new_shout}
 
@@ -44,31 +55,28 @@ async def create_shout(_, info, inp):
 async def update_shout(_, info, inp):
     auth = info.context["request"].auth
     user_id = auth.user_id
-
     slug = inp["slug"]
 
-    session = local_session()
-    user = session.query(User).filter(User.id == user_id).first()
-    shout = session.query(Shout).filter(Shout.slug == slug).first()
+    with local_session() as session:
+        user = session.query(User).filter(User.id == user_id).first()
+        shout = session.query(Shout).filter(Shout.slug == slug).first()
+        if not shout:
+            return {"error": "shout not found"}
 
-    if not shout:
-        return {"error": "shout not found"}
-
-    authors = [author.id for author in shout.authors]
-    if user_id not in authors:
-        scopes = auth.scopes
-        print(scopes)
-        if Resource.shout_id not in scopes:
-            return {"error": "access denied"}
-
-    shout.update(inp)
-    shout.updatedAt = datetime.now()
-    session.add(shout)
-    session.commit()
-    session.close()
-
-    for topic in inp.get("topic_slugs", []):
-        ShoutTopic.create(shout=slug, topic=topic)
+        authors = [author.id for author in shout.authors]
+        if user_id not in authors:
+            scopes = auth.scopes
+            print(scopes)
+            if Resource.shout_id not in scopes:
+                return {"error": "access denied"}
+        else:
+            shout.update(inp)
+            shout.updatedAt = datetime.now()
+            session.add(shout)
+            for topic in inp.get("topic_slugs", []):
+                st = ShoutTopic.create(shout=slug, topic=topic)
+                session.add(st)
+            session.commit()
 
     GitTask(inp, user.username, user.email, "update shout %s" % (slug))
 

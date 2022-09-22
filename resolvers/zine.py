@@ -97,14 +97,14 @@ async def get_shout_by_slug(_, info, slug):
 
 
 @query.field("searchQuery")
-async def get_search_results(_, _info, query, offset, limit):
+async def get_search_results(_, _info, searchtext, offset, limit):
     # TODO: remove the copy of searchByTopics
     # with search ranking query
     with local_session() as session:
         shouts = (
             session.query(Shout)
             .join(ShoutTopic)
-            .where(and_(ShoutTopic.topic.in_(query), bool(Shout.publishedAt)))
+            .where(and_(ShoutTopic.topic.in_(searchtext), Shout.publishedAt.is_not(None)))
             .order_by(desc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
@@ -123,7 +123,7 @@ async def shouts_by_topics(_, _info, slugs, offset, limit):
         shouts = (
             session.query(Shout)
             .join(ShoutTopic)
-            .where(and_(ShoutTopic.topic.in_(slugs), bool(Shout.publishedAt)))
+            .where(and_(ShoutTopic.topic.in_(slugs), Shout.publishedAt.is_not(None)))
             .order_by(desc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
@@ -141,8 +141,8 @@ async def shouts_by_collection(_, _info, collection, offset, limit):
         shouts = (
             session.query(Shout)
             .join(ShoutCollection, ShoutCollection.collection == collection)
-            .where(and_(ShoutCollection.shout == Shout.slug, bool(Shout.publishedAt)))
-            .order_by(desc(Shout.publishedAt))
+            .where(and_(ShoutCollection.shout == Shout.slug, Shout.publishedAt.is_not(None)))
+            .order_by(desc("publishedAt"))
             .limit(limit)
             .offset(offset)
         )
@@ -158,7 +158,7 @@ async def shouts_by_authors(_, _info, slugs, offset, limit):
         shouts = (
             session.query(Shout)
             .join(ShoutAuthor)
-            .where(and_(ShoutAuthor.user.in_(slugs), bool(Shout.publishedAt)))
+            .where(and_(ShoutAuthor.user.in_(slugs), Shout.publishedAt.is_not(None)))
             .order_by(desc(Shout.publishedAt))
             .limit(limit)
             .offset(offset)
@@ -186,7 +186,7 @@ async def shouts_by_communities(_, info, slugs, offset, limit):
                 .join(ShoutTopic)
                 .where(
                     and_(
-                        bool(Shout.publishedAt),
+                        Shout.publishedAt.is_not(None),
                         ShoutTopic.topic.in_(
                             select(Topic.slug).where(Topic.community.in_(slugs))
                         ),

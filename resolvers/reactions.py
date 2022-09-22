@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import desc
+from sqlalchemy import desc, and_
 
 from auth.authenticate import login_required
 from base.orm import local_session
@@ -22,14 +22,14 @@ async def get_reaction_stat(reaction_id):
     }
 
 
-def reactions_follow(user, slug, auto=False):
+def reactions_follow(user: User, slug: str, auto=False):
     with local_session() as session:
         following = (
             session.query(ShoutReactionsFollower)
-            .filter(
+            .where(and_(
                 ShoutReactionsFollower.follower == user.slug,
                 ShoutReactionsFollower.shout == slug
-            )
+            ))
             .first()
         )
         if not following:
@@ -46,10 +46,10 @@ def reactions_unfollow(user, slug):
     with local_session() as session:
         following = (
             session.query(ShoutReactionsFollower)
-            .filter(
+            .where(and_(
                 ShoutReactionsFollower.follower == user.slug,
-                ShoutReactionsFollower.shout == slug,
-            )
+                ShoutReactionsFollower.shout == slug
+            ))
             .first()
         )
         if following:
@@ -83,7 +83,7 @@ async def update_reaction(_, info, inp):
     user_id = auth.user_id
 
     with local_session() as session:
-        user = session.query(User).filter(User.id == user_id).first()
+        user = session.query(User).where(User.id == user_id).first()
         reaction = session.query(Reaction).filter(Reaction.id == inp.id).first()
         if not reaction:
             return {"error": "invalid reaction id"}
@@ -109,7 +109,7 @@ async def delete_reaction(_, info, rid):
     auth = info.context["request"].auth
     user_id = auth.user_id
     with local_session() as session:
-        user = session.query(User).filter(User.id == user_id).first()
+        user = session.query(User).where(User.id == user_id).first()
         reaction = session.query(Reaction).filter(Reaction.id == rid).first()
         if not reaction:
             return {"error": "invalid reaction id"}
@@ -145,7 +145,7 @@ async def get_reactions_for_shouts(_, info, shouts, offset, limit):
             reactions += (
                 session.query(Reaction)
                 .filter(Reaction.shout == slug)
-                .where(not bool(Reaction.deletedAt))
+                .where(Reaction.deletedAt.is_not(None))
                 .order_by(desc("createdAt"))
                 .offset(offset)
                 .limit(limit)
@@ -163,7 +163,7 @@ async def get_reactions_by_author(_, info, slug, limit=50, offset=0):
     with local_session() as session:
         reactions = (
             session.query(Reaction)
-            .filter(Reaction.createdBy == slug)
+            .where(Reaction.createdBy == slug)
             .limit(limit)
             .offset(offset)
         )

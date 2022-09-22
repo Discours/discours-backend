@@ -56,7 +56,11 @@ async def topics_by_author(_, _info, author):
 @mutation.field("createTopic")
 @login_required
 async def create_topic(_, _info, inp):
-    new_topic = Topic.create(**inp)
+    with local_session() as session:
+        # TODO: check user permissions to create topic for exact community
+        new_topic = Topic.create(**inp)
+        session.add(new_topic)
+        session.commit()
     await TopicStorage.update_topic(new_topic)
     return {"topic": new_topic}
 
