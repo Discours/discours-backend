@@ -220,7 +220,7 @@ type Query {
   userFollowedCommunities(slug: String!): [Community]!
   userReactedShouts(slug: String!): [Shout]! # test
   getUserRoles(slug: String!): [Role]!
-  authorsAll(offset: Int!, limit: Int!): [User]!
+  authorsAll: [User]!
 
   # shouts
   getShoutBySlug(slug: String!): Shout!
