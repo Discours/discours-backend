@@ -184,11 +184,12 @@ def author_unfollow(user, slug):
 
 
 @query.field("authorsAll")
-def get_authors_all(_, _info):
+async def get_authors_all(_, _info):
     authors = await UserStorage.get_all_users()
     for author in authors:
         author.stat = await get_author_stat(author.slug)
     return authors
+
 
 @query.field("topAuthors")
 def get_top_authors(_, _info, offset, limit):
