@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from base.orm import local_session
 from orm.reaction import Reaction, ReactionKind
-from orm.shout import Shout, ShoutAuthor, ShoutTopic
+from orm.shout import Shout
 from services.stat.reacted import ReactedStorage
 
 
@@ -63,6 +63,15 @@ class ShoutsCache:
                 ),
             )
         async with ShoutsCache.lock:
+            for s in shouts:
+                for a in s.authors:
+                    ShoutsCache.by_author[a.slug] = ShoutsCache.by_author.get(a.slug, [])
+                    ShoutsCache.by_author[a.slug].append(s)
+                for t in s.topics:
+                    ShoutsCache.by_topic[t.slug] = ShoutsCache.by_topic.get(t.slug, [])
+                    ShoutsCache.by_topic[t.slug].append(s)
+            print("[zine.cache] indexed by %d topics " % len(ShoutsCache.by_topic.keys()))
+            print("[zine.cache] indexed by %d authors " % len(ShoutsCache.by_author.keys()))
             ShoutsCache.recent_published = shouts
             print("[zine.cache] %d recently published shouts " % len(shouts))
 
@@ -231,20 +240,6 @@ class ShoutsCache:
             print("[zine.cache] %d last month top commented shouts " % len(ShoutsCache.top_commented))
 
     @staticmethod
-    async def prepare_by_author():
-        shouts_by_author = {}
-        with local_session() as session:
-            for a in session.query(ShoutAuthor).all():
-                shout = session.query(Shout).where(Shout.slug == a.shout).first()
-                shout.stat = await get_shout_stat(shout.slug)
-                shouts_by_author[a.user] = shouts_by_author.get(a.user, [])
-                if shout not in shouts_by_author[a.user]:
-                    shouts_by_author[a.user].append(shout)
-        async with ShoutsCache.lock:
-            print("[zine.cache] indexed by %d authors " % len(shouts_by_author.keys()))
-            ShoutsCache.by_author = shouts_by_author
-
-    @staticmethod
     async def get_top_published_before(daysago, offset, limit):
         shouts_by_rating = []
         before = datetime.now() - timedelta(days=daysago)
@@ -253,20 +248,6 @@ class ShoutsCache:
                 shouts_by_rating.append(s)
         shouts_by_rating.sort(lambda s: s.stat["rating"], reverse=True)
         return shouts_by_rating
-
-    @staticmethod
-    async def prepare_by_topic():
-        shouts_by_topic = {}
-        with local_session() as session:
-            for a in session.query(ShoutTopic).all():
-                shout = session.query(Shout).where(Shout.slug == a.shout).first()
-                shout.stat = await get_shout_stat(shout.slug)
-                shouts_by_topic[a.topic] = shouts_by_topic.get(a.topic, [])
-                if shout not in shouts_by_topic[a.topic]:
-                    shouts_by_topic[a.topic].append(shout)
-        async with ShoutsCache.lock:
-            print("[zine.cache] indexed by %d topics " % len(shouts_by_topic.keys()))
-            ShoutsCache.by_topic = shouts_by_topic
 
     @staticmethod
     async def worker():
@@ -280,9 +261,6 @@ class ShoutsCache:
                 await ShoutsCache.prepare_recent_all()
                 await ShoutsCache.prepare_recent_reacted()
                 await ShoutsCache.prepare_recent_commented()
-
-                await ShoutsCache.prepare_by_author()
-                await ShoutsCache.prepare_by_topic()
                 print("[zine.cache] periodical update")
             except Exception as err:
                 print("[zine.cache] error: %s" % (err))

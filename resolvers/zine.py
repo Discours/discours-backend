@@ -110,10 +110,11 @@ async def get_search_results(_, _info, searchtext, offset, limit):
             .offset(offset)
         )
 
-    for s in shouts:
-        for a in s.authors:
-            a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-        s.stat.relevance = 1  # FIXME: expecting search engine rated relevance
+        for s in shouts:
+            shout = s.dict()
+            for a in shout['authors']:
+                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+            s.stat.relevance = 1  # FIXME: expecting search engine rated relevance
     return shouts
 
 
