@@ -225,7 +225,7 @@ type Query {
   # shouts
   getShoutBySlug(slug: String!): Shout!
   shoutsForFeed(offset: Int!, limit: Int!): [Shout]! # test
-  shoutsByTopics(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
+  shoutsByTopics(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!  # TODO: work load fix
   shoutsByAuthors(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
   shoutsByCommunities(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
   # topReacted(offset: Int!, limit: Int!): [Shout]!

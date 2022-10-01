@@ -119,6 +119,7 @@ async def get_search_results(_, _info, searchtext, offset, limit):
 
 @query.field("shoutsByTopics")
 async def shouts_by_topics(_, _info, slugs, offset, limit):
+    # TODO: use ShoutTopicsStorage
     with local_session() as session:
         shouts = (
             session.query(Shout)
@@ -154,6 +155,7 @@ async def shouts_by_collection(_, _info, collection, offset, limit):
 
 @query.field("shoutsByAuthors")
 async def shouts_by_authors(_, _info, slugs, offset, limit):
+    # TODO: use ShoutAuthorsStorage
     with local_session() as session:
         shouts = (
             session.query(Shout)
