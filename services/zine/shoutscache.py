@@ -245,6 +245,16 @@ class ShoutsCache:
             ShoutsCache.by_author = shouts_by_author
 
     @staticmethod
+    async def get_by_author(author):
+        async with ShoutsCache.lock:
+            return ShoutsCache.by_author.get(author, [])
+
+    @staticmethod
+    async def get_by_topic(topic):
+        async with ShoutsCache.lock:
+            return ShoutsCache.by_topic.get(topic, [])
+
+    @staticmethod
     async def get_top_published_before(daysago, offset, limit):
         shouts_by_rating = []
         before = datetime.now() - timedelta(days=daysago)

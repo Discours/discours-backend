@@ -1,22 +1,23 @@
 import asyncio
 
 from base.orm import local_session
-from orm.shout import ShoutAuthor
+from orm.shout import ShoutAuthor, Shout
 
 
 class ShoutAuthorStorage:
     authors_by_shout = {}
+    shouts_by_author = {}
     lock = asyncio.Lock()
     period = 30 * 60  # sec
 
     @staticmethod
     async def load(session):
         self = ShoutAuthorStorage
-        sas = session.query(ShoutAuthor).all()
+        sas = session.query(ShoutAuthor).join(Shout).all()
         for sa in sas:
             self.authors_by_shout[sa.shout] = self.authors_by_shout.get(sa.shout, [])
             self.authors_by_shout[sa.shout].append([sa.user, sa.caption])
-        print("[zine.authors] %d shouts preprocessed" % len(self.authors_by_shout))
+        print("[zine.shouts] %d shouts indexed by authors" % len(self.authors_by_shout))
 
     @staticmethod
     async def get_authors(shout):
@@ -41,7 +42,7 @@ class ShoutAuthorStorage:
                 with local_session() as session:
                     async with self.lock:
                         await self.load(session)
-                        print("[zine.authors] state updated")
+                        print("[zine.shouts] index by authors was updated")
             except Exception as err:
-                print("[zine.authors] errror: %s" % (err))
+                print("[zine.shouts] error indexing by author: %s" % (err))
             await asyncio.sleep(self.period)

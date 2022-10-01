@@ -5,7 +5,7 @@ from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.collection import ShoutCollection
-from orm.shout import Shout, ShoutAuthor, ShoutTopic
+from orm.shout import Shout, ShoutTopic
 from orm.topic import Topic
 from resolvers.community import community_follow, community_unfollow
 from resolvers.profile import author_follow, author_unfollow
@@ -117,23 +117,34 @@ async def get_search_results(_, _info, searchtext, offset, limit):
     return shouts
 
 
+@query.field("shoutsByAuthors")
+async def shouts_by_authors(_, _info, slugs, offset, limit):
+    shouts = []
+    for author in slugs:
+        shouts.extend(ShoutsCache.get_by_author(author))
+    shouts_prepared = []
+    for s in shouts:
+        if bool(s.publishedAt):
+            for a in s.authors:
+                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+            shouts_prepared.append(s)
+    shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
+    return shouts_prepared[offset : offset + limit]
+
+
 @query.field("shoutsByTopics")
 async def shouts_by_topics(_, _info, slugs, offset, limit):
-    # TODO: use ShoutTopicsStorage
-    with local_session() as session:
-        shouts = (
-            session.query(Shout)
-            .join(ShoutTopic)
-            .where(and_(ShoutTopic.topic.in_(slugs), Shout.publishedAt.is_not(None)))
-            .order_by(desc(Shout.publishedAt))
-            .limit(limit)
-            .offset(offset)
-        )
-
+    shouts = []
+    for topic in slugs:
+        shouts.extend(ShoutsCache.get_by_topic(topic))
+    shouts_prepared = []
     for s in shouts:
-        for a in s.authors:
-            a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-    return shouts
+        if bool(s.publishedAt):
+            for a in s.authors:
+                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+            shouts_prepared.append(s)
+    shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
+    return shouts_prepared[offset : offset + limit]
 
 
 @query.field("shoutsByCollection")
@@ -147,25 +158,6 @@ async def shouts_by_collection(_, _info, collection, offset, limit):
             .limit(limit)
             .offset(offset)
         )
-    for s in shouts:
-        for a in s.authors:
-            a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-    return shouts
-
-
-@query.field("shoutsByAuthors")
-async def shouts_by_authors(_, _info, slugs, offset, limit):
-    # TODO: use ShoutAuthorsStorage
-    with local_session() as session:
-        shouts = (
-            session.query(Shout)
-            .join(ShoutAuthor)
-            .where(and_(ShoutAuthor.user.in_(slugs), Shout.publishedAt.is_not(None)))
-            .order_by(desc(Shout.publishedAt))
-            .limit(limit)
-            .offset(offset)
-        )
-
     for s in shouts:
         for a in s.authors:
             a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
