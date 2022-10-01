@@ -120,8 +120,9 @@ async def get_search_results(_, _info, searchtext, offset, limit):
 @query.field("shoutsByAuthors")
 async def shouts_by_authors(_, _info, slugs, offset, limit):
     shouts = []
-    for author in slugs:
-        shouts.extend(await ShoutsCache.get_by_author(author))
+    async with ShoutsCache.lock:
+        for author in slugs:
+            shouts.extend(ShoutsCache.by_author.get(author, []))
     shouts_prepared = []
     for s in shouts:
         if bool(s.publishedAt):
@@ -135,8 +136,9 @@ async def shouts_by_authors(_, _info, slugs, offset, limit):
 @query.field("shoutsByTopics")
 async def shouts_by_topics(_, _info, slugs, offset, limit):
     shouts = []
-    for topic in slugs:
-        shouts.extend(await ShoutsCache.get_by_topic(topic))
+    async with ShoutsCache.lock:
+        for topic in slugs:
+            shouts.extend(ShoutsCache.by_topic.get(topic, []))
     shouts_prepared = []
     for s in shouts:
         if bool(s.publishedAt):
