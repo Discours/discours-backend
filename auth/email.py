@@ -11,7 +11,7 @@ async def send_auth_email(user, token):
     Follow the <a href='%s'>link</link> to authorize
     </body></html>
     """
-    url = "%s/confirm_email" % BACKEND_URL
+    url = "%s/confirm-email" % BACKEND_URL
     to = "%s <%s>" % (user.username, user.email)
     url_with_token = "%s?token=%s" % (url, token)
     text = text % url_with_token

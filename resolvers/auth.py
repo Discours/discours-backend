@@ -38,7 +38,7 @@ async def get_current_user(_, info):
 
 
 @mutation.field("confirmEmail")
-async def confirm_email(*_, confirm_token):
+async def confirm_email(_, confirm_token):
     """confirm owning email address"""
     user_id = None
     try:
@@ -54,7 +54,14 @@ async def confirm_email(*_, confirm_token):
         raise InvalidToken(e.message)
     except Exception as e:
         print(e)  # FIXME: debug only
-        return {"error": "email not confirmed"}
+        return {"error": "email is not confirmed"}
+
+
+async def confirm_email_handler(request):
+    token = request.path_params["token"]
+    request.session["token"] = token
+    res = confirm_email(None, token)
+    return res
 
 
 @mutation.field("registerUser")
