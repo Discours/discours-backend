@@ -66,12 +66,10 @@ class ShoutsCache:
             for s in shouts:
                 for a in s.authors:
                     ShoutsCache.by_author[a.slug] = ShoutsCache.by_author.get(a.slug, [])
-                    if a not in ShoutsCache.by_topic[a.slug]:
-                        ShoutsCache.by_author[a.slug].append(s)
+                    ShoutsCache.by_author[a.slug].append(s)
                 for t in s.topics:
                     ShoutsCache.by_topic[t.slug] = ShoutsCache.by_topic.get(t.slug, [])
-                    if t not in ShoutsCache.by_topic[t.slug]:
-                        ShoutsCache.by_topic[t.slug].append(s)
+                    ShoutsCache.by_topic[t.slug].append(s)
             print("[zine.cache] indexed by %d topics " % len(ShoutsCache.by_topic.keys()))
             print("[zine.cache] indexed by %d authors " % len(ShoutsCache.by_author.keys()))
             ShoutsCache.recent_published = shouts
