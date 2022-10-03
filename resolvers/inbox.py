@@ -74,13 +74,22 @@ async def add_user_to_chat(user_slug, chat_id, chat=None):
         await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
 
 
+@mutation.query("inviteChat")
+async def invite_to_chat(_, info, invited, chat_id):
+    user = info.context["request"].user
+    chat = await redis.execute("GET", f"chats/{chat_id}")
+    if user.slug in chat['users']:
+        add_user_to_chat(invited, chat_id, chat)
+
+
 @mutation.field("createChat")
 @login_required
-async def create_chat(_, info, description):
+async def create_chat(_, info, description, title=""):
     user = info.context["request"].user
 
     chat_id = uuid.uuid4()
     chat = {
+        "title": title,
         "description": description,
         "createdAt": str(datetime.now),
         "createdBy": user.slug,
@@ -110,7 +119,7 @@ async def load_messages(chatId, size, page):
     return messages
 
 
-@query.field("userChats")
+@query.field("myChats")
 @login_required
 async def user_chats(_, info):
     user = info.context["request"].user
@@ -120,25 +129,23 @@ async def user_chats(_, info):
         chats = list()
     else:
         chats = list(json.loads(chats))
-
-    return {"chats": chats}
+    for c in chats:
+        c['messages'] = await load_messages(c['id'], 50, 1)
+    return chats
 
 
 @query.field("enterChat")
 @login_required
-async def enter_chat(_, info, chatId, size):
+async def enter_chat(_, info, chatId):
     user = info.context["request"].user
 
     chat = await redis.execute("GET", f"chats/{chatId}")
     if not chat:
         return {"error": "chat not exist"}
     chat = json.loads(chat)
-
-    messages = await load_messages(chatId, size, 1)
-
     await add_user_to_chat(user.slug, chatId, chat)
-
-    return {"chat": chat, "messages": messages}
+    chat['messages'] = await load_messages(chatId, 50, 1)
+    return chat
 
 
 @mutation.field("createMessage")
@@ -181,7 +188,7 @@ async def create_message(_, info, chatId, body, replyTo=None):
     return {"message": new_message}
 
 
-@query.field("getMessages")
+@query.field("loadChat")
 @login_required
 async def get_messages(_, info, chatId, size, page):
     chat = await redis.execute("GET", f"chats/{chatId}")

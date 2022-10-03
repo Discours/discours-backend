@@ -30,9 +30,13 @@ type EnterChatResult {
   error: String
 }
 
-type UserChatsResult {
-  error: String
-  chats: [String]
+type ChatResult {
+    error: String
+    members: [User]!
+    createdAt: DateTime!
+    createdBy: User
+    messages: [Message]
+    title: String
 }
 
 type SessionInfo {
@@ -203,9 +207,10 @@ type Mutation {
 
 type Query {
   # inbox
-  userChats: UserChatsResult!
-  enterChat(chatId: String!, size: Int = 50): EnterChatResult!
-  getMessages(chatId: String!, size: Int!, page: Int!): [Message]!
+  myChats: [ChatResult]!
+  enterChat(chatId: String!): ChatResult!
+  loadChat(chatId: String!, size: Int!, page: Int!): [Message]!
+  inviteChat(chatId: String!, userslug: String!): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -496,6 +501,10 @@ type Message {
 type Chat {
   id: Int!
   createdAt: DateTime!
+  createdBy: User!
   updatedAt: DateTime!
+  title: string
   description: String
+  users: [User]!
+  messages: [Message]
 }
