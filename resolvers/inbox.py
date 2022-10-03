@@ -74,7 +74,7 @@ async def add_user_to_chat(user_slug, chat_id, chat=None):
         await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
 
 
-@mutation.query("inviteChat")
+@mutation.field("inviteChat")
 async def invite_to_chat(_, info, invited, chat_id):
     user = info.context["request"].user
     chat = await redis.execute("GET", f"chats/{chat_id}")

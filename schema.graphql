@@ -146,6 +146,7 @@ enum FollowingEntity {
 type Mutation {
   # inbox
   createChat(description: String): CreateChatResult!
+  inviteChat(chatId: String!, userslug: String!): Result!
   createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
   updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
   deleteMessage(chatId: String!, id: Int!): Result!
@@ -210,7 +211,6 @@ type Query {
   myChats: [ChatResult]!
   enterChat(chatId: String!): ChatResult!
   loadChat(chatId: String!, size: Int!, page: Int!): [Message]!
-  inviteChat(chatId: String!, userslug: String!): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -503,7 +503,7 @@ type Chat {
   createdAt: DateTime!
   createdBy: User!
   updatedAt: DateTime!
-  title: string
+  title: String
   description: String
   users: [User]!
   messages: [Message]
