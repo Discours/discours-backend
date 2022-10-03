@@ -15,9 +15,9 @@ from services.stat.viewed import ViewedStorage
 
 async def get_topic_stat(slug):
     return {
-        "shouts": len(TopicStat.shouts_by_topic.get(slug, [])),
-        "authors": len(TopicStat.authors_by_topic.get(slug, [])),
-        "followers": len(TopicStat.followers_by_topic.get(slug, [])),
+        "shouts": len(TopicStat.shouts_by_topic.get(slug, {}).keys()),
+        "authors": len(TopicStat.authors_by_topic.get(slug, {}).keys()),
+        "followers": len(TopicStat.followers_by_topic.get(slug, {}).keys()),
         "viewed": await ViewedStorage.get_topic(slug),
         "reacted": len(await ReactedStorage.get_topic(slug)),
         "commented": len(await ReactedStorage.get_topic_comments(slug)),

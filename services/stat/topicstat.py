@@ -7,9 +7,11 @@ from services.zine.shoutauthor import ShoutAuthorStorage
 
 
 class TopicStat:
+    # by slugs
     shouts_by_topic = {}  # Shout object stored
     authors_by_topic = {}  # User
     followers_by_topic = {}  # User
+    #
     lock = asyncio.Lock()
     period = 30 * 60  # sec
 
@@ -22,16 +24,15 @@ class TopicStat:
             tpc = shout_topic.topic
             # shouts by topics
             shout = session.query(Shout).where(Shout.slug == shout_topic.shout).first()
-            self.shouts_by_topic[tpc] = self.shouts_by_topic.get(tpc, [])
-            if shout not in self.shouts_by_topic[tpc]:
-                self.shouts_by_topic[tpc].append(shout)
+            self.shouts_by_topic[tpc] = self.shouts_by_topic.get(tpc, dict())
+            self.shouts_by_topic[tpc][shout.slug] = shout
 
             # authors by topics
             authors = await ShoutAuthorStorage.get_authors(shout.slug)
-            self.authors_by_topic[tpc] = self.authors_by_topic.get(tpc, [])
+            self.authors_by_topic[tpc] = self.authors_by_topic.get(tpc, dict())
             for a in authors:
-                if a not in self.authors_by_topic[tpc]:
-                    self.authors_by_topic[tpc].append(a)
+                [aslug, acaption] = a
+                self.authors_by_topic[tpc][aslug] = acaption
 
         print("[stat.topics] shouts indexed by %d topics" % len(self.shouts_by_topic.keys()))
         print("[stat.topics] authors indexed by %d topics" % len(self.authors_by_topic.keys()))
@@ -40,17 +41,16 @@ class TopicStat:
         followings = session.query(TopicFollower).all()
         for flw in followings:
             topic = flw.topic
-            user = flw.follower
-            self.followers_by_topic[topic] = self.followers_by_topic.get(topic, [])
-            if user not in self.followers_by_topic[topic]:
-                self.followers_by_topic[topic].append(user)
-        print("[stat.topics] followers sorted")
+            userslug = flw.follower
+            self.followers_by_topic[topic] = self.followers_by_topic.get(topic, dict())
+            self.followers_by_topic[topic][userslug] = userslug
+        print("[stat.topics] followers indexed by %d topics" % len(self.followers_by_topic.keys()))
 
     @staticmethod
     async def get_shouts(topic):
         self = TopicStat
         async with self.lock:
-            return self.shouts_by_topic.get(topic, [])
+            return self.shouts_by_topic.get(topic, dict())
 
     @staticmethod
     async def worker():
