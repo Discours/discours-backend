@@ -115,15 +115,15 @@ async def shouts_by_authors(_, _info, slugs, offset, limit):
     async with ShoutsCache.lock:
         for author in slugs:
             shouts.extend(ShoutsCache.by_author.get(author, []))
-    shouts_prepared = []
-    for s in shouts:
-        if bool(s.publishedAt):
-            for a in s.authors:
-                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-            shouts_prepared.append(s)
-    shouts_prepared = list(set(shouts_prepared))
-    shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
-    return shouts_prepared[offset : offset + limit]
+        shouts_prepared = []
+        for s in shouts:
+            if bool(s.publishedAt):
+                for a in s.authors:
+                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+                if s not in shouts_prepared:
+                    shouts_prepared.append(s)
+        shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
+        return shouts_prepared[offset : offset + limit]
 
 
 @query.field("shoutsByTopics")
@@ -137,7 +137,8 @@ async def shouts_by_topics(_, _info, slugs, offset, limit):
         if bool(s.publishedAt):
             for a in s.authors:
                 a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-            shouts_prepared.append(s)
+            if s not in shouts_prepared:
+                shouts_prepared.append(s)
     shouts_prepared = list(set(shouts_prepared))
     shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
     return shouts_prepared[offset : offset + limit]

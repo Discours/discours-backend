@@ -43,7 +43,7 @@ async def topics_by_community(_, info, community):
 
 @query.field("topicsByAuthor")
 async def topics_by_author(_, _info, author):
-    shouts = ShoutsCache.by_author.get(author)
+    shouts = ShoutsCache.by_author.get(author, [])
     author_topics = set()
     for s in shouts:
         for tpc in s.topics:
