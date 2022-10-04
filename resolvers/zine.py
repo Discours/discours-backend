@@ -14,6 +14,7 @@ from resolvers.topics import topic_follow, topic_unfollow
 from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
 from services.zine.shoutscache import ShoutsCache
+from services.zine import SearchService
 
 
 @mutation.field("incrementView")
@@ -98,24 +99,14 @@ async def get_shout_by_slug(_, info, slug):
 
 @query.field("searchQuery")
 async def get_search_results(_, _info, searchtext, offset, limit):
-    # TODO: remove the copy of searchByTopics
-    # with search ranking query
-    with local_session() as session:
-        shouts = (
-            session.query(Shout)
-            .join(ShoutTopic)
-            .where(and_(ShoutTopic.topic.in_(searchtext), Shout.publishedAt.is_not(None)))
-            .order_by(desc(Shout.publishedAt))
-            .limit(limit)
-            .offset(offset)
-        )
-
-        for s in shouts:
-            shout = s.dict()
-            for a in shout['authors']:
-                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-            s.stat.relevance = 1  # FIXME: expecting search engine rated relevance
-    return shouts
+    shouts = SearchService.search(searchtext)
+    # TODO: sort and filter types for search service
+    for s in shouts:
+        shout = s.dict()
+        for a in shout['authors']:
+            a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+        s.stat.relevance = 1  # FIXME: expecting search engine rated relevance
+    return shouts[offset : offset + limit]
 
 
 @query.field("shoutsByAuthors")
