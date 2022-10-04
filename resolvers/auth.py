@@ -112,7 +112,7 @@ async def register(_, _info, email: str, password: str = "", username: str = "")
         if not password:
             user = await auth_send_link(_, _info, email)
 
-        return user
+        return {"user": user}
 
 
 @mutation.field("sendLink")
