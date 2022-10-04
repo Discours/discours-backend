@@ -59,6 +59,7 @@ async def confirm_email(_, _info, confirm_token):
 
 
 async def confirm_email_handler(request):
+    print(request)
     token = request.path_params["token"]  # one time
     request.session["token"] = token
     res = await confirm_email(None, token)
