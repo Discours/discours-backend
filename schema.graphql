@@ -39,7 +39,7 @@ type ChatResult {
     title: String
 }
 
-type SessionInfo {
+type UserFollowings {
   unread: Int
   topics: [String]
   authors: [String]
@@ -51,7 +51,7 @@ type AuthResult {
   error: String
   token: String
   user: User
-  info: SessionInfo
+  news: UserFollowings
 }
 
 type Result {

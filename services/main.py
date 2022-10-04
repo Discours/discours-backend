@@ -15,5 +15,5 @@ async def storages_init():
         RoleStorage.init(session)
         UserStorage.init(session)
         TopicStorage.init(session)
-        SearchService.init(session)
+        await SearchService.init(session)
         session.commit()

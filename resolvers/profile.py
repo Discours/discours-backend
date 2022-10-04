@@ -1,6 +1,6 @@
 from typing import List
 
-from sqlalchemy import and_, desc
+from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import selectinload
 
 from auth.authenticate import login_required
@@ -17,7 +17,7 @@ from .topics import get_topic_stat
 from services.auth.users import UserStorage
 
 
-async def get_user_info(slug):
+async def get_user_subscriptions(slug):
     return {
         "unread": await get_unread_counter(slug),       # unread inbox messages counter
         "topics": [t.slug for t in get_followed_topics(0, slug)],  # followed topics slugs
@@ -29,13 +29,16 @@ async def get_user_info(slug):
 
 async def get_author_stat(slug):
     # TODO: implement author stat
-    return {
-
-    }
+    with local_session() as session:
+        return {
+            "followers": session.query(AuthorFollower).where(AuthorFollower.author == slug).count(),
+            "rating": session.query(func.sum(UserRating.value)).where(UserRating.user == slug).first()
+            # TODO: debug
+        }
 
 
 @query.field("userReactedShouts")
-async def get_user_reacted_shouts(_, _info, slug, offset, limit) -> List[Shout]:
+async def get_user_reacted_shouts(_, slug, offset, limit) -> List[Shout]:
     user = await UserStorage.get_user_by_slug(slug)
     if not user:
         return []
@@ -54,7 +57,7 @@ async def get_user_reacted_shouts(_, _info, slug, offset, limit) -> List[Shout]:
 
 @query.field("userFollowedTopics")
 @login_required
-async def get_followed_topics(_, slug) -> List[Topic]:
+async def get_followed_topics(_, info, slug) -> List[Topic]:
     topics = []
     with local_session() as session:
         topics = (
@@ -69,7 +72,7 @@ async def get_followed_topics(_, slug) -> List[Topic]:
 
 
 @query.field("userFollowedAuthors")
-async def get_followed_authors(_, slug) -> List[User]:
+async def get_followed_authors(_, _info, slug) -> List[User]:
     authors = []
     with local_session() as session:
         authors = (
@@ -84,7 +87,7 @@ async def get_followed_authors(_, slug) -> List[User]:
 
 
 @query.field("userFollowers")
-async def user_followers(_, slug) -> List[User]:
+async def user_followers(_, _info, slug) -> List[User]:
     with local_session() as session:
         users = (
             session.query(User)
@@ -137,12 +140,12 @@ async def update_profile(_, info, profile):
 
 @mutation.field("rateUser")
 @login_required
-async def rate_user(_, info, slug, value):
+async def rate_user(_, info, rated_userslug, value):
     user = info.context["request"].user
     with local_session() as session:
         rating = (
             session.query(UserRating)
-            .filter(and_(UserRating.rater == user.slug, UserRating.user == slug))
+            .filter(and_(UserRating.rater == user.slug, UserRating.user == rated_userslug))
             .first()
         )
         if rating:
@@ -150,7 +153,7 @@ async def rate_user(_, info, slug, value):
             session.commit()
             return {}
     try:
-        UserRating.create(rater=user.slug, user=slug, value=value)
+        UserRating.create(rater=user.slug, user=rated_userslug, value=value)
     except Exception as err:
         return {"error": err}
     return {}

@@ -18,7 +18,7 @@ from base.exceptions import (
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import User, Role
-from resolvers.profile import get_user_info
+from resolvers.profile import get_user_subscriptions
 from settings import SESSION_TOKEN_HEADER, CONFIRM_CALLBACK_URL
 
 
@@ -34,12 +34,12 @@ async def get_current_user(_, info):
     return {
         "token": token,
         "user": user,
-        "info": await get_user_info(user.slug),
+        "news": await get_user_subscriptions(user.slug),
     }
 
 
 @mutation.field("confirmEmail")
-async def confirm_email(_, confirm_token):
+async def confirm_email(_, _info, confirm_token):
     """confirm owning email address"""
     try:
         user_id = await TokenStorage.get(confirm_token)
@@ -91,7 +91,7 @@ def generate_unique_slug(username):
 
 
 @mutation.field("registerUser")
-async def register(_, email: str, password: str = "", username: str = ""):
+async def register(_, _info, email: str, password: str = "", username: str = ""):
     """creates new user account"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
@@ -110,13 +110,13 @@ async def register(_, email: str, password: str = "", username: str = ""):
         user = create_user(user_dict)
 
         if not password:
-            user = await auth_send_link(_, email)
+            user = await auth_send_link(_, _info, email)
 
         return user
 
 
 @mutation.field("sendLink")
-async def auth_send_link(_, email):
+async def auth_send_link(_, _info, email):
     """send link with confirm code to email"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
@@ -129,7 +129,7 @@ async def auth_send_link(_, email):
 
 
 @query.field("signIn")
-async def login(_, email: str, password: str = ""):
+async def login(_, _info, email: str, password: str = ""):
 
     with local_session() as session:
         orm_user = session.query(User).filter(User.email == email).first()
@@ -158,7 +158,7 @@ async def login(_, email: str, password: str = ""):
                     return {
                         "token": session_token,
                         "user": user,
-                        "info": await get_user_info(user.slug),
+                        "news": await get_user_subscriptions(user.slug),
                     }
                 except InvalidPassword:
                     print(f"[auth] {email}: invalid password")
@@ -175,7 +175,7 @@ async def sign_out(_, info: GraphQLResolveInfo):
 
 
 @query.field("isEmailUsed")
-async def is_email_used(_, email):
+async def is_email_used(_, _info, email):
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     return user is not None
