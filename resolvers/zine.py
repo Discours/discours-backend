@@ -14,7 +14,7 @@ from resolvers.topics import topic_follow, topic_unfollow
 from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
 from services.zine.shoutscache import ShoutsCache
-from services.zine import SearchService
+from services.search import SearchService
 
 
 @mutation.field("incrementView")

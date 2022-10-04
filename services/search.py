@@ -7,13 +7,11 @@ class SearchService:
     cache = {}
 
     @staticmethod
-    def init(session):
-        self = SearchService
-        async with self.lock:
-            self.cache = {}
+    async def init(session):
+        async with SearchService.lock:
+            SearchService.cache = {}
 
     @staticmethod
     async def search(text) -> [Shout]:
-        self = SearchService
-        async with self.lock:
+        async with SearchService.lock:
             return []  # TODO: implement getting shouts list
