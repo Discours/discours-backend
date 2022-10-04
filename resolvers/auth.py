@@ -3,6 +3,7 @@ from datetime import datetime
 
 from graphql.type import GraphQLResolveInfo
 from transliterate import translit
+from starlette.responses import RedirectResponse
 
 from auth.tokenstorage import TokenStorage
 from auth.authenticate import login_required
@@ -18,7 +19,7 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import User, Role
 from resolvers.profile import get_user_info
-from settings import SESSION_TOKEN_HEADER
+from settings import SESSION_TOKEN_HEADER, CONFIRM_CALLBACK_URL
 
 
 @mutation.field("refreshSession")
@@ -40,13 +41,13 @@ async def get_current_user(_, info):
 @mutation.field("confirmEmail")
 async def confirm_email(_, confirm_token):
     """confirm owning email address"""
-    user_id = None
     try:
         user_id = await TokenStorage.get(confirm_token)
         with local_session() as session:
             user = session.query(User).where(User.id == user_id).first()
             session_token = TokenStorage.create_session(user)
             user.emailConfirmed = True
+            user.wasOnlineAt = datetime.now()
             session.add(user)
             session.commit()
         return {"token": session_token, "user": user}
@@ -58,55 +59,77 @@ async def confirm_email(_, confirm_token):
 
 
 async def confirm_email_handler(request):
-    token = request.path_params["token"]
+    token = request.path_params["token"]  # one time
     request.session["token"] = token
-    res = confirm_email(None, token)
-    return res
+    res = await confirm_email(None, token)
+    response = RedirectResponse(url=CONFIRM_CALLBACK_URL)
+    response.set_cookie("token", res["token"])  # session
+    return response
 
 
-@mutation.field("registerUser")
-async def register(*_, email: str, password: str = ""):
-    """creates new user account"""
-    with local_session() as session:
-        user = session.query(User).filter(User.email == email).first()
-    if user:
-        raise OperationNotAllowed("User already exist")
-        # return {"error": "user already exist"}
-
-    user_dict = {"email": email}
-    username = email.split("@")[0]
-    user_dict["username"] = username
-    user_dict["slug"] = quote_plus(
-        translit(username, "ru", reversed=True).replace(".", "-").lower()
-    )
-    if password:
-        user_dict["password"] = Password.encode(password)
+def create_user(user_dict):
     user = User(**user_dict)
     user.roles.append(Role.default_role)
     with local_session() as session:
         session.add(user)
         session.commit()
+    return user
 
-    token = await TokenStorage.create_onetime(user)
-    await send_auth_email(user, token)
 
-    return {"user": user}
+def generate_unique_slug(username):
+    slug = translit(username, "ru", reversed=True).replace(".", "-").lower()
+    with local_session() as session:
+        c = 1
+        user = session.query(User).where(User.slug == slug).first()
+        while user:
+            user = session.query(User).where(User.slug == slug).first()
+            slug = slug + '-' + str(c)
+            c += 1
+        if not user:
+            unique_slug = slug
+            return quote_plus(unique_slug)
+
+
+@mutation.field("registerUser")
+async def register(_, email: str, password: str = "", username: str = ""):
+    """creates new user account"""
+    with local_session() as session:
+        user = session.query(User).filter(User.email == email).first()
+    if user:
+        raise OperationNotAllowed("User already exist")
+    else:
+        username = username or email.split("@")[0]
+        user_dict = {
+            "email": email,
+            "username": username,
+            "slug": generate_unique_slug(username)
+        }
+        if password:
+            user_dict["password"] = Password.encode(password)
+
+        user = create_user(user_dict)
+
+        if not password:
+            user = await auth_send_link(_, email)
+
+        return user
 
 
 @mutation.field("sendLink")
-async def auth_send_link(_, info, email):
+async def auth_send_link(_, email):
     """send link with confirm code to email"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
-    if not user:
-        raise ObjectNotExist("User not found")
-    token = await TokenStorage.create_onetime(user)
-    await send_auth_email(user, token)
-    return {}
+        if not user:
+            raise ObjectNotExist("User not found")
+        else:
+            token = await TokenStorage.create_onetime(user)
+            await send_auth_email(user, token)
+            return user
 
 
 @query.field("signIn")
-async def login(_, info: GraphQLResolveInfo, email: str, password: str = ""):
+async def login(_, email: str, password: str = ""):
 
     with local_session() as session:
         orm_user = session.query(User).filter(User.email == email).first()
@@ -152,7 +175,7 @@ async def sign_out(_, info: GraphQLResolveInfo):
 
 
 @query.field("isEmailUsed")
-async def is_email_used(_, info, email):
+async def is_email_used(_, email):
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     return user is not None

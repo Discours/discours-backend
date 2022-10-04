@@ -5,6 +5,7 @@ INBOX_SERVICE_PORT = 8081
 
 BACKEND_URL = environ.get("BACKEND_URL") or "https://localhost:8080"
 OAUTH_CALLBACK_URL = environ.get("OAUTH_CALLBACK_URL") or "https://localhost:8080"
+CONFIRM_CALLBACK_URL = "https://new.discours.io/confirm"
 CONFIRM_EMAIL_URL = environ.get("AUTH_CONFIRM_URL") or BACKEND_URL + "/confirm"
 ERROR_URL_ON_FRONTEND = (
     environ.get("ERROR_URL_ON_FRONTEND") or "https://new.discours.io"

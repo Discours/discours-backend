@@ -154,7 +154,7 @@ type Mutation {
 
   # auth
   refreshSession: AuthResult!
-  registerUser(email: String!, password: String): AuthResult!
+  registerUser(email: String!, password: String, username: String): User!
   sendLink(email: String!): Result!
   confirmEmail(code: String!): AuthResult!
 
