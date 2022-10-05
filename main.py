@@ -55,7 +55,7 @@ async def shutdown():
 routes = [
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
-    Route("/confirm-email/{token}", endpoint=confirm_email_handler),  # should be called on client
+    Route("/confirm/{token}", endpoint=confirm_email_handler),  # should be called on client
 ]
 
 app = Starlette(
