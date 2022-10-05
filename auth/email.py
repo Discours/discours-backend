@@ -11,9 +11,8 @@ async def send_auth_email(user, token):
     Follow the <a href='%s'>link</link> to authorize
     </body></html>
     """
-    url = "%s/confirm-email" % BACKEND_URL
     to = "%s <%s>" % (user.username, user.email)
-    url_with_token = "%s?token=%s" % (url, token)
+    url_with_token = "%s/confirm-email/%s" % (BACKEND_URL, token)
     text = text % url_with_token
     response = requests.post(
         MAILGUN_API_URL,
