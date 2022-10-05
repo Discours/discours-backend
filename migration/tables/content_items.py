@@ -339,7 +339,7 @@ async def migrate(entry, storage):
         raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
 
     # shout views
-    ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1))
+    await ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1))
     # del shout_dict['ratings']
     shout_dict["oid"] = entry.get("_id")
     storage["shouts"]["by_oid"][entry["_id"]] = shout_dict
