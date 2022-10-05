@@ -1,5 +1,5 @@
 
-from base.orm import query
+from base.resolvers import query
 from resoolvers.auth import login_required
 from migration.extract import extract_md
 
