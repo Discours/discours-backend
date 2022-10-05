@@ -3,6 +3,7 @@ from datetime import datetime
 
 from graphql.type import GraphQLResolveInfo
 from transliterate import translit
+from starlette.responses import RedirectResponse
 
 from auth.tokenstorage import TokenStorage
 from auth.authenticate import login_required
@@ -59,6 +60,15 @@ async def confirm_email(_, _info, confirm_token):
     except Exception as e:
         print(e)  # FIXME: debug only
         return {"error": "email is not confirmed"}
+
+
+async def confirm_email_handler(request):
+    token = request.path_params["token"]  # one time
+    request.session["token"] = token
+    res = await confirm_email(None, token)
+    response = RedirectResponse(url="https://new.discours.io/confirm")
+    response.set_cookie("token", res["token"])  # session token
+    return response
 
 
 def create_user(user_dict):

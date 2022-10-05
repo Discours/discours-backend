@@ -13,7 +13,7 @@ from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
 from base.redis import redis
 from base.resolvers import resolvers
-# from resolvers.auth import confirm_email_handler
+from resolvers.auth import confirm_email_handler
 from resolvers.zine import ShoutsCache
 from services.main import storages_init
 from services.stat.reacted import ReactedStorage
@@ -55,7 +55,7 @@ async def shutdown():
 routes = [
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
-    # Route("/confirm-email/{token}", endpoint=confirm_email_handler),  # should be called on client
+    Route("/confirm-email/{token}", endpoint=confirm_email_handler),  # should be called on client
 ]
 
 app = Starlette(
