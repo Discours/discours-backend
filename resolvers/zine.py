@@ -110,16 +110,16 @@ async def get_search_results(_, _info, searchtext, offset, limit):
 
 
 @query.field("shoutsByAuthors")
-async def shouts_by_authors(_, _info, slugs, offset, limit):
+async def shouts_by_authors(_, _info, slugs, offset=0, limit=100):
     async with ShoutsCache.lock:
         shouts = {}
         for author in slugs:
-            for shouts_by_author in ShoutsCache.by_author.get(author, []):
-                for s in shouts_by_author:
-                    for a in s.authors:
-                        a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-                    if bool(s.publishedAt):
-                        shouts[s.slug] = s
+            shouts_by_author = list(ShoutsCache.by_author.get(author, {}).values())
+            for s in shouts_by_author:
+                for a in s.authors:
+                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+                if bool(s.publishedAt):
+                    shouts[s.slug] = s
         shouts_prepared = list(shouts.values())
         shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
         return shouts_prepared[offset : offset + limit]
@@ -130,12 +130,12 @@ async def shouts_by_topics(_, _info, slugs, offset=0, limit=100):
     async with ShoutsCache.lock:
         shouts = {}
         for topic in slugs:
-            for shouts_by_topic in ShoutsCache.by_topic.get(topic, []):
-                for s in shouts_by_topic:
-                    for a in s.authors:
-                        a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-                    if bool(s.publishedAt):
-                        shouts[s.slug] = s
+            shouts_by_topic = list(ShoutsCache.by_topic.get(topic, {}).values())
+            for s in shouts_by_topic:
+                for a in s.authors:
+                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+                if bool(s.publishedAt):
+                    shouts[s.slug] = s
         shouts_prepared = list(shouts.values())
         shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
         return shouts_prepared[offset : offset + limit]

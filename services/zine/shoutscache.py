@@ -65,13 +65,11 @@ class ShoutsCache:
         async with ShoutsCache.lock:
             for s in shouts:
                 for a in s.authors:
-                    ShoutsCache.by_author[a.slug] = ShoutsCache.by_author.get(a.slug, [])
-                    if s not in ShoutsCache.by_author[a.slug]:
-                        ShoutsCache.by_author[a.slug].append(s)
+                    ShoutsCache.by_author[a.slug] = ShoutsCache.by_author.get(a.slug, {})
+                    ShoutsCache.by_author[a.slug][s.slug] = s
                 for t in s.topics:
-                    ShoutsCache.by_topic[t.slug] = ShoutsCache.by_topic.get(t.slug, [])
-                    if s not in ShoutsCache.by_topic[t.slug]:
-                        ShoutsCache.by_topic[t.slug].append(s)
+                    ShoutsCache.by_topic[t.slug] = ShoutsCache.by_topic.get(t.slug, {})
+                    ShoutsCache.by_topic[t.slug][s.slug] = s
             print("[zine.cache] indexed by %d topics " % len(ShoutsCache.by_topic.keys()))
             print("[zine.cache] indexed by %d authors " % len(ShoutsCache.by_author.keys()))
             ShoutsCache.recent_published = shouts
