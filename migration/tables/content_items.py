@@ -70,7 +70,7 @@ def create_author_from_app(app):
                         "emailConfirmed": False,
                         "slug": slug,
                         "createdAt": ts,
-                        "wasOnlineAt": ts,
+                        "lastSeen": ts,
                     }
                     user = User.create(**userdata)
                     session.add(user)

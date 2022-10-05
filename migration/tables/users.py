@@ -28,7 +28,7 @@ def migrate(entry):
     if "updatedAt" in entry:
         user_dict["updatedAt"] = parse(entry["updatedAt"])
     if "wasOnineAt" in entry:
-        user_dict["wasOnlineAt"] = parse(entry["wasOnlineAt"])
+        user_dict["lastSeen"] = parse(entry["wasOnlineAt"])
     if entry.get("profile"):
         # slug
         user_dict["slug"] = (

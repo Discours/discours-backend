@@ -343,7 +343,6 @@ type User {
   emailConfirmed: Boolean # should contain all emails too
   muted: Boolean
   updatedAt: DateTime
-  wasOnlineAt: DateTime
   ratings: [Rating]
   bio: String
   notifications: [Int]

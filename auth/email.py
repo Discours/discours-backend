@@ -1,27 +1,32 @@
 import requests
 
-from settings import BACKEND_URL, MAILGUN_API_KEY, MAILGUN_DOMAIN
+from settings import MAILGUN_API_KEY, MAILGUN_DOMAIN
 
-MAILGUN_API_URL = "https://api.mailgun.net/v3/%s/messages" % MAILGUN_DOMAIN
-MAILGUN_FROM = "discours.io <noreply@%s>" % MAILGUN_DOMAIN
+api_url = "https://api.mailgun.net/v3/%s/messages" % MAILGUN_DOMAIN
+noreply = "discours.io <noreply@%s>" % MAILGUN_DOMAIN
+
+tmplt = """<html><body>
+    Follow the <a href='%s'>link</a> to authorize
+    </body></html>
+    """
+
+baseUrl = "https://new.discours.io"
 
 
 async def send_auth_email(user, token):
-    text = """<html><body>
-    Follow the <a href='%s'>link</link> to authorize
-    </body></html>
-    """
-    to = "%s <%s>" % (user.username, user.email)
-    url_with_token = "%s/confirm-email/%s" % (BACKEND_URL, token)
-    text = text % url_with_token
-    response = requests.post(
-        MAILGUN_API_URL,
-        auth=("api", MAILGUN_API_KEY),
-        data={
-            "from": MAILGUN_FROM,
-            "to": to,
-            "subject": "Confirm email",
-            "html": text,
-        },
-    )
-    response.raise_for_status()
+    try:
+        to = "%s <%s>" % (user.username, user.email)
+        url_with_token = "%s/confirm/%s" % (baseUrl, token)
+        response = requests.post(
+            api_url,
+            auth=("api", MAILGUN_API_KEY),
+            data={
+                "from": noreply,
+                "to": to,
+                "subject": "Confirm email",
+                "html": tmplt % url_with_token,
+            },
+        )
+        response.raise_for_status()
+    except Exception as e:
+        print(e)

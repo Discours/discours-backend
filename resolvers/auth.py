@@ -47,10 +47,14 @@ async def confirm_email(_, _info, confirm_token):
             user = session.query(User).where(User.id == user_id).first()
             session_token = TokenStorage.create_session(user)
             user.emailConfirmed = True
-            user.wasOnlineAt = datetime.now()
+            user.lastSeen = datetime.now()
             session.add(user)
             session.commit()
-        return {"token": session_token, "user": user}
+            return {
+                "token": session_token,
+                "user": user,
+                "news": await get_user_subscriptions(user.slug)
+            }
     except InvalidToken as e:
         raise InvalidToken(e.message)
     except Exception as e:

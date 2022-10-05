@@ -68,7 +68,7 @@ class User(Base):
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
-    wasOnlineAt = Column(
+    lastSeen = Column(
         DateTime, nullable=False, default=datetime.now, comment="Was online at"
     )
     deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
