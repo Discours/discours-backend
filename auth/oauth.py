@@ -2,7 +2,7 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.responses import RedirectResponse
 from auth.identity import Identity
 from auth.tokenstorage import TokenStorage
-from settings import OAUTH_CLIENTS, BACKEND_URL, OAUTH_CALLBACK_URL
+from settings import OAUTH_CLIENTS
 
 oauth = OAuth()
 
@@ -66,7 +66,7 @@ async def oauth_login(request):
     provider = request.path_params["provider"]
     request.session["provider"] = provider
     client = oauth.create_client(provider)
-    redirect_uri = "%s/%s" % (BACKEND_URL, "oauth_authorize")
+    redirect_uri = "https://newapi.discours.io/oauth-authorize"
     return await client.authorize_redirect(request, redirect_uri)
 
 
@@ -84,6 +84,6 @@ async def oauth_authorize(request):
     }
     user = Identity.oauth(user_input)
     session_token = await TokenStorage.create_session(user)
-    response = RedirectResponse(url=OAUTH_CALLBACK_URL)
+    response = RedirectResponse(url="https://new.discours.io/confirm")
     response.set_cookie("token", session_token)
     return response

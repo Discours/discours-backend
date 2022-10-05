@@ -3,7 +3,6 @@ from datetime import datetime
 
 from graphql.type import GraphQLResolveInfo
 from transliterate import translit
-from starlette.responses import RedirectResponse
 
 from auth.tokenstorage import TokenStorage
 from auth.authenticate import login_required
@@ -19,7 +18,7 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import User, Role
 from resolvers.profile import get_user_subscriptions
-from settings import SESSION_TOKEN_HEADER, CONFIRM_CALLBACK_URL
+from settings import SESSION_TOKEN_HEADER
 
 
 @mutation.field("refreshSession")
@@ -60,15 +59,6 @@ async def confirm_email(_, _info, confirm_token):
     except Exception as e:
         print(e)  # FIXME: debug only
         return {"error": "email is not confirmed"}
-
-
-async def confirm_email_handler(request):
-    token = request.path_params["token"]  # one time
-    request.session["token"] = token
-    res = await confirm_email(None, token)
-    response = RedirectResponse(url=CONFIRM_CALLBACK_URL)
-    response.set_cookie("token", res["token"])  # session
-    return response
 
 
 def create_user(user_dict):
