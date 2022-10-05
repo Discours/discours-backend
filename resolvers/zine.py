@@ -111,37 +111,34 @@ async def get_search_results(_, _info, searchtext, offset, limit):
 
 @query.field("shoutsByAuthors")
 async def shouts_by_authors(_, _info, slugs, offset, limit):
-    shouts = []
     async with ShoutsCache.lock:
+        shouts = {}
         for author in slugs:
-            shouts.extend(ShoutsCache.by_author.get(author, []))
-        shouts_prepared = []
-        for s in shouts:
-            if bool(s.publishedAt):
-                for a in s.authors:
-                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-                if s not in shouts_prepared:
-                    shouts_prepared.append(s)
+            for shouts_by_author in ShoutsCache.by_author.get(author, []):
+                for s in shouts_by_author:
+                    for a in s.authors:
+                        a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+                    if bool(s.publishedAt):
+                        shouts[s.slug] = s
+        shouts_prepared = shouts.values()
         shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
         return shouts_prepared[offset : offset + limit]
 
 
 @query.field("shoutsByTopics")
-async def shouts_by_topics(_, _info, slugs, offset, limit):
-    shouts = []
+async def shouts_by_topics(_, _info, slugs, offset=0, limit=100):
     async with ShoutsCache.lock:
+        shouts = {}
         for topic in slugs:
-            shouts.extend(ShoutsCache.by_topic.get(topic, []))
-    shouts_prepared = []
-    for s in shouts:
-        if bool(s.publishedAt):
-            for a in s.authors:
-                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-            if s not in shouts_prepared:
-                shouts_prepared.append(s)
-    shouts_prepared = list(set(shouts_prepared))
-    shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
-    return shouts_prepared[offset : offset + limit]
+            for shouts_by_topic in ShoutsCache.by_topic.get(topic, []):
+                for s in shouts_by_topic:
+                    for a in s.authors:
+                        a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+                    if bool(s.publishedAt):
+                        shouts[s.slug] = s
+        shouts_prepared = shouts.values()
+        shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
+        return shouts_prepared[offset : offset + limit]
 
 
 @query.field("shoutsByCollection")
