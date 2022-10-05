@@ -120,7 +120,7 @@ async def shouts_by_authors(_, _info, slugs, offset, limit):
                         a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
                     if bool(s.publishedAt):
                         shouts[s.slug] = s
-        shouts_prepared = shouts.values()
+        shouts_prepared = list(shouts.values())
         shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
         return shouts_prepared[offset : offset + limit]
 
@@ -136,7 +136,7 @@ async def shouts_by_topics(_, _info, slugs, offset=0, limit=100):
                         a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
                     if bool(s.publishedAt):
                         shouts[s.slug] = s
-        shouts_prepared = shouts.values()
+        shouts_prepared = list(shouts.values())
         shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
         return shouts_prepared[offset : offset + limit]
 
