@@ -253,6 +253,9 @@ type Query {
   # collab
   getCollabs: [Collab]!
 
+  # migrate
+  markdownBody(body: String!): String!
+
   # topics
   topicsAll: [Topic]!
   topicsRandom(amount: Int): [Topic]!

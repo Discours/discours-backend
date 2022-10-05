@@ -15,6 +15,8 @@ from resolvers.community import (
     get_communities,
 )
 
+from resolvers.migrate import markdown_body
+
 # from resolvers.collab import invite_author, remove_author
 from resolvers.editor import create_shout, delete_shout, update_shout
 from resolvers.profile import (
@@ -89,6 +91,8 @@ __all__ = [
     "create_shout",
     "update_shout",
     "delete_shout",
+    # migrate
+    "markdown_body",
     # collab
     "invite_author",
     "remove_author",

@@ -1,7 +1,7 @@
 import base64
 import os
 import re
-
+import uuid
 from .html2text import html2text
 
 TOOLTIP_REGEX = r"(\/\/\/(.+)\/\/\/)"
@@ -236,18 +236,22 @@ def cleanup(body):
     return newbody
 
 
-def extract_md(body, oid):
+def extract_md(body, oid=""):
     newbody = body
     if newbody:
-        newbody = extract_md_images(newbody, oid)
+        uid = oid or uuid.uuid4()
+        newbody = extract_md_images(newbody, uid)
         if not newbody:
             raise Exception("extract_images error")
+
         newbody = cleanup(newbody)
         if not newbody:
             raise Exception("cleanup error")
+
         newbody, placed = place_tooltips(newbody)
         if not newbody:
             raise Exception("place_tooltips error")
+
         if placed:
             newbody = "import Tooltip from '$/components/Article/Tooltip'\n\n" + newbody
     return newbody
