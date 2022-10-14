@@ -247,7 +247,6 @@ type Query {
 
   # reactons
   reactionsByAuthor(slug: String!, offset: Int!, limit: Int!): [Reaction]!
-  reactionsByShout(slug: String!, offset: Int!, limit: Int!): [Reaction]!
   reactionsForShouts(shouts: [String]!, offset: Int!, limit: Int!): [Reaction]!
 
   # collab
