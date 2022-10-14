@@ -33,7 +33,6 @@ from resolvers.reactions import (
     update_reaction,
     reactions_unfollow,
     reactions_follow,
-    get_shout_reactions,
 )
 from resolvers.topics import (
     topic_follow,
@@ -108,7 +107,6 @@ __all__ = [
     "create_community",
     "delete_community",
     # reactions
-    "get_shout_reactions",
     "reactions_follow",
     "reactions_unfollow",
     "create_reaction",

@@ -12,7 +12,7 @@ from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRole, Role, UserRating, AuthorFollower
 from .community import get_followed_communities
 from .inbox import get_unread_counter
-from .reactions import get_shout_reactions
+from .reactions import get_reactions_for_shouts
 from .topics import get_topic_stat
 from services.auth.users import UserStorage
 
@@ -22,7 +22,7 @@ async def get_user_subscriptions(slug):
         "unread": await get_unread_counter(slug),       # unread inbox messages counter
         "topics": [t.slug for t in get_followed_topics(0, slug)],  # followed topics slugs
         "authors": [a.slug for a in get_followed_authors(0, slug)],  # followed authors slugs
-        "reactions": [r.shout for r in get_shout_reactions(0, slug)],  # followed reacted shouts slugs
+        "reactions": [r.shout for r in get_reactions_for_shouts(0, [slug, ])],  # followed reacted shouts slugs
         "communities": [c.slug for c in get_followed_communities(0, slug)],  # followed communities slugs
     }
 
