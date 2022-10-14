@@ -30,7 +30,7 @@ async def prepare_shouts(session, stmt):
 
 
 class ShoutsCache:
-    limit = 200
+    # limit = 200
     period = 60 * 60  # 1 hour
     lock = asyncio.Lock()
 
@@ -59,7 +59,7 @@ class ShoutsCache:
                     .where(Shout.deletedAt.is_(None))
                     .filter(Shout.publishedAt.is_not(None))
                     .order_by(desc("publishedAt"))
-                    .limit(ShoutsCache.limit)
+                    # .limit(ShoutsCache.limit)
                 ),
             )
         async with ShoutsCache.lock:
@@ -88,17 +88,18 @@ class ShoutsCache:
                     )
                     .where(Shout.deletedAt.is_(None))
                     .order_by(desc("createdAt"))
-                    .limit(ShoutsCache.limit)
+                    # .limit(ShoutsCache.limit)
                 )
             )
         async with ShoutsCache.lock:
-            ShoutsCache.recent_all = shouts[0:ShoutsCache.limit]
+            ShoutsCache.recent_all = shouts
             print("[zine.cache] %d recently created shouts " % len(ShoutsCache.recent_all))
 
     @staticmethod
     async def prepare_recent_reacted():
         with local_session() as session:
-            reactions = session.query(Reaction).order_by(Reaction.createdAt).limit(ShoutsCache.limit)
+            reactions = session.query(Reaction).order_by(Reaction.createdAt).all()
+            # .limit(ShoutsCache.limit)
             reacted_slugs = set([])
             for r in reactions:
                 reacted_slugs.add(r.shout)
@@ -119,7 +120,7 @@ class ShoutsCache:
                     .filter(Shout.publishedAt.is_not(None))
                     .group_by(Shout.slug, "reactedAt")
                     .order_by(desc("reactedAt"))
-                    .limit(ShoutsCache.limit)
+                    # .limit(ShoutsCache.limit)
                 )
             )
             async with ShoutsCache.lock:
@@ -129,10 +130,11 @@ class ShoutsCache:
     @staticmethod
     async def prepare_recent_commented():
         with local_session() as session:
-            reactions = session.query(Reaction).order_by(Reaction.createdAt).limit(ShoutsCache.limit)
+            reactions = session.query(Reaction).order_by(Reaction.createdAt).all()
+            # .limit(ShoutsCache.limit)
             commented_slugs = set([])
             for r in reactions:
-                if len(r.body) > 0:
+                if r.body and len(r.body) > 0:
                     commented_slugs.add(r.shout)
             shouts = await prepare_shouts(
                 session,
@@ -150,7 +152,7 @@ class ShoutsCache:
                     .where(and_(Shout.deletedAt.is_(None), Shout.slug.in_(commented_slugs)))
                     .group_by(Shout.slug, "reactedAt")
                     .order_by(desc("reactedAt"))
-                    .limit(ShoutsCache.limit)
+                    # .limit(ShoutsCache.limit)
                 )
             )
             async with ShoutsCache.lock:
@@ -177,7 +179,7 @@ class ShoutsCache:
                     .filter(Shout.publishedAt.is_not(None))
                     .group_by(Shout.slug)
                     .order_by(desc("reacted"))
-                    .limit(ShoutsCache.limit)
+                    # .limit(ShoutsCache.limit)
                 ),
             )
             shouts.sort(key=lambda s: s.stat["rating"], reverse=True)
@@ -202,7 +204,7 @@ class ShoutsCache:
                     .where(Shout.deletedAt.is_(None))
                     .filter(Shout.publishedAt > month_ago)
                     .group_by(Shout.slug)
-                    .limit(ShoutsCache.limit)
+                    # .limit(ShoutsCache.limit)
                 ),
             )
             shouts.sort(key=lambda s: s.stat["rating"], reverse=True)
@@ -231,7 +233,7 @@ class ShoutsCache:
                     .filter(Shout.publishedAt > month_ago)
                     .group_by(Shout.slug)
                     .order_by(desc("commented"))
-                    .limit(ShoutsCache.limit)
+                    # .limit(ShoutsCache.limit)
                 ),
             )
             shouts.sort(key=lambda s: s.stat["commented"], reverse=True)
