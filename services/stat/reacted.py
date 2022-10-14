@@ -137,8 +137,8 @@ class ReactedStorage:
     def init(session):
         self = ReactedStorage
         all_reactions = session.query(Reaction).all()
-        self.modified_shouts = set([r.shout for r in all_reactions])
-        print("[stat.reacted] %d shouts with reactions updates" % len(self.modified_shouts))
+        self.modified_shouts = list(set([r.shout for r in all_reactions]))
+        print("[stat.reacted] %d shouts with reactions loaded" % len(self.modified_shouts))
 
     @staticmethod
     async def recount_changed(session):
@@ -149,10 +149,10 @@ class ReactedStorage:
                 siblings = session.query(Reaction).where(Reaction.shout == slug).all()
                 await self.recount(siblings)
 
-            print("[stat.reacted] %d shouts with reactions updates" % len(self.modified_shouts))
-            print("[stat.reacted] %d topics reacted" % len(self.reacted["topics"].values()))
-            print("[stat.reacted] %d shouts reacted" % len(self.reacted["shouts"]))
-            print("[stat.reacted] %d reactions reacted" % len(self.reacted["reactions"]))
+            print("[stat.reacted] %d shouts" % len(self.modified_shouts))
+            print("[stat.reacted] %d topics" % len(self.reacted["topics"].values()))
+            print("[stat.reacted] %d shouts" % len(self.reacted["shouts"]))
+            print("[stat.reacted] %d reactions" % len(self.reacted["reactions"]))
             self.modified_shouts = set([])
 
     @staticmethod

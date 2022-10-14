@@ -291,8 +291,8 @@ async def migrate(entry, storage):
 
     # content_item ratings to reactions
     try:
-        for content_rating in entry.get("ratings", []):
-            with local_session() as session:
+        with local_session() as session:
+            for content_rating in entry.get("ratings", []):
                 rater = (
                     session.query(User)
                     .filter(User.oid == content_rating["createdBy"])
@@ -329,12 +329,12 @@ async def migrate(entry, storage):
                         )
                         reaction.update(reaction_dict)
                     else:
-                        # day = (
-                        #     reaction_dict.get("createdAt") or ts
-                        # ).replace(hour=0, minute=0, second=0, microsecond=0)
                         rea = Reaction.create(**reaction_dict)
+                        session.add(rea)
                         await ReactedStorage.react(rea)
                     # shout_dict['ratings'].append(reaction_dict)
+
+            session.commit()
     except Exception:
         raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
 

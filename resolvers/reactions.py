@@ -64,7 +64,10 @@ async def create_reaction(_, info, inp):
 
     # TODO: filter allowed for post reaction kinds
 
-    reaction = Reaction.create(**inp)
+    with local_session() as session:
+        reaction = Reaction.create(**inp)
+        session.add(reaction)
+        session.commit()
     ReactedStorage.react(reaction)
     try:
         reactions_follow(user, inp["shout"], True)
@@ -72,7 +75,6 @@ async def create_reaction(_, info, inp):
         print(f"[resolvers.reactions] error on reactions autofollowing: {e}")
 
     reaction.stat = await get_reaction_stat(reaction.id)
-
     return {"reaction": reaction}
 
 
