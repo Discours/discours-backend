@@ -322,11 +322,8 @@ async def migrate(entry, storage):
                         .first()
                     )
                     if reaction:
-                        reaction_dict["kind"] = (
-                            ReactionKind.AGREE
-                            if content_rating["value"] > 0
-                            else ReactionKind.DISAGREE,
-                        )
+                        k = ReactionKind.AGREE if content_rating["value"] > 0 else ReactionKind.DISAGREE
+                        reaction_dict["kind"] = k
                         reaction.update(reaction_dict)
                     else:
                         rea = Reaction.create(**reaction_dict)
