@@ -15,6 +15,7 @@ from .inbox import get_unread_counter
 from .reactions import get_reactions_for_shouts
 from .topics import get_topic_stat
 from services.auth.users import UserStorage
+from services.zine.shoutauthor import ShoutAuthorStorage
 
 
 async def get_user_subscriptions(slug):
@@ -189,6 +190,8 @@ def author_unfollow(user, slug):
 @query.field("authorsAll")
 async def get_authors_all(_, _info):
     authors = await UserStorage.get_all_users()
+    authorslugs = await ShoutAuthorStorage.get_authors()
+    authors = filter(lambda a: a.emailConfirmed and a.slug in authorslugs, authors)
     for author in authors:
         author.stat = await get_author_stat(author.slug)
     return authors
