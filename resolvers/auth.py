@@ -7,6 +7,7 @@ from graphql.type import GraphQLResolveInfo
 from transliterate import translit
 from starlette.responses import RedirectResponse
 
+from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
 from auth.authenticate import login_required
 from auth.email import send_auth_email
@@ -41,13 +42,15 @@ async def get_current_user(_, info):
 
 
 @mutation.field("confirmEmail")
-async def confirm_email(_, _info, confirm_token):
+async def confirm_email(_, _info, code):
     """confirm owning email address"""
     try:
-        user_id = await TokenStorage.get(confirm_token)
+        payload = JWTCodec.decode(code)
+        user_id = payload.user_id
+        await TokenStorage.get(f"{user_id}-{code}")
         with local_session() as session:
             user = session.query(User).where(User.id == user_id).first()
-            session_token = TokenStorage.create_session(user)
+            session_token = await TokenStorage.create_session(user)
             user.emailConfirmed = True
             user.lastSeen = datetime.now()
             session.add(user)
