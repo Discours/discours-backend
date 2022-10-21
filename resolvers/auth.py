@@ -80,8 +80,8 @@ def create_user(user_dict):
     return user
 
 
-def generate_unique_slug(username):
-    slug = translit(username, "ru", reversed=True).replace(".", "-").lower()
+def generate_unique_slug(name):
+    slug = translit(name, "ru", reversed=True).replace(".", "-").lower()
     with local_session() as session:
         c = 1
         user = session.query(User).where(User.slug == slug).first()
@@ -95,26 +95,26 @@ def generate_unique_slug(username):
 
 
 @mutation.field("registerUser")
-async def register(_, _info, email: str, password: str = "", username: str = ""):
+async def register(_, _info, email: str, password: str = "", name: str = ""):
     """creates new user account"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     if user:
         raise OperationNotAllowed("User already exist")
     else:
-        username = username or email.split("@")[0]
+        slug = generate_unique_slug(name)
         user_dict = {
             "email": email,
-            "username": username,
-            "slug": generate_unique_slug(username)
+            "username": email,
+            "name": name,
+            "slug": slug
         }
         if password:
             user_dict["password"] = Password.encode(password)
 
         user = create_user(user_dict)
 
-        if not password:
-            user = await auth_send_link(_, _info, email)
+        await auth_send_link(_, _info, email)
 
         return {"user": user}
 
