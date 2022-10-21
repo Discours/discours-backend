@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from urllib.parse import quote_plus
 from datetime import datetime
 
@@ -91,7 +93,7 @@ def generate_unique_slug(name):
             c += 1
         if not user:
             unique_slug = slug
-            return quote_plus(unique_slug)
+            return quote_plus(unique_slug).replace('+', '-')
 
 
 @mutation.field("registerUser")
@@ -120,7 +122,7 @@ async def register(_, _info, email: str, password: str = "", name: str = ""):
 
 
 @mutation.field("sendLink")
-async def auth_send_link(_, _info, email):
+async def auth_send_link(_, _info, email, lang="ru"):
     """send link with confirm code to email"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
@@ -128,12 +130,12 @@ async def auth_send_link(_, _info, email):
             raise ObjectNotExist("User not found")
         else:
             token = await TokenStorage.create_onetime(user)
-            await send_auth_email(user, token)
+            await send_auth_email(user, token, lang)
             return user
 
 
 @query.field("signIn")
-async def login(_, _info, email: str, password: str = ""):
+async def login(_, _info, email: str, password: str = "", lang: str = "ru"):
 
     with local_session() as session:
         orm_user = session.query(User).filter(User.email == email).first()
@@ -145,7 +147,7 @@ async def login(_, _info, email: str, password: str = ""):
         if not password:
             print(f"[auth] send confirm link to {email}")
             token = await TokenStorage.create_onetime(orm_user)
-            await send_auth_email(orm_user, token)
+            await send_auth_email(orm_user, token, lang)
             # FIXME: not an error, warning
             return {"error": "no password, email link was sent"}
 

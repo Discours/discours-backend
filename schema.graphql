@@ -155,7 +155,7 @@ type Mutation {
   # auth
   refreshSession: AuthResult!
   registerUser(email: String!, password: String, name: String): AuthResult!
-  sendLink(email: String!): Result!
+  sendLink(email: String!, lang: String): Result!
   confirmEmail(code: String!): AuthResult!
 
   # shout
@@ -212,7 +212,7 @@ type Query {
 
   # auth
   isEmailUsed(email: String!): Boolean!
-  signIn(email: String!, password: String): AuthResult!
+  signIn(email: String!, password: String, lang: String): AuthResult!
   signOut: AuthResult!
 
   # profile
