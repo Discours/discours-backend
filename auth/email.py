@@ -4,24 +4,31 @@ from settings import MAILGUN_API_KEY, MAILGUN_DOMAIN
 
 api_url = "https://api.mailgun.net/v3/%s/messages" % MAILGUN_DOMAIN
 noreply = "discours.io <noreply@%s>" % MAILGUN_DOMAIN
+lang_subject = {
+    "ru": "Подтверждение почты",
+    "en": "Confirm email"
+}
 
 
 async def send_auth_email(user, token, lang="ru"):
     try:
         to = "%s <%s>" % (user.name, user.email)
-        subject = "Confirm email"
         if lang not in ['ru', 'en']:
             lang = 'ru'
+        subject = lang_subject.get(lang, lang_subject["en"])
         template = "email_confirmation_" + lang
-
+        payload = {
+            "from": noreply,
+            "to": to,
+            "subject": subject,
+            "template": template,
+            "h:X-Mailgun-Variables": "{ \"token\": \"%s\" }" % token
+        }
+        print('[auth.email] payload: %r' % payload)
         response = requests.post(
             api_url,
             auth=("api", MAILGUN_API_KEY),
-            data={"from": noreply,
-                  "to": to,
-                  "subject": subject,
-                  "template": template,
-                  "h:X-Mailgun-Variables": "{ \"token\": \"%s\" }" % token}
+            data=payload
         )
         response.raise_for_status()
     except Exception as e:

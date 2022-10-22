@@ -2,7 +2,7 @@ from resolvers.auth import (
     login,
     sign_out,
     is_email_used,
-    register,
+    register_by_email,
     confirm_email,
     auth_send_link,
     get_current_user,
@@ -63,7 +63,7 @@ __all__ = [
     "unfollow",
     # auth
     "login",
-    "register",
+    "register_by_email",
     "is_email_used",
     "confirm_email",
     "auth_send_link",

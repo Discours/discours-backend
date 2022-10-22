@@ -47,7 +47,7 @@ async def confirm_email(_, _info, confirm_token):
         user_id = await TokenStorage.get(confirm_token)
         with local_session() as session:
             user = session.query(User).where(User.id == user_id).first()
-            session_token = TokenStorage.create_session(user)
+            session_token = await TokenStorage.create_session(user)
             user.emailConfirmed = True
             user.lastSeen = datetime.now()
             session.add(user)
@@ -82,8 +82,11 @@ def create_user(user_dict):
     return user
 
 
-def generate_unique_slug(name):
-    slug = translit(name, "ru", reversed=True).replace(".", "-").lower()
+def generate_unique_slug(src):
+    print('[resolvers.auth] generating slug from: ' + src)
+    slug = translit(src, "ru", reversed=True).replace(".", "-").lower()
+    if slug != src:
+        print('[resolvers.auth] translited name: ' + slug)
     with local_session() as session:
         c = 1
         user = session.query(User).where(User.slug == slug).first()
@@ -93,31 +96,29 @@ def generate_unique_slug(name):
             c += 1
         if not user:
             unique_slug = slug
+            print('[resolvers.auth] ' + unique_slug)
             return quote_plus(unique_slug).replace('+', '-')
 
 
 @mutation.field("registerUser")
-async def register(_, _info, email: str, password: str = "", name: str = ""):
+async def register_by_email(_, _info, email: str, password: str = "", name: str = ""):
     """creates new user account"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     if user:
         raise OperationNotAllowed("User already exist")
     else:
-        slug = generate_unique_slug(name)
+        slug = generate_unique_slug(name or email.split('@')[0])
         user_dict = {
             "email": email,
-            "username": email,
+            "username": email,  # will be used to store phone number or some messenger network id
             "name": name,
             "slug": slug
         }
         if password:
             user_dict["password"] = Password.encode(password)
-
         user = create_user(user_dict)
-
-        await auth_send_link(_, _info, email)
-
+        user = await auth_send_link(_, _info, email)
         return {"user": user}
 
 
