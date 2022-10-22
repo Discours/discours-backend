@@ -21,9 +21,9 @@ from services.zine.shoutauthor import ShoutAuthorStorage
 async def get_user_subscriptions(slug):
     return {
         "unread": await get_unread_counter(slug),       # unread inbox messages counter
-        "topics": [t.slug for t in get_followed_topics(0, slug)],  # followed topics slugs
-        "authors": [a.slug for a in get_followed_authors(0, slug)],  # followed authors slugs
-        "reactions": [r.shout for r in get_reactions_for_shouts(0, [slug, ])],  # followed reacted shout
+        "topics": [t.slug for t in await get_followed_topics(0, slug)],  # followed topics slugs
+        "authors": [a.slug for a in await get_followed_authors(0, slug)],  # followed authors slugs
+        "reactions": [r.shout for r in await get_reactions_for_shouts(0, [slug, ])],  # followed reacted shout
         "communities": [c.slug for c in get_followed_communities(0, slug)],  # followed communities slugs
     }
 
