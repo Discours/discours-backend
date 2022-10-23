@@ -16,14 +16,21 @@ class JWTCodec:
             "exp": exp,
             "iat": datetime.utcnow(),
         }
-        return jwt.encode(payload, JWT_SECRET_KEY, JWT_ALGORITHM)
+        try:
+            r = jwt.encode(payload, JWT_SECRET_KEY, JWT_ALGORITHM)
+            return r
+        except Exception as e:
+            print('[jwtcodec] JWT encode error %r' % e)
 
     @staticmethod
     def decode(token: str, verify_exp: bool = True) -> TokenPayload:
-        payload = jwt.decode(
-            token,
-            key=JWT_SECRET_KEY,
-            options={"verify_exp": verify_exp},
-            algorithms=[JWT_ALGORITHM],
-        )
-        return TokenPayload(**payload)
+        try:
+            payload = jwt.decode(
+                token,
+                key=JWT_SECRET_KEY,
+                options={"verify_exp": verify_exp},
+                algorithms=[JWT_ALGORITHM],
+            )
+            return TokenPayload(**payload)
+        except Exception as e:
+            print('[jwtcodec] JWT decode error %r' % e)

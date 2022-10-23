@@ -118,7 +118,11 @@ def community_unfollow(user, slug):
 
 
 @query.field("userFollowedCommunities")
-def get_followed_communities(_, user_slug) -> List[Community]:
+def get_followed_communities(_, _info, user_slug) -> List[Community]:
+    return followed_communities(user_slug)
+
+
+def followed_communities(user_slug) -> List[Community]:
     ccc = []
     with local_session() as session:
         ccc = (

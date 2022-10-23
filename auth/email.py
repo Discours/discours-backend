@@ -2,8 +2,8 @@ import requests
 
 from settings import MAILGUN_API_KEY, MAILGUN_DOMAIN
 
-api_url = "https://api.mailgun.net/v3/%s/messages" % MAILGUN_DOMAIN
-noreply = "discours.io <noreply@%s>" % MAILGUN_DOMAIN
+api_url = "https://api.mailgun.net/v3/%s/messages" % (MAILGUN_DOMAIN or 'discours.io')
+noreply = "discours.io <noreply@%s>" % (MAILGUN_DOMAIN or 'discours.io')
 lang_subject = {
     "ru": "Подтверждение почты",
     "en": "Confirm email"

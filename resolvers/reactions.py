@@ -124,6 +124,26 @@ async def delete_reaction(_, info, rid):
 
 @query.field("reactionsForShouts")
 async def get_reactions_for_shouts(_, info, shouts, offset, limit):
+    return await reactions_for_shouts(shouts, offset, limit)
+
+
+async def reactions_for_shouts(shouts, offset, limit):
+    reactions = []
+    with local_session() as session:
+        for slug in shouts:
+            reactions += (
+                session.query(Reaction)
+                .filter(Reaction.shout == slug)
+                .where(Reaction.deletedAt.is_not(None))
+                .order_by(desc("createdAt"))
+                .offset(offset)
+                .limit(limit)
+                .all()
+            )
+    for r in reactions:
+        r.stat = await get_reaction_stat(r.id)
+        r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
+    return reactions
     reactions = []
     with local_session() as session:
         for slug in shouts:

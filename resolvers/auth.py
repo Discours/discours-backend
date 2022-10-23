@@ -13,6 +13,7 @@ from auth.authenticate import login_required
 from auth.email import send_auth_email
 from auth.identity import Identity, Password
 from base.exceptions import (
+    BaseHttpException,
     InvalidPassword,
     InvalidToken,
     ObjectNotExist,
@@ -21,13 +22,13 @@ from base.exceptions import (
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import User, Role
-from resolvers.profile import get_user_subscriptions
-from settings import SESSION_TOKEN_HEADER
+from resolvers.profile import user_subscriptions
 
 
 @mutation.field("refreshSession")
 @login_required
 async def get_current_user(_, info):
+    print('[resolvers.auth] get current user %r' % info)
     user = info.context["request"].user
     user.lastSeen = datetime.now()
     with local_session() as session:
@@ -37,17 +38,17 @@ async def get_current_user(_, info):
     return {
         "token": token,
         "user": user,
-        "news": await get_user_subscriptions(user.slug),
+        "news": await user_subscriptions(user.slug),
     }
 
 
 @mutation.field("confirmEmail")
-async def confirm_email(_, _info, code):
+async def confirm_email(_, info, token):
     """confirm owning email address"""
     try:
-        payload = JWTCodec.decode(code)
+        payload = JWTCodec.decode(token)
         user_id = payload.user_id
-        await TokenStorage.get(f"{user_id}-{code}")
+        await TokenStorage.get(f"{user_id}-{token}")
         with local_session() as session:
             user = session.query(User).where(User.id == user_id).first()
             session_token = await TokenStorage.create_session(user)
@@ -58,7 +59,7 @@ async def confirm_email(_, _info, code):
             return {
                 "token": session_token,
                 "user": user,
-                "news": await get_user_subscriptions(user.slug)
+                "news": await user_subscriptions(user.slug)
             }
     except InvalidToken as e:
         raise InvalidToken(e.message)
@@ -70,10 +71,14 @@ async def confirm_email(_, _info, code):
 async def confirm_email_handler(request):
     token = request.path_params["token"]  # one time
     request.session["token"] = token
-    res = await confirm_email(None, token)
-    response = RedirectResponse(url="https://new.discours.io/confirm")
-    response.set_cookie("token", res["token"])  # session token
-    return response
+    res = await confirm_email(None, {}, token)
+    # print('[resolvers.auth] confirm_email response: %r' % res)
+    if "error" in res:
+        raise BaseHttpException(res['error'])
+    else:
+        response = RedirectResponse(url="https://new.discours.io/confirm")
+        response.set_cookie("token", res["token"])  # session token
+        return response
 
 
 def create_user(user_dict):
@@ -90,8 +95,8 @@ def generate_unique_slug(src):
     slug = translit(src, "ru", reversed=True).replace(".", "-").lower()
     if slug != src:
         print('[resolvers.auth] translited name: ' + slug)
+    c = 1
     with local_session() as session:
-        c = 1
         user = session.query(User).where(User.slug == slug).first()
         while user:
             user = session.query(User).where(User.slug == slug).first()
@@ -111,7 +116,10 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
     if user:
         raise OperationNotAllowed("User already exist")
     else:
-        slug = generate_unique_slug(name or email.split('@')[0])
+        slug = generate_unique_slug(name)
+        user = session.query(User).where(User.slug == slug).first()
+        if user:
+            slug = generate_unique_slug(email.split('@')[0])
         user_dict = {
             "email": email,
             "username": email,  # will be used to store phone number or some messenger network id
@@ -139,7 +147,7 @@ async def auth_send_link(_, _info, email, lang="ru"):
 
 
 @query.field("signIn")
-async def login(_, _info, email: str, password: str = "", lang: str = "ru"):
+async def login(_, info, email: str, password: str = "", lang: str = "ru"):
 
     with local_session() as session:
         orm_user = session.query(User).filter(User.email == email).first()
@@ -168,7 +176,7 @@ async def login(_, _info, email: str, password: str = "", lang: str = "ru"):
                     return {
                         "token": session_token,
                         "user": user,
-                        "news": await get_user_subscriptions(user.slug),
+                        "news": await user_subscriptions(user.slug),
                     }
                 except InvalidPassword:
                     print(f"[auth] {email}: invalid password")
@@ -179,7 +187,7 @@ async def login(_, _info, email: str, password: str = "", lang: str = "ru"):
 @query.field("signOut")
 @login_required
 async def sign_out(_, info: GraphQLResolveInfo):
-    token = info.context["request"].headers[SESSION_TOKEN_HEADER]
+    token = info.context["request"].headers.get("Auth", "")
     status = await TokenStorage.revoke(token)
     return status
 

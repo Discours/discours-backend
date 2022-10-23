@@ -10,21 +10,21 @@ from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRole, Role, UserRating, AuthorFollower
-from .community import get_followed_communities
+from .community import followed_communities
 from .inbox import get_unread_counter
-from .reactions import get_reactions_for_shouts
 from .topics import get_topic_stat
 from services.auth.users import UserStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
+from services.stat.reacted import ReactedStorage
 
 
-async def get_user_subscriptions(slug):
+async def user_subscriptions(slug: str):
     return {
         "unread": await get_unread_counter(slug),       # unread inbox messages counter
-        "topics": [t.slug for t in await get_followed_topics(0, slug)],  # followed topics slugs
-        "authors": [a.slug for a in await get_followed_authors(0, slug)],  # followed authors slugs
-        "reactions": [r.shout for r in await get_reactions_for_shouts(0, [slug, ])],  # followed reacted shout
-        "communities": [c.slug for c in get_followed_communities(0, slug)],  # followed communities slugs
+        "topics": [t.slug for t in await followed_topics(slug)],  # followed topics slugs
+        "authors": [a.slug for a in await followed_authors(slug)],  # followed authors slugs
+        "reactions": len(await ReactedStorage.get_shout(slug)),
+        "communities": [c.slug for c in followed_communities(slug)],  # communities
     }
 
 
@@ -59,6 +59,10 @@ async def get_user_reacted_shouts(_, slug, offset, limit) -> List[Shout]:
 @query.field("userFollowedTopics")
 @login_required
 async def get_followed_topics(_, info, slug) -> List[Topic]:
+    return await followed_topics(slug)
+
+
+async def followed_topics(slug):
     topics = []
     with local_session() as session:
         topics = (
@@ -74,6 +78,10 @@ async def get_followed_topics(_, info, slug) -> List[Topic]:
 
 @query.field("userFollowedAuthors")
 async def get_followed_authors(_, _info, slug) -> List[User]:
+    return await followed_authors(slug)
+
+
+async def followed_authors(slug) -> List[User]:
     authors = []
     with local_session() as session:
         authors = (

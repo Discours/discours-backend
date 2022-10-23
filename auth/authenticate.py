@@ -11,7 +11,6 @@ from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
 from base.exceptions import InvalidToken
 from services.auth.users import UserStorage
-from settings import SESSION_TOKEN_HEADER
 
 
 class SessionToken:
@@ -49,10 +48,10 @@ class JWTAuthenticate(AuthenticationBackend):
     async def authenticate(
         self, request: HTTPConnection
     ) -> Optional[Tuple[AuthCredentials, AuthUser]]:
-        if SESSION_TOKEN_HEADER not in request.headers:
+        if "Auth" not in request.headers:
             return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-        token = request.headers[SESSION_TOKEN_HEADER]
+        token = request.headers.get("Auth", "")
         try:
             payload = await SessionToken.verify(token)
         except Exception as exc:
@@ -77,6 +76,7 @@ class JWTAuthenticate(AuthenticationBackend):
 def login_required(func):
     @wraps(func)
     async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
+        # print('[auth.authenticate] login required for %r with info %r' % (func, info))  # debug only
         auth: AuthCredentials = info.context["request"].auth
         if not auth.logged_in:
             return {"error": auth.error_message or "Please login"}
