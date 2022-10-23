@@ -72,11 +72,11 @@ async def confirm_email_handler(request):
     token = request.path_params["token"]  # one time
     request.session["token"] = token
     res = await confirm_email(None, {}, token)
-    # print('[resolvers.auth] confirm_email response: %r' % res)
+    print('[resolvers.auth] confirm_email request: %r' % request)
     if "error" in res:
         raise BaseHttpException(res['error'])
     else:
-        response = RedirectResponse(url="https://new.discours.io/confirm")
+        response = RedirectResponse(url="https://new.discours.io")
         response.set_cookie("token", res["token"])  # session token
         return response
 

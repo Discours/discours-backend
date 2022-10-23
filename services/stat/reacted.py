@@ -24,7 +24,7 @@ def kind_to_rate(kind) -> int:
 
 
 class ReactedStorage:
-    reacted = {"shouts": {}, "topics": {}, "reactions": {}}
+    reacted = {"shouts": {}, "topics": {}, "reactions": {}, "authors": {}}
     rating = {"shouts": {}, "topics": {}, "reactions": {}}
     reactions = []
     to_flush = []
@@ -37,6 +37,23 @@ class ReactedStorage:
         self = ReactedStorage
         async with self.lock:
             return self.reacted["shouts"].get(shout_slug, [])
+
+    @staticmethod
+    async def get_author(user_slug):
+        self = ReactedStorage
+        async with self.lock:
+            return self.reacted["authors"].get(user_slug, [])
+
+    @staticmethod
+    async def get_shouts_by_author(user_slug):
+        self = ReactedStorage
+        async with self.lock:
+            author_reactions = self.reacted["authors"].get(user_slug, [])
+            shouts = []
+            for r in author_reactions:
+                if r.shout not in shouts:
+                    shouts.append(r.shout)
+            return shouts
 
     @staticmethod
     async def get_topic(topic_slug):
@@ -111,10 +128,13 @@ class ReactedStorage:
     async def recount(reactions):
         self = ReactedStorage
         for r in reactions:
-            # renew shout counters
+            # renew reactions by shout
             self.reacted["shouts"][r.shout] = self.reacted["shouts"].get(r.shout, [])
             self.reacted["shouts"][r.shout].append(r)
-            # renew topics counters
+            # renew reactions by author
+            self.reacted["authors"][r.createdBy] = self.reacted["authors"].get(r.createdBy, [])
+            self.reacted["authors"][r.createdBy].append(r)
+            # renew reactions by topic
             shout_topics = await TopicStorage.get_topics_by_slugs([r.shout, ])
             for t in shout_topics:
                 self.reacted["topics"][t] = self.reacted["topics"].get(t, [])
@@ -122,7 +142,7 @@ class ReactedStorage:
                 self.rating["topics"][t] = \
                     self.rating["topics"].get(t, 0) + kind_to_rate(r.kind)
             if r.replyTo:
-                # renew reaction counters
+                # renew reactions replies
                 self.reacted["reactions"][r.replyTo] = \
                     self.reacted["reactions"].get(r.replyTo, [])
                 self.reacted["reactions"][r.replyTo].append(r)

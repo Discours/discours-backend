@@ -23,7 +23,7 @@ async def user_subscriptions(slug: str):
         "unread": await get_unread_counter(slug),       # unread inbox messages counter
         "topics": [t.slug for t in await followed_topics(slug)],  # followed topics slugs
         "authors": [a.slug for a in await followed_authors(slug)],  # followed authors slugs
-        "reactions": len(await ReactedStorage.get_shout(slug)),
+        "reactions": await ReactedStorage.get_shouts_by_author(slug),
         "communities": [c.slug for c in followed_communities(slug)],  # communities
     }
 
