@@ -172,6 +172,7 @@ class ReactedStorage:
             print("[stat.reacted] %d shouts" % len(self.modified_shouts))
             print("[stat.reacted] %d topics" % len(self.reacted["topics"].values()))
             print("[stat.reacted] %d shouts" % len(self.reacted["shouts"]))
+            print("[stat.reacted] %d authors" % len(self.reacted["authors"].values()))
             print("[stat.reacted] %d reactions" % len(self.reacted["reactions"]))
             self.modified_shouts = set([])
 
