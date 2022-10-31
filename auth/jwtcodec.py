@@ -9,9 +9,9 @@ from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 class JWTCodec:
     @staticmethod
     def encode(user: AuthInput, exp: datetime) -> str:
-        issued = int(time.mktime(datetime.now().timetuple()))
+        issued = int(datetime.now().timestamp())
         print('[jwtcodec] issued at %r' % issued)
-        expires = int(time.mktime(exp.timetuple()))
+        expires = int(exp.timestamp())
         print('[jwtcodec] expires at %r' % expires)
         payload = {
             "user_id": user.id,
