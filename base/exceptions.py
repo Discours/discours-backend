@@ -6,6 +6,11 @@ class BaseHttpException(GraphQLError):
     message = "500 Server error"
 
 
+class ExpiredToken(BaseHttpException):
+    code = 403
+    message = "403 Expired Token"
+
+
 class InvalidToken(BaseHttpException):
     code = 403
     message = "403 Invalid Token"

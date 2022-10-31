@@ -1,7 +1,7 @@
 from datetime import datetime
-
+import time
 import jwt
-
+from base.exceptions import ExpiredToken
 from validations.auth import TokenPayload
 from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 
@@ -14,7 +14,8 @@ class JWTCodec:
             # "user_email": user.email,  # less secure
             # "device": device,  # no use cases
             "exp": exp,
-            "iat": datetime.utcnow()
+            "iat": time.mktime(datetime.now().timetuple()),
+            "iss": "discours"
         }
         try:
             return jwt.encode(payload, JWT_SECRET_KEY, JWT_ALGORITHM)
@@ -29,12 +30,13 @@ class JWTCodec:
                 key=JWT_SECRET_KEY,
                 options={
                     "verify_exp": verify_exp,
-                    "verify_signature": False
+                    # "verify_signature": False
                 },
                 algorithms=[JWT_ALGORITHM],
+                issuer="discours"
             )
             r = TokenPayload(**payload)
             print('[jwtcodec] debug payload %r' % r)
             return r
-        except Exception as e:
-            print('[jwtcodec] JWT decode error %r' % e)
+        except jwt.ExpiredSignatureError:
+            raise ExpiredToken
