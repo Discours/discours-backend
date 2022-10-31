@@ -252,6 +252,11 @@ class ShoutsCache:
         return shouts_by_rating
 
     @staticmethod
+    async def get_all_authors_slugs():
+        slugs = ShoutsCache.by_author.keys()
+        return slugs
+
+    @staticmethod
     async def worker():
         while True:
             try:

@@ -197,11 +197,13 @@ def author_unfollow(user, slug):
 
 @query.field("authorsAll")
 async def get_authors_all(_, _info):
-    authors = await UserStorage.get_all_users()
-    authorslugs = ShoutsCache.by_author.keys()
-    authors = filter(lambda a: a.emailConfirmed and a.slug in authorslugs, authors)
-    for author in authors:
-        author.stat = await get_author_stat(author.slug)
+    users = await UserStorage.get_all_users()
+    authorslugs = await ShoutsCache.get_all_authors_slugs()
+    authors = []
+    for author in users:
+        if author.slug in authorslugs:
+            author.stat = await get_author_stat(author.slug)
+            authors.append(author)
     return authors
 
 
