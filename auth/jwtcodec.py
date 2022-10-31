@@ -1,5 +1,4 @@
 from datetime import datetime
-import time
 import jwt
 from base.exceptions import ExpiredToken, InvalidToken
 from validations.auth import TokenPayload, AuthInput
