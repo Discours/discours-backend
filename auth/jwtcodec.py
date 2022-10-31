@@ -2,20 +2,20 @@ from datetime import datetime
 import time
 import jwt
 from base.exceptions import ExpiredToken, InvalidToken
-from validations.auth import TokenPayload
+from validations.auth import TokenPayload, AuthInput
 from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 
 
 class JWTCodec:
     @staticmethod
-    def encode(user_id: int, exp: datetime) -> str:
+    def encode(user: AuthInput, exp: datetime) -> str:
         issued = int(time.mktime(datetime.now().timetuple()))
         print('[jwtcodec] issued at %r' % issued)
-        expires = time.mktime(exp.timetuple())
+        expires = int(time.mktime(exp.timetuple()))
         print('[jwtcodec] expires at %r' % expires)
         payload = {
-            "user_id": user_id,
-            # "user_email": user.email,  # less secure
+            "user_id": user.id,
+            "username": user.email or user.phone,
             # "device": device,  # no use cases
             "exp": expires,
             "iat": issued,

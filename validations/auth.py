@@ -6,7 +6,8 @@ from pydantic import BaseModel
 
 class AuthInput(BaseModel):
     id: Optional[int]
-    username: Optional[Text]
+    email: Optional[Text]
+    phone: Optional[Text]
     password: Optional[Text]
 
 
