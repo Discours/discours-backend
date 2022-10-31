@@ -27,7 +27,10 @@ class JWTCodec:
             payload = jwt.decode(
                 token,
                 key=JWT_SECRET_KEY,
-                options={"verify_exp": verify_exp},
+                options={
+                    "verify_exp": verify_exp,
+                    "verify_signature": False
+                },
                 algorithms=[JWT_ALGORITHM],
             )
             r = TokenPayload(**payload)
