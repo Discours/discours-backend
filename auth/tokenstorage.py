@@ -22,7 +22,7 @@ class TokenStorage:
     async def create_onetime(user: AuthInput) -> str:
         life_span = ONETIME_TOKEN_LIFE_SPAN
         exp = datetime.utcnow() + timedelta(seconds=life_span)
-        one_time_token = JWTCodec.encode(user, exp=exp)
+        one_time_token = JWTCodec.encode(user.id, exp)
         await save(f"{user.id}-{one_time_token}", life_span)
         return one_time_token
 
@@ -30,7 +30,7 @@ class TokenStorage:
     async def create_session(user: AuthInput) -> str:
         life_span = SESSION_TOKEN_LIFE_SPAN
         exp = datetime.utcnow() + timedelta(seconds=life_span)
-        session_token = JWTCodec.encode(user, exp=exp)
+        session_token = JWTCodec.encode(user.id, exp)
         await save(f"{user.id}-{session_token}", life_span)
         return session_token
 
