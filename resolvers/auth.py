@@ -28,7 +28,7 @@ from resolvers.profile import user_subscriptions
 @mutation.field("refreshSession")
 @login_required
 async def get_current_user(_, info):
-    print('[resolvers.auth] get current user %r' % info)
+    print('[resolvers.auth] get current user %s' % str(info))
     user = info.context["request"].user
     user.lastSeen = datetime.now()
     with local_session() as session:

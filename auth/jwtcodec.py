@@ -14,10 +14,14 @@ class JWTCodec:
             # "user_email": user.email,  # less secure
             # "device": device,  # no use cases
             "exp": exp,
-            "iat": datetime.utcnow(),
+            "iat": datetime.utcnow()
         }
         try:
-            r = jwt.encode(payload, JWT_SECRET_KEY, JWT_ALGORITHM)
+            r = jwt.encode(
+                payload,
+                JWT_SECRET_KEY,
+                JWT_ALGORITHM
+            )
             return r
         except Exception as e:
             print('[jwtcodec] JWT encode error %r' % e)
