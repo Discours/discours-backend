@@ -7,13 +7,13 @@ class BaseHttpException(GraphQLError):
 
 
 class ExpiredToken(BaseHttpException):
-    code = 403
-    message = "403 Expired Token"
+    code = 401
+    message = "401 Expired Token"
 
 
 class InvalidToken(BaseHttpException):
-    code = 403
-    message = "403 Invalid Token"
+    code = 401
+    message = "401 Invalid Token"
 
 
 class Unauthorized(BaseHttpException):

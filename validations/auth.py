@@ -1,6 +1,4 @@
-from datetime import datetime
 from typing import Optional, Text
-
 from pydantic import BaseModel
 
 
@@ -13,5 +11,7 @@ class AuthInput(BaseModel):
 
 class TokenPayload(BaseModel):
     user_id: int
-    exp: datetime
-    iat: datetime
+    username: Optional[Text]
+    exp: int
+    iat: int
+    iss: Text
