@@ -77,7 +77,7 @@ input ShoutInput {
   subtitle: String
   versionOf: String
   visibleForRoles: [String] # role ids are strings
-  visibleForUsers: [Int]
+  visibleForUsers: [String]
 }
 
 input ProfileInput {
@@ -117,6 +117,12 @@ input ReactionInput {
   replyTo: Int
 }
 
+input ChatInput {
+    id: String!
+    title: String
+    description: String
+}
+
 enum FollowingEntity {
   TOPIC
   AUTHOR
@@ -128,8 +134,10 @@ enum FollowingEntity {
 
 type Mutation {
   # inbox
-  createChat(description: String): Chat!
+  createChat(title: String, members: [String]!): Result!
+  updateChat(chat: ChatInput!): Result!
   inviteChat(chatId: String!, userslug: String!): Result!
+  enterChat(chatId: String!): Result!
   createMessage(chatId: String!, body: String!, replyTo: Int): Result!
   updateMessage(chatId: String!, id: Int!, body: String!): Result!
   deleteMessage(chatId: String!, id: Int!): Result!
@@ -190,8 +198,7 @@ type Mutation {
 type Query {
   # inbox
   myChats: [Chat]!
-  enterChat(chatId: String!): Chat!
-  loadChat(chatId: String!, size: Int!, page: Int!): [Message]!
+  loadChat(chatId: String!, offset: Int, amount: Int): [Message]!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -258,7 +265,7 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
-  chatUpdated(chatId: String!): Result!
+  newMessage(chats: [Int!]): Message!
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!
@@ -471,20 +478,19 @@ type Token {
 
 type Message {
   author: String!
-  chatId: Int!
+  chatId: String!
   body: String!
-  createdAt: DateTime!
+  createdAt: Int!
   id: Int!
   replyTo: Int
-  updatedAt: DateTime!
-  visibleForUsers: [Int]
+  updatedAt: Int
 }
 
 type Chat {
   id: Int!
-  createdAt: DateTime!
+  createdAt: Int!
   createdBy: User!
-  updatedAt: DateTime!
+  updatedAt: Int!
   title: String
   description: String
   users: [User]!
