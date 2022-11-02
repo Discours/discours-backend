@@ -49,6 +49,10 @@ async def invite_to_chat(_, info, invited, chat_id):
     chat = await redis.execute("GET", f"chats/{chat_id}")
     if user.slug in chat['users']:
         add_user_to_chat(invited, chat_id, chat)
+        return {
+            "error": None,
+            "chat": chat
+        }
 
 
 @mutation.field("createChat")
@@ -71,21 +75,27 @@ async def create_chat(_, info, description="", title=""):
     await redis.execute("SET", f"chats/{chat_id}/next_message_id", 0)
     await add_user_to_chat(user.slug, chat_id)
 
-    return chat
+    return {
+        "error": None,
+        "chat": chat
+    }
 
 
 async def load_messages(chatId: int, size: int, page: int):
+    messages = []
     message_ids = await redis.lrange(
         f"chats/{chatId}/message_ids", size * (page - 1), size * page - 1
     )
-    messages = []
     if message_ids:
         message_keys = [
             f"chats/{chatId}/messages/{mid}" for mid in message_ids
         ]
         messages = await redis.mget(*message_keys)
         messages = [json.loads(msg) for msg in messages]
-    return messages
+    return {
+        "messages": messages,
+        "error": None
+    }
 
 
 @query.field("myChats")
@@ -94,13 +104,16 @@ async def user_chats(_, info):
     user = info.context["request"].user
     chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
     if not chats:
-        chats = list()
+        chats = []
     else:
-        chats = list(json.loads(chats))
+        chats = json.loads(chats)
     for c in chats:
         c['messages'] = await load_messages(c['id'], 50, 1)
         c['unread'] = await get_unread_counter(c['id'], user.slug)
-    return chats
+    return {
+        "chats": chats,
+        "error": None
+    }
 
 
 @query.field("enterChat")
@@ -110,11 +123,17 @@ async def enter_chat(_, info, chatId):
 
     chat = await redis.execute("GET", f"chats/{chatId}")
     if not chat:
-        return {"error": "chat not exist"}
-    chat = json.loads(chat)
-    await add_user_to_chat(user.slug, chatId, chat)
-    chat['messages'] = await load_messages(chatId, 50, 1)
-    return chat
+        return {
+            "error": "chat not exist"
+        }
+    else:
+        chat = json.loads(chat)
+        await add_user_to_chat(user.slug, chatId, chat)
+        chat['messages'] = await load_messages(chatId, 50, 1)
+        return {
+            "chat": chat,
+            "error": None
+        }
 
 
 @mutation.field("createMessage")
@@ -124,7 +143,8 @@ async def create_message(_, info, chatId, body, replyTo=None):
 
     chat = await redis.execute("GET", f"chats/{chatId}")
     if not chat:
-        return {"error": "chat not exist"}
+        return {
+            "error": "chat not exist"}
 
     message_id = await redis.execute("GET", f"chats/{chatId}/next_message_id")
     message_id = int(message_id)
@@ -154,7 +174,10 @@ async def create_message(_, info, chatId, body, replyTo=None):
     result = MessageResult("NEW", new_message)
     await MessagesStorage.put(result)
 
-    return {"message": new_message}
+    return {
+        "message": new_message,
+        "error": None
+    }
 
 
 @query.field("loadChat")
@@ -166,7 +189,10 @@ async def get_messages(_, info, chatId, size, page):
 
     messages = await load_messages(chatId, size, page)
 
-    return messages
+    return {
+        "messages": messages,
+        "error": None
+    }
 
 
 @mutation.field("updateMessage")
@@ -194,7 +220,10 @@ async def update_message(_, info, chatId, id, body):
     result = MessageResult("UPDATED", message)
     await MessagesStorage.put(result)
 
-    return {"message": message}
+    return {
+        "message": message,
+        "error": None
+    }
 
 
 @mutation.field("deleteMessage")
@@ -244,7 +273,9 @@ async def mark_as_read(_, info, chatId, ids):
     for id in ids:
         await redis.execute("LREM", f"chats/{chatId}/unread/{user.slug}", 0, str(id))
 
-    return {}
+    return {
+        "error": None
+    }
 
 
 @subscription.source("chatUpdated")

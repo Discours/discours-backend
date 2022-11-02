@@ -2,36 +2,10 @@ scalar DateTime
 
 ################################### Payload ###################################
 
-type MessageResult {
-  error: String
-  message: Message
-}
-
 enum MessageStatus {
   NEW
   UPDATED
   DELETED
-}
-
-type ChatUpdatedResult {
-  error: String
-  status: MessageStatus
-  message: Message
-}
-
-type EnterChatResult {
-  chat: Chat
-  messages: [Message]
-  error: String
-}
-
-type ChatResult {
-    error: String
-    members: [User]!
-    createdAt: DateTime!
-    createdBy: User
-    messages: [Message]
-    title: String
 }
 
 type UserFollowings {
@@ -49,8 +23,22 @@ type AuthResult {
   news: UserFollowings
 }
 
+type ChatMember {
+    slug: String!
+    name: String!
+    pic: String
+    invitedAt: DateTime
+    invitedBy: String # user slug
+    # TODO: add more
+}
+
 type Result {
   error: String
+  chat: Chat
+  chats: [Chat]
+  message: Message
+  messages: [Message]
+  members: [ChatMember]
   shout: Shout
   shouts: [Shout]
   author: User
@@ -142,8 +130,8 @@ type Mutation {
   # inbox
   createChat(description: String): Chat!
   inviteChat(chatId: String!, userslug: String!): Result!
-  createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
-  updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
+  createMessage(chatId: String!, body: String!, replyTo: Int): Result!
+  updateMessage(chatId: String!, id: Int!, body: String!): Result!
   deleteMessage(chatId: String!, id: Int!): Result!
   markAsRead(chatId: String!, ids: [Int]!): Result!
 
@@ -201,8 +189,8 @@ type Mutation {
 
 type Query {
   # inbox
-  myChats: [ChatResult]!
-  enterChat(chatId: String!): ChatResult!
+  myChats: [Chat]!
+  enterChat(chatId: String!): Chat!
   loadChat(chatId: String!, size: Int!, page: Int!): [Message]!
 
   # auth
