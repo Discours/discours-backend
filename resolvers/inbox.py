@@ -8,7 +8,14 @@ from base.resolvers import mutation, query, subscription
 from services.inbox import MessageResult, MessagesStorage, ChatFollowing
 
 
-async def get_unread_counter(user_slug):
+async def get_unread_counter(chat_id, user_slug):
+    try:
+        return int(await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}"))
+    except Exception:
+        return 0
+
+
+async def get_total_unread_counter(user_slug):
     chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
     if not chats:
         return 0
@@ -16,7 +23,7 @@ async def get_unread_counter(user_slug):
     chats = json.loads(chats)
     unread = 0
     for chat_id in chats:
-        n = await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}")
+        n = await get_unread_counter(chat_id, user_slug)
         unread += n
 
     return unread
@@ -92,6 +99,7 @@ async def user_chats(_, info):
         chats = list(json.loads(chats))
     for c in chats:
         c['messages'] = await load_messages(c['id'], 50, 1)
+        c['unread'] = await get_unread_counter(c['id'], user.slug)
     return chats
 
 

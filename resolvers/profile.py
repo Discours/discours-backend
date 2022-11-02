@@ -11,7 +11,7 @@ from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRole, Role, UserRating, AuthorFollower
 from .community import followed_communities
-from .inbox import get_unread_counter
+from .inbox import get_total_unread_counter
 from .topics import get_topic_stat
 from services.auth.users import UserStorage
 from services.zine.shoutscache import ShoutsCache
@@ -20,7 +20,7 @@ from services.stat.reacted import ReactedStorage
 
 async def user_subscriptions(slug: str):
     return {
-        "unread": await get_unread_counter(slug),       # unread inbox messages counter
+        "unread": await get_total_unread_counter(slug),       # unread inbox messages counter
         "topics": [t.slug for t in await followed_topics(slug)],  # followed topics slugs
         "authors": [a.slug for a in await followed_authors(slug)],  # followed authors slugs
         "reactions": await ReactedStorage.get_shouts_by_author(slug),

@@ -501,4 +501,5 @@ type Chat {
   description: String
   users: [User]!
   messages: [Message]!
+  unread: Int
 }
