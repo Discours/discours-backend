@@ -19,11 +19,6 @@ type ChatUpdatedResult {
   message: Message
 }
 
-type CreateChatResult {
-  chatId: String
-  error: String
-}
-
 type EnterChatResult {
   chat: Chat
   messages: [Message]
@@ -145,7 +140,7 @@ enum FollowingEntity {
 
 type Mutation {
   # inbox
-  createChat(description: String): CreateChatResult!
+  createChat(description: String): Chat!
   inviteChat(chatId: String!, userslug: String!): Result!
   createMessage(chatId: String!, body: String!, replyTo: Int): MessageResult!
   updateMessage(chatId: String!, id: Int!, body: String!): MessageResult!
@@ -488,13 +483,13 @@ type Token {
 
 type Message {
   author: String!
-  chatRoom: Int!
+  chatId: Int!
   body: String!
   createdAt: DateTime!
   id: Int!
   replyTo: Int
   updatedAt: DateTime!
-  visibleForUsers: [Int]!
+  visibleForUsers: [Int]
 }
 
 type Chat {
@@ -505,5 +500,5 @@ type Chat {
   title: String
   description: String
   users: [User]!
-  messages: [Message]
+  messages: [Message]!
 }

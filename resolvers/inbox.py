@@ -1,4 +1,3 @@
-import asyncio
 import json
 import uuid
 from datetime import datetime
@@ -6,41 +5,7 @@ from datetime import datetime
 from auth.authenticate import login_required
 from base.redis import redis
 from base.resolvers import mutation, query, subscription
-
-
-class ChatFollowing:
-    queue = asyncio.Queue()
-
-    def __init__(self, chat_id):
-        self.chat_id = chat_id
-
-
-class MessagesStorage:
-    lock = asyncio.Lock()
-    chats = []
-
-    @staticmethod
-    async def register_chat(chat):
-        async with MessagesStorage.lock:
-            MessagesStorage.chats.append(chat)
-
-    @staticmethod
-    async def remove_chat(chat):
-        async with MessagesStorage.lock:
-            MessagesStorage.chats.remove(chat)
-
-    @staticmethod
-    async def put(message_result):
-        async with MessagesStorage.lock:
-            for chat in MessagesStorage.chats:
-                if message_result.message["chatId"] == chat.chat_id:
-                    chat.queue.put_nowait(message_result)
-
-
-class MessageResult:
-    def __init__(self, status, message):
-        self.status = status
-        self.message = message
+from services.inbox import MessageResult, MessagesStorage, ChatFollowing
 
 
 async def get_unread_counter(user_slug):
@@ -57,21 +22,18 @@ async def get_unread_counter(user_slug):
     return unread
 
 
-async def add_user_to_chat(user_slug, chat_id, chat=None):
+async def add_user_to_chat(user_slug: str, chat_id: int, chat=None):
     chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
-    if not chats:
-        chats = set()
+    if chats:
+        chats = list(json.loads(chats))
     else:
-        chats = set(json.loads(chats))
-    chats.add(str(chat_id))
-    chats = list(chats)
+        chats = []
+    if chat_id not in chats:
+        chats.append(chat_id)
     await redis.execute("SET", f"chats_by_user/{user_slug}", json.dumps(chats))
-
-    if chat:
-        users = set(chat["users"])
-        users.add(user_slug)
-        chat["users"] = list(users)
-        await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
+    if user_slug not in chat["users"]:
+        chat["users"].append(user_slug)
+    await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
 
 
 @mutation.field("inviteChat")
@@ -84,14 +46,15 @@ async def invite_to_chat(_, info, invited, chat_id):
 
 @mutation.field("createChat")
 @login_required
-async def create_chat(_, info, description, title=""):
+async def create_chat(_, info, description="", title=""):
     user = info.context["request"].user
 
     chat_id = uuid.uuid4()
     chat = {
         "title": title,
         "description": description,
-        "createdAt": str(datetime.now),
+        "createdAt": str(datetime.now().timestamp()),
+        "updatedAt": str(datetime.now().timestamp()),
         "createdBy": user.slug,
         "id": str(chat_id),
         "users": [user.slug],
@@ -99,20 +62,19 @@ async def create_chat(_, info, description, title=""):
 
     await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
     await redis.execute("SET", f"chats/{chat_id}/next_message_id", 0)
-
     await add_user_to_chat(user.slug, chat_id)
 
-    return {"chatId": chat_id}
+    return chat
 
 
-async def load_messages(chatId, size, page):
+async def load_messages(chatId: int, size: int, page: int):
     message_ids = await redis.lrange(
         f"chats/{chatId}/message_ids", size * (page - 1), size * page - 1
     )
     messages = []
     if message_ids:
         message_keys = [
-            f"chats/{chatId}/messages/{id.decode('UTF-8')}" for id in message_ids
+            f"chats/{chatId}/messages/{mid}" for mid in message_ids
         ]
         messages = await redis.mget(*message_keys)
         messages = [json.loads(msg) for msg in messages]
@@ -123,7 +85,6 @@ async def load_messages(chatId, size, page):
 @login_required
 async def user_chats(_, info):
     user = info.context["request"].user
-
     chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
     if not chats:
         chats = list()
