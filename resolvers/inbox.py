@@ -134,6 +134,8 @@ async def get_chats_by_user(slug: str):
 async def user_chats(_, info):
     user = info.context["request"].user
     chats = await get_chats_by_user(user.slug)
+    if not chats:
+        chats = []
     for c in chats:
         c['messages'] = await load_messages(c['id'])
         c['unread'] = await get_unread_counter(c['id'], user.slug)
