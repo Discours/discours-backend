@@ -258,7 +258,7 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
-  chatUpdated(chatId: String!): ChatUpdatedResult!
+  chatUpdated(chatId: String!): Result!
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!
