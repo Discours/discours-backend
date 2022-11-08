@@ -197,8 +197,8 @@ type Mutation {
 
 type Query {
   # inbox
-  myChats: [Chat]!
-  loadChat(chatId: String!, offset: Int, amount: Int): [Message]!
+  myChats: Result!
+  loadChat(chatId: String!, offset: Int, amount: Int): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -487,7 +487,7 @@ type Message {
 }
 
 type Chat {
-  id: Int!
+  id: String!
   createdAt: Int!
   createdBy: User!
   updatedAt: Int!

@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 
 from base.orm import local_session
 from migration.html2text import html2text
-from orm.user import User, UserRating, AuthorFollower
+from orm.user import AuthorFollower, User, UserRating
 
 
 def migrate(entry):
@@ -16,7 +16,6 @@ def migrate(entry):
         "ratings": [],
         "username": email,
         "email": email,
-        "password": entry["services"]["password"].get("bcrypt", ""),
         "createdAt": parse(entry["createdAt"]),
         "emailConfirmed": bool(entry["emails"][0]["verified"]),
         "muted": False,  # amnesty
@@ -25,6 +24,7 @@ def migrate(entry):
         "links": [],
         "name": "anonymous",
     }
+    user_dict["password"] = entry["services"]["password"].get("bcrypt")
     if "updatedAt" in entry:
         user_dict["updatedAt"] = parse(entry["updatedAt"])
     if "wasOnineAt" in entry:

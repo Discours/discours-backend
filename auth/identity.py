@@ -1,24 +1,27 @@
 from jwt import DecodeError, ExpiredSignatureError
+from passlib.hash import bcrypt
 from sqlalchemy import or_
 
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-from validations.auth import AuthInput
-from base.exceptions import InvalidPassword
-from base.exceptions import InvalidToken
+from base.exceptions import InvalidPassword, InvalidToken
 from base.orm import local_session
 from orm import User
-from passlib.hash import bcrypt
+from validations.auth import AuthInput
 
 
 class Password:
     @staticmethod
     def encode(password: str) -> str:
+
+        # TODO: sha256 -> hexdigest -> bcrypt
         return bcrypt.hash(password)
 
     @staticmethod
-    def verify(password: str, other: str) -> bool:
-        return bcrypt.verify(password, other)
+    def verify(password: str, hashed: str) -> bool:
+        # TODO: detect rounds amount
+        # TODO: sha256 -> hexdigest -> bcrypt
+        return bcrypt.verify(password, hashed)
 
 
 class Identity:

@@ -107,7 +107,7 @@ async def create_chat(_, info, title="", members=[]):
     }
 
 
-async def load_messages(chatId: int, offset: int, amount: int):
+async def load_messages(chatId: str, offset: int, amount: int):
     messages = []
     message_ids = await redis.lrange(
         f"chats/{chatId}/message_ids", 0 - offset - amount, 0 - offset

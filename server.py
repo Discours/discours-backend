@@ -1,5 +1,7 @@
 import sys
+
 import uvicorn
+
 from settings import PORT
 
 if __name__ == "__main__":
