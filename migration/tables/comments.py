@@ -4,11 +4,12 @@ from dateutil.parser import parse as date_parse
 
 from base.orm import local_session
 from migration.html2text import html2text
-from orm.user import User
-from orm.topic import TopicFollower
 from orm.reaction import Reaction, ReactionKind
-from services.stat.reacted import ReactedStorage
 from orm.shout import ShoutReactionsFollower
+from orm.topic import TopicFollower
+from orm.user import User
+from services.stat.reacted import ReactedStorage
+
 ts = datetime.now()
 
 

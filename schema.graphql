@@ -138,7 +138,7 @@ type Mutation {
   updateChat(chat: ChatInput!): Result!
   inviteChat(chatId: String!, userslug: String!): Result!
   enterChat(chatId: String!): Result!
-  createMessage(chatId: String!, body: String!, replyTo: Int): Result!
+  createMessage(chatId: String!, body: String!, replyTo: String): Result!
   updateMessage(chatId: String!, id: Int!, body: String!): Result!
   deleteMessage(chatId: String!, id: Int!): Result!
   markAsRead(chatId: String!, ids: [Int]!): Result!
@@ -482,7 +482,7 @@ type Message {
   body: String!
   createdAt: Int!
   id: Int!
-  replyTo: Int
+  replyTo: String
   updatedAt: Int
 }
 

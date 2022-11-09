@@ -1,8 +1,7 @@
 from datetime import datetime
-
-from sqlalchemy import Column, String, ForeignKey, DateTime
-from sqlalchemy import Enum
 from enum import Enum as Enumeration
+
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, String
 
 from base.orm import Base
 

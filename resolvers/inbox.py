@@ -1,12 +1,12 @@
+import asyncio
 import json
 import uuid
-import asyncio
 from datetime import datetime
 
 from auth.authenticate import login_required
 from base.redis import redis
 from base.resolvers import mutation, query, subscription
-from services.inbox import MessageResult, MessagesStorage, ChatFollowing
+from services.inbox import ChatFollowing, MessageResult, MessagesStorage
 
 
 async def get_unread_counter(chat_id: str, user_slug: str):
@@ -44,6 +44,11 @@ async def add_user_to_chat(user_slug: str, chat):
         chat["updatedAt"] = datetime.now().timestamp()
     await redis.execute("SET", f"chats/{chat.id}", json.dumps(chat))
     return chat
+
+
+async def get_chats_by_user(slug: str):
+    chats = await redis.execute("GET", f"chats_by_user/{slug}")
+    return chats or []
 
 
 @mutation.field("inviteChat")
@@ -122,11 +127,6 @@ async def load_messages(chatId: str, offset: int, amount: int):
         "messages": messages,
         "error": None
     }
-
-
-async def get_chats_by_user(slug: str):
-    chats = await redis.execute("GET", f"chats_by_user/{slug}")
-    return chats or []
 
 
 @query.field("myChats")
