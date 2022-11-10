@@ -24,6 +24,7 @@ from resolvers.profile import (
     get_user_reacted_shouts,
     get_user_roles,
     get_top_authors,
+    get_author
 )
 
 # from resolvers.feed import shouts_for_feed, my_candidates
@@ -40,6 +41,7 @@ from resolvers.topics import (
     topics_by_author,
     topics_by_community,
     topics_all,
+    get_topic
 )
 
 from resolvers.zine import (
@@ -73,6 +75,7 @@ __all__ = [
     "get_users_by_slugs",
     "get_user_roles",
     "get_top_authors",
+    "get_author",
     # zine
     "recent_published",
     "recent_commented",
@@ -101,6 +104,7 @@ __all__ = [
     "topics_by_author",
     "topic_follow",
     "topic_unfollow",
+    "get_topic",
     # communities
     "get_community",
     "get_communities",

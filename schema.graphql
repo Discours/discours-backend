@@ -198,6 +198,7 @@ type Mutation {
 type Query {
   # inbox
   myChats: Result!
+  searchRecipient(q: String!): Result!
   loadChat(chatId: String!, offset: Int, amount: Int): Result!
 
   # auth
