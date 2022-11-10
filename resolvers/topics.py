@@ -53,6 +53,13 @@ async def topics_by_author(_, _info, author):
     return list(author_topics)
 
 
+@query.field("getTopic")
+async def get_topic(_, _info, slug):
+    t = await TopicStorage.topics[slug]
+    t.stat = get_topic_stat(slug)
+    return t
+
+
 @mutation.field("createTopic")
 @login_required
 async def create_topic(_, _info, inp):

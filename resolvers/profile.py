@@ -34,7 +34,6 @@ async def get_author_stat(slug):
         return {
             "followers": session.query(AuthorFollower).where(AuthorFollower.author == slug).count(),
             "rating": session.query(func.sum(UserRating.value)).where(UserRating.user == slug).first()
-            # TODO: debug
         }
 
 
@@ -210,3 +209,10 @@ async def get_authors_all(_, _info):
 @query.field("topAuthors")
 def get_top_authors(_, _info, offset, limit):
     return list(UserStorage.get_top_users())[offset : offset + limit]  # type: ignore
+
+
+@query.field("getAuthor")
+async def get_author(_, _info, slug):
+    a = await UserStorage.users[slug]
+    a.stat = get_author_stat(slug)
+    return a

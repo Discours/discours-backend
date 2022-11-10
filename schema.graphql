@@ -214,6 +214,7 @@ type Query {
   userReactedShouts(slug: String!): [Shout]! # test
   getUserRoles(slug: String!): [Role]!
   authorsAll: [User]!
+  getAuthor(slug: String!): User!
 
   # shouts
   getShoutBySlug(slug: String!): Shout!
@@ -244,6 +245,7 @@ type Query {
   markdownBody(body: String!): String!
 
   # topics
+  getTopic(slug: String!): Topic!
   topicsAll: [Topic]!
   topicsRandom(amount: Int): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
