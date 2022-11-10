@@ -2,6 +2,7 @@ import base64
 import os
 import re
 import uuid
+
 from .html2text import html2text
 
 TOOLTIP_REGEX = r"(\/\/\/(.+)\/\/\/)"

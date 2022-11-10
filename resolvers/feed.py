@@ -45,6 +45,7 @@ async def user_unpublished_shouts(_, info, offset, limit) -> List[Shout]:
             .join(ShoutAuthor)
             .where(and_(Shout.publishedAt.is_(None), ShoutAuthor.user == user.slug))
             .order_by(desc(Shout.createdAt))
+            .group_by(Shout.id)
             .limit(limit)
             .offset(offset)
             .all()

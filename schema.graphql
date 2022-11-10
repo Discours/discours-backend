@@ -317,7 +317,7 @@ type UserNotification {
 
 type User {
   id: Int!
-  username: String! # to login, ex. email
+  username: String! # to login, ex. email, phone
   createdAt: DateTime!
   lastSeen: DateTime
   slug: String!
@@ -383,6 +383,7 @@ type Reaction {
 }
 
 type Author {
+  id: Int!
   slug: String!
   name: String!
   userpic: String
@@ -427,6 +428,7 @@ type Stat {
 }
 
 type Community {
+  id: Int!
   slug: String!
   name: String!
   desc: String
@@ -436,6 +438,7 @@ type Community {
 }
 
 type Collection {
+  id: Int!
   slug: String!
   title: String!
   desc: String

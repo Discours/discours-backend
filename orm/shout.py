@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from base.orm import Base
@@ -50,8 +50,7 @@ class ShoutAllowed(Base):
 class Shout(Base):
     __tablename__ = "shout"
 
-    id = None  # type: ignore
-    slug = Column(String, primary_key=True)
+    slug = Column(String, unique=True)
     community = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
     lang = Column(String, nullable=False, default='ru', comment="Language")
     body = Column(String, nullable=False, comment="Body")

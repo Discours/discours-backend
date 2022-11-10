@@ -10,7 +10,8 @@ import bs4
 
 from migration.tables.comments import migrate as migrateComment
 from migration.tables.comments import migrate_2stage as migrateComment_2stage
-from migration.tables.content_items import get_shout_slug, migrate as migrateShout
+from migration.tables.content_items import get_shout_slug
+from migration.tables.content_items import migrate as migrateShout
 from migration.tables.topics import migrate as migrateTopic
 from migration.tables.users import migrate as migrateUser
 from migration.tables.users import migrate_2stage as migrateUser_2stage

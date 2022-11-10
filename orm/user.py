@@ -1,14 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    ForeignKey,
-    Boolean,
-    DateTime,
-    JSON as JSONType,
-)
+from sqlalchemy import JSON as JSONType
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from base.orm import Base, local_session

@@ -1,6 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Boolean, String, ForeignKey, DateTime, JSON as JSONType
+from sqlalchemy import JSON as JSONType
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 
 from base.orm import Base
 
@@ -20,8 +21,7 @@ class TopicFollower(Base):
 class Topic(Base):
     __tablename__ = "topic"
 
-    id = None  # type: ignore
-    slug = Column(String, primary_key=True)
+    slug = Column(String, unique=True)
     title = Column(String, nullable=False, comment="Title")
     body = Column(String, nullable=True, comment="Body")
     pic = Column(String, nullable=True, comment="Picture")

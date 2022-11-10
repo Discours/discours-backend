@@ -1,27 +1,22 @@
 # -*- coding: utf-8 -*-
 
-from urllib.parse import quote_plus
 from datetime import datetime
+from urllib.parse import quote_plus
 
 from graphql.type import GraphQLResolveInfo
-from transliterate import translit
 from starlette.responses import RedirectResponse
+from transliterate import translit
 
-from auth.jwtcodec import JWTCodec
-from auth.tokenstorage import TokenStorage
 from auth.authenticate import login_required
 from auth.email import send_auth_email
 from auth.identity import Identity, Password
-from base.exceptions import (
-    BaseHttpException,
-    InvalidPassword,
-    InvalidToken,
-    ObjectNotExist,
-    OperationNotAllowed,
-)
+from auth.jwtcodec import JWTCodec
+from auth.tokenstorage import TokenStorage
+from base.exceptions import (BaseHttpException, InvalidPassword, InvalidToken,
+                             ObjectNotExist, OperationNotAllowed)
 from base.orm import local_session
 from base.resolvers import mutation, query
-from orm import User, Role
+from orm import Role, User
 from resolvers.profile import user_subscriptions
 
 
