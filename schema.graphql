@@ -500,6 +500,7 @@ type Chat {
   title: String
   description: String
   users: [User]!
+  admins: [User]
   messages: [Message]!
   unread: Int
 }

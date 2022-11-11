@@ -31,23 +31,11 @@ async def get_total_unread_counter(user_slug: str):
 
 
 async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
-    chats_ids = await redis.execute("GET", f"chats_by_user/{user_slug}")
-    if not chat:
-        chat = await redis.execute("GET", f"chats/{chat_id}")
-        if chat:
-            chat = dict(json.loads(chat))
-    if chats_ids:
-        chats_ids = list(json.loads(chats_ids))
-    else:
-        chats_ids = []
-    if chat_id not in chats_ids:
-        chats_ids.append(chat_id)
-    await redis.execute("SET", f"chats_by_user/{user_slug}", json.dumps(chats_ids))
-    if user_slug not in chat["users"]:
-        chat["users"].append(user_slug)
-        chat["updatedAt"] = int(datetime.now().timestamp())
-    await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
-    return chat
+    for member in chat["users"]:
+        chats_ids = await redis.execute("GET", f"chats_by_user/{member}")
+        if chat_id not in chats_ids:
+            chats_ids.append(chat_id)
+        await redis.execute("SET", f"chats_by_user/{member}", json.dumps(chats_ids))
 
 
 async def get_chats_by_user(slug: str):
@@ -55,13 +43,38 @@ async def get_chats_by_user(slug: str):
     return chats or []
 
 
+@mutation.field("enterChat")
+@login_required
+async def enter_chat(_, info, chat_id: str):
+    user = info.context["request"].user
+    chat = await redis.execute("GET", f"chats/{chat_id}")
+    if not chat:
+        return {
+            "error": "chat not exist"
+        }
+    else:
+        chat = json.loads(chat)
+        if user.slug not in chat["users"]:
+            chat["users"].append(user.slug)
+            await add_user_to_chat(user.slug, chat_id, chat)
+            await redis.execute("SET" f"chats/{chat_id}", json.dumps(chat))
+        chat['messages'] = await load_messages(chat_id)
+        return {
+            "chat": chat,
+            "error": None
+        }
+
+
 @mutation.field("inviteChat")
 async def invite_to_chat(_, info, invited: str, chat_id: str):
     user = info.context["request"].user
     chat = await redis.execute("GET", f"chats/{chat_id}")
-    if user.slug not in chat['users']:
-        # TODO: check right to invite here
-        chat = await add_user_to_chat(invited, chat_id, chat)
+    if chat:
+        chat = json.loads(chat)
+        if user.slug in chat['admins']:
+            chat["users"].append(invited)
+            await add_user_to_chat(user.slug, chat_id, chat)
+            await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
     return {
         "error": None,
         "chat": chat
@@ -70,19 +83,23 @@ async def invite_to_chat(_, info, invited: str, chat_id: str):
 
 @mutation.field("updateChat")
 @login_required
-async def update_chat(_, info, chat_new):
+async def update_chat(_, info, chat_new: dict):
     user = info.context["request"].user
-
-    chat = await redis.execute("GET", f"chats/{chat_new.id}")
-    chat.update({
-        "title": chat_new.title,
-        "description": chat_new.description,
-        "updatedAt": int(datetime.now().timestamp()),
-    })
-
+    chat_id = chat_new["id"]
+    chat = await redis.execute("GET", f"chats/{chat_id}")
+    if chat:
+        chat = json.loads(chat)
+    if user.slug in chat["admins"]:
+        chat.update({
+            "title": chat_new.get("title", chat["title"]),
+            "description": chat_new.get("description", chat["description"]),
+            "updatedAt": int(datetime.now().timestamp()),
+            "admins": chat_new.get("admins", chat["admins"]),
+            "users": chat_new.get("users", chat["users"])
+        })
+    await add_user_to_chat(user.slug, chat_id, chat)
     await redis.execute("SET", f"chats/{chat.id}", json.dumps(chat))
     await redis.execute("SET", f"chats/{chat.id}/next_message_id", 0)
-    chat = await add_user_to_chat(user.slug, chat.id)
 
     return {
         "error": None,
@@ -94,9 +111,9 @@ async def update_chat(_, info, chat_new):
 @login_required
 async def create_chat(_, info, title="", members=[]):
     user = info.context["request"].user
+    chat_id = str(uuid.uuid4())
     if user.slug not in members:
         members.append(user.slug)
-    chat_id = str(uuid.uuid4())
     chat = {
         "title": title,
         "createdAt": int(datetime.now().timestamp()),
@@ -104,11 +121,12 @@ async def create_chat(_, info, title="", members=[]):
         "createdBy": user.slug,
         "id": chat_id,
         "users": members,
+        "admins": [user.slug, ]
     }
 
+    await add_user_to_chat(user.slug, chat_id, chat)
     await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
     await redis.execute("SET", f"chats/{chat_id}/next_message_id", str(0))
-    chat = await add_user_to_chat(user.slug, chat_id)
 
     return {
         "error": None,
@@ -147,25 +165,6 @@ async def user_chats(_, info):
         "chats": chats,
         "error": None
     }
-
-
-@mutation.field("enterChat")
-@login_required
-async def enter_chat(_, info, chat_id: str):
-    user = info.context["request"].user
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if not chat:
-        return {
-            "error": "chat not exist"
-        }
-    else:
-        chat = json.loads(chat)
-        chat = await add_user_to_chat(user.slug, chat_id, chat)
-        chat['messages'] = await load_messages(chat_id)
-        return {
-            "chat": chat,
-            "error": None
-        }
 
 
 @mutation.field("createMessage")
