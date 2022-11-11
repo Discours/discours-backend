@@ -11,7 +11,7 @@ from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRole, Role, UserRating, AuthorFollower
 from .community import followed_communities
-from .inbox import get_total_unread_counter
+from .inbox.messages import get_total_unread_counter
 from .topics import get_topic_stat
 from services.auth.users import UserStorage
 from services.zine.shoutscache import ShoutsCache
@@ -33,12 +33,13 @@ async def get_author_stat(slug):
     with local_session() as session:
         return {
             "followers": session.query(AuthorFollower).where(AuthorFollower.author == slug).count(),
+            "followings": session.query(AuthorFollower).where(AuthorFollower.follower == slug).count(),
             "rating": session.query(func.sum(UserRating.value)).where(UserRating.user == slug).first()
         }
 
 
 @query.field("userReactedShouts")
-async def get_user_reacted_shouts(_, slug, offset, limit) -> List[Shout]:
+async def get_user_reacted_shouts(_, slug: str, offset: int, limit: int) -> List[Shout]:
     user = await UserStorage.get_user_by_slug(slug)
     if not user:
         return []
@@ -49,7 +50,7 @@ async def get_user_reacted_shouts(_, slug, offset, limit) -> List[Shout]:
             .where(Reaction.createdBy == user.slug)
             .order_by(desc(Reaction.createdAt))
             .limit(limit)
-            .offset()
+            .offset(offset)
             .all()
         )
     return shouts

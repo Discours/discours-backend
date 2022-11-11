@@ -60,6 +60,13 @@ from resolvers.zine import (
     shouts_by_communities,
 )
 
+from resolvers.inbox.chats import load_chats, \
+    create_chat, delete_chat, update_chat, \
+    invite_to_chat, enter_chat
+from resolvers.inbox.messages import load_chat_messages, \
+    create_message, delete_message, update_message, \
+    message_generator, mark_as_read
+
 __all__ = [
     "follow",
     "unfollow",
@@ -116,4 +123,20 @@ __all__ = [
     "create_reaction",
     "update_reaction",
     "delete_reaction",
+    # inbox
+    "create_chat",
+    "delete_chat",
+    "update_chat",
+    "load_chats",
+    "create_message",
+    "delete_message",
+    "update_message",
+    "load_chat_messages",
+    "message_generator",
+    "mark_as_read",
+    "search_users",
+    "search_chats",
+    "search_messages",
+    "enter_chat",
+    "invite_to_chat"
 ]

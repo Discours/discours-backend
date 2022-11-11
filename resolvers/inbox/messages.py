@@ -1,141 +1,16 @@
 import asyncio
 import json
-import uuid
 from datetime import datetime
 
 from auth.authenticate import login_required
 from base.redis import redis
 from base.resolvers import mutation, query, subscription
 from services.inbox import ChatFollowing, MessageResult, MessagesStorage
-
-
-async def get_unread_counter(chat_id: str, user_slug: str):
-    try:
-        return int(await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}"))
-    except Exception:
-        return 0
-
-
-async def get_total_unread_counter(user_slug: str):
-    chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
-    if not chats:
-        return 0
-
-    chats = json.loads(chats)
-    unread = 0
-    for chat_id in chats:
-        n = await get_unread_counter(chat_id, user_slug)
-        unread += n
-
-    return unread
-
-
-async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
-    for member in chat["users"]:
-        chats_ids = await redis.execute("GET", f"chats_by_user/{member}")
-        chats_ids = list(json.loads(chats_ids))
-        if chat_id not in chats_ids:
-            chats_ids.append(chat_id)
-        await redis.execute("SET", f"chats_by_user/{member}", json.dumps(chats_ids))
-
-
-async def get_chats_by_user(slug: str):
-    chats = await redis.execute("GET", f"chats_by_user/{slug}")
-    return chats or []
-
-
-@mutation.field("enterChat")
-@login_required
-async def enter_chat(_, info, chat_id: str):
-    user = info.context["request"].user
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if not chat:
-        return {
-            "error": "chat not exist"
-        }
-    else:
-        chat = dict(json.loads(chat))
-        if user.slug not in chat["users"]:
-            chat["users"].append(user.slug)
-            await add_user_to_chat(user.slug, chat_id, chat)
-            await redis.execute("SET" f"chats/{chat_id}", json.dumps(chat))
-        chat['messages'] = await load_messages(chat_id)
-        return {
-            "chat": chat,
-            "error": None
-        }
-
-
-@mutation.field("inviteChat")
-async def invite_to_chat(_, info, invited: str, chat_id: str):
-    user = info.context["request"].user
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if chat:
-        chat = dict(json.loads(chat))
-        if user.slug in chat['admins']:
-            chat["users"].append(invited)
-            await add_user_to_chat(user.slug, chat_id, chat)
-            await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
-    return {
-        "error": None,
-        "chat": chat
-    }
-
-
-@mutation.field("updateChat")
-@login_required
-async def update_chat(_, info, chat_new: dict):
-    user = info.context["request"].user
-    chat_id = chat_new["id"]
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if chat:
-        chat = dict(json.loads(chat))
-    if user.slug in chat["admins"]:
-        chat.update({
-            "title": chat_new.get("title", chat["title"]),
-            "description": chat_new.get("description", chat["description"]),
-            "updatedAt": int(datetime.now().timestamp()),
-            "admins": chat_new.get("admins", chat["admins"]),
-            "users": chat_new.get("users", chat["users"])
-        })
-    await add_user_to_chat(user.slug, chat_id, chat)
-    await redis.execute("SET", f"chats/{chat.id}", json.dumps(chat))
-    await redis.execute("SET", f"chats/{chat.id}/next_message_id", 0)
-
-    return {
-        "error": None,
-        "chat": chat
-    }
-
-
-@mutation.field("createChat")
-@login_required
-async def create_chat(_, info, title="", members=[]):
-    user = info.context["request"].user
-    chat_id = str(uuid.uuid4())
-    if user.slug not in members:
-        members.append(user.slug)
-    chat = {
-        "title": title,
-        "createdAt": int(datetime.now().timestamp()),
-        "updatedAt": int(datetime.now().timestamp()),
-        "createdBy": user.slug,
-        "id": chat_id,
-        "users": members,
-        "admins": [user.slug, ]
-    }
-
-    await add_user_to_chat(user.slug, chat_id, chat)
-    await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
-    await redis.execute("SET", f"chats/{chat_id}/next_message_id", str(0))
-
-    return {
-        "error": None,
-        "chat": chat
-    }
+from resolvers.inbox.chats import get_chats_by_user
 
 
 async def load_messages(chatId: str, offset: int, amount: int):
+    ''' load :amount messages for :chatId with :offset '''
     messages = []
     message_ids = await redis.lrange(
         f"chats/{chatId}/message_ids", 0 - offset - amount, 0 - offset
@@ -152,18 +27,18 @@ async def load_messages(chatId: str, offset: int, amount: int):
     }
 
 
-@query.field("myChats")
+@query.field("loadMessages")
 @login_required
-async def user_chats(_, info):
-    user = info.context["request"].user
-    chats = await get_chats_by_user(user.slug)
-    if not chats:
-        chats = []
-    for c in chats:
-        c['messages'] = await load_messages(c['id'])
-        c['unread'] = await get_unread_counter(c['id'], user.slug)
+async def load_chat_messages(_, info, chat_id: str, offset: int = 0, amount: int = 50):
+    ''' load [amount] chat's messages with [offset] '''
+    chat = await redis.execute("GET", f"chats/{chat_id}")
+    if not chat:
+        return {
+            "error": "chat not exist"
+        }
+    messages = await load_messages(chat_id, offset, amount)
     return {
-        "chats": chats,
+        "messages": messages,
         "error": None
     }
 
@@ -171,17 +46,15 @@ async def user_chats(_, info):
 @mutation.field("createMessage")
 @login_required
 async def create_message(_, info, chat_id: str, body: str, replyTo=None):
+    """ create message with :body for :chat_id replying to :replyTo optionally """
     user = info.context["request"].user
-
     chat = await redis.execute("GET", f"chats/{chat_id}")
     if not chat:
         return {
             "error": "chat not exist"
         }
-
     message_id = await redis.execute("GET", f"chats/{chat_id}/next_message_id")
     message_id = int(message_id)
-
     new_message = {
         "chatId": chat_id,
         "id": message_id,
@@ -190,7 +63,6 @@ async def create_message(_, info, chat_id: str, body: str, replyTo=None):
         "replyTo": replyTo,
         "createdAt": int(datetime.now().timestamp()),
     }
-
     await redis.execute(
         "SET", f"chats/{chat_id}/messages/{message_id}", json.dumps(new_message)
     )
@@ -209,23 +81,6 @@ async def create_message(_, info, chat_id: str, body: str, replyTo=None):
 
     return {
         "message": new_message,
-        "error": None
-    }
-
-
-@query.field("loadChat")
-@login_required
-async def load_chat_messages(_, info, chat_id: str, offset: int = 0, amount: int = 50):
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if not chat:
-        return {
-            "error": "chat not exist"
-        }
-
-    messages = await load_messages(chat_id, offset, amount)
-
-    return {
-        "messages": messages,
         "error": None
     }
 
