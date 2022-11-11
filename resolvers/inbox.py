@@ -35,7 +35,7 @@ async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
     if not chat:
         chat = await redis.execute("GET", f"chats/{chat_id}")
         if chat:
-            chat = await json.loads(chat)
+            chat = dict(json.loads(chat))
     if chats_ids:
         chats_ids = list(json.loads(chats_ids))
     else:
