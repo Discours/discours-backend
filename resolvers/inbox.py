@@ -30,19 +30,21 @@ async def get_total_unread_counter(user_slug: str):
     return unread
 
 
-async def add_user_to_chat(user_slug: str, chat):
+async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
     chats_ids = await redis.execute("GET", f"chats_by_user/{user_slug}")
+    if not chat:
+        chat = await redis.execute("GET", f"chats/{chat_id}")
     if chats_ids:
         chats_ids = list(json.loads(chats_ids))
     else:
         chats_ids = []
-    if chat.id not in chats_ids:
-        chats_ids.append(chat.id)
+    if chat_id not in chats_ids:
+        chats_ids.append(chat_id)
     await redis.execute("SET", f"chats_by_user/{user_slug}", json.dumps(chats_ids))
     if user_slug not in chat["users"]:
         chat["users"].append(user_slug)
         chat["updatedAt"] = datetime.now().timestamp()
-    await redis.execute("SET", f"chats/{chat.id}", json.dumps(chat))
+    await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
     return chat
 
 
