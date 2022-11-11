@@ -55,8 +55,8 @@ async def topics_by_author(_, _info, author):
 
 @query.field("getTopic")
 async def get_topic(_, _info, slug):
-    t = await TopicStorage.topics[slug]
-    t.stat = get_topic_stat(slug)
+    t = TopicStorage.topics[slug]
+    t.stat = await get_topic_stat(slug)
     return t
 
 

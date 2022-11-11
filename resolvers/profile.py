@@ -213,6 +213,6 @@ def get_top_authors(_, _info, offset, limit):
 
 @query.field("getAuthor")
 async def get_author(_, _info, slug):
-    a = await UserStorage.users[slug]
-    a.stat = get_author_stat(slug)
+    a = await UserStorage.get_user_by_slug(slug)
+    a.stat = await get_author_stat(slug)
     return a
