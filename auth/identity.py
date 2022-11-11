@@ -1,3 +1,6 @@
+from binascii import hexlify
+from hashlib import sha256
+
 from jwt import DecodeError, ExpiredSignatureError
 from passlib.hash import bcrypt
 from sqlalchemy import or_
@@ -12,16 +15,40 @@ from validations.auth import AuthInput
 
 class Password:
     @staticmethod
-    def encode(password: str) -> str:
+    def _to_bytes(data: str) -> bytes:
+        return bytes(data.encode())
 
-        # TODO: sha256 -> hexdigest -> bcrypt
-        return bcrypt.hash(password)
+    @classmethod
+    def _get_sha256(cls, password: str) -> bytes:
+        bytes_password = cls._to_bytes(password)
+        return hexlify(sha256(bytes_password).digest())
+
+    @staticmethod
+    def encode(password: str) -> str:
+        password_sha256 = Password._get_sha256(password)
+        return bcrypt.using(rounds=10).hash(password_sha256)
 
     @staticmethod
     def verify(password: str, hashed: str) -> bool:
-        # TODO: detect rounds amount
-        # TODO: sha256 -> hexdigest -> bcrypt
-        return bcrypt.verify(password, hashed)
+        """
+        Verify that password hash is equal to specified hash. Hash format:
+
+        $2a$10$Ro0CUfOqk6cXEKf3dyaM7OhSCvnwM9s4wIX9JeLapehKK5YdLxKcm
+        \__/\/ \____________________/\_____________________________/
+        |   |        Salt                     Hash
+        |  Cost
+        Version
+
+        More info: https://passlib.readthedocs.io/en/stable/lib/passlib.hash.bcrypt.html
+
+        :param password: clear text password
+        :param hashed: hash of the password
+        :return: True if clear text password matches specified hash
+        """
+        hashed_bytes = Password._to_bytes(hashed)
+        password_sha256 = Password._get_sha256(password)
+
+        return bcrypt.verify(password_sha256, hashed_bytes)
 
 
 class Identity:
