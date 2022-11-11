@@ -33,6 +33,7 @@ async def get_total_unread_counter(user_slug: str):
 async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
     for member in chat["users"]:
         chats_ids = await redis.execute("GET", f"chats_by_user/{member}")
+        chats_ids = list(json.loads(chats_ids))
         if chat_id not in chats_ids:
             chats_ids.append(chat_id)
         await redis.execute("SET", f"chats_by_user/{member}", json.dumps(chats_ids))
@@ -53,7 +54,7 @@ async def enter_chat(_, info, chat_id: str):
             "error": "chat not exist"
         }
     else:
-        chat = json.loads(chat)
+        chat = dict(json.loads(chat))
         if user.slug not in chat["users"]:
             chat["users"].append(user.slug)
             await add_user_to_chat(user.slug, chat_id, chat)
@@ -70,7 +71,7 @@ async def invite_to_chat(_, info, invited: str, chat_id: str):
     user = info.context["request"].user
     chat = await redis.execute("GET", f"chats/{chat_id}")
     if chat:
-        chat = json.loads(chat)
+        chat = dict(json.loads(chat))
         if user.slug in chat['admins']:
             chat["users"].append(invited)
             await add_user_to_chat(user.slug, chat_id, chat)
@@ -88,7 +89,7 @@ async def update_chat(_, info, chat_new: dict):
     chat_id = chat_new["id"]
     chat = await redis.execute("GET", f"chats/{chat_id}")
     if chat:
-        chat = json.loads(chat)
+        chat = dict(json.loads(chat))
     if user.slug in chat["admins"]:
         chat.update({
             "title": chat_new.get("title", chat["title"]),
