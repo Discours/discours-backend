@@ -100,7 +100,7 @@ def generate_unique_slug(src):
         if not user:
             unique_slug = slug
             print('[resolvers.auth] ' + unique_slug)
-            return quote_plus(unique_slug).replace('+', '-')
+            return quote_plus(unique_slug).replace('+', '-').replace('\'', '')
 
 
 @mutation.field("registerUser")
