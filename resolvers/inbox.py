@@ -45,7 +45,7 @@ async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
     await redis.execute("SET", f"chats_by_user/{user_slug}", json.dumps(chats_ids))
     if user_slug not in chat["users"]:
         chat["users"].append(user_slug)
-        chat["updatedAt"] = datetime.now().timestamp()
+        chat["updatedAt"] = int(datetime.now().timestamp())
     await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
     return chat
 
@@ -77,7 +77,7 @@ async def update_chat(_, info, chat_new):
     chat.update({
         "title": chat_new.title,
         "description": chat_new.description,
-        "updatedAt": datetime.now().timestamp(),
+        "updatedAt": int(datetime.now().timestamp()),
     })
 
     await redis.execute("SET", f"chats/{chat.id}", json.dumps(chat))
@@ -99,8 +99,8 @@ async def create_chat(_, info, title="", members=[]):
     chat_id = str(uuid.uuid4())
     chat = {
         "title": title,
-        "createdAt": datetime.now().timestamp(),
-        "updatedAt": datetime.now().timestamp(),
+        "createdAt": int(datetime.now().timestamp()),
+        "updatedAt": int(datetime.now().timestamp()),
         "createdBy": user.slug,
         "id": chat_id,
         "users": members,
@@ -188,7 +188,7 @@ async def create_message(_, info, chat_id: str, body: str, replyTo=None):
         "author": user.slug,
         "body": body,
         "replyTo": replyTo,
-        "createdAt": datetime.now().timestamp(),
+        "createdAt": int(datetime.now().timestamp()),
     }
 
     await redis.execute(
@@ -248,7 +248,7 @@ async def update_message(_, info, chat_id: str, message_id: int, body: str):
         return {"error": "access denied"}
 
     message["body"] = body
-    message["updatedAt"] = datetime.now().timestamp()
+    message["updatedAt"] = int(datetime.now().timestamp())
 
     await redis.execute("SET", f"chats/{chat_id}/messages/{message_id}", json.dumps(message))
 
