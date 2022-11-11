@@ -11,5 +11,3 @@ COPY requirements.txt ./
 RUN set -ex && pip install -r requirements.txt
 
 COPY . .
-
-CMD ["python", "server.py"]
