@@ -22,20 +22,20 @@ on debian/ubuntu
 apt install redis nginx
 ```
 
-First, you'll need some data
+First, install Postgres. Then you'll need some data
 ```
+
+psql -U postgres
+> create database discoursio;
+> \q
 python server.py migrate
 ```
 
 Then run nginx, redis and API server
 ```
 redis-server
-
-cp nginx.conf /usr/local/etc/nginx/.
-nginx -s reload
-
 pip install -r requirements.txt
-python server.py
+python3 server.py dev
 ```
 
 # How to do an authorized request
