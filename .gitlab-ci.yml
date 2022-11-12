@@ -12,6 +12,6 @@ deploy:
     name: production
     url: https://testapi.discours.io
   only:
-    - master
+    - main
   script:
-    - git-push ssh://dokku@testapi.discours.io:22/$APP_NAME
+    - git-push ssh://dokku@staging.discours.io:22/$APP_NAME
