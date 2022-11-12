@@ -26,10 +26,19 @@ type AuthResult {
 type ChatMember {
     slug: String!
     name: String!
-    pic: String
+    userpic: String
     invitedAt: DateTime
     invitedBy: String # user slug
     # TODO: add more
+}
+
+type Author {
+    slug: String!
+    name: String
+    userpic: String
+    stat: AuthorStat
+    roles: [Role]  # in different communities
+    lastSeen: DateTime
 }
 
 type Result {
@@ -43,8 +52,8 @@ type Result {
   members: [ChatMember]
   shout: Shout
   shouts: [Shout]
-  author: User
-  authors: [User]
+  author: Author
+  authors: [Author]
   reaction: Reaction
   reactions: [Reaction]
   topic: Topic
@@ -212,19 +221,20 @@ type Query {
   signOut: AuthResult!
 
   # profile
-  getUsersBySlugs(slugs: [String]!): [User]!
-  userFollowers(slug: String!): [User]!
-  userFollowedAuthors(slug: String!): [User]!
+  getUsersBySlugs(slugs: [String]!): [Author]!
+  userFollowers(slug: String!): [Author]!
+  userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
   userFollowedCommunities(slug: String!): [Community]!
   userReactedShouts(slug: String!): [Shout]! # test
   getUserRoles(slug: String!): [Role]!
-  authorsAll: [User]!
+  authorsAll: [Author]!
   getAuthor(slug: String!): User!
 
   # shouts
   getShoutBySlug(slug: String!): Shout!
   shoutsForFeed(offset: Int!, limit: Int!): [Shout]! # test
+  shoutsByLayout(layout: String, amount: Int!, offset: Int!): [Shout]!
   shoutsByTopics(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
   shoutsByAuthors(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
   shoutsByCommunities(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
