@@ -347,7 +347,7 @@ def prepare_html_body(entry):
 
 
 def extract_html(entry):
-    body_orig = entry.get("body") or ""
+    body_orig = entry.get("body").replace('\(', '(').replace('/)', ')') or ""
     media = entry.get("media", [])
     kind = entry.get("type") or ""
     print("[extract] kind: " + kind)
