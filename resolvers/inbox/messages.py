@@ -6,25 +6,7 @@ from auth.authenticate import login_required
 from base.redis import redis
 from base.resolvers import mutation, query, subscription
 from services.inbox import ChatFollowing, MessageResult, MessagesStorage
-from resolvers.inbox.chats import get_chats_by_user
-
-
-async def load_messages(chatId: str, offset: int, amount: int):
-    ''' load :amount messages for :chatId with :offset '''
-    messages = []
-    message_ids = await redis.lrange(
-        f"chats/{chatId}/message_ids", 0 - offset - amount, 0 - offset
-    )
-    if message_ids:
-        message_keys = [
-            f"chats/{chatId}/messages/{mid}" for mid in message_ids
-        ]
-        messages = await redis.mget(*message_keys)
-        messages = [json.loads(msg) for msg in messages]
-    return {
-        "messages": messages,
-        "error": None
-    }
+from resolvers.inbox.load import load_messages
 
 
 @query.field("loadMessages")
@@ -173,7 +155,11 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
 async def message_generator(obj, info):
     try:
         user = info.context["request"].user
-        user_following_chats = await get_chats_by_user(user.slug)  # chat ids
+        user_following_chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
+        if user_following_chats:
+            user_following_chats = list(json.loads(user_following_chats))  # chat ids
+        else:
+            user_following_chats = []
         tasks = []
         updated = {}
         for chat_id in user_following_chats:

@@ -66,6 +66,8 @@ from resolvers.inbox.chats import load_chats, \
 from resolvers.inbox.messages import load_chat_messages, \
     create_message, delete_message, update_message, \
     message_generator, mark_as_read
+from resolvers.inbox.search import search_users, \
+    search_messages, search_chats
 
 __all__ = [
     "follow",

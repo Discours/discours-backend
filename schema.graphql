@@ -138,6 +138,7 @@ type Mutation {
   # inbox
   createChat(title: String, members: [String]!): Result!
   updateChat(chat: ChatInput!): Result!
+  deleteChat(chatId: String!): Result!
   inviteChat(chatId: String!, userslug: String!): Result!
   enterChat(chatId: String!): Result!
   createMessage(chatId: String!, body: String!, replyTo: String): Result!

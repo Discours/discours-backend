@@ -2,13 +2,14 @@ import json
 
 from auth.authenticate import login_required
 from base.redis import redis
-from base.resolvers import query, session
-from orm.zine import AuthorFollower
+from base.resolvers import query
+from base.orm import local_session
+from orm.user import AuthorFollower
 
 
 @query.field("searchUsers")
 @login_required
-async def search_user(_, info, query: str, offset: int = 0, amount: int = 50):
+async def search_users(_, info, query: str, offset: int = 0, amount: int = 50):
     result = []
     # TODO: maybe redis scan?
     user = info.context["request"].user
@@ -27,14 +28,15 @@ async def search_user(_, info, query: str, offset: int = 0, amount: int = 50):
 
     more_amount = amount - len(result)
 
-    # followings
-    result += session.query(AuthorFollower.author).where(AuthorFollower.follower.startswith(query))\
-        .offset(offset + len(result)).limit(more_amount)
+    with local_session() as session:
+        # followings
+        result += session.query(AuthorFollower.author).where(AuthorFollower.follower.startswith(query))\
+            .offset(offset + len(result)).limit(more_amount)
 
-    more_amount = amount
-    # followers
-    result += session.query(AuthorFollower.follower).where(AuthorFollower.author.startswith(query))\
-        .offset(offset + len(result)).limit(offset + len(result) + amount)
+        more_amount = amount
+        # followers
+        result += session.query(AuthorFollower.follower).where(AuthorFollower.author.startswith(query))\
+            .offset(offset + len(result)).limit(offset + len(result) + amount)
     return {
         "slugs": list(result),
         "error": None
@@ -43,7 +45,7 @@ async def search_user(_, info, query: str, offset: int = 0, amount: int = 50):
 
 @query.field("searchChats")
 @login_required
-async def search_chat(_, info, query: str, offset: int = 0, amount: int = 50):
+async def search_chats(_, info, query: str, offset: int = 0, amount: int = 50):
     user = info.context["request"].user
     my_chats = await redis.execute("GET", f"/chats_by_user/{user.slug}")
     chats = []

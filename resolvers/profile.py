@@ -11,7 +11,7 @@ from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRole, Role, UserRating, AuthorFollower
 from .community import followed_communities
-from .inbox.messages import get_total_unread_counter
+from .inbox.load import get_total_unread_counter
 from .topics import get_topic_stat
 from services.auth.users import UserStorage
 from services.zine.shoutscache import ShoutsCache

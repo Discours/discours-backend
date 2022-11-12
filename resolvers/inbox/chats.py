@@ -5,28 +5,7 @@ from datetime import datetime
 from auth.authenticate import login_required
 from base.redis import redis
 from base.resolvers import mutation, query
-from resolvers.inbox.messages import load_messages
-
-
-async def get_unread_counter(chat_id: str, user_slug: str):
-    try:
-        return int(await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}"))
-    except Exception:
-        return 0
-
-
-async def get_total_unread_counter(user_slug: str):
-    chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
-    if not chats:
-        return 0
-
-    chats = json.loads(chats)
-    unread = 0
-    for chat_id in chats:
-        n = await get_unread_counter(chat_id, user_slug)
-        unread += n
-
-    return unread
+from resolvers.inbox.load import load_messages, load_user_chats
 
 
 async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
@@ -39,27 +18,6 @@ async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
         if chat_id not in chats_ids:
             chats_ids.append(chat_id)
         await redis.execute("SET", f"chats_by_user/{member}", json.dumps(chats_ids))
-
-
-async def get_chats_by_user(slug: str):
-    chats = await redis.execute("GET", f"chats_by_user/{slug}")
-    if chats:
-        chats = list(json.loads(chats))
-    return chats or []
-
-
-async def load_user_chats(slug, offset: int, amount: int):
-    """ load :amount chats of :slug user with :offset """
-    chats = await get_chats_by_user(slug)[offset:offset + amount]
-    if not chats:
-        chats = []
-    for c in chats:
-        c['messages'] = await load_messages(c['id'])
-        c['unread'] = await get_unread_counter(c['id'], slug)
-    return {
-        "chats": chats,
-        "error": None
-    }
 
 
 @query.field("loadChats")
