@@ -22,7 +22,7 @@ on debian/ubuntu
 apt install redis nginx
 ```
 
-First, you'll need some data
+First, install Postgres. Then you'll need some data
 ```
 
 psql -U postgres
