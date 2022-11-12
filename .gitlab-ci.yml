@@ -1,19 +1,17 @@
 ---
-image: dokku/ci-docker-image
-
 stages:
   - deploy
 
 variables:
-  GIT_DEPTH: 0
+  APP_NAME: discoursio-api
 
 deploy:
+  image: ilyasemenov/gitlab-ci-git-push
   stage: deploy
+  environment:
+    name: production
+    url: https://testapi.discours.io
   only:
-    - main
-  variables:
-    # specify the `main` branch as the remote branch to push to
-    BRANCH: main
-    GIT_REMOTE_URL: ssh://dokku@staging.discours.io:22/discoursio-api
-  script: dokku-deploy
-  after_script: [dokku-unlock]
+    - master
+  script:
+    - git-push ssh://dokku@testapi.discours.io:22/$APP_NAME
