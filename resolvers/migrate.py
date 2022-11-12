@@ -6,6 +6,6 @@ from migration.extract import extract_md
 
 @login_required
 @query.field("markdownBody")
-def markdown_body(_, info, body):
+def markdown_body(_, info, body: str):
     body = extract_md(body)
     return body
