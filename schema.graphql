@@ -440,6 +440,7 @@ type Shout {
   deletedBy: User
   publishedBy: User
   publishedAt: DateTime
+  media: String
   stat: Stat
 }
 
