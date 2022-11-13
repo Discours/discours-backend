@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from sqlalchemy import desc, and_
+from sqlalchemy import and_, desc
 
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
-from orm.reaction import Reaction
-from orm.shout import ShoutReactionsFollower
+from orm.reaction import Reaction, ReactionKind
+from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
 from services.auth.users import UserStorage
 from services.stat.reacted import ReactedStorage
@@ -57,6 +57,78 @@ def reactions_unfollow(user, slug):
             session.commit()
 
 
+def is_published_author(session, userslug):
+    ''' checks if user has at least one publication '''
+    return session.query(
+        Shout
+    ).where(
+        Shout.authors.contains(userslug)
+    ).filter(
+        and_(
+            Shout.publishedAt.is_not(None),
+            Shout.deletedAt.is_(None)
+        )
+    ).count() > 0
+
+
+def check_to_publish(session, user, reaction):
+    ''' set shout to public if publicated approvers amount > 4 '''
+    if not reaction.replyTo and reaction.kind in [
+        ReactionKind.ACCEPT,
+        ReactionKind.LIKE,
+        ReactionKind.PROOF
+    ]:
+        if is_published_author(user):
+            # now count how many approvers are voted already
+            approvers_reactions = session.query(Reaction).where(Reaction.shout == reaction.shout).all()
+            approvers = [user.slug, ]
+            for ar in approvers_reactions:
+                a = ar.createdBy
+                if is_published_author(session, a):
+                    approvers.append(a)
+            if len(approvers) > 4:
+                return True
+    return False
+
+
+def check_to_hide(session, user, reaction):
+    ''' hides any shout if 20% of reactions are negative '''
+    if not reaction.replyTo and reaction.kind in [
+        ReactionKind.DECLINE,
+        ReactionKind.UNLIKE,
+        ReactionKind.UNPROOF
+    ]:
+        # if is_published_author(user):
+        approvers_reactions = session.query(Reaction).where(Reaction.shout == reaction.shout).all()
+        declines = 0
+        for r in approvers_reactions:
+            if r.kind in [
+                ReactionKind.DECLINE,
+                ReactionKind.UNLIKE,
+                ReactionKind.UNPROOF
+            ]:
+                declines += 1
+        if len(approvers_reactions) / declines < 5:
+            return True
+    return False
+
+
+def set_published(session, slug, publisher):
+    s = session.query(Shout).where(Shout.slug == slug).first()
+    s.publishedAt = datetime.now()
+    s.publishedBy = publisher
+    s.visibility = 'public'
+    session.add(s)
+    session.commit()
+
+
+def set_hidden(session, slug):
+    s = session.query(Shout).where(Shout.slug == slug).first()
+    s.visibility = 'authors'
+    session.add(s)
+    session.commit()
+
+
 @mutation.field("createReaction")
 @login_required
 async def create_reaction(_, info, inp):
@@ -68,6 +140,14 @@ async def create_reaction(_, info, inp):
         reaction = Reaction.create(**inp)
         session.add(reaction)
         session.commit()
+
+        # self-regulation mechanics
+
+        if check_to_hide(session, user, reaction):
+            set_hidden(session, reaction.shout)
+        elif check_to_publish(session, user, reaction):
+            set_published(session, reaction.shout, reaction.createdBy)
+
     ReactedStorage.react(reaction)
     try:
         reactions_follow(user, inp["shout"], True)

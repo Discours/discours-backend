@@ -148,6 +148,9 @@ async def migrate(entry, storage):
     r["updatedAt"] = date_parse(entry["updatedAt"]) if "updatedAt" in entry else ts
     if entry.get("published"):
         r["publishedAt"] = date_parse(entry.get("publishedAt", OLD_DATE))
+        r["visibility"] = "public"
+    else:
+        r["visibility"] = "authors"
     if "deletedAt" in entry:
         r["deletedAt"] = date_parse(entry["deletedAt"])
 

@@ -9,13 +9,14 @@ from base.resolvers import mutation, query
 from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
-from orm.user import User, UserRole, Role, UserRating, AuthorFollower
+from orm.user import AuthorFollower, Role, User, UserRating, UserRole
+from services.auth.users import UserStorage
+from services.stat.reacted import ReactedStorage
+from services.zine.shoutscache import ShoutsCache
+
 from .community import followed_communities
 from .inbox.load import get_total_unread_counter
 from .topics import get_topic_stat
-from services.auth.users import UserStorage
-from services.zine.shoutscache import ShoutsCache
-from services.stat.reacted import ReactedStorage
 
 
 async def user_subscriptions(slug: str):
@@ -34,7 +35,14 @@ async def get_author_stat(slug):
         return {
             "followers": session.query(AuthorFollower).where(AuthorFollower.author == slug).count(),
             "followings": session.query(AuthorFollower).where(AuthorFollower.follower == slug).count(),
-            "rating": session.query(func.sum(UserRating.value)).where(UserRating.user == slug).first()
+            "rating": session.query(func.sum(UserRating.value)).where(UserRating.user == slug).first(),
+            "commented": session.query(
+                Reaction.id
+            ).where(
+                Reaction.createdBy == slug
+            ).filter(
+                func.length(Reaction.body) > 0
+            ).count()
         }
 
 
