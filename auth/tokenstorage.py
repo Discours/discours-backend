@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from auth.jwtcodec import JWTCodec
 from validations.auth import AuthInput
@@ -21,7 +21,7 @@ class TokenStorage:
     @staticmethod
     async def create_onetime(user: AuthInput) -> str:
         life_span = ONETIME_TOKEN_LIFE_SPAN
-        exp = datetime.utcnow() + timedelta(seconds=life_span)
+        exp = datetime.now(tz=timezone.utc) + timedelta(seconds=life_span)
         one_time_token = JWTCodec.encode(user, exp)
         await save(f"{user.id}-{one_time_token}", life_span)
         return one_time_token
@@ -29,7 +29,7 @@ class TokenStorage:
     @staticmethod
     async def create_session(user: AuthInput) -> str:
         life_span = SESSION_TOKEN_LIFE_SPAN
-        exp = datetime.utcnow() + timedelta(seconds=life_span)
+        exp = datetime.now(tz=timezone.utc) + timedelta(seconds=life_span)
         session_token = JWTCodec.encode(user, exp)
         await save(f"{user.id}-{session_token}", life_span)
         return session_token
