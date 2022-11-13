@@ -293,12 +293,12 @@ def prepare_md_body(entry):
             )
         body = "import MusicPlayer from '$/components/Article/MusicPlayer'\n\n" + addon
 
-    body_orig = extract_html(entry)
+    body_orig, media = extract_html(entry)
     if body_orig:
         body += extract_md(html2text(body_orig), entry["_id"])
     if not body:
         print("[extract] empty MDX body")
-    return body
+    return body, media
 
 
 def prepare_html_body(entry):
@@ -339,11 +339,11 @@ def prepare_html_body(entry):
             addon += '"></audio></figure>'
         body += addon
 
-    body = extract_html(entry)
+    body, media = extract_html(entry)
     # if body_orig: body += extract_md(html2text(body_orig), entry['_id'])
     if not body:
         print("[extract] empty HTML body")
-    return body
+    return body, media
 
 
 def extract_html(entry):
@@ -403,4 +403,4 @@ def extract_html(entry):
     if not body_orig:
         print("[extract] empty HTML body")
     # body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-    return body_orig
+    return body_orig, media

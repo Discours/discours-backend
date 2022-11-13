@@ -190,8 +190,9 @@ async def migrate(entry, storage):
     entry["cover"] = r["cover"]
 
     # body
-    r["body"] = prepare_html_body(entry)
-
+    r["body"], media = prepare_html_body(entry)
+    if media:
+        print(media)
     # save shout to db
     s = object()
     shout_dict = r.copy()
