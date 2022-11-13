@@ -125,6 +125,22 @@ async def shouts_by_authors(_, _info, slugs, offset=0, limit=100):
         return shouts_prepared[offset : offset + limit]
 
 
+@query.field("shoutsByLayout")
+async def shouts_by_layout(_, _info, layout, amount=100, offset=0):
+    async with ShoutsCache.lock:
+        shouts = {}
+        # for layout in ['image', 'audio', 'video', 'literature']:
+        shouts_by_layout = list(ShoutsCache.by_layout.get(layout, []))
+        for s in shouts_by_layout:
+            for a in s.authors:
+                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+            # if bool(s.publishedAt):
+            shouts[s.slug] = s
+        shouts_prepared = list(shouts.values())
+        shouts_prepared.sort(key=lambda s: s.createdAt, reverse=True)
+        return shouts_prepared[offset : offset + amount]
+
+
 @query.field("shoutsByTopics")
 async def shouts_by_topics(_, _info, slugs, offset=0, limit=100):
     async with ShoutsCache.lock:

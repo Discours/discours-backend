@@ -29,6 +29,9 @@ async def prepare_shouts(session, stmt):
     return shouts
 
 
+LAYOUTS = ['audio', 'video', 'image', 'literature']
+
+
 class ShoutsCache:
     # limit = 200
     period = 60 * 60  # 1 hour
@@ -44,6 +47,7 @@ class ShoutsCache:
 
     by_author = {}
     by_topic = {}
+    by_layout = {}
 
     @staticmethod
     async def prepare_recent_published():
@@ -71,8 +75,12 @@ class ShoutsCache:
                 for t in s.topics:
                     ShoutsCache.by_topic[t.slug] = ShoutsCache.by_topic.get(t.slug, {})
                     ShoutsCache.by_topic[t.slug][s.slug] = s
+                if s.layout in LAYOUTS:
+                    ShoutsCache.by_layout[s.layout] = ShoutsCache.by_layout.get(s.layout, [])
+                    ShoutsCache.by_layout[s.layout].append(s)
             print("[zine.cache] indexed by %d topics " % len(ShoutsCache.by_topic.keys()))
             print("[zine.cache] indexed by %d authors " % len(ShoutsCache.by_author.keys()))
+            print("[zine.cache] indexed by %d layouts " % len(ShoutsCache.by_layout.keys()))
             ShoutsCache.recent_published = shouts
             print("[zine.cache] %d recently published shouts " % len(shouts))
 

@@ -57,6 +57,7 @@ from resolvers.zine import (
     recent_reacted,
     shouts_by_authors,
     shouts_by_topics,
+    shouts_by_layout,
     shouts_by_communities,
 )
 
@@ -91,6 +92,7 @@ __all__ = [
     "recent_reacted",
     "recent_all",
     "shouts_by_topics",
+    "shouts_by_layout",
     "shouts_by_authors",
     "shouts_by_communities",
     "get_user_reacted_shouts",
