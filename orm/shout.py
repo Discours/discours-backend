@@ -39,14 +39,6 @@ class ShoutAuthor(Base):
     caption = Column(String, nullable=True, default="")
 
 
-class ShoutAllowed(Base):
-    __tablename__ = "shout_allowed"
-
-    id = None  # type: ignore
-    shout = Column(ForeignKey("shout.slug"), primary_key=True)
-    user = Column(ForeignKey("user.id"), primary_key=True)
-
-
 class Shout(Base):
     __tablename__ = "shout"
 
@@ -62,14 +54,13 @@ class Shout(Base):
     authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__)
     topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
     reactions = relationship(lambda: Reaction)
-    visibleFor = relationship(lambda: User, secondary=ShoutAllowed.__tablename__)
+    visibility = Column(String, nullable=True)  # owner authors community public
+    versionOf = Column(ForeignKey("shout.slug"), nullable=True)
+    lang = Column(String, default='ru')
+    oid = Column(String, nullable=True)
 
     createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
     publishedAt = Column(DateTime, nullable=True)
     deletedAt = Column(DateTime, nullable=True)
 
-    versionOf = Column(ForeignKey("shout.slug"), nullable=True)
-    draft = Column(Boolean, default=False)
-    lang = Column(String, default='ru')
-    oid = Column(String, nullable=True)

@@ -419,18 +419,17 @@ type Shout {
   slug: String!
   body: String!
   createdAt: DateTime!
-  authors: [Author]
-  lang: String
-  community: String
-  cover: String
-  layout: String
-  draft: Boolean
-  versionOf: Shout # translations and adaptations
-  visibleFor: [User]
   topics: [Topic]
   mainTopic: String
   title: String
   subtitle: String
+  authors: [Author]
+  lang: String
+  community: String
+  cover: String
+  layout: String # audio video literature image
+  versionOf: String # for translations and re-telling the same story
+  visibility: String # owner authors community public
   updatedAt: DateTime
   updatedBy: User
   deletedAt: DateTime
