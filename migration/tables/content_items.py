@@ -1,5 +1,5 @@
 from datetime import datetime
-
+import json
 from dateutil.parser import parse as date_parse
 from sqlalchemy.exc import IntegrityError
 from transliterate import translit
@@ -192,7 +192,7 @@ async def migrate(entry, storage):
     # body
     r["body"], media = prepare_html_body(entry)
     if media:
-        print(media)
+        r["media"] = json.dumps(media)
     # save shout to db
     s = object()
     shout_dict = r.copy()
