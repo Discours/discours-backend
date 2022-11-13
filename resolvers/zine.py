@@ -1,5 +1,8 @@
+from graphql.type import GraphQLResolveInfo
+from datetime import datetime, timedelta
+
 from sqlalchemy.orm import selectinload
-from sqlalchemy.sql.expression import and_, select, desc
+from sqlalchemy.sql.expression import and_, desc, select
 
 from auth.authenticate import login_required
 from base.orm import local_session
@@ -11,10 +14,10 @@ from resolvers.community import community_follow, community_unfollow
 from resolvers.profile import author_follow, author_unfollow
 from resolvers.reactions import reactions_follow, reactions_unfollow
 from resolvers.topics import topic_follow, topic_unfollow
+from services.search import SearchService
 from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
-from services.zine.shoutscache import ShoutsCache
-from services.search import SearchService
+from services.zine.shoutscache import ShoutsCache, get_shout_stat
 
 
 @mutation.field("incrementView")
@@ -126,11 +129,7 @@ async def shouts_by_authors(_, _info, slugs, offset=0, limit=100):
 
 
 @query.field("recentLayoutShouts")
-@query.field("topLayoutShouts")
-@query.field("topMonthLayoutShouts")
-async def shouts_by_layout(param, info, layout, amount=100, offset=0):
-    print(param)
-    print(info)
+async def shouts_by_layout_recent(_param, _info: GraphQLResolveInfo, layout, amount=100, offset=0):
     async with ShoutsCache.lock:
         shouts = {}
         # for layout in ['image', 'audio', 'video', 'literature']:
@@ -142,13 +141,42 @@ async def shouts_by_layout(param, info, layout, amount=100, offset=0):
                     a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
 
         shouts_prepared = list(shouts.values())
+        shouts_prepared.sort(key=lambda s: s.createdAt, reverse=True)
+        return shouts_prepared[offset : offset + amount]
 
-        # TODO: pick keyfunc according to kind of query
 
-        def keyfunc(s):
-            return s.createdAt
+@query.field("topLayoutShouts")
+async def shouts_by_layout_top(_param, _info: GraphQLResolveInfo, layout, amount=100, offset=0):
+    async with ShoutsCache.lock:
+        shouts = {}
+        # for layout in ['image', 'audio', 'video', 'literature']:
+        shouts_by_layout = list(ShoutsCache.by_layout.get(layout, []))
+        for s in shouts_by_layout:
+            if s.visibility == 'public':  # if bool(s.publishedAt):
+                shouts[s.slug] = s
+                for a in s.authors:
+                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+                s.stat = await get_shout_stat(s.slug)
+        shouts_prepared = list(shouts.values())
+        shouts_prepared.sort(key=lambda s: s.stat["rating"], reverse=True)
+        return shouts_prepared[offset : offset + amount]
 
-        shouts_prepared.sort(key=keyfunc, reverse=True)
+
+@query.field("topMonthLayoutShouts")
+async def shouts_by_layout_topmonth(_param, _info: GraphQLResolveInfo, layout, amount=100, offset=0):
+    async with ShoutsCache.lock:
+        shouts = {}
+        # for layout in ['image', 'audio', 'video', 'literature']:
+        shouts_by_layout = list(ShoutsCache.by_layout.get(layout, []))
+        month_ago = datetime.now() - timedelta(days=30)
+        for s in shouts_by_layout:
+            if s.visibility == 'public' and s.createdAt > month_ago:
+                shouts[s.slug] = s
+                for a in s.authors:
+                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+
+        shouts_prepared = list(shouts.values())
+        shouts_prepared.sort(key=lambda s: s.stat["rating"], reverse=True)
         return shouts_prepared[offset : offset + amount]
 
 
