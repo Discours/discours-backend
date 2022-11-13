@@ -125,8 +125,12 @@ async def shouts_by_authors(_, _info, slugs, offset=0, limit=100):
         return shouts_prepared[offset : offset + limit]
 
 
-@query.field("shoutsByLayout")
-async def shouts_by_layout(_, _info, layout, amount=100, offset=0):
+@query.field("recentLayoutShouts")
+@query.field("topLayoutShouts")
+@query.field("topMonthLayoutShouts")
+async def shouts_by_layout(param, info, layout, amount=100, offset=0):
+    print(param)
+    print(info)
     async with ShoutsCache.lock:
         shouts = {}
         # for layout in ['image', 'audio', 'video', 'literature']:
@@ -137,7 +141,13 @@ async def shouts_by_layout(_, _info, layout, amount=100, offset=0):
             # if bool(s.publishedAt):
             shouts[s.slug] = s
         shouts_prepared = list(shouts.values())
-        shouts_prepared.sort(key=lambda s: s.createdAt, reverse=True)
+
+        # TODO: pick keyfunc according to kind of query
+
+        def keyfunc(s):
+            return s.createdAt
+
+        shouts_prepared.sort(key=keyfunc, reverse=True)
         return shouts_prepared[offset : offset + amount]
 
 

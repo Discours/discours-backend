@@ -261,6 +261,11 @@ type Query {
   recentAll(offset: Int!, limit: Int!): [Shout]!
   recentCandidates(offset: Int!, limit: Int!): [Shout]!
 
+  # expo
+  topMonthLayoutShouts(layout: String!, amount: Int, offset: Int): [Shout]!
+  topLayoutShouts(layout: String!, amount: Int, offset: Int): [Shout]!
+  recentLayoutShouts(layout: String!, amount: Int, offset: Int): [Shout]!
+
   # reactons
   reactionsByAuthor(slug: String!, offset: Int!, limit: Int!): [Reaction]!
   reactionsForShouts(shouts: [String]!, offset: Int!, limit: Int!): [Reaction]!
