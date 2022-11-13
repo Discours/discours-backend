@@ -17,7 +17,7 @@ from services.stat.viewed import ViewedStorage
 OLD_DATE = "2016-03-05 22:22:00.350000"
 ts = datetime.now()
 type2layout = {
-    "Article": "",
+    "Article": "article",
     "Literature": "literature",
     "Music": "audio",
     "Video": "video",
