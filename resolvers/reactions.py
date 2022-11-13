@@ -125,6 +125,8 @@ def set_published(session, slug, publisher):
 def set_hidden(session, slug):
     s = session.query(Shout).where(Shout.slug == slug).first()
     s.visibility = 'authors'
+    s.publishedAt = None  # TODO: discuss
+    s.publishedBy = None  # TODO: store changes history in git
     session.add(s)
     session.commit()
 
@@ -133,8 +135,6 @@ def set_hidden(session, slug):
 @login_required
 async def create_reaction(_, info, inp):
     user = info.context["request"].user
-
-    # TODO: filter allowed for post reaction kinds
 
     with local_session() as session:
         reaction = Reaction.create(**inp)

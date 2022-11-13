@@ -136,10 +136,11 @@ async def shouts_by_layout(param, info, layout, amount=100, offset=0):
         # for layout in ['image', 'audio', 'video', 'literature']:
         shouts_by_layout = list(ShoutsCache.by_layout.get(layout, []))
         for s in shouts_by_layout:
-            for a in s.authors:
-                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-            # if bool(s.publishedAt):
-            shouts[s.slug] = s
+            if s.visibility == 'public':  # if bool(s.publishedAt):
+                shouts[s.slug] = s
+                for a in s.authors:
+                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+
         shouts_prepared = list(shouts.values())
 
         # TODO: pick keyfunc according to kind of query
