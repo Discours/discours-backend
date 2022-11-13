@@ -32,10 +32,21 @@ type ChatMember {
     # TODO: add more
 }
 
+type AuthorStat {
+    followings: Int
+    followers: Int
+    rating: Int
+}
+
+
 type Author {
+    id: Int!
     slug: String!
-    name: String
+    name: String!
     userpic: String
+    caption: String # only for full shout
+    bio: String
+    links: [String]
     stat: AuthorStat
     roles: [Role]  # in different communities
     lastSeen: DateTime
@@ -278,9 +289,6 @@ type Query {
 
   # search
   searchQuery(q: String, offset: Int!, limit: Int!): [Shout]
-
-  # migrate
-  markdownBody(body: String!): String
 }
 
 ############################################ Subscription
@@ -401,16 +409,6 @@ type Reaction {
   stat: Stat
   old_id: String
   old_thread: String
-}
-
-type Author {
-  id: Int!
-  slug: String!
-  name: String!
-  userpic: String
-  caption: String # only for full shout
-  bio: String
-  links: [String]
 }
 
 # is publication
