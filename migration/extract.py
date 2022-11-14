@@ -285,13 +285,13 @@ def prepare_md_body(entry):
             if "title" in m:
                 trackname += m.get("title", "")
             addon += (
-                '<MusicPlayer src="'
+                '<AudioPlayer src="'
                 + m.get("fileUrl", "")
                 + '" title="'
                 + trackname
                 + '" />\n'
             )
-        body = "import MusicPlayer from '$/components/Article/MusicPlayer'\n\n" + addon
+        body = "import AudioPlayer from '$/components/Article/AudioPlayer'\n\n" + addon
 
     body_orig, media = extract_html(entry)
     if body_orig:
