@@ -64,7 +64,7 @@ async def load_shouts_by(_, info, by, amount=50, offset=0):
         if by.get("days"):
             before = datetime.now() - timedelta(days=int(by["days"]) or 30)
             q = q.filter(Shout.createdAt > before)
-        q = q.group_by(Shout.id).order_by(
+        q = q.group_by(Shout.id, Reaction.id).order_by(
             desc(by.get("order") or "createdAt")
         ).limit(amount).offset(offset)
 
