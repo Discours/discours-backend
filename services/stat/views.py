@@ -51,11 +51,14 @@ class ViewStat:
         async with self.lock:
             self.by_topics = await redis.execute("GET", "views_by_topics")
             if self.by_topics:
-                self.by_topics = json.loads(self.by_topics)
+                self.by_topics = dict(json.loads(self.by_topics))
+            else:
+                self.by_topics = {}
             self.by_slugs = await redis.execute("GET", "views_by_shouts")
             if self.by_slugs:
-                self.by_slugs = json.loads(self.by_slugs)
-
+                self.by_slugs = dict(json.loads(self.by_slugs))
+            else:
+                self.by_slugs = {}
             domains = await self.client.execute_async(query_ackee_views)
             print("[stat.ackee] loaded domains")
             print(domains)

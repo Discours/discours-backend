@@ -216,6 +216,7 @@ input ShoutsBy {
     title: String
     body: String
     topic: String
+    topics: [String]
     author: String
     layout: String
     visibility: String
@@ -226,6 +227,7 @@ input ShoutsBy {
 
 input ReactionBy {
     shout: String
+    shouts: [String]
     body: String
     topic: String
     author: String
