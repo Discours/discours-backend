@@ -41,11 +41,11 @@ class JWTCodec:
             r = TokenPayload(**payload)
             print('[jwtcodec] debug payload %r' % r)
             return r
+        except jwt.InvalidIssuedAtError:
+            raise ExpiredToken('check token issued time')
         except jwt.ExpiredSignatureError:
             raise ExpiredToken('check token lifetime')
         except jwt.InvalidTokenError:
             raise InvalidToken('token is not valid')
         except jwt.InvalidSignatureError:
             raise InvalidToken('token is not valid')
-        except jwt.InvalidIssuedAtError:
-            raise ExpiredToken('check token issued time')
