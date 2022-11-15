@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import selectinload
-from sqlalchemy.sql.expression import desc, select
+from sqlalchemy.sql.expression import or_, desc, select
 
 from auth.authenticate import login_required
 from base.orm import local_session
@@ -50,7 +50,10 @@ async def load_shouts_by(_, info, by, amount=50, offset=0):
             user = info.context["request"].user
             q = q.filter(Reaction.createdBy == user.slug)
         if by.get("visibility"):
-            q = q.filter(Shout.visibility == by.get("visibility") or "public")
+            q = q.filter(or_(
+                Shout.visibility.ilike(f"%{by.get('visibility')}%"),
+                Shout.visibility.ilike(f"%{'public'}%"),
+            ))
         if by.get("layout"):
             q = q.filter(Shout.layout == by["layout"])
         if by.get("author"):

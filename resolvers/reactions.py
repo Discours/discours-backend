@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from sqlalchemy import and_, desc, select
+from sqlalchemy import and_, desc, select, text
 from sqlalchemy.orm import selectinload
 
 from auth.authenticate import login_required
@@ -115,14 +115,14 @@ def set_published(session, slug, publisher):
     s = session.query(Shout).where(Shout.slug == slug).first()
     s.publishedAt = datetime.now()
     s.publishedBy = publisher
-    s.visibility = 'public'
+    s.visibility = text('public')
     session.add(s)
     session.commit()
 
 
 def set_hidden(session, slug):
     s = session.query(Shout).where(Shout.slug == slug).first()
-    s.visibility = 'authors'
+    s.visibility = text('authors')
     s.publishedAt = None  # TODO: discuss
     s.publishedBy = None  # TODO: store changes history in git
     session.add(s)
