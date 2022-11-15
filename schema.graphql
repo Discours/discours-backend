@@ -191,27 +191,27 @@ type Mutation {
   unfollow(what: FollowingEntity!, slug: String!): Result!
 }
 
-interface By {
+input MessagesBy {
+    author: String
+    body: String
+    chat: String
     order: String
     days: Int
     stat: String
 }
 
-input MessagesBy implements By {
-    author: String
-    body: String
-    chat: String
-}
-
-input AuthorsBy  implements By{
+input AuthorsBy {
     lastSeen: DateTime
     createdAt: DateTime
     slug: String
     name: String
     topic: String
+    order: String
+    days: Int
+    stat: String
 }
 
-input ShoutsBy implements By {
+input ShoutsBy {
     slug: String
     title: String
     body: String
@@ -220,13 +220,19 @@ input ShoutsBy implements By {
     layout: String
     published: Boolean
     visibility: String
+    order: String
+    days: Int
+    stat: String
 }
 
-input ReactionBy implements By {
+input ReactionBy {
     shout: String
     body: String
     topic: String
     author: String
+    order: String
+    days: Int
+    stat: String
 }
 ################################### Query
 
