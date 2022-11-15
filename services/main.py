@@ -1,4 +1,4 @@
-from services.stat.viewed import ViewedStorage
+from services.stat.views import Stat
 from services.stat.reacted import ReactedStorage
 from services.auth.roles import RoleStorage
 from services.auth.users import UserStorage
@@ -10,7 +10,7 @@ from base.orm import local_session
 async def storages_init():
     with local_session() as session:
         print('[main] initialize storages')
-        ViewedStorage.init(session)
+        await Stat.update()
         ReactedStorage.init(session)
         RoleStorage.init(session)
         UserStorage.init(session)

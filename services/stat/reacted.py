@@ -2,6 +2,7 @@ import asyncio
 from base.orm import local_session
 from orm.reaction import ReactionKind, Reaction
 from services.zine.topics import TopicStorage
+from services.stat.views import Stat
 
 
 def kind_to_rate(kind) -> int:
@@ -35,8 +36,7 @@ class ReactedStorage:
     @staticmethod
     async def get_shout_stat(slug):
         return {
-            # TODO: use ackee as datasource
-            "viewed": 0,  # await ViewedStorage.get_shout(slug),
+            "viewed": await Stat.get_shout(slug),
             "reacted": len(await ReactedStorage.get_shout(slug)),
             "commented": len(await ReactedStorage.get_comments(slug)),
             "rating": await ReactedStorage.get_rating(slug),

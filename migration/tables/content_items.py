@@ -12,7 +12,7 @@ from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
 from orm.user import User
 from orm.topic import TopicFollower
 from services.stat.reacted import ReactedStorage
-from services.stat.viewed import ViewedStorage
+from services.stat.views import Stat
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
 ts = datetime.now()
@@ -340,7 +340,7 @@ async def migrate(entry, storage):
         raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
 
     # shout views
-    await ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1))
+    await Stat.increment(shout_dict["slug"], amount=entry.get("views", 1))
     # del shout_dict['ratings']
     shout_dict["oid"] = entry.get("_id")
     storage["shouts"]["by_oid"][entry["_id"]] = shout_dict

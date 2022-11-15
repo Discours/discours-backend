@@ -17,7 +17,7 @@ from resolvers.auth import confirm_email_handler
 from services.main import storages_init
 from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
-from services.stat.viewed import ViewedStorage
+from services.stat.views import Stat
 from services.zine.gittask import GitTask
 from services.zine.shoutauthor import ShoutAuthorStorage
 import_module("resolvers")
@@ -31,8 +31,8 @@ middleware = [
 
 async def start_up():
     await redis.connect()
-    viewed_storage_task = asyncio.create_task(ViewedStorage.worker())
-    print(viewed_storage_task)
+    views_stat_task = asyncio.create_task(Stat.worker())
+    print(views_stat_task)
     reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
     print(reacted_storage_task)
     shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())

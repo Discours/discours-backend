@@ -13,7 +13,7 @@ from services.stat.reacted import ReactedStorage
 
 async def get_reaction_stat(reaction_id):
     return {
-        # "viewed": await ViewedStorage.get_reaction(reaction_id),
+        # "viewed": await Stat.get_reaction(reaction_id),
         "reacted": len(await ReactedStorage.get_reaction(reaction_id)),
         "rating": await ReactedStorage.get_reaction_rating(reaction_id),
         "commented": len(await ReactedStorage.get_reaction_comments(reaction_id)),
