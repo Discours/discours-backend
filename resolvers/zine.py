@@ -21,7 +21,7 @@ async def load_shouts_by(_, info, by, amount=50, offset=0):
     """
     :param by: {
         layout: 'audio',
-        published: true,
+        visibility: "public",
         author: 'discours',
         topic: 'culture',
         title: 'something',
@@ -49,8 +49,8 @@ async def load_shouts_by(_, info, by, amount=50, offset=0):
         if by.get("reacted"):
             user = info.context["request"].user
             q = q.filter(Reaction.createdBy == user.slug)
-        if by.get("published"):
-            q = q.filter(Shout.publishedAt.is_not(None))
+        if by.get("visibility"):
+            q = q.filter(Shout.visibility == by.get("visibility") or "public")
         if by.get("layout"):
             q = q.filter(Shout.layout == by["layout"])
         if by.get("author"):

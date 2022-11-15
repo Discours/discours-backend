@@ -218,7 +218,6 @@ input ShoutsBy {
     topic: String
     author: String
     layout: String
-    published: Boolean
     visibility: String
     order: String
     days: Int
