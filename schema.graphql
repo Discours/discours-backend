@@ -239,7 +239,7 @@ input ReactionBy {
 type Query {
   # inbox
   loadChats(offset: Int, amount: Int): Result!  # your chats
-  loadMessagesBy(by: By & MessagesBy!, amount: Int, offset: Int): Result!
+  loadMessagesBy(by: MessagesBy!, amount: Int, offset: Int): Result!
   searchUsers(query: String!, amount: Int, offset: Int): Result!
 
   # auth
@@ -248,9 +248,9 @@ type Query {
   signOut: AuthResult!
 
   # zine
-  loadAuthorsBy(by: By & AuthorsBy, amount: Int, offset: Int): [Author]!
-  loadShoutsBy(by: By & ShoutsBy, amount: Int, offset: Int): [Shout]!
-  loadReactionsBy(by: By & ReactionBy!, amount: Int, limit: Int): [Reaction]!
+  loadAuthorsBy(by: AuthorsBy, amount: Int, offset: Int): [Author]!
+  loadShoutsBy(by: ShoutsBy, amount: Int, offset: Int): [Shout]!
+  loadReactionsBy(by: ReactionBy!, amount: Int, limit: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
