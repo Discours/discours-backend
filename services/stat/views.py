@@ -75,7 +75,7 @@ class ViewStat:
     async def get_topic(topic_slug):
         self = ViewStat
         async with self.lock:
-            shouts = self.by_topics.get(topic_slug)
+            shouts = self.by_topics.get(topic_slug) or {}
             topic_views = 0
             for v in shouts.values():
                 topic_views += v
