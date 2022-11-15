@@ -67,7 +67,7 @@ async def load_shouts_by(_, info, by, amount=50, offset=0):
         q = q.group_by(Shout.id, Reaction.id).order_by(
             desc(by.get("order") or "createdAt")
         ).limit(amount).offset(offset)
-
+    print(q)
     shouts = []
     with local_session() as session:
         # post query stats and author's captions

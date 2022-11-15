@@ -1,7 +1,8 @@
 from gql import gql, Client
 from gql.transport.aiohttp import AIOHTTPTransport
 import asyncio
-
+import json
+from base.redis import redis
 from services.zine.topics import TopicStorage
 
 query_ackee_views = gql(
@@ -33,7 +34,7 @@ query_ackee_views = gql(
 )
 
 
-class Stat:
+class ViewStat:
     lock = asyncio.Lock()
     by_slugs = {}
     by_topics = {}
@@ -46,9 +47,16 @@ class Stat:
         # TODO: when the struture of paylod will be transparent
         # TODO: perhaps ackee token getting here
 
-        self = Stat
+        self = ViewStat
         async with self.lock:
-            domains = self.client.execute(query_ackee_views)
+            self.by_topics = await redis.execute("GET", "views_by_topics")
+            if self.by_topics:
+                self.by_topics = json.loads(self.by_topics)
+            self.by_slugs = await redis.execute("GET", "views_by_shouts")
+            if self.by_slugs:
+                self.by_slugs = json.loads(self.by_slugs)
+
+            domains = await self.client.execute_async(query_ackee_views)
             print("[stat.ackee] loaded domains")
             print(domains)
 
@@ -56,13 +64,13 @@ class Stat:
 
     @staticmethod
     async def get_shout(shout_slug):
-        self = Stat
+        self = ViewStat
         async with self.lock:
             return self.by_slugs.get(shout_slug) or 0
 
     @staticmethod
     async def get_topic(topic_slug):
-        self = Stat
+        self = ViewStat
         async with self.lock:
             shouts = self.by_topics.get(topic_slug)
             topic_views = 0
@@ -72,28 +80,39 @@ class Stat:
 
     @staticmethod
     async def increment(shout_slug, amount=1):
-        self = Stat
+        self = ViewStat
         async with self.lock:
             self.by_slugs[shout_slug] = self.by_slugs.get(shout_slug) or 0
             self.by_slugs[shout_slug] += amount
+            await redis.execute(
+                "SET",
+                f"views_by_shouts/{shout_slug}",
+                str(self.by_slugs[shout_slug])
+            )
             shout_topics = await TopicStorage.get_topics_by_slugs([shout_slug, ])
             for t in shout_topics:
                 self.by_topics[t] = self.by_topics.get(t) or {}
                 self.by_topics[t][shout_slug] = self.by_topics[t].get(shout_slug) or 0
                 self.by_topics[t][shout_slug] += amount
+                await redis.execute(
+                    "SET",
+                    f"views_by_topics/{t}/{shout_slug}",
+                    str(self.by_topics[t][shout_slug])
+                )
 
     @staticmethod
-    async def update():
-        self = Stat
-        async with self.lock:
-            self.load_views()
+    async def reset():
+        self = ViewStat
+        self.by_topics = {}
+        self.by_slugs = {}
 
     @staticmethod
     async def worker():
+        self = ViewStat
         while True:
             try:
-                await Stat.update()
+                await self.load_views()
             except Exception as err:
                 print("[stat.ackee] : %s" % (err))
-            print("[stat.ackee] renew period: %d minutes" % (Stat.period / 60))
-            await asyncio.sleep(Stat.period)
+            print("[stat.ackee] renew period: %d minutes" % (ViewStat.period / 60))
+            await asyncio.sleep(self.period)
