@@ -110,18 +110,6 @@ input ProfileInput {
   bio: String
 }
 
-input CommunityInput {
-  title: String!
-  desc: String
-  pic: String
-}
-
-input CollectionInput {
-  title: String!
-  desc: String
-  pic: String
-}
-
 input TopicInput {
   slug: String!
   community: String!
@@ -161,7 +149,7 @@ type Mutation {
   updateChat(chat: ChatInput!): Result!
   deleteChat(chatId: String!): Result!
   inviteChat(chatId: String!, userslug: String!): Result!
-  enterChat(chatId: String!): Result!
+
   createMessage(chatId: String!, body: String!, replyTo: String): Result!
   updateMessage(chatId: String!, id: Int!, body: String!): Result!
   deleteMessage(chatId: String!, id: Int!): Result!
@@ -180,7 +168,7 @@ type Mutation {
 
   # user profile
   rateUser(slug: String!, value: Int!): Result!
-  # updateOnlineStatus: Result!
+  updateOnlineStatus: Result!
   updateProfile(profile: ProfileInput!): Result!
 
   # topics
@@ -189,21 +177,10 @@ type Mutation {
   updateTopic(input: TopicInput!): Result!
   destroyTopic(slug: String!): Result!
 
-
   # reactions
   createReaction(reaction: ReactionInput!): Result!
   updateReaction(reaction: ReactionInput!): Result!
   deleteReaction(id: Int!): Result!
-
-  # community
-  createCommunity(community: CommunityInput!): Result!
-  updateCommunity(community: CommunityInput!): Result!
-  deleteCommunity(slug: String!): Result!
-
-  # collection
-  createCollection(collection: CollectionInput!): Result!
-  updateCollection(collection: CollectionInput!): Result!
-  deleteCollection(slug: String!): Result!
 
   # collab
   inviteAuthor(author: String!, shout: String!): Result!
@@ -212,64 +189,69 @@ type Mutation {
   # following
   follow(what: FollowingEntity!, slug: String!): Result!
   unfollow(what: FollowingEntity!, slug: String!): Result!
-
-  # seen
-  incrementView(shout: String!): Result!
 }
 
+input MessagesBy {
+    author: String
+    body: String
+    chat: String
+    days: Int
+}
+
+input AuthorsBy {
+    lastSeen: DateTime
+    createdAt: DateTime
+    stat: String
+    slug: String
+    name: String
+    topic: String
+}
+
+input ShoutsBy {
+    slug: String
+    title: String
+    body: String
+    topic: String
+    author: String
+    days: Int
+    layout: String
+    published: Boolean
+    visibility: String
+    stat: String
+}
+
+input ReactionBy {
+    shout: String
+    body: String
+    topic: String
+    author: String
+    days: Int
+    stat: String
+}
 ################################### Query
 
 type Query {
   # inbox
-  loadChats(offset: Int, amount: Int): Result!
-  loadMessages(chatId: String!, offset: Int, amount: Int): Result!
-  searchUsers(q: String!, offset: Int, amount: Int): Result!
-  searchChats(q: String!, offset: Int, amount: Int): Result!
-  searchMessages(q: String!, offset: Int, amount: Int): Result!
+  loadChats(offset: Int, amount: Int): Result!  # your chats
+  loadMessagesBy(by: MessagesBy!, amount: Int, offset: Int): Result!
+  searchUsers(query: String!, amount: Int, offset: Int): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!
   signIn(email: String!, password: String, lang: String): AuthResult!
   signOut: AuthResult!
 
-  # profile
-  getUsersBySlugs(slugs: [String]!): [Author]!
+  # zine
+  loadAuthorsBy(by: AuthorsBy, amount: Int, offset: Int): [Author]!
+  loadShoutsBy(by: ShoutsBy, amount: Int, offset: Int): [Shout]!
+  loadReactionsBy(by: ReactionBy!, amount: Int, limit: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
-  userFollowedCommunities(slug: String!): [Community]!
-  userReactedShouts(slug: String!): [Shout]! # test
-  getUserRoles(slug: String!): [Role]!
+
+
   authorsAll: [Author]!
   getAuthor(slug: String!): User!
-
-  # shouts
-  getShoutBySlug(slug: String!): Shout!
-  shoutsForFeed(offset: Int!, limit: Int!): [Shout]! # test
-  shoutsByLayout(layout: String, amount: Int!, offset: Int!): [Shout]!
-  shoutsByTopics(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
-  shoutsByAuthors(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
-  shoutsByCommunities(slugs: [String]!, offset: Int!, limit: Int!): [Shout]!
-  # topReacted(offset: Int!, limit: Int!): [Shout]!
-  topAuthors(offset: Int!, limit: Int!): [Author]!  # by User.rating
-  topPublished(daysago: Int!, offset: Int!, limit: Int!): [Shout]!
-  topMonth(offset: Int!, limit: Int!): [Shout]!     # TODO: implement topPublishedAfter(day, offset, limit)
-  topOverall(offset: Int!, limit: Int!): [Shout]!
-  topCommented(offset: Int!, limit: Int!): [Shout]!
-  recentPublished(offset: Int!, limit: Int!): [Shout]! # homepage
-  recentReacted(offset: Int!, limit: Int!): [Shout]!  # TODO: use in design!
-  recentCommented(offset: Int!, limit: Int!): [Shout]!
-  recentAll(offset: Int!, limit: Int!): [Shout]!
-  recentCandidates(offset: Int!, limit: Int!): [Shout]!
-
-  # expo
-  topMonthLayoutShouts(layout: String!, amount: Int, offset: Int): [Shout]!
-  topLayoutShouts(layout: String!, amount: Int, offset: Int): [Shout]!
-  recentLayoutShouts(layout: String!, amount: Int, offset: Int): [Shout]!
-
-  # reactons
-  reactionsByAuthor(slug: String!, offset: Int!, limit: Int!): [Reaction]!
-  reactionsForShouts(shouts: [String]!, offset: Int!, limit: Int!): [Reaction]!
 
   # collab
   getCollabs: [Collab]!
@@ -283,18 +265,6 @@ type Query {
   topicsRandom(amount: Int): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
-
-  # collections
-  collectionsAll: [Collection]!
-  getUserCollections(author: String!): [Collection]!
-  shoutsByCollection(collection: String!, offset: Int!, limit: Int!): [Shout]!
-
-  # communities
-  getCommunity(slug: String): Community!
-  getCommunities: [Community]! # all
-
-  # search
-  searchQuery(q: String, offset: Int!, limit: Int!): [Shout]
 }
 
 ############################################ Subscription

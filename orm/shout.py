@@ -64,4 +64,3 @@ class Shout(Base):
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
     publishedAt = Column(DateTime, nullable=True)
     deletedAt = Column(DateTime, nullable=True)
-

@@ -33,6 +33,16 @@ class ReactedStorage:
     modified_shouts = set([])
 
     @staticmethod
+    async def get_shout_stat(slug):
+        return {
+            # TODO: use ackee as datasource
+            "viewed": 0,  # await ViewedStorage.get_shout(slug),
+            "reacted": len(await ReactedStorage.get_shout(slug)),
+            "commented": len(await ReactedStorage.get_comments(slug)),
+            "rating": await ReactedStorage.get_rating(slug),
+        }
+
+    @staticmethod
     async def get_shout(shout_slug):
         self = ReactedStorage
         async with self.lock:

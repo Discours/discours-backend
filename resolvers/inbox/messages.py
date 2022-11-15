@@ -4,25 +4,8 @@ from datetime import datetime
 
 from auth.authenticate import login_required
 from base.redis import redis
-from base.resolvers import mutation, query, subscription
+from base.resolvers import mutation, subscription
 from services.inbox import ChatFollowing, MessageResult, MessagesStorage
-from resolvers.inbox.load import load_messages
-
-
-@query.field("loadMessages")
-@login_required
-async def load_chat_messages(_, info, chat_id: str, offset: int = 0, amount: int = 50):
-    ''' load [amount] chat's messages with [offset] '''
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if not chat:
-        return {
-            "error": "chat not exist"
-        }
-    messages = await load_messages(chat_id, offset, amount)
-    return {
-        "messages": messages,
-        "error": None
-    }
 
 
 @mutation.field("createMessage")

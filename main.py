@@ -14,7 +14,6 @@ from auth.oauth import oauth_login, oauth_authorize
 from base.redis import redis
 from base.resolvers import resolvers
 from resolvers.auth import confirm_email_handler
-from resolvers.zine import ShoutsCache
 from services.main import storages_init
 from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
@@ -36,8 +35,6 @@ async def start_up():
     print(viewed_storage_task)
     reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
     print(reacted_storage_task)
-    shouts_cache_task = asyncio.create_task(ShoutsCache.worker())
-    print(shouts_cache_task)
     shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
     print(shout_author_task)
     topic_stat_task = asyncio.create_task(TopicStat.worker())

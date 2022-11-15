@@ -1,6 +1,6 @@
-from datetime import datetime
-
-from sqlalchemy import and_, desc
+from datetime import datetime, timedelta
+from sqlalchemy import and_, desc, select
+from sqlalchemy.orm import selectinload
 
 from auth.authenticate import login_required
 from base.orm import local_session
@@ -8,14 +8,12 @@ from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
-from services.auth.users import UserStorage
 from services.stat.reacted import ReactedStorage
-from services.stat.viewed import ViewedStorage
 
 
 async def get_reaction_stat(reaction_id):
     return {
-        "viewed": await ViewedStorage.get_reaction(reaction_id),
+        # "viewed": await ViewedStorage.get_reaction(reaction_id),
         "reacted": len(await ReactedStorage.get_reaction(reaction_id)),
         "rating": await ReactedStorage.get_reaction_rating(reaction_id),
         "commented": len(await ReactedStorage.get_reaction_comments(reaction_id)),
@@ -202,57 +200,55 @@ async def delete_reaction(_, info, rid):
     return {}
 
 
-@query.field("reactionsForShouts")
-async def get_reactions_for_shouts(_, info, shouts, offset, limit):
-    return await reactions_for_shouts(shouts, offset, limit)
+@query.field("loadReactionsBy")
+async def load_reactions_by(_, info, by, amount=50, offset=0):
+    """
+    :param by: {
+        shout: 'some-slug'
+        author: 'discours',
+        topic: 'culture',
+        body: 'something else',
+        stat: 'rating' | 'comments' | 'reacted' | 'views',
+        days: 30
+    }
+    :param amount: int amount of shouts
+    :param offset: int offset in this order
+    :return: Reaction[]
+    """
 
+    q = select(Reaction).options(
+        selectinload(Reaction.shout),
+    ).where(
+        Reaction.deletedAt.is_(None)
+    ).join(
+        Shout,
+        Shout.slug == Reaction.shout
+    )
+    if by.get("slug"):
+        q = q.filter(Shout.slug == by["slug"])
+    else:
+        if by.get("reacted"):
+            user = info.context["request"].user
+            q = q.filter(Reaction.createdBy == user.slug)
+        if by.get("author"):
+            q = q.filter(Reaction.createdBy == by["author"])
+        if by.get("topic"):
+            q = q.filter(Shout.topics.contains(by["topic"]))
+        if by.get("body"):
+            q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
+        if by.get("days"):
+            before = datetime.now() - timedelta(days=int(by["days"]) or 30)
+            q = q.filter(Reaction.createdAt > before)
+        q = q.group_by(Shout.id).order_by(
+            desc(by.get("order") or "createdAt")
+        ).limit(amount).offset(offset)
 
-async def reactions_for_shouts(shouts, offset, limit):
-    reactions = []
+    rrr = []
     with local_session() as session:
-        for slug in shouts:
-            reactions += (
-                session.query(Reaction)
-                .filter(Reaction.shout == slug)
-                .where(Reaction.deletedAt.is_not(None))
-                .order_by(desc("createdAt"))
-                .offset(offset)
-                .limit(limit)
-                .all()
-            )
-    for r in reactions:
-        r.stat = await get_reaction_stat(r.id)
-        r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
-    return reactions
-    reactions = []
-    with local_session() as session:
-        for slug in shouts:
-            reactions += (
-                session.query(Reaction)
-                .filter(Reaction.shout == slug)
-                .where(Reaction.deletedAt.is_not(None))
-                .order_by(desc("createdAt"))
-                .offset(offset)
-                .limit(limit)
-                .all()
-            )
-    for r in reactions:
-        r.stat = await get_reaction_stat(r.id)
-        r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
-    return reactions
-
-
-@query.field("reactionsByAuthor")
-async def get_reactions_by_author(_, info, slug, limit=50, offset=0):
-    reactions = []
-    with local_session() as session:
-        reactions = (
-            session.query(Reaction)
-            .where(Reaction.createdBy == slug)
-            .limit(limit)
-            .offset(offset)
-        )
-    for r in reactions:
-        r.stat = await get_reaction_stat(r.id)
-        r.createdBy = await UserStorage.get_user(r.createdBy or "discours")
-    return reactions
+        # post query stats and author's captions
+        for r in list(map(lambda r: r.Reaction, session.execute(q))):
+            r.stat = await get_reaction_stat(r.id)
+            rrr.append(r)
+        if by.get("stat"):
+            rrr.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
+    return rrr

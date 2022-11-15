@@ -41,39 +41,3 @@ async def search_users(_, info, query: str, offset: int = 0, amount: int = 50):
         "slugs": list(result),
         "error": None
     }
-
-
-@query.field("searchChats")
-@login_required
-async def search_chats(_, info, query: str, offset: int = 0, amount: int = 50):
-    user = info.context["request"].user
-    my_chats = await redis.execute("GET", f"/chats_by_user/{user.slug}")
-    chats = []
-    for chat_id in my_chats:
-        chat = await redis.execute("GET", f"chats/{chat_id}")
-        if chat:
-            chat = dict(json.loads(chat))
-            chats.append(chat)
-    return {
-        "chats": chats,
-        "error": None
-    }
-
-
-@query.field("searchMessages")
-@login_required
-async def search_messages(_, info, query: str, offset: int = 0, amount: int = 50):
-    user = info.context["request"].user
-    my_chats = await redis.execute("GET", f"/chats_by_user/{user.slug}")
-    chats = []
-    if my_chats:
-        my_chats = list(json.loads(my_chats))
-        for chat_id in my_chats:
-            chat = await redis.execute("GET", f"chats/{chat_id}")
-            if chat:
-                chat = dict(json.loads(chat))
-                chats.append(chat)
-    return {
-        "chats": chats,
-        "error": None
-    }
