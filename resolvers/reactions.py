@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, desc, select, text
+from sqlalchemy import and_, desc, select, text, func
 from sqlalchemy.orm import selectinload
 
 from auth.authenticate import login_required
@@ -202,7 +202,7 @@ async def delete_reaction(_, info, rid):
 
 
 @query.field("loadReactionsBy")
-async def load_reactions_by(_, info, by, amount=50, offset=0):
+async def load_reactions_by(_, info, by, limit=50, offset=0):
     """
     :param by: {
         shout: 'some-slug'
@@ -212,7 +212,7 @@ async def load_reactions_by(_, info, by, amount=50, offset=0):
         stat: 'rating' | 'comments' | 'reacted' | 'views',
         days: 30
     }
-    :param amount: int amount of shouts
+    :param limit: int amount of shouts
     :param offset: int offset in this order
     :return: Reaction[]
     """
@@ -236,13 +236,16 @@ async def load_reactions_by(_, info, by, amount=50, offset=0):
         if by.get("topic"):
             q = q.filter(Shout.topics.contains(by["topic"]))
         if by.get("body"):
-            q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
+            if by["body"] is True:
+                q = q.filter(func.length(Reaction.body) > 0)
+            else:
+                q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
         if by.get("days"):
             before = datetime.now() - timedelta(days=int(by["days"]) or 30)
             q = q.filter(Reaction.createdAt > before)
         q = q.group_by(Shout.id).order_by(
             desc(by.get("order") or "createdAt")
-        ).limit(amount).offset(offset)
+        ).limit(limit).offset(offset)
 
     rrr = []
     with local_session() as session:

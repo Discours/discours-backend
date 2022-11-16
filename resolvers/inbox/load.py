@@ -26,11 +26,11 @@ async def get_total_unread_counter(user_slug: str):
     return unread
 
 
-async def load_messages(chatId: str, offset: int, amount: int):
-    ''' load :amount messages for :chatId with :offset '''
+async def load_messages(chatId: str, limit: int, offset: int):
+    ''' load :limit messages for :chatId with :offset '''
     messages = []
     message_ids = await redis.lrange(
-        f"chats/{chatId}/message_ids", 0 - offset - amount, 0 - offset
+        f"chats/{chatId}/message_ids", 0 - offset - limit, 0 - offset
     )
     if message_ids:
         message_keys = [
@@ -46,16 +46,16 @@ async def load_messages(chatId: str, offset: int, amount: int):
 
 @query.field("loadChats")
 @login_required
-async def load_chats(_, info, offset: int, amount: int):
-    """ load :amount chats of current user with :offset """
+async def load_chats(_, info, limit: int, offset: int):
+    """ load :limit chats of current user with :offset """
     user = info.context["request"].user
     chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
     if chats:
-        chats = list(json.loads(chats))[offset:offset + amount]
+        chats = list(json.loads(chats))[offset:offset + limit]
     if not chats:
         chats = []
     for c in chats:
-        c['messages'] = await load_messages(c['id'], offset, amount)
+        c['messages'] = await load_messages(c['id'], limit, offset)
         c['unread'] = await get_unread_counter(c['id'], user.slug)
     return {
         "chats": chats,
@@ -65,8 +65,8 @@ async def load_chats(_, info, offset: int, amount: int):
 
 @query.field("loadMessagesBy")
 @login_required
-async def load_messages_by(_, info, by, offset: int = 0, amount: int = 50):
-    ''' load :amount messages of :chat_id with :offset '''
+async def load_messages_by(_, info, by, limit: int = 50, offset: int = 0):
+    ''' load :amolimitunt messages of :chat_id with :offset '''
     user = info.context["request"].user
     my_chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
     chat_id = by.get('chat')
@@ -76,17 +76,17 @@ async def load_messages_by(_, info, by, offset: int = 0, amount: int = 50):
             return {
                 "error": "chat not exist"
             }
-        messages = await load_messages(chat_id, offset, amount)
+        messages = await load_messages(chat_id, limit, offset)
     user_id = by.get('author')
     if user_id:
         chats = await redis.execute("GET", f"chats_by_user/{user_id}")
         our_chats = list(set(chats) & set(my_chats))
         for c in our_chats:
-            messages += await load_messages(c, offset, amount)
+            messages += await load_messages(c, limit, offset)
     body_like = by.get('body')
     if body_like:
         for c in my_chats:
-            mmm = await load_messages(c, offset, amount)
+            mmm = await load_messages(c, limit, offset)
             for m in mmm:
                 if body_like in m["body"]:
                     messages.append(m)

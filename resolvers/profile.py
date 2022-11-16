@@ -185,7 +185,7 @@ async def get_authors_all(_, _info):
 
 
 @query.field("loadAuthorsBy")
-async def load_authors_by(_, info, by, amount, offset):
+async def load_authors_by(_, info, by, limit, offset):
     authors = []
     with local_session() as session:
         aq = session.query(User)
@@ -206,7 +206,7 @@ async def load_authors_by(_, info, by, amount, offset):
             User.id
         ).order_by(
             by.get("order") or "createdAt"
-        ).limit(amount).offset(offset)
+        ).limit(limit).offset(offset)
         authors = list(map(lambda r: r.User, session.execute(aq)))
         if by.get("stat"):
             for a in authors:

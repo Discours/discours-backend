@@ -239,9 +239,9 @@ input ReactionBy {
 
 type Query {
   # inbox
-  loadChats(offset: Int, amount: Int): Result!  # your chats
-  loadMessagesBy(by: MessagesBy!, amount: Int, offset: Int): Result!
-  searchUsers(query: String!, amount: Int, offset: Int): Result!
+  loadChats( limit: Int, offset: Int): Result!  # your chats
+  loadMessagesBy(by: MessagesBy!, limit: Int, offset: Int): Result!
+  searchUsers(query: String!, limit: Int, offset: Int): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -249,9 +249,9 @@ type Query {
   signOut: AuthResult!
 
   # zine
-  loadAuthorsBy(by: AuthorsBy, amount: Int, offset: Int): [Author]!
-  loadShoutsBy(by: ShoutsBy, amount: Int, offset: Int): [Shout]!
-  loadReactionsBy(by: ReactionBy!, amount: Int, limit: Int): [Reaction]!
+  loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
+  loadShoutsBy(by: ShoutsBy, limit: Int, offset: Int): [Shout]!
+  loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!

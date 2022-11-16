@@ -17,7 +17,7 @@ from services.stat.reacted import ReactedStorage
 
 
 @query.field("loadShoutsBy")
-async def load_shouts_by(_, info, by, amount=50, offset=0):
+async def load_shouts_by(_, info, by, limit=50, offset=0):
     """
     :param by: {
         layout: 'audio',
@@ -29,7 +29,7 @@ async def load_shouts_by(_, info, by, amount=50, offset=0):
         stat: 'rating' | 'comments' | 'reacted' | 'views',
         days: 30
     }
-    :param amount: int amount of shouts
+    :param limit: int amount of shouts
     :param offset: int offset in this order
     :return: Shout[]
     """
@@ -69,7 +69,7 @@ async def load_shouts_by(_, info, by, amount=50, offset=0):
             q = q.filter(Shout.createdAt > before)
         q = q.group_by(Shout.id, Reaction.id).order_by(
             desc(by.get("order") or "createdAt")
-        ).limit(amount).offset(offset)
+        ).limit(limit).offset(offset)
     print(q)
     shouts = []
     with local_session() as session:
