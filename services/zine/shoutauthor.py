@@ -6,7 +6,6 @@ from orm.shout import ShoutAuthor, Shout
 
 class ShoutAuthorStorage:
     authors_by_shout = {}
-    shouts_by_author = {}
     lock = asyncio.Lock()
     period = 30 * 60  # sec
 

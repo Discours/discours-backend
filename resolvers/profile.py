@@ -174,13 +174,9 @@ def author_unfollow(user, slug):
 
 @query.field("authorsAll")
 async def get_authors_all(_, _info):
-    users = await UserStorage.get_all_users()
-    authorslugs = ShoutAuthorStorage.shouts_by_author.keys()
-    authors = []
-    for author in users:
-        if author.slug in authorslugs:
-            author.stat = await get_author_stat(author.slug)
-            authors.append(author)
+    authors = await AuthorsStorage.get_all_authors()
+    for author in authors:
+        author.stat = await get_author_stat(author.slug)
     return authors
 
 
