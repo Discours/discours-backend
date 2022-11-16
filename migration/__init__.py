@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 
 import bs4
-
+from base.redis import redis
 from migration.tables.comments import migrate as migrateComment
 from migration.tables.comments import migrate_2stage as migrateComment_2stage
 from migration.tables.content_items import get_shout_slug
@@ -181,7 +181,11 @@ async def all_handle(storage, args):
     print("[migration] handle everything")
     await users_handle(storage)
     await topics_handle(storage)
+    print("[migration] users and topics are migrated")
+    await redis.connect()
+    print("[migration] redis connected")
     await shouts_handle(storage, args)
+    print("[migration] migrating comments")
     await comments_handle(storage)
     # export_email_subscriptions()
     print("[migration] done!")
@@ -295,9 +299,9 @@ def create_pgdump():
 
 
 async def handle_auto():
-    print("[migration] no option given, auto mode")
     url = os.getenv("MONGODB_URL")
     if url:
+        print("[migration] connecting mongo")
         mongo_download(url)
     bson_handle()
     await all_handle(data_load(), sys.argv)
