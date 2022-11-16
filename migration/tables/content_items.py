@@ -149,6 +149,12 @@ async def migrate(entry, storage):
     if entry.get("published"):
         r["publishedAt"] = date_parse(entry.get("publishedAt", OLD_DATE))
         r["visibility"] = "public"
+        with local_session() as session:
+            # update user.emailConfirmed if published
+            author = session.query(User).where(User.slug == userslug).first()
+            author.emailConfirmed = True
+            session.update(author)
+            session.commit()
     else:
         r["visibility"] = "authors"
     if "deletedAt" in entry:

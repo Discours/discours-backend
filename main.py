@@ -31,6 +31,7 @@ middleware = [
 
 async def start_up():
     await redis.connect()
+    await storages_init()
     views_stat_task = asyncio.create_task(ViewStat.worker())
     print(views_stat_task)
     reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
@@ -41,8 +42,6 @@ async def start_up():
     print(topic_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
-    await storages_init()
-    print()
 
 
 async def shutdown():
