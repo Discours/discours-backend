@@ -1,7 +1,9 @@
-from gql import gql, Client
-from gql.transport.aiohttp import AIOHTTPTransport
 import asyncio
 import json
+
+from gql import Client, gql
+from gql.transport.aiohttp import AIOHTTPTransport
+
 from base.redis import redis
 from services.zine.topics import TopicStorage
 

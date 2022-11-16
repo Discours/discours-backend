@@ -32,16 +32,16 @@ async def invite_author(_, info, author, shout):
         authors = [a.id for a in shout.authors]
         if user_id not in authors:
             return {"error": "access denied"}
-        author = session.query(User).filter(User.slug == author).first()
-        if author.id in authors:
-            return {"error": "already added"}
-        shout.authors.append(author)
+        author = session.query(User).filter(User.id == author.id).first()
+        if author:
+            if author.id in authors:
+                return {"error": "already added"}
+            shout.authors.append(author)
         shout.updated_at = datetime.now()
         session.add(shout)
         session.commit()
 
     # TODO: email notify
-
     return {}
 
 
@@ -59,9 +59,10 @@ async def remove_author(_, info, author, shout):
         if user_id not in authors:
             return {"error": "access denied"}
         author = session.query(User).filter(User.slug == author).first()
-        if author.id not in authors:
-            return {"error": "not in authors"}
-        shout.authors.remove(author)
+        if author:
+            if author.id not in authors:
+                return {"error": "not in authors"}
+            shout.authors.remove(author)
         shout.updated_at = datetime.now()
         session.add(shout)
         session.commit()

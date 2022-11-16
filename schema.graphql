@@ -255,8 +255,6 @@ type Query {
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
-
-
   authorsAll: [Author]!
   getAuthor(slug: String!): User!
 

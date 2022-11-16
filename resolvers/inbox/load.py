@@ -1,13 +1,16 @@
 import json
 from datetime import datetime, timedelta
+
+from auth.authenticate import login_required
 from base.redis import redis
 from base.resolvers import query
-from auth.authenticate import login_required
 
 
 async def get_unread_counter(chat_id: str, user_slug: str):
     try:
-        return int(await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}"))
+        unread = await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}")
+        if unread:
+            return unread
     except Exception:
         return 0
 
@@ -55,7 +58,7 @@ async def load_chats(_, info, offset: int, amount: int):
     if not chats:
         chats = []
     for c in chats:
-        c['messages'] = await load_messages(c['id'])
+        c['messages'] = await load_messages(c['id'], offset, amount)
         c['unread'] = await get_unread_counter(c['id'], user.slug)
     return {
         "chats": chats,
