@@ -19,11 +19,11 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
             "error": "chat not exist"
         }
     else:
-        chat = json.loads(chat)
-        message_id = await redis.execute("GET", f"chats/{chat.id}/next_message_id")
+        chat = dict(json.loads(chat))
+        message_id = await redis.execute("GET", f"chats/{chat['id']}/next_message_id")
         message_id = int(message_id)
         new_message = {
-            "chatId": chat.id,
+            "chatId": chat['id'],
             "id": message_id,
             "author": user.slug,
             "body": body,
@@ -31,16 +31,16 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
             "createdAt": int(datetime.now().timestamp()),
         }
         await redis.execute(
-            "SET", f"chats/{chat.id}/messages/{message_id}", json.dumps(new_message)
+            "SET", f"chats/{chat['id']}/messages/{message_id}", json.dumps(new_message)
         )
-        await redis.execute("LPUSH", f"chats/{chat.id}/message_ids", str(message_id))
-        await redis.execute("SET", f"chats/{chat.id}/next_message_id", str(message_id + 1))
+        await redis.execute("LPUSH", f"chats/{chat['id']}/message_ids", str(message_id))
+        await redis.execute("SET", f"chats/{chat['id']}/next_message_id", str(message_id + 1))
 
         chat = json.loads(chat)
         users = chat["users"]
         for user_slug in users:
             await redis.execute(
-                "LPUSH", f"chats/{chat.id}/unread/{user_slug}", str(message_id)
+                "LPUSH", f"chats/{chat['id']}/unread/{user_slug}", str(message_id)
             )
 
         result = MessageResult("NEW", new_message)
