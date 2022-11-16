@@ -6,6 +6,8 @@ from gql.transport.aiohttp import AIOHTTPTransport
 
 from base.redis import redis
 from services.zine.topics import TopicStorage
+from ssl import create_default_context
+
 
 query_ackee_views = gql(
     """
@@ -35,13 +37,15 @@ query_ackee_views = gql(
     """
 )
 
+ssl = create_default_context()
+
 
 class ViewStat:
     lock = asyncio.Lock()
     by_slugs = {}
     by_topics = {}
     period = 5 * 60  # 5 minutes
-    transport = AIOHTTPTransport(url="https://ackee.discours.io/")
+    transport = AIOHTTPTransport(url="https://ackee.discours.io/", ssl=ssl)
     client = Client(transport=transport, fetch_schema_from_transport=True)
 
     @staticmethod
