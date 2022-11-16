@@ -2,7 +2,7 @@ from dateutil.parser import parse
 from sqlalchemy.exc import IntegrityError
 
 from base.orm import local_session
-# from migration.html2text import html2text
+from migration.html2text import html2text
 from orm.user import AuthorFollower, User, UserRating
 
 
@@ -34,7 +34,9 @@ def migrate(entry):
         user_dict["slug"] = (
             entry["profile"].get("path").lower().replace(" ", "-").strip()
         )
-        user_dict["bio"] = entry.get("profile").get("bio") or ""
+        user_dict["bio"] = html2text(
+            entry.get("profile").get("bio") or ""
+        ).replace('\(', '(').replace('\)', ')')
 
         # userpic
         try:
