@@ -18,13 +18,14 @@ async def get_unread_counter(chat_id: str, user_slug: str):
 async def get_total_unread_counter(user_slug: str):
     chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
     if not chats:
+        chats = []
         return 0
-
-    chats = json.loads(chats)
-    unread = 0
-    for chat_id in chats:
-        n = await get_unread_counter(chat_id, user_slug)
-        unread += n
+    else:
+        chats = json.loads(chats)
+        unread = 0
+        for chat_id in chats:
+            n = await get_unread_counter(chat_id, user_slug)
+            unread += n
 
     return unread
 
