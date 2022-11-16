@@ -243,6 +243,7 @@ type Query {
   loadChats( limit: Int, offset: Int): Result!  # your chats
   loadMessagesBy(by: MessagesBy!, limit: Int, offset: Int): Result!
   searchUsers(query: String!, limit: Int, offset: Int): Result!
+  chatUsersAll: [ChatUser]!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -346,6 +347,14 @@ type User {
   notifications: [Int]
   communities: [Int] # user participating communities
   oid: String
+}
+
+type ChatUser {
+  id: Int!
+  slug: String!
+  name: String!
+  userpic: String
+  lastSeen: DateTime
 }
 
 type Collab {
