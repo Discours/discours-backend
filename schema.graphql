@@ -218,6 +218,7 @@ input ShoutsBy {
     topic: String
     topics: [String]
     author: String
+    authors: [String]
     layout: String
     visibility: String
     order: String
