@@ -40,7 +40,7 @@ class ViewStat:
     lock = asyncio.Lock()
     by_slugs = {}
     by_topics = {}
-    period = 30 * 60  # 30 minutes
+    period = 5 * 60  # 5 minutes
     transport = AIOHTTPTransport(url="https://ackee.discours.io/")
     client = Client(transport=transport, fetch_schema_from_transport=True)
 

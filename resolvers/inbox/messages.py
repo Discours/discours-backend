@@ -10,18 +10,18 @@ from services.inbox import ChatFollowing, MessageResult, MessagesStorage
 
 @mutation.field("createMessage")
 @login_required
-async def create_message(_, info, chat_id: str, body: str, replyTo=None):
+async def create_message(_, info, chat: str, body: str, replyTo=None):
     """ create message with :body for :chat_id replying to :replyTo optionally """
     user = info.context["request"].user
-    chat = await redis.execute("GET", f"chats/{chat_id}")
+    chat = await redis.execute("GET", f"chats/{chat}")
     if not chat:
         return {
             "error": "chat not exist"
         }
-    message_id = await redis.execute("GET", f"chats/{chat_id}/next_message_id")
+    message_id = await redis.execute("GET", f"chats/{chat.id}/next_message_id")
     message_id = int(message_id)
     new_message = {
-        "chatId": chat_id,
+        "chatId": chat.id,
         "id": message_id,
         "author": user.slug,
         "body": body,
@@ -29,16 +29,16 @@ async def create_message(_, info, chat_id: str, body: str, replyTo=None):
         "createdAt": int(datetime.now().timestamp()),
     }
     await redis.execute(
-        "SET", f"chats/{chat_id}/messages/{message_id}", json.dumps(new_message)
+        "SET", f"chats/{chat.id}/messages/{message_id}", json.dumps(new_message)
     )
-    await redis.execute("LPUSH", f"chats/{chat_id}/message_ids", str(message_id))
-    await redis.execute("SET", f"chats/{chat_id}/next_message_id", str(message_id + 1))
+    await redis.execute("LPUSH", f"chats/{chat.id}/message_ids", str(message_id))
+    await redis.execute("SET", f"chats/{chat.id}/next_message_id", str(message_id + 1))
 
     chat = json.loads(chat)
     users = chat["users"]
     for user_slug in users:
         await redis.execute(
-            "LPUSH", f"chats/{chat_id}/unread/{user_slug}", str(message_id)
+            "LPUSH", f"chats/{chat.id}/unread/{user_slug}", str(message_id)
         )
 
     result = MessageResult("NEW", new_message)
@@ -157,6 +157,7 @@ async def message_generator(obj, info):
 
         while True:
             msg = await asyncio.gather(*tasks)
+            print('[inbox] %d new messages' % len(tasks))
             yield msg
     finally:
         await MessagesStorage.remove_chat(following_chat)

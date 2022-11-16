@@ -150,7 +150,7 @@ type Mutation {
   deleteChat(chatId: String!): Result!
   inviteChat(chatId: String!, userslug: String!): Result!
 
-  createMessage(chatId: String!, body: String!, replyTo: String): Result!
+  createMessage(chat: String!, body: String!, replyTo: String): Result!
   updateMessage(chatId: String!, id: Int!, body: String!): Result!
   deleteMessage(chatId: String!, id: Int!): Result!
   markAsRead(chatId: String!, ids: [Int]!): Result!
