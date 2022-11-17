@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:alpine
 
 EXPOSE 8080
 
