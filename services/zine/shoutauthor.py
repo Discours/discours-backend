@@ -17,7 +17,10 @@ class ShoutAuthorStorage:
         for sa in sas:
             self.authors_by_shout[sa.shout] = self.authors_by_shout.get(sa.shout, [])
             self.authors_by_shout[sa.shout].append([sa.user, sa.caption])
-        print("[zine.shouts] %d shouts indexed by authors" % len(self.authors_by_shout))
+            self.shouts_by_author[sa.user] = self.shouts_by_author.get(sa.user, [])
+            self.shouts_by_author[sa.user].append(sa.shout)
+        print("[zine.authors] %d shouts indexed by authors" % len(self.authors_by_shout))
+        print("[zine.authors] %d authors indexed by shouts" % len(self.shouts_by_author))
 
     @staticmethod
     async def get_authors(shout):
@@ -42,7 +45,7 @@ class ShoutAuthorStorage:
                 with local_session() as session:
                     async with self.lock:
                         await self.load(session)
-                        print("[zine.shouts] index by authors was updated")
+                        print("[zine.authors] index by authors was updated")
             except Exception as err:
-                print("[zine.shouts] error indexing by author: %s" % (err))
+                print("[zine.authors] error indexing by author: %s" % (err))
             await asyncio.sleep(self.period)

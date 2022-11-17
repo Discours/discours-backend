@@ -206,9 +206,10 @@ async def load_authors_by(_, info, by, limit, offset):
         ).order_by(
             by.get("order") or "createdAt"
         ).limit(limit).offset(offset)
+        print(aq)
         authors = list(map(lambda r: r.User, session.execute(aq)))
         if by.get("stat"):
             for a in authors:
                 a.stat = await get_author_stat(a.slug)
-    authors = list(set(authors)).sort(lambda a: a["stat"].get(by.get("stat")))
+    authors = list(set(authors)).sort(authors, key=lambda a: a["stat"].get(by.get("stat")))
     return authors
