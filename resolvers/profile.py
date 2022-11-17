@@ -211,5 +211,6 @@ async def load_authors_by(_, info, by, limit, offset):
         if by.get("stat"):
             for a in authors:
                 a.stat = await get_author_stat(a.slug)
-    authors = list(set(authors)).sort(authors, key=lambda a: a["stat"].get(by.get("stat")))
+    authors = list(set(authors))
+    authors = sorted(authors, key=lambda a: a["stat"].get(by.get("stat")))
     return authors
