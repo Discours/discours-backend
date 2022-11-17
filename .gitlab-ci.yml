@@ -10,8 +10,8 @@ deploy:
   stage: deploy
   environment:
     name: production
-    url: https://testapi.discours.io
+    url: https://v2.discours.io
   only:
     - main
   script:
-    - git-push ssh://dokku@staging.discours.io:22/$APP_NAME
+    - git-push ssh://dokku@v2.discours.io:22/$APP_NAME

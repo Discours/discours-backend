@@ -47,8 +47,11 @@ async def load_shouts_by(_, info, by, limit=50, offset=0):
         q = q.filter(Shout.slug == by["slug"])
     else:
         if by.get("reacted"):
-            user = info.context["request"].user
-            q = q.filter(Reaction.createdBy == user.slug)
+            try:
+                user = info.context["request"].user
+                q = q.filter(Reaction.createdBy == user.slug)
+            except Exception:
+                pass
         if by.get("visibility"):
             q = q.filter(or_(
                 Shout.visibility.ilike(f"%{by.get('visibility')}%"),

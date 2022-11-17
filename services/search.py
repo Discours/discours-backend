@@ -1,5 +1,7 @@
 import asyncio
+
 from orm.shout import Shout
+from resolvers.zine import load_shouts_by
 
 
 class SearchService:
@@ -13,6 +15,10 @@ class SearchService:
             SearchService.cache = {}
 
     @staticmethod
-    async def search(text) -> [Shout]:
+    async def search(text, limit, offset) -> [Shout]:
         async with SearchService.lock:
-            return []  # TODO: implement getting shouts list
+            by = {
+                "title": text,
+                "body": text
+            }
+            return await load_shouts_by(None, None, by, limit, offset)
