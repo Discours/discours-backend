@@ -211,7 +211,7 @@ input AuthorsBy {
     stat: String
 }
 
-input ShoutsBy {
+input ShoutsFilterBy {
     slug: String
     title: String
     body: String
@@ -221,7 +221,6 @@ input ShoutsBy {
     authors: [String]
     layout: String
     visibility: String
-    order: String
     days: Int
     stat: String
 }
@@ -252,7 +251,7 @@ type Query {
 
   # zine
   loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
-  loadShoutsBy(by: ShoutsBy, limit: Int, offset: Int): [Shout]!
+  loadShoutsBy(filter_by: ShoutsFilterBy!, limit: Int!, offset: Int!, order_by: String, order_by_desc: Boolean): [Shout]!
   loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!

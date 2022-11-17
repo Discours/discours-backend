@@ -1,13 +1,13 @@
 from datetime import datetime, timedelta
-
+import sqlalchemy as sa
 from sqlalchemy.orm import selectinload
-from sqlalchemy.sql.expression import or_, desc, select
-
+from sqlalchemy.sql.expression import or_, desc, asc, select, case
+from timeit import default_timer as timer
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.shout import Shout
-from orm.reaction import Reaction
+from orm.reaction import Reaction, ReactionsWeights, ReactionKind
 # from resolvers.community import community_follow, community_unfollow
 from resolvers.profile import author_follow, author_unfollow
 from resolvers.reactions import reactions_follow, reactions_unfollow
@@ -17,74 +17,94 @@ from services.stat.reacted import ReactedStorage
 
 
 @query.field("loadShoutsBy")
-async def load_shouts_by(_, info, by, limit=50, offset=0):
+async def load_shouts_by(_, info, filter_by, limit, offset, order_by="createdAt", order_by_desc=True):
     """
-    :param by: {
+    :param filterBy: {
         layout: 'audio',
         visibility: "public",
         author: 'discours',
         topic: 'culture',
         title: 'something',
         body: 'something else',
-        stat: 'rating' | 'comments' | 'reacted' | 'views',
         days: 30
     }
+    :param order_by: 'rating' | 'comments' | 'reacted' | 'views' | 'createdAt
+    :param order_by_desc: order be desc/ask (desc by default)
     :param limit: int amount of shouts
     :param offset: int offset in this order
     :return: Shout[]
     """
 
-    q = select(Shout, Reaction).options(
+    q = select(Shout).options(
+        # TODO add cation
         selectinload(Shout.authors),
         selectinload(Shout.topics),
-        selectinload(Shout.reactions)
     ).where(
         Shout.deletedAt.is_(None)
-    ).join(
-        Reaction, Reaction.shout == Shout.slug
     )
-    if by.get("slug"):
-        q = q.filter(Shout.slug == by["slug"])
+
+    if filter_by.get("slug"):
+        q = q.filter(Shout.slug == filter_by["slug"])
     else:
-        if by.get("reacted"):
-            try:
-                user = info.context["request"].user
-                q = q.filter(Reaction.createdBy == user.slug)
-            except Exception:
-                pass
-        if by.get("visibility"):
+        if filter_by.get("reacted"):
+            user = info.context["request"].user
+            q.join(Reaction, Reaction.createdBy == user.slug)
+        if filter_by.get("visibility"):
             q = q.filter(or_(
-                Shout.visibility.ilike(f"%{by.get('visibility')}%"),
+                Shout.visibility.ilike(f"%{filter_by.get('visibility')}%"),
                 Shout.visibility.ilike(f"%{'public'}%"),
             ))
-        if by.get("layout"):
-            q = q.filter(Shout.layout == by["layout"])
-        if by.get("author"):
-            q = q.filter(Shout.authors.contains(by["author"]))
-        if by.get("topic"):
-            q = q.filter(Shout.topics.contains(by["topic"]))
-        if by.get("title"):
-            q = q.filter(Shout.title.ilike(f'%{by["title"]}%'))
-        if by.get("body"):
-            q = q.filter(Shout.body.ilike(f'%{by["body"]}%'))
-        if by.get("days"):
-            before = datetime.now() - timedelta(days=int(by["days"]) or 30)
+        if filter_by.get("layout"):
+            q = q.filter(Shout.layout == filter_by["layout"])
+        if filter_by.get("author"):
+            q = q.filter(Shout.authors.any(slug=filter_by["author"]))
+        if filter_by.get("topic"):
+            q = q.filter(Shout.topics.any(slug=filter_by["topic"]))
+        if filter_by.get("title"):
+            q = q.filter(Shout.title.ilike(f'%{filter_by["title"]}%'))
+        if filter_by.get("body"):
+            q = q.filter(Shout.body.ilike(f'%{filter_by["body"]}%'))
+        if filter_by.get("days"):
+            before = datetime.now() - timedelta(days=int(filter_by["days"]) or 30)
             q = q.filter(Shout.createdAt > before)
-        q = q.group_by(Shout.id, Reaction.id).order_by(
-            desc(by.get("order") or "createdAt")
-        ).limit(limit).offset(offset)
-    print(q)
-    shouts = []
-    with local_session() as session:
-        # post query stats and author's captions
-        for s in list(map(lambda r: r.Shout, session.execute(q))):
-            s.stat = await ReactedStorage.get_shout_stat(s.slug)
-            for a in s.authors:
-                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-            shouts.append(s)
-        if by.get("stat"):
-            shouts.sort(lambda s: s.stat.get(by["stat"]) or s.createdAt)
-    return shouts
+        if order_by == 'comments':
+            q = q.join(Reaction).add_columns(sa.func.count(Reaction.id).label(order_by))
+        if order_by == 'reacted':
+            # TODO ?
+            q = q.join(Reaction).add_columns(sa.func.count(Reaction.id).label(order_by))
+        if order_by == "rating":
+            q = q.join(Reaction).add_columns(sa.func.sum(case(
+                (Reaction.kind == ReactionKind.AGREE, 1),
+                (Reaction.kind == ReactionKind.DISAGREE, -1),
+                (Reaction.kind == ReactionKind.PROOF, 1),
+                (Reaction.kind == ReactionKind.DISPROOF, -1),
+                (Reaction.kind == ReactionKind.ACCEPT, 1),
+                (Reaction.kind == ReactionKind.REJECT, -1),
+                (Reaction.kind == ReactionKind.LIKE, 1),
+                (Reaction.kind == ReactionKind.DISLIKE, -1),
+                else_=0
+            )).label(order_by))
+        # if order_by == 'views':
+        # TODO dump ackee data to db periodically
+
+        query_order_by = desc(order_by) if order_by_desc else asc(order_by)
+
+        q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
+
+        with local_session() as session:
+            # post query stats and author's captions
+            # start = timer()
+            shouts = list(map(lambda r: r.Shout, session.execute(q)))
+            for s in shouts:
+                s.stat = await ReactedStorage.get_shout_stat(s.slug)
+                for a in s.authors:
+                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+
+            # end = timer()
+            # print(end - start)
+            # print(q)
+
+        return shouts
 
 
 @mutation.field("follow")
