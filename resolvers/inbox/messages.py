@@ -4,67 +4,52 @@ from datetime import datetime
 
 from auth.authenticate import login_required
 from base.redis import redis
-from base.resolvers import mutation, query, subscription
+from base.resolvers import mutation, subscription
 from services.inbox import ChatFollowing, MessageResult, MessagesStorage
-from resolvers.inbox.load import load_messages
-
-
-@query.field("loadMessages")
-@login_required
-async def load_chat_messages(_, info, chat_id: str, offset: int = 0, amount: int = 50):
-    ''' load [amount] chat's messages with [offset] '''
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if not chat:
-        return {
-            "error": "chat not exist"
-        }
-    messages = await load_messages(chat_id, offset, amount)
-    return {
-        "messages": messages,
-        "error": None
-    }
 
 
 @mutation.field("createMessage")
 @login_required
-async def create_message(_, info, chat_id: str, body: str, replyTo=None):
+async def create_message(_, info, chat: str, body: str, replyTo=None):
     """ create message with :body for :chat_id replying to :replyTo optionally """
     user = info.context["request"].user
-    chat = await redis.execute("GET", f"chats/{chat_id}")
+    chat = await redis.execute("GET", f"chats/{chat}")
     if not chat:
         return {
             "error": "chat not exist"
         }
-    message_id = await redis.execute("GET", f"chats/{chat_id}/next_message_id")
-    message_id = int(message_id)
-    new_message = {
-        "chatId": chat_id,
-        "id": message_id,
-        "author": user.slug,
-        "body": body,
-        "replyTo": replyTo,
-        "createdAt": int(datetime.now().timestamp()),
-    }
-    await redis.execute(
-        "SET", f"chats/{chat_id}/messages/{message_id}", json.dumps(new_message)
-    )
-    await redis.execute("LPUSH", f"chats/{chat_id}/message_ids", str(message_id))
-    await redis.execute("SET", f"chats/{chat_id}/next_message_id", str(message_id + 1))
-
-    chat = json.loads(chat)
-    users = chat["users"]
-    for user_slug in users:
+    else:
+        chat = dict(json.loads(chat))
+        message_id = await redis.execute("GET", f"chats/{chat['id']}/next_message_id")
+        message_id = int(message_id)
+        new_message = {
+            "chatId": chat['id'],
+            "id": message_id,
+            "author": user.slug,
+            "body": body,
+            "replyTo": replyTo,
+            "createdAt": int(datetime.now().timestamp()),
+        }
         await redis.execute(
-            "LPUSH", f"chats/{chat_id}/unread/{user_slug}", str(message_id)
+            "SET", f"chats/{chat['id']}/messages/{message_id}", json.dumps(new_message)
         )
+        await redis.execute("LPUSH", f"chats/{chat['id']}/message_ids", str(message_id))
+        await redis.execute("SET", f"chats/{chat['id']}/next_message_id", str(message_id + 1))
 
-    result = MessageResult("NEW", new_message)
-    await MessagesStorage.put(result)
+        chat = json.loads(chat)
+        users = chat["users"]
+        for user_slug in users:
+            await redis.execute(
+                "LPUSH", f"chats/{chat['id']}/unread/{user_slug}", str(message_id)
+            )
 
-    return {
-        "message": new_message,
-        "error": None
-    }
+        result = MessageResult("NEW", new_message)
+        await MessagesStorage.put(result)
+
+        return {
+            "message": new_message,
+            "error": None
+        }
 
 
 @mutation.field("updateMessage")
@@ -174,6 +159,7 @@ async def message_generator(obj, info):
 
         while True:
             msg = await asyncio.gather(*tasks)
+            print('[inbox] %d new messages' % len(tasks))
             yield msg
     finally:
         await MessagesStorage.remove_chat(following_chat)

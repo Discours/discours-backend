@@ -73,9 +73,14 @@ async def update_shout(_, info, inp):
             shout.update(inp)
             shout.updatedAt = datetime.now()
             session.add(shout)
-            for topic in inp.get("topic_slugs", []):
-                st = ShoutTopic.create(shout=slug, topic=topic)
-                session.add(st)
+            if inp.get("topics"):
+                # remove old links
+                links = session.query(ShoutTopic).where(ShoutTopic.shout == slug).all()
+                for topiclink in links:
+                    session.delete(topiclink)
+                # add new topic links
+                for topic in inp.get("topics", []):
+                    ShoutTopic.create(shout=slug, topic=topic)
             session.commit()
 
     GitTask(inp, user.username, user.email, "update shout %s" % (slug))

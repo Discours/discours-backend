@@ -5,7 +5,7 @@
 {{ $upstream_port := index $port_map_list 2 }}
 
 map $http_origin $allow_origin {
-    ~^https?:\/\/((.*\.)?localhost(:\d+)?|discoursio-webapp.*\.vercel\.app|(.*\.)?discours\.io(:\d+)?)$ $http_origin;
+    ~^https?:\/\/((.*\.)?localhost(:\d+)?|discoursio-webapp-(.*)?\.vercel\.app|(.*\.)?discours\.io(:\d+)?)$ $http_origin;
     default "";
 }
 

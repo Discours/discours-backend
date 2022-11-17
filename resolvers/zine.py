@@ -1,249 +1,87 @@
-from graphql.type import GraphQLResolveInfo
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import selectinload
-from sqlalchemy.sql.expression import and_, desc, select
+from sqlalchemy.sql.expression import or_, desc, select
 
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
-from orm.collection import ShoutCollection
-from orm.shout import Shout, ShoutTopic
-from orm.topic import Topic
-from resolvers.community import community_follow, community_unfollow
+from orm.shout import Shout
+from orm.reaction import Reaction
+# from resolvers.community import community_follow, community_unfollow
 from resolvers.profile import author_follow, author_unfollow
 from resolvers.reactions import reactions_follow, reactions_unfollow
 from resolvers.topics import topic_follow, topic_unfollow
-from services.search import SearchService
-from services.stat.viewed import ViewedStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
-from services.zine.shoutscache import ShoutsCache, get_shout_stat
+from services.stat.reacted import ReactedStorage
 
 
-@mutation.field("incrementView")
-async def increment_view(_, _info, shout):
-    # TODO: use ackee to collect views
-    async with ViewedStorage.lock:
-        return ViewedStorage.increment(shout)
+@query.field("loadShoutsBy")
+async def load_shouts_by(_, info, by, limit=50, offset=0):
+    """
+    :param by: {
+        layout: 'audio',
+        visibility: "public",
+        author: 'discours',
+        topic: 'culture',
+        title: 'something',
+        body: 'something else',
+        stat: 'rating' | 'comments' | 'reacted' | 'views',
+        days: 30
+    }
+    :param limit: int amount of shouts
+    :param offset: int offset in this order
+    :return: Shout[]
+    """
 
-
-@query.field("topMonth")
-async def top_month(_, _info, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.top_month[offset : offset + limit]
-
-
-@query.field("topPublished")
-async def top_published(_, _info, daysago, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.get_top_published_before(daysago, offset, limit)
-
-
-@query.field("topCommented")
-async def top_commented(_, _info, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.top_commented[offset : offset + limit]
-
-
-@query.field("topOverall")
-async def top_overall(_, _info, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.top_overall[offset : offset + limit]
-
-
-@query.field("recentPublished")
-async def recent_published(_, _info, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.recent_published[offset : offset + limit]
-
-
-@query.field("recentAll")
-async def recent_all(_, _info, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.recent_all[offset : offset + limit]
-
-
-@query.field("recentReacted")
-async def recent_reacted(_, _info, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.recent_reacted[offset : offset + limit]
-
-
-@query.field("recentCommented")
-async def recent_commented(_, _info, offset, limit):
-    async with ShoutsCache.lock:
-        return ShoutsCache.recent_commented[offset : offset + limit]
-
-
-@query.field("getShoutBySlug")
-async def get_shout_by_slug(_, info, slug):
-    all_fields = [
-        node.name.value for node in info.field_nodes[0].selection_set.selections
-    ]
-    selected_fields = set(["authors", "topics"]).intersection(all_fields)
-    select_options = [selectinload(getattr(Shout, field)) for field in selected_fields]
-    with local_session() as session:
-        # s = text(open("src/queries/shout-by-slug.sql", "r").read() % slug)
-        shout = (
-            session.query(Shout)
-            .options(select_options)
-            .filter(Shout.slug == slug)
-            .first()
-        )
-
-        if not shout:
-            print(f"shout with slug {slug} not exist")
-            return {"error": "shout not found"}
-        else:
-            for a in shout.authors:
-                a.caption = await ShoutAuthorStorage.get_author_caption(slug, a.slug)
-    return shout
-
-
-@query.field("searchQuery")
-async def get_search_results(_, _info, searchtext, offset, limit):
-    shouts = SearchService.search(searchtext)
-    # TODO: sort and filter types for search service
-    for s in shouts:
-        shout = s.dict()
-        for a in shout['authors']:
-            a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-        s.stat.relevance = 1  # FIXME: expecting search engine rated relevance
-    return shouts[offset : offset + limit]
-
-
-@query.field("shoutsByAuthors")
-async def shouts_by_authors(_, _info, slugs, offset=0, limit=100):
-    async with ShoutsCache.lock:
-        shouts = {}
-        for author in slugs:
-            shouts_by_author = list(ShoutsCache.by_author.get(author, {}).values())
-            for s in shouts_by_author:
-                for a in s.authors:
-                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-                if bool(s.publishedAt):
-                    shouts[s.slug] = s
-        shouts_prepared = list(shouts.values())
-        shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
-        return shouts_prepared[offset : offset + limit]
-
-
-@query.field("recentLayoutShouts")
-async def shouts_by_layout_recent(_param, _info: GraphQLResolveInfo, layout, amount=100, offset=0):
-    async with ShoutsCache.lock:
-        shouts = {}
-        # for layout in ['image', 'audio', 'video', 'literature']:
-        shouts_by_layout = list(ShoutsCache.by_layout.get(layout, []))
-        for s in shouts_by_layout:
-            if s.visibility == 'public':  # if bool(s.publishedAt):
-                shouts[s.slug] = s
-                for a in s.authors:
-                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-
-        shouts_prepared = list(shouts.values())
-        shouts_prepared.sort(key=lambda s: s.createdAt, reverse=True)
-        return shouts_prepared[offset : offset + amount]
-
-
-@query.field("topLayoutShouts")
-async def shouts_by_layout_top(_param, _info: GraphQLResolveInfo, layout, amount=100, offset=0):
-    async with ShoutsCache.lock:
-        shouts = {}
-        # for layout in ['image', 'audio', 'video', 'literature']:
-        shouts_by_layout = list(ShoutsCache.by_layout.get(layout, []))
-        for s in shouts_by_layout:
-            if s.visibility == 'public':  # if bool(s.publishedAt):
-                shouts[s.slug] = s
-                for a in s.authors:
-                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-                s.stat = await get_shout_stat(s.slug)
-        shouts_prepared = list(shouts.values())
-        shouts_prepared.sort(key=lambda s: s.stat["rating"], reverse=True)
-        return shouts_prepared[offset : offset + amount]
-
-
-@query.field("topMonthLayoutShouts")
-async def shouts_by_layout_topmonth(_param, _info: GraphQLResolveInfo, layout, amount=100, offset=0):
-    async with ShoutsCache.lock:
-        shouts = {}
-        # for layout in ['image', 'audio', 'video', 'literature']:
-        shouts_by_layout = list(ShoutsCache.by_layout.get(layout, []))
-        month_ago = datetime.now() - timedelta(days=30)
-        for s in shouts_by_layout:
-            if s.visibility == 'public' and s.createdAt > month_ago:
-                shouts[s.slug] = s
-                for a in s.authors:
-                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-
-        shouts_prepared = list(shouts.values())
-        shouts_prepared.sort(key=lambda s: s.stat["rating"], reverse=True)
-        return shouts_prepared[offset : offset + amount]
-
-
-@query.field("shoutsByTopics")
-async def shouts_by_topics(_, _info, slugs, offset=0, limit=100):
-    async with ShoutsCache.lock:
-        shouts = {}
-        for topic in slugs:
-            shouts_by_topic = list(ShoutsCache.by_topic.get(topic, {}).values())
-            for s in shouts_by_topic:
-                for a in s.authors:
-                    a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-                if bool(s.publishedAt):
-                    shouts[s.slug] = s
-        shouts_prepared = list(shouts.values())
-        shouts_prepared.sort(key=lambda s: s.publishedAt, reverse=True)
-        return shouts_prepared[offset : offset + limit]
-
-
-@query.field("shoutsByCollection")
-async def shouts_by_collection(_, _info, collection, offset, limit):
-    with local_session() as session:
-        shouts = (
-            session.query(Shout)
-            .join(ShoutCollection, ShoutCollection.collection == collection)
-            .where(and_(ShoutCollection.shout == Shout.slug, Shout.publishedAt.is_not(None)))
-            .order_by(desc("publishedAt"))
-            .limit(limit)
-            .offset(offset)
-        )
-    for s in shouts:
-        for a in s.authors:
-            a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-    return shouts
-
-
-SINGLE_COMMUNITY = True
-
-
-@query.field("shoutsByCommunities")
-async def shouts_by_communities(_, info, slugs, offset, limit):
-    if SINGLE_COMMUNITY:
-        return recent_published(_, info, offset, limit)
+    q = select(Shout, Reaction).options(
+        selectinload(Shout.authors),
+        selectinload(Shout.topics),
+        selectinload(Shout.reactions)
+    ).where(
+        Shout.deletedAt.is_(None)
+    ).join(
+        Reaction, Reaction.shout == Shout.slug
+    )
+    if by.get("slug"):
+        q = q.filter(Shout.slug == by["slug"])
     else:
-        with local_session() as session:
-            # TODO fix postgres high load
-            shouts = (
-                session.query(Shout)
-                .distinct()
-                .join(ShoutTopic)
-                .where(
-                    and_(
-                        Shout.publishedAt.is_not(None),
-                        ShoutTopic.topic.in_(
-                            select(Topic.slug).where(Topic.community.in_(slugs))
-                        ),
-                    )
-                )
-                .order_by(desc("publishedAt"))
-                .limit(limit)
-                .offset(offset)
-            )
-
-        for s in shouts:
+        if by.get("reacted"):
+            user = info.context["request"].user
+            q = q.filter(Reaction.createdBy == user.slug)
+        if by.get("visibility"):
+            q = q.filter(or_(
+                Shout.visibility.ilike(f"%{by.get('visibility')}%"),
+                Shout.visibility.ilike(f"%{'public'}%"),
+            ))
+        if by.get("layout"):
+            q = q.filter(Shout.layout == by["layout"])
+        if by.get("author"):
+            q = q.filter(Shout.authors.contains(by["author"]))
+        if by.get("topic"):
+            q = q.filter(Shout.topics.contains(by["topic"]))
+        if by.get("title"):
+            q = q.filter(Shout.title.ilike(f'%{by["title"]}%'))
+        if by.get("body"):
+            q = q.filter(Shout.body.ilike(f'%{by["body"]}%'))
+        if by.get("days"):
+            before = datetime.now() - timedelta(days=int(by["days"]) or 30)
+            q = q.filter(Shout.createdAt > before)
+        q = q.group_by(Shout.id, Reaction.id).order_by(
+            desc(by.get("order") or "createdAt")
+        ).limit(limit).offset(offset)
+    print(q)
+    shouts = []
+    with local_session() as session:
+        # post query stats and author's captions
+        for s in list(map(lambda r: r.Shout, session.execute(q))):
+            s.stat = await ReactedStorage.get_shout_stat(s.slug)
             for a in s.authors:
                 a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
-        return shouts
+            shouts.append(s)
+        if by.get("stat"):
+            shouts.sort(lambda s: s.stat.get(by["stat"]) or s.createdAt)
+    return shouts
 
 
 @mutation.field("follow")
@@ -256,7 +94,8 @@ async def follow(_, info, what, slug):
         elif what == "TOPIC":
             topic_follow(user, slug)
         elif what == "COMMUNITY":
-            community_follow(user, slug)
+            # community_follow(user, slug)
+            pass
         elif what == "REACTIONS":
             reactions_follow(user, slug)
     except Exception as e:
@@ -276,7 +115,8 @@ async def unfollow(_, info, what, slug):
         elif what == "TOPIC":
             topic_unfollow(user, slug)
         elif what == "COMMUNITY":
-            community_unfollow(user, slug)
+            # community_unfollow(user, slug)
+            pass
         elif what == "REACTIONS":
             reactions_unfollow(user, slug)
     except Exception as e:

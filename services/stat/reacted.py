@@ -2,6 +2,7 @@ import asyncio
 from base.orm import local_session
 from orm.reaction import ReactionKind, Reaction
 from services.zine.topics import TopicStorage
+from services.stat.views import ViewStat
 
 
 def kind_to_rate(kind) -> int:
@@ -31,6 +32,15 @@ class ReactedStorage:
     period = 30 * 60  # sec
     lock = asyncio.Lock()
     modified_shouts = set([])
+
+    @staticmethod
+    async def get_shout_stat(slug):
+        return {
+            "viewed": await ViewStat.get_shout(slug),
+            "reacted": len(await ReactedStorage.get_shout(slug)),
+            "commented": len(await ReactedStorage.get_comments(slug)),
+            "rating": await ReactedStorage.get_rating(slug),
+        }
 
     @staticmethod
     async def get_shout(shout_slug):
@@ -158,22 +168,25 @@ class ReactedStorage:
         self = ReactedStorage
         all_reactions = session.query(Reaction).all()
         self.modified_shouts = list(set([r.shout for r in all_reactions]))
-        print("[stat.reacted] %d shouts with reactions loaded" % len(self.modified_shouts))
+        print("[stat.reacted] %d shouts with reactions" % len(self.modified_shouts))
 
     @staticmethod
     async def recount_changed(session):
         self = ReactedStorage
         async with self.lock:
-            print('[stat.reacted] recounting...')
-            for slug in list(self.modified_shouts):
+            sss = list(self.modified_shouts)
+            c = 0
+            for slug in sss:
                 siblings = session.query(Reaction).where(Reaction.shout == slug).all()
+                c += len(siblings)
                 await self.recount(siblings)
 
+            print("[stat.reacted] %d reactions total" % c)
             print("[stat.reacted] %d shouts" % len(self.modified_shouts))
             print("[stat.reacted] %d topics" % len(self.reacted["topics"].values()))
             print("[stat.reacted] %d shouts" % len(self.reacted["shouts"]))
             print("[stat.reacted] %d authors" % len(self.reacted["authors"].values()))
-            print("[stat.reacted] %d reactions" % len(self.reacted["reactions"]))
+            print("[stat.reacted] %d reactions replied" % len(self.reacted["reactions"]))
             self.modified_shouts = set([])
 
     @staticmethod

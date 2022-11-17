@@ -1,5 +1,5 @@
 from datetime import datetime
-
+import json
 from dateutil.parser import parse as date_parse
 from sqlalchemy.exc import IntegrityError
 from transliterate import translit
@@ -12,7 +12,7 @@ from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
 from orm.user import User
 from orm.topic import TopicFollower
 from services.stat.reacted import ReactedStorage
-from services.stat.viewed import ViewedStorage
+from services.stat.views import ViewStat
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
 ts = datetime.now()
@@ -149,6 +149,12 @@ async def migrate(entry, storage):
     if entry.get("published"):
         r["publishedAt"] = date_parse(entry.get("publishedAt", OLD_DATE))
         r["visibility"] = "public"
+        with local_session() as session:
+            # update user.emailConfirmed if published
+            author = session.query(User).where(User.slug == userslug).first()
+            author.emailConfirmed = True
+            session.add(author)
+            session.commit()
     else:
         r["visibility"] = "authors"
     if "deletedAt" in entry:
@@ -192,7 +198,7 @@ async def migrate(entry, storage):
     # body
     r["body"], media = prepare_html_body(entry)
     if media:
-        print(media)
+        r["media"] = json.dumps(media)
     # save shout to db
     s = object()
     shout_dict = r.copy()
@@ -340,7 +346,7 @@ async def migrate(entry, storage):
         raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
 
     # shout views
-    await ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1))
+    await ViewStat.increment(shout_dict["slug"], amount=entry.get("views", 1))
     # del shout_dict['ratings']
     shout_dict["oid"] = entry.get("_id")
     storage["shouts"]["by_oid"][entry["_id"]] = shout_dict

@@ -5,7 +5,7 @@ from datetime import datetime
 from auth.authenticate import login_required
 from base.redis import redis
 from base.resolvers import mutation, query
-from resolvers.inbox.load import load_messages, load_user_chats
+from services.auth.users import UserStorage
 
 
 async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
@@ -18,40 +18,6 @@ async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
         if chat_id not in chats_ids:
             chats_ids.append(chat_id)
         await redis.execute("SET", f"chats_by_user/{member}", json.dumps(chats_ids))
-
-
-@query.field("loadChats")
-@login_required
-async def load_chats(_, info):
-    user = info.context["request"].user
-    return await load_user_chats(user.slug)
-
-
-@mutation.field("enterChat")
-@login_required
-async def enter_chat(_, info, chat_id: str):
-    ''' enter to public chat with :chat_id '''
-    user = info.context["request"].user
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if not chat:
-        return {
-            "error": "chat not exist"
-        }
-    else:
-        chat = dict(json.loads(chat))
-        if chat['private']:
-            return {
-                "error": "cannot enter private chat"
-            }
-        if user.slug not in chat["users"]:
-            chat["users"].append(user.slug)
-            await add_user_to_chat(user.slug, chat_id, chat)
-            await redis.execute("SET" f"chats/{chat_id}", json.dumps(chat))
-        chat['messages'] = await load_messages(chat_id)
-        return {
-            "chat": chat,
-            "error": None
-        }
 
 
 @mutation.field("inviteChat")
@@ -156,3 +122,10 @@ async def delete_chat(_, info, chat_id: str):
         return {
             "error": "chat not exist"
         }
+
+
+@query.field("chatUsersAll")
+@login_required
+async def get_chat_users_all(_, info):
+    chat_users = await UserStorage.get_all_chat_users()
+    return chat_users

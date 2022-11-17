@@ -6,7 +6,6 @@ from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRating
-from orm.viewed import ViewedByDay
 
 __all__ = [
     "User",
@@ -19,8 +18,7 @@ __all__ = [
     "TopicFollower",
     "Notification",
     "Reaction",
-    "UserRating",
-    "ViewedByDay"
+    "UserRating"
 ]
 
 Base.metadata.create_all(engine)

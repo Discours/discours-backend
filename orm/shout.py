@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, JSON
 from sqlalchemy.orm import relationship
 
 from base.orm import Base
@@ -58,9 +58,9 @@ class Shout(Base):
     versionOf = Column(ForeignKey("shout.slug"), nullable=True)
     lang = Column(String, default='ru')
     oid = Column(String, nullable=True)
+    media = Column(JSON, nullable=True)
 
     createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
     publishedAt = Column(DateTime, nullable=True)
     deletedAt = Column(DateTime, nullable=True)
-

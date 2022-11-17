@@ -1,20 +1,20 @@
 from typing import List
-
-from sqlalchemy import and_, desc, func
+from datetime import datetime, timedelta
+from sqlalchemy import and_, func
 from sqlalchemy.orm import selectinload
 
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.reaction import Reaction
-from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
 from services.auth.users import UserStorage
 from services.stat.reacted import ReactedStorage
-from services.zine.shoutscache import ShoutsCache
+from services.stat.topicstat import TopicStat
+from services.zine.shoutauthor import ShoutAuthorStorage
 
-from .community import followed_communities
+# from .community import followed_communities
 from .inbox.load import get_total_unread_counter
 from .topics import get_topic_stat
 
@@ -25,7 +25,7 @@ async def user_subscriptions(slug: str):
         "topics": [t.slug for t in await followed_topics(slug)],  # followed topics slugs
         "authors": [a.slug for a in await followed_authors(slug)],  # followed authors slugs
         "reactions": await ReactedStorage.get_shouts_by_author(slug),
-        "communities": [c.slug for c in followed_communities(slug)],  # communities
+        # "communities": [c.slug for c in followed_communities(slug)],  # communities
     }
 
 
@@ -44,24 +44,6 @@ async def get_author_stat(slug):
                 func.length(Reaction.body) > 0
             ).count()
         }
-
-
-@query.field("userReactedShouts")
-async def get_user_reacted_shouts(_, slug: str, offset: int, limit: int) -> List[Shout]:
-    user = await UserStorage.get_user_by_slug(slug)
-    if not user:
-        return []
-    with local_session() as session:
-        shouts = (
-            session.query(Shout)
-            .join(Reaction)
-            .where(Reaction.createdBy == user.slug)
-            .order_by(desc(Reaction.createdAt))
-            .limit(limit)
-            .offset(offset)
-            .all()
-        )
-    return shouts
 
 
 @query.field("userFollowedTopics")
@@ -115,20 +97,7 @@ async def user_followers(_, _info, slug) -> List[User]:
     return users
 
 
-@query.field("getUsersBySlugs")
-async def get_users_by_slugs(_, _info, slugs):
-    with local_session() as session:
-        users = (
-            session.query(User)
-            .options(selectinload(User.ratings))
-            .filter(User.slug in slugs)
-            .all()
-        )
-    return users
-
-
-@query.field("getUserRoles")
-async def get_user_roles(_, _info, slug):
+async def get_user_roles(slug):
     with local_session() as session:
         user = session.query(User).where(User.slug == slug).first()
         roles = (
@@ -206,22 +175,41 @@ def author_unfollow(user, slug):
 @query.field("authorsAll")
 async def get_authors_all(_, _info):
     users = await UserStorage.get_all_users()
-    authorslugs = await ShoutsCache.get_all_authors_slugs()
     authors = []
     for author in users:
-        if author.slug in authorslugs:
+        if ShoutAuthorStorage.shouts_by_author.get(author.slug):
             author.stat = await get_author_stat(author.slug)
             authors.append(author)
     return authors
 
 
-@query.field("topAuthors")
-def get_top_authors(_, _info, offset, limit):
-    return list(UserStorage.get_top_users())[offset : offset + limit]  # type: ignore
-
-
-@query.field("getAuthor")
-async def get_author(_, _info, slug):
-    a = await UserStorage.get_user_by_slug(slug)
-    a.stat = await get_author_stat(slug)
-    return a
+@query.field("loadAuthorsBy")
+async def load_authors_by(_, info, by, limit, offset):
+    authors = []
+    with local_session() as session:
+        aq = session.query(User)
+        if by.get("slug"):
+            aq = aq.filter(User.slug.ilike(f"%{by['slug']}%"))
+        elif by.get("name"):
+            aq = aq.filter(User.name.ilike(f"%{by['name']}%"))
+        elif by.get("topic"):
+            aaa = list(map(lambda a: a.slug, TopicStat.authors_by_topic.get(by["topic"])))
+            aq = aq.filter(User.name._in(aaa))
+        if by.get("lastSeen"):  # in days
+            days_before = datetime.now() - timedelta(days=by["lastSeen"])
+            aq = aq.filter(User.lastSeen > days_before)
+        elif by.get("createdAt"):  # in days
+            days_before = datetime.now() - timedelta(days=by["createdAt"])
+            aq = aq.filter(User.createdAt > days_before)
+        aq = aq.group_by(
+            User.id
+        ).order_by(
+            by.get("order") or "createdAt"
+        ).limit(limit).offset(offset)
+        print(aq)
+        authors = list(map(lambda r: r.User, session.execute(aq)))
+        if by.get("stat"):
+            for a in authors:
+                a.stat = await get_author_stat(a.slug)
+    authors = list(set(authors)).sort(authors, key=lambda a: a["stat"].get(by.get("stat")))
+    return authors

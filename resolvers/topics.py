@@ -6,11 +6,10 @@ from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.topic import Topic, TopicFollower
-from services.zine.shoutscache import ShoutsCache
 from services.zine.topics import TopicStorage
 from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
-from services.stat.viewed import ViewedStorage
+from services.stat.views import ViewStat
 
 
 async def get_topic_stat(slug):
@@ -18,7 +17,7 @@ async def get_topic_stat(slug):
         "shouts": len(TopicStat.shouts_by_topic.get(slug, {}).keys()),
         "authors": len(TopicStat.authors_by_topic.get(slug, {}).keys()),
         "followers": len(TopicStat.followers_by_topic.get(slug, {}).keys()),
-        "viewed": await ViewedStorage.get_topic(slug),
+        "viewed": await ViewStat.get_topic(slug),
         "reacted": len(await ReactedStorage.get_topic(slug)),
         "commented": len(await ReactedStorage.get_topic_comments(slug)),
         "rating": await ReactedStorage.get_topic_rating(slug)
@@ -43,7 +42,7 @@ async def topics_by_community(_, info, community):
 
 @query.field("topicsByAuthor")
 async def topics_by_author(_, _info, author):
-    shouts = ShoutsCache.by_author.get(author, [])
+    shouts = TopicStorage.get_topics_by_author(author)
     author_topics = set()
     for s in shouts:
         for tpc in s.topics:

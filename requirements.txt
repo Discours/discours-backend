@@ -1,11 +1,13 @@
 python-frontmatter~=1.0.0
 aioredis~=2.0.1
+aiohttp
 ariadne>=0.16.0
 PyYAML>=5.4
 pyjwt>=2.6.0
 starlette~=0.20.4
 sqlalchemy>=1.4.41
 graphql-core
+gql
 uvicorn>=0.18.3
 pydantic>=1.10.2
 passlib~=1.7.4

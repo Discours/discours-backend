@@ -34,7 +34,9 @@ def migrate(entry):
         user_dict["slug"] = (
             entry["profile"].get("path").lower().replace(" ", "-").strip()
         )
-        user_dict["bio"] = html2text(entry.get("profile").get("bio") or "")
+        user_dict["bio"] = html2text(
+            entry.get("profile").get("bio") or ""
+        ).replace('\(', '(').replace('\)', ')')
 
         # userpic
         try:

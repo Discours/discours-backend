@@ -8,8 +8,8 @@ DB_URL = (
 )
 JWT_ALGORITHM = "HS256"
 JWT_SECRET_KEY = environ.get("JWT_SECRET_KEY") or "8f1bd7696ffb482d8486dfbc6e7d16dd-secret-key"
-SESSION_TOKEN_LIFE_SPAN = 24 * 60 * 60  # seconds
-ONETIME_TOKEN_LIFE_SPAN = 1 * 60 * 60  # seconds
+SESSION_TOKEN_LIFE_SPAN = 30 * 24 * 60 * 60  # 1 month in seconds
+ONETIME_TOKEN_LIFE_SPAN = 24 * 60 * 60  # 1 day in seconds
 REDIS_URL = environ.get("REDIS_URL") or "redis://127.0.0.1"
 
 MAILGUN_API_KEY = environ.get("MAILGUN_API_KEY")

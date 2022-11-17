@@ -19,7 +19,7 @@ class TopicStat:
     async def load_stat(session):
         self = TopicStat
         shout_topics = session.query(ShoutTopic).all()
-        print("[stat.topics] shouts linked %d times" % len(shout_topics))
+        print("[stat.topics] %d links for shouts" % len(shout_topics))
         for shout_topic in shout_topics:
             tpc = shout_topic.topic
             # shouts by topics
@@ -34,17 +34,14 @@ class TopicStat:
                 [aslug, acaption] = a
                 self.authors_by_topic[tpc][aslug] = acaption
 
-        print("[stat.topics] shouts indexed by %d topics" % len(self.shouts_by_topic.keys()))
-        print("[stat.topics] authors indexed by %d topics" % len(self.authors_by_topic.keys()))
-
         self.followers_by_topic = {}
         followings = session.query(TopicFollower).all()
+        print("[stat.topics] %d followings by users" % len(followings))
         for flw in followings:
             topic = flw.topic
             userslug = flw.follower
             self.followers_by_topic[topic] = self.followers_by_topic.get(topic, dict())
             self.followers_by_topic[topic][userslug] = userslug
-        print("[stat.topics] followers indexed by %d topics" % len(self.followers_by_topic.keys()))
 
     @staticmethod
     async def get_shouts(topic):
