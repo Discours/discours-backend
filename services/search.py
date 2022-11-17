@@ -17,7 +17,7 @@ class SearchService:
 
     @staticmethod
     async def search(text, limit, offset) -> [Shout]:
-        cached = redis.execute("GET", text)
+        cached = await redis.execute("GET", text)
         if not cached:
             async with SearchService.lock:
                 by = {
@@ -25,7 +25,7 @@ class SearchService:
                     "body": text
                 }
                 payload = await load_shouts_by(None, None, by, limit, offset)
-                redis.execute("SET", text, json.dumps(payload))
+                await redis.execute("SET", text, json.dumps(payload))
                 return payload
         else:
             return json.loads(cached)
