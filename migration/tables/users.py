@@ -1,8 +1,8 @@
 from dateutil.parser import parse
 from sqlalchemy.exc import IntegrityError
+from bs4 import BeautifulSoup
 
 from base.orm import local_session
-from migration.html2text import html2text
 from orm.user import AuthorFollower, User, UserRating
 
 
@@ -34,9 +34,8 @@ def migrate(entry):
         user_dict["slug"] = (
             entry["profile"].get("path").lower().replace(" ", "-").strip()
         )
-        user_dict["bio"] = html2text(
-            entry.get("profile").get("bio") or ""
-        ).replace('\(', '(').replace('\)', ')')
+        bio = BeautifulSoup(entry.get("profile").get("bio") or "").text
+        bio = bio.replace('\(', '(').replace('\)', ')')
 
         # userpic
         try:
