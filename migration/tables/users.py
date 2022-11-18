@@ -34,7 +34,7 @@ def migrate(entry):
         user_dict["slug"] = (
             entry["profile"].get("path").lower().replace(" ", "-").strip()
         )
-        bio = BeautifulSoup(entry.get("profile").get("bio") or "").text
+        bio = BeautifulSoup(entry.get("profile").get("bio") or "", features="lxml").text
         bio = bio.replace('\(', '(').replace('\)', ')')
 
         # userpic

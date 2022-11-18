@@ -295,7 +295,8 @@ def create_pgdump():
     subprocess.call(
         ["pg_dump", pgurl, "-f", TODAY + "-pgdump.sql"], stderr=subprocess.STDOUT
     )
-    subprocess.call(["scp", TODAY + "-pgdump.sql", "root@build.discours.io:/root/."])  # manually then
+    subprocess.call(["scp", TODAY + "-pgdump.sql", "root@v2.discours.io:/root/."])  # manually then
+    subprocess.call(["scp", TODAY + "-pgdump.sql", "root@testapi.discours.io:/root/."])  # manually then
 
 
 async def handle_auto():
