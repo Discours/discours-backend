@@ -107,7 +107,9 @@ async def load_shouts_by(_, info, options):
 
     order_by = options.get("order_by") if options.get("order_by") else 'createdAt'
 
-    query_order_by = desc(order_by) if options.get('order_by_desc') else asc(order_by)
+    order_by_desc = True if options.get('order_by_desc') is None else options.get('order_by_desc')
+
+    query_order_by = desc(order_by) if order_by_desc else asc(order_by)
 
     q = q.group_by(Shout.id).order_by(query_order_by).limit(options.get("limit")).offset(
         options.get("offset") if options.get("offset") else 0)
