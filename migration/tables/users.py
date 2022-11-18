@@ -35,6 +35,8 @@ def migrate(entry):
             entry["profile"].get("path").lower().replace(" ", "-").strip()
         )
         bio = BeautifulSoup(entry.get("profile").get("bio") or "", features="lxml").text
+        if bio.startswith('<'):
+            bio = BeautifulSoup(bio, features="lxml").text
         bio = bio.replace('\(', '(').replace('\)', ')')
 
         # userpic
