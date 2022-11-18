@@ -277,7 +277,7 @@ type Query {
   userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
   authorsAll: [Author]!
-  getAuthor(slug: String!): User!
+  getAuthor(slug: String!): User
 
   # collab
   getCollabs: [Collab]!
@@ -286,7 +286,7 @@ type Query {
   markdownBody(body: String!): String!
 
   # topics
-  getTopic(slug: String!): Topic!
+  getTopic(slug: String!): Topic
   topicsAll: [Topic]!
   topicsRandom(amount: Int): [Topic]!
   topicsByCommunity(community: String!): [Topic]!

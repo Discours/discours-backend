@@ -18,15 +18,18 @@ from services.stat.reacted import ReactedStorage
 
 @query.field("loadShout")
 async def load_shout(_, info, slug):
-    shout = select(Shout).options(
-        # TODO add cation
-        selectinload(Shout.authors),
-        selectinload(Shout.topics),
-    ).where(
-        Shout.deletedAt.is_(None)
-    ).one()
+    with local_session() as session:
+        shout = session.query(Shout).options(
+            # TODO add cation
+            selectinload(Shout.authors),
+            selectinload(Shout.topics),
+        ).filter(
+            Shout.slug == slug
+        ).filter(
+            Shout.deletedAt.is_(None)
+        ).one()
 
-    return shout
+        return shout
 
 
 @query.field("loadShouts")
