@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 
 from sqlalchemy import and_, desc, select, text, func
-from sqlalchemy.orm import selectinload
-
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
@@ -14,7 +12,7 @@ from services.stat.reacted import ReactedStorage
 
 async def get_reaction_stat(reaction_id):
     return {
-        # "viewed": await ViewStat.get_reaction(reaction_id),
+        # "viewed": await ViewedStorage.get_reaction(reaction_id),
         "reacted": len(await ReactedStorage.get_reaction(reaction_id)),
         "rating": await ReactedStorage.get_reaction_rating(reaction_id),
         "commented": len(await ReactedStorage.get_reaction_comments(reaction_id)),

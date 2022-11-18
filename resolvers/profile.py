@@ -9,11 +9,10 @@ from base.resolvers import mutation, query
 from orm.reaction import Reaction
 from orm.topic import Topic, TopicFollower
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
-from services.auth.users import UserStorage
 from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
 from services.zine.authors import AuthorsStorage
-from services.zine.shoutauthor import ShoutAuthorStorage
+from services.zine.shoutauthor import ShoutAuthor
 
 # from .community import followed_communities
 from .inbox.load import get_total_unread_counter
@@ -34,6 +33,7 @@ async def get_author_stat(slug):
     # TODO: implement author stat
     with local_session() as session:
         return {
+            "shouts": session.query(ShoutAuthor).where(ShoutAuthor.author == slug).count(),
             "followers": session.query(AuthorFollower).where(AuthorFollower.author == slug).count(),
             "followings": session.query(AuthorFollower).where(AuthorFollower.follower == slug).count(),
             "rating": session.query(func.sum(UserRating.value)).where(UserRating.user == slug).first(),
