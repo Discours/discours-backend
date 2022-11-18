@@ -212,17 +212,36 @@ input AuthorsBy {
 }
 
 input ShoutsFilterBy {
-    slug: String
-    title: String
-    body: String
-    topic: String
-    topics: [String]
-    author: String
-    authors: [String]
-    layout: String
-    visibility: String
-    days: Int
-    stat: String
+  slug: String
+  title: String
+  body: String
+  topic: String
+  topics: [String]
+  author: String
+  authors: [String]
+  layout: String
+  visibility: String
+  days: Int
+  stat: String
+}
+
+input LoadShoutsFilters {
+  title: String
+  body: String
+  topic: String
+  author: String
+  layout: String
+  visibility: String
+  days: Int
+  reacted: Boolean
+}
+
+input LoadShoutsOptions {
+  filters: LoadShoutsFilters
+  limit: Int!
+  offset: Int
+  order_by: String
+  order_by_desc: Boolean
 }
 
 input ReactionBy {
@@ -251,7 +270,8 @@ type Query {
 
   # zine
   loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
-  loadShoutsBy(filter_by: ShoutsFilterBy!, limit: Int!, offset: Int!, order_by: String, order_by_desc: Boolean): [Shout]!
+  loadShout(slug: String!): Shout
+  loadShouts(options: LoadShoutsOptions): [Shout]!
   loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
