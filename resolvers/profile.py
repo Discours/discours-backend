@@ -12,6 +12,7 @@ from orm.user import AuthorFollower, Role, User, UserRating, UserRole
 from services.auth.users import UserStorage
 from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
+from services.zine.authors import AuthorsStorage
 from services.zine.shoutauthor import ShoutAuthorStorage
 
 # from .community import followed_communities
@@ -174,12 +175,9 @@ def author_unfollow(user, slug):
 
 @query.field("authorsAll")
 async def get_authors_all(_, _info):
-    users = await UserStorage.get_all_users()
-    authors = []
-    for author in users:
-        if ShoutAuthorStorage.shouts_by_author.get(author.slug):
-            author.stat = await get_author_stat(author.slug)
-            authors.append(author)
+    authors = await AuthorsStorage.get_all_authors()
+    for author in authors:
+        author.stat = await get_author_stat(author.slug)
     return authors
 
 
@@ -212,5 +210,5 @@ async def load_authors_by(_, info, by, limit, offset):
             for a in authors:
                 a.stat = await get_author_stat(a.slug)
     authors = list(set(authors))
-    authors = sorted(authors, key=lambda a: a["stat"].get(by.get("stat")))
+    # authors = sorted(authors, key=lambda a: a["stat"].get(by.get("stat")))
     return authors

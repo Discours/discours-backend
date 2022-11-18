@@ -217,13 +217,10 @@ async def load_reactions_by(_, info, by, limit=50, offset=0):
     :return: Reaction[]
     """
 
-    q = select(Reaction).options(
-        selectinload(Reaction.shout),
+    q = select(Reaction).join(
+        Shout
     ).where(
         Reaction.deletedAt.is_(None)
-    ).join(
-        Shout,
-        Shout.slug == Reaction.shout
     )
     if by.get("slug"):
         q = q.filter(Shout.slug == by["slug"])
@@ -243,8 +240,9 @@ async def load_reactions_by(_, info, by, limit=50, offset=0):
         if by.get("days"):
             before = datetime.now() - timedelta(days=int(by["days"]) or 30)
             q = q.filter(Reaction.createdAt > before)
-        q = q.group_by(Shout.id).order_by(
-            desc(by.get("order") or "createdAt")
+
+        q = q.group_by(Reaction.id).order_by(
+            desc(by.get("order") or Reaction.createdAt)
         ).limit(limit).offset(offset)
 
     rrr = []

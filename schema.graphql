@@ -211,19 +211,37 @@ input AuthorsBy {
     stat: String
 }
 
-input ShoutsBy {
-    slug: String
-    title: String
-    body: String
-    topic: String
-    topics: [String]
-    author: String
-    authors: [String]
-    layout: String
-    visibility: String
-    order: String
-    days: Int
-    stat: String
+input ShoutsFilterBy {
+  slug: String
+  title: String
+  body: String
+  topic: String
+  topics: [String]
+  author: String
+  authors: [String]
+  layout: String
+  visibility: String
+  days: Int
+  stat: String
+}
+
+input LoadShoutsFilters {
+  title: String
+  body: String
+  topic: String
+  author: String
+  layout: String
+  visibility: String
+  days: Int
+  reacted: Boolean
+}
+
+input LoadShoutsOptions {
+  filters: LoadShoutsFilters
+  limit: Int!
+  offset: Int
+  order_by: String
+  order_by_desc: Boolean
 }
 
 input ReactionBy {
@@ -252,13 +270,14 @@ type Query {
 
   # zine
   loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
-  loadShoutsBy(by: ShoutsBy, limit: Int, offset: Int): [Shout]!
+  loadShout(slug: String!): Shout
+  loadShouts(options: LoadShoutsOptions): [Shout]!
   loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
   authorsAll: [Author]!
-  getAuthor(slug: String!): User!
+  getAuthor(slug: String!): User
 
   # collab
   getCollabs: [Collab]!
@@ -267,7 +286,7 @@ type Query {
   markdownBody(body: String!): String!
 
   # topics
-  getTopic(slug: String!): Topic!
+  getTopic(slug: String!): Topic
   topicsAll: [Topic]!
   topicsRandom(amount: Int): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
