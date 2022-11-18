@@ -6,7 +6,6 @@ from orm.shout import ShoutAuthor, Shout
 
 class ShoutAuthorStorage:
     authors_by_shout = {}
-    shouts_by_author = {}
     lock = asyncio.Lock()
     period = 30 * 60  # sec
 
@@ -17,10 +16,7 @@ class ShoutAuthorStorage:
         for sa in sas:
             self.authors_by_shout[sa.shout] = self.authors_by_shout.get(sa.shout, [])
             self.authors_by_shout[sa.shout].append([sa.user, sa.caption])
-            self.shouts_by_author[sa.user] = self.shouts_by_author.get(sa.user, [])
-            self.shouts_by_author[sa.user].append(sa.shout)
         print("[zine.authors] %d shouts indexed by authors" % len(self.authors_by_shout))
-        print("[zine.authors] %d authors indexed by shouts" % len(self.shouts_by_author))
 
     @staticmethod
     async def get_authors(shout):
