@@ -67,12 +67,14 @@ class Shout(Base):
     @staticmethod
     def init_table():
         with local_session() as session:
-            entry = {
-                "slug": "genesis-block",
-                "body": "",
-                "title": "Ничего",
-                "lang": "ru"
-            }
-            s = Shout.create(**entry)
-            session.add(s)
-            session.commit()
+            s = session.query(Shout).first()
+            if not s:
+                entry = {
+                    "slug": "genesis-block",
+                    "body": "",
+                    "title": "Ничего",
+                    "lang": "ru"
+                }
+                s = Shout.create(**entry)
+                session.add(s)
+                session.commit()

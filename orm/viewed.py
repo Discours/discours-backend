@@ -7,7 +7,7 @@ class ViewedEntry(Base):
     __tablename__ = "viewed"
 
     viewer = Column(ForeignKey("user.slug"), default='anonymous')
-    shout = Column(ForeignKey("shout.slug"))
+    shout = Column(ForeignKey("shout.slug"), default="genesis-block")
     amount = Column(Integer, default=1)
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
@@ -17,7 +17,6 @@ class ViewedEntry(Base):
     def init_table():
         with local_session() as session:
             entry = {
-                "shout": "genesis-block",
                 "amount": 0
             }
             viewed = ViewedEntry.create(**entry)

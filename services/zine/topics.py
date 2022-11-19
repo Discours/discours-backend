@@ -12,7 +12,8 @@ class TopicStorage:
         topics = session.query(Topic)
         self.topics = dict([(topic.slug, topic) for topic in topics])
         for tpc in self.topics.values():
-            self.load_parents(tpc)
+            # self.load_parents(tpc)
+            pass
 
         print("[zine.topics] %d precached" % len(self.topics.keys()))
 
@@ -64,4 +65,4 @@ class TopicStorage:
         self = TopicStorage
         async with self.lock:
             self.topics[topic.slug] = topic
-            self.load_parents(topic)
+            # self.load_parents(topic)
