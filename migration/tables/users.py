@@ -36,6 +36,7 @@ def migrate(entry):
         )
         bio = BeautifulSoup(entry.get("profile").get("bio") or "", features="lxml").text
         if bio.startswith('<'):
+            print('[migration] bio! ' + bio)
             bio = BeautifulSoup(bio, features="lxml").text
         bio = bio.replace('\(', '(').replace('\)', ')')
 

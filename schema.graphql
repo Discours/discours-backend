@@ -37,6 +37,7 @@ type AuthorStat {
     followers: Int
     rating: Int
     commented: Int
+    shouts: Int
 }
 
 
@@ -492,8 +493,6 @@ type Topic {
   title: String
   body: String
   pic: String
-  parents: [String] # NOTE: topic can have parent topics
-  children: [String] # and children
   community: Community!
   stat: TopicStat
   oid: String

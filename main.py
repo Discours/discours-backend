@@ -8,6 +8,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.routing import Route
+from orm import init_tables
 
 from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
@@ -30,6 +31,7 @@ middleware = [
 
 
 async def start_up():
+    init_tables()
     await redis.connect()
     await storages_init()
     views_stat_task = asyncio.create_task(ViewedStorage().worker())

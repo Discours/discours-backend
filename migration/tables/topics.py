@@ -1,6 +1,6 @@
 from base.orm import local_session
 from migration.extract import extract_md, html2text
-from orm import Topic, Community
+from orm import Topic
 
 
 def migrate(entry):
@@ -8,9 +8,7 @@ def migrate(entry):
     topic_dict = {
         "slug": entry["slug"],
         "oid": entry["_id"],
-        "title": entry["title"].replace("&nbsp;", " "),
-        "children": [],
-        "community": Community.default_community.slug,
+        "title": entry["title"].replace("&nbsp;", " ")
     }
     topic_dict["body"] = extract_md(html2text(body_orig), entry["_id"])
     with local_session() as session:

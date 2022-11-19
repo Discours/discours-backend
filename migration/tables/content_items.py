@@ -3,10 +3,8 @@ import json
 from dateutil.parser import parse as date_parse
 from sqlalchemy.exc import IntegrityError
 from transliterate import translit
-
 from base.orm import local_session
 from migration.extract import prepare_html_body
-from orm.community import Community
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
 from orm.user import User
@@ -103,12 +101,8 @@ async def migrate(entry, storage):
     r = {
         "layout": type2layout[entry["type"]],
         "title": entry["title"],
-        "community": Community.default_community.id,
         "authors": [],
-        "topics": set([]),
-        # 'rating': 0,
-        # 'ratings': [],
-        "createdAt": [],
+        "topics": set([])
     }
     topics_by_oid = storage["topics"]["by_oid"]
     users_by_oid = storage["users"]["by_oid"]
@@ -177,20 +171,24 @@ async def migrate(entry, storage):
     # add author as TopicFollower
     with local_session() as session:
         for tpc in r['topics']:
-            tf = session.query(
-                TopicFollower
-            ).where(
-                TopicFollower.follower == userslug
-            ).filter(
-                TopicFollower.topic == tpc
-            ).first()
-            if not tf:
-                tf = TopicFollower.create(
-                    topic=tpc,
-                    follower=userslug,
-                    auto=True
-                )
-                session.add(tf)
+            try:
+                tf = session.query(
+                    TopicFollower
+                ).where(
+                    TopicFollower.follower == userslug
+                ).filter(
+                    TopicFollower.topic == tpc
+                ).first()
+                if not tf:
+                    tf = TopicFollower.create(
+                        topic=tpc,
+                        follower=userslug,
+                        auto=True
+                    )
+                    session.add(tf)
+            except IntegrityError:
+                print('[migration.shout] skipped by topic ' + tpc)
+                return
 
     entry["topics"] = r["topics"]
     entry["cover"] = r["cover"]
@@ -205,7 +203,6 @@ async def migrate(entry, storage):
     user = None
     del shout_dict["topics"]
     with local_session() as session:
-        # c = session.query(Community).all().pop()
         if not user and userslug:
             user = session.query(User).filter(User.slug == userslug).first()
         if not user and userdata:

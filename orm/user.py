@@ -25,6 +25,10 @@ class UserRating(Base):
     user = Column(ForeignKey("user.slug"), primary_key=True)
     value = Column(Integer)
 
+    @staticmethod
+    def init_table():
+        pass
+
 
 class UserRole(Base):
     __tablename__ = "user_role"
@@ -48,6 +52,7 @@ class AuthorFollower(Base):
 
 class User(Base):
     __tablename__ = "user"
+    default_user = None
 
     email = Column(String, unique=True, nullable=False, comment="Email")
     username = Column(String, nullable=False, comment="Login")

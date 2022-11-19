@@ -33,7 +33,7 @@ async def get_author_stat(slug):
     # TODO: implement author stat
     with local_session() as session:
         return {
-            "shouts": session.query(ShoutAuthor).where(ShoutAuthor.author == slug).count(),
+            "shouts": session.query(ShoutAuthor).where(ShoutAuthor.user == slug).count(),
             "followers": session.query(AuthorFollower).where(AuthorFollower.author == slug).count(),
             "followings": session.query(AuthorFollower).where(AuthorFollower.follower == slug).count(),
             "rating": session.query(func.sum(UserRating.value)).where(UserRating.user == slug).first(),
