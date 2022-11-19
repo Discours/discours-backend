@@ -117,8 +117,8 @@ input TopicInput {
   title: String
   body: String
   pic: String
-  children: [String]
-  parents: [String]
+  # children: [String]
+  # parents: [String]
 }
 
 input ReactionInput {

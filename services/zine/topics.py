@@ -17,15 +17,15 @@ class TopicStorage:
 
         print("[zine.topics] %d precached" % len(self.topics.keys()))
 
-    @staticmethod
-    def load_parents(topic):
-        self = TopicStorage
-        parents = []
-        for parent in self.topics.values():
-            if topic.slug in parent.children:
-                parents.append(parent.slug)
-        topic.parents = parents
-        return topic
+    # @staticmethod
+    # def load_parents(topic):
+    #     self = TopicStorage
+    #     parents = []
+    #     for parent in self.topics.values():
+    #         if topic.slug in parent.children:
+    #             parents.append(parent.slug)
+    #     topic.parents = parents
+    #     return topic
 
     @staticmethod
     async def get_topics_all():
