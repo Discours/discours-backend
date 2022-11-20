@@ -88,8 +88,11 @@ async def load_shouts_by(_, info, options):
             q = q.join(Reaction, Shout.slug == Reaction.shout)
             q = q.filter(Reaction.body.is_not(None))
         elif o == 'reacted':
-            q = q.join(Reaction).add_columns(sa.func.max(
-                Reaction.createdAt).label(options.get("order_by")))
+            q = q.join(
+                Reaction
+            ).add_columns(
+                sa.func.max(Reaction.createdAt).label(o)
+            )
         elif o == "rating":
             q = q.join(Reaction).add_columns(sa.func.sum(case(
                 (Reaction.kind == ReactionKind.AGREE, 1),
