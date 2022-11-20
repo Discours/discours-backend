@@ -181,12 +181,11 @@ class ReactedStorage:
                 c += len(siblings)
                 await self.recount(siblings)
 
-            print("[stat.reacted] %d reactions total" % c)
+            print("[stat.reacted] %d reactions recounted" % c)
             print("[stat.reacted] %d shouts" % len(self.modified_shouts))
             print("[stat.reacted] %d topics" % len(self.reacted["topics"].values()))
-            print("[stat.reacted] %d shouts" % len(self.reacted["shouts"]))
             print("[stat.reacted] %d authors" % len(self.reacted["authors"].values()))
-            print("[stat.reacted] %d reactions replied" % len(self.reacted["reactions"]))
+            print("[stat.reacted] %d replies" % len(self.reacted["reactions"]))
             self.modified_shouts = set([])
 
     @staticmethod
