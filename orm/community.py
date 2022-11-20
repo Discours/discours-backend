@@ -42,4 +42,4 @@ class Community(Base):
                 session.add(d)
                 session.commit()
             Community.default_community = d
-            print('[orm] created default community with id %s' % d.id)
+            print('[orm] default community id: %s' % d.id)
