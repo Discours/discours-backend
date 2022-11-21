@@ -7,9 +7,9 @@ from base.orm import local_session
 from orm.user import AuthorFollower
 
 
-@query.field("searchUsers")
+@query.field("searchRecipients")
 @login_required
-async def search_users(_, info, query: str, limit: int = 50, offset: int = 0):
+async def search_recipients(_, info, query: str, limit: int = 50, offset: int = 0):
     result = []
     # TODO: maybe redis scan?
     user = info.context["request"].user
@@ -38,6 +38,6 @@ async def search_users(_, info, query: str, limit: int = 50, offset: int = 0):
         result += session.query(AuthorFollower.follower).where(AuthorFollower.author.startswith(query))\
             .offset(offset + len(result)).limit(offset + len(result) + limit)
     return {
-        "slugs": list(result),
+        "members": list(result),
         "error": None
     }

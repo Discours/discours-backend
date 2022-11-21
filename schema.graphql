@@ -24,9 +24,11 @@ type AuthResult {
 }
 
 type ChatMember {
+    id: Int!
     slug: String!
     name: String!
     userpic: String
+    lastSeen: DateTime
     invitedAt: DateTime
     invitedBy: String # user slug
     # TODO: add more
@@ -261,8 +263,8 @@ type Query {
   # inbox
   loadChats( limit: Int, offset: Int): Result!  # your chats
   loadMessagesBy(by: MessagesBy!, limit: Int, offset: Int): Result!
-  searchUsers(query: String!, limit: Int, offset: Int): Result!
-  chatUsersAll: [ChatUser]!
+  loadRecipients(limit: Int, offset: Int): Result!
+  searchRecipients(query: String!, limit: Int, offset: Int): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -367,14 +369,6 @@ type User {
   notifications: [Int]
   communities: [Int] # user participating communities
   oid: String
-}
-
-type ChatUser {
-  id: Int!
-  slug: String!
-  name: String!
-  userpic: String
-  lastSeen: DateTime
 }
 
 type Collab {
@@ -482,7 +476,7 @@ type TopicStat {
   shouts: Int!
   followers: Int!
   authors: Int!
-  viewed: Int
+  # viewed: Int
   reacted: Int!
   commented: Int
   rating: Int

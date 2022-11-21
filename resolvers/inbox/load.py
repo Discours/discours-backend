@@ -3,27 +3,11 @@ from datetime import datetime, timedelta
 
 from auth.authenticate import login_required
 from base.redis import redis
+from base.orm import local_session
 from base.resolvers import query
-
-
-async def get_unread_counter(chat_id: str, user_slug: str):
-    try:
-        unread = await redis.execute("LLEN", f"chats/{chat_id}/unread/{user_slug}")
-        if unread:
-            return unread
-    except Exception:
-        return 0
-
-
-async def get_total_unread_counter(user_slug: str):
-    chats = await redis.execute("GET", f"chats_by_user/{user_slug}")
-    unread = 0
-    if chats:
-        chats = json.loads(chats)
-        for chat_id in chats:
-            n = await get_unread_counter(chat_id, user_slug)
-            unread += n
-    return unread
+from orm.user import User
+from resolvers.zine.profile import followed_authors
+from .unread import get_unread_counter
 
 
 async def load_messages(chatId: str, limit: int, offset: int):
@@ -98,5 +82,22 @@ async def load_messages_by(_, info, by, limit: int = 50, offset: int = 0):
         )
     return {
         "messages": messages,
+        "error": None
+    }
+
+
+@query.field("loadRecipients")
+async def load_recipients(_, info, limit=50, offset=0):
+    chat_users = []
+    user = info.context["request"].user
+    try:
+        chat_users += await followed_authors(user.slug)
+        limit = limit - len(chat_users)
+    except Exception:
+        pass
+    with local_session() as session:
+        chat_users += session.query(User).where(User.emailConfirmed).limit(limit).offset(offset)
+    return {
+        "members": chat_users,
         "error": None
     }

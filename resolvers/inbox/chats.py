@@ -4,8 +4,7 @@ from datetime import datetime
 
 from auth.authenticate import login_required
 from base.redis import redis
-from base.resolvers import mutation, query
-from services.auth.users import UserStorage
+from base.resolvers import mutation
 
 
 async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
@@ -122,10 +121,3 @@ async def delete_chat(_, info, chat_id: str):
         return {
             "error": "chat not exist"
         }
-
-
-@query.field("chatUsersAll")
-@login_required
-async def get_chat_users_all(_, info):
-    chat_users = await UserStorage.get_all_chat_users()
-    return chat_users

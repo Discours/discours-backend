@@ -1,6 +1,5 @@
 import asyncio
 from sqlalchemy.orm import selectinload
-from base.orm import local_session
 from orm.user import User
 
 
@@ -32,11 +31,6 @@ class UserStorage:
             aaa = list(self.users.values())
             aaa.sort(key=lambda user: user.createdAt)
             return aaa
-
-    @staticmethod
-    async def get_all_chat_users():
-        with local_session() as session:
-            return session.query(User).where(User.emailConfirmed).all()
 
     @staticmethod
     async def get_top_users():

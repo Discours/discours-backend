@@ -7,18 +7,18 @@ from resolvers.auth import (
     auth_send_link,
     get_current_user,
 )
-from resolvers.collab import remove_author, invite_author
-from resolvers.migrate import markdown_body
 
-# from resolvers.collab import invite_author, remove_author
-from resolvers.editor import create_shout, delete_shout, update_shout
-from resolvers.profile import (
+from resolvers.create.collab import remove_author, invite_author
+from resolvers.create.migrate import markdown_body
+from resolvers.create.editor import create_shout, delete_shout, update_shout
+
+from resolvers.zine.profile import (
     load_authors_by,
     rate_user,
     update_profile
 )
 
-from resolvers.reactions import (
+from resolvers.zine.reactions import (
     create_reaction,
     delete_reaction,
     update_reaction,
@@ -26,7 +26,7 @@ from resolvers.reactions import (
     reactions_follow,
     load_reactions_by
 )
-from resolvers.topics import (
+from resolvers.zine.topics import (
     topic_follow,
     topic_unfollow,
     topics_by_author,
@@ -35,9 +35,13 @@ from resolvers.topics import (
     get_topic
 )
 
-from resolvers.zine import (
+from resolvers.zine.following import (
     follow,
-    unfollow,
+    unfollow
+)
+
+from resolvers.zine.load import (
+    load_shout,
     load_shouts_by
 )
 
@@ -56,9 +60,10 @@ from resolvers.inbox.messages import (
 )
 from resolvers.inbox.load import (
     load_chats,
-    load_messages_by
+    load_messages_by,
+    load_recipients
 )
-from resolvers.inbox.search import search_users
+from resolvers.inbox.search import search_recipients
 
 __all__ = [
     # auth
@@ -69,32 +74,34 @@ __all__ = [
     "auth_send_link",
     "sign_out",
     "get_current_user",
-    # authors
+    # zine.profile
     "load_authors_by",
     "rate_user",
     "update_profile",
     "get_authors_all",
-    # zine
+    # zine.load
+    "load_shout",
     "load_shouts_by",
+    # zine.following
     "follow",
     "unfollow",
-    # editor
+    # create.editor
     "create_shout",
     "update_shout",
     "delete_shout",
-    # migrate
+    # create.migrate
     "markdown_body",
-    # collab
+    # create.collab
     "invite_author",
     "remove_author",
-    # topics
+    # zine.topics
     "topics_all",
     "topics_by_community",
     "topics_by_author",
     "topic_follow",
     "topic_unfollow",
     "get_topic",
-    # reactions
+    # zine.reactions
     "reactions_follow",
     "reactions_unfollow",
     "create_reaction",
@@ -113,5 +120,6 @@ __all__ = [
     "update_message",
     "message_generator",
     "mark_as_read",
-    "search_users"
+    "load_recipients",
+    "search_recipients"
 ]

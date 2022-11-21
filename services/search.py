@@ -2,7 +2,7 @@ import asyncio
 import json
 from base.redis import redis
 from orm.shout import Shout
-from resolvers.zine import load_shouts_by
+from resolvers.zine.load import load_shouts_by
 
 
 class SearchService:

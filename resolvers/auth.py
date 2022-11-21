@@ -17,7 +17,7 @@ from base.exceptions import (BaseHttpException, InvalidPassword, InvalidToken,
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
-from resolvers.profile import user_subscriptions
+from resolvers.zine.profile import user_subscriptions
 
 
 @mutation.field("refreshSession")

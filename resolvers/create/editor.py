@@ -7,7 +7,7 @@ from orm.rbac import Resource
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import TopicFollower
 from orm.user import User
-from resolvers.reactions import reactions_follow, reactions_unfollow
+from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from services.zine.gittask import GitTask
 
 

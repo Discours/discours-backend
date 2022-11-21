@@ -14,7 +14,7 @@ from services.stat.topicstat import TopicStat
 from services.zine.shoutauthor import ShoutAuthor
 
 # from .community import followed_communities
-from .inbox.load import get_total_unread_counter
+from resolvers.inbox.unread import get_total_unread_counter
 from .topics import get_topic_stat
 
 
