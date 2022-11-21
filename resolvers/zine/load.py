@@ -107,7 +107,7 @@ async def load_shouts_by(_, info, options):
     )
     user = info.context["request"].user
     q = apply_filters(options.get("filters"), q, user)
-    order_by = extract_order(options.get("order_by"))
+    order_by = extract_order(options.get("order_by"), q)
     query_order_by = desc(order_by) if options.get("order_by_desc") else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
