@@ -32,12 +32,14 @@ class Community(Base):
     @staticmethod
     def init_table():
         with local_session() as session:
-            default = (
+            d = (
                 session.query(Community).filter(Community.slug == "discours").first()
             )
-        if not default:
-            default = Community.create(
-                name="Дискурс", slug="discours", createdBy="discours"
-            )
-
-        Community.default_community = default
+            if not d:
+                d = Community.create(
+                    name="Дискурс", slug="discours", createdBy="anonymous"
+                )
+                session.add(d)
+                session.commit()
+            Community.default_community = d
+            print('[orm] default community id: %s' % d.id)

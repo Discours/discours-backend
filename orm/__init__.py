@@ -6,6 +6,9 @@ from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRating
+from orm.viewed import ViewedEntry
+
+# NOTE: keep orm module isolated
 
 __all__ = [
     "User",
@@ -19,13 +22,18 @@ __all__ = [
     "Notification",
     "Reaction",
     "UserRating"
+    "ViewedEntry"
 ]
 
-Base.metadata.create_all(engine)
-Operation.init_table()
-Resource.init_table()
-User.init_table()
-Community.init_table()
-Role.init_table()
 
-# NOTE: keep orm module isolated
+def init_tables():
+    Base.metadata.create_all(engine)
+    Operation.init_table()
+    Resource.init_table()
+    User.init_table()
+    Community.init_table()
+    UserRating.init_table()
+    Shout.init_table()
+    Role.init_table()
+    ViewedEntry.init_table()
+    print("[orm] tables initialized")

@@ -1,8 +1,9 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, String, ForeignKey, DateTime
-
+from sqlalchemy.orm import relationship
 from base.orm import Base
+from orm.user import User
 
 
 class CollabAuthor(Base):
@@ -21,5 +22,6 @@ class Collab(Base):
     title = Column(String, nullable=True, comment="Title")
     body = Column(String, nullable=True, comment="Body")
     pic = Column(String, nullable=True, comment="Picture")
+    authors = relationship(lambda: User, secondary=CollabAuthor.__tablename__)
     createdAt = Column(DateTime, default=datetime.now, comment="Created At")
     createdBy = Column(ForeignKey("user.id"), comment="Created By")

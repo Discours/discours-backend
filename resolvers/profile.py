@@ -11,7 +11,6 @@ from orm.topic import Topic, TopicFollower
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
 from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
-from services.zine.authors import AuthorsStorage
 from services.zine.shoutauthor import ShoutAuthor
 
 # from .community import followed_communities
@@ -33,7 +32,7 @@ async def get_author_stat(slug):
     # TODO: implement author stat
     with local_session() as session:
         return {
-            "shouts": session.query(ShoutAuthor).where(ShoutAuthor.author == slug).count(),
+            "shouts": session.query(ShoutAuthor).where(ShoutAuthor.user == slug).count(),
             "followers": session.query(AuthorFollower).where(AuthorFollower.author == slug).count(),
             "followings": session.query(AuthorFollower).where(AuthorFollower.follower == slug).count(),
             "rating": session.query(func.sum(UserRating.value)).where(UserRating.user == slug).first(),
@@ -175,10 +174,20 @@ def author_unfollow(user, slug):
 
 @query.field("authorsAll")
 async def get_authors_all(_, _info):
-    authors = await AuthorsStorage.get_all_authors()
-    for author in authors:
-        author.stat = await get_author_stat(author.slug)
+    with local_session() as session:
+        authors = session.query(User).join(ShoutAuthor).all()
+        for author in authors:
+            author.stat = await get_author_stat(author.slug)
     return authors
+
+
+@query.field("getAuthor")
+async def get_author(_, _info, slug):
+    with local_session() as session:
+        author = session.query(User).join(ShoutAuthor).where(User.slug == slug).first()
+        for author in author:
+            author.stat = await get_author_stat(author.slug)
+    return author
 
 
 @query.field("loadAuthorsBy")

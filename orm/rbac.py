@@ -50,7 +50,7 @@ class Role(Base):
         default = Role.create(
             name="author",
             desc="Role for author",
-            community=Community.default_community.id,
+            community=1,
         )
 
         Role.default_role = default

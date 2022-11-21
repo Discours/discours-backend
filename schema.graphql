@@ -37,6 +37,7 @@ type AuthorStat {
     followers: Int
     rating: Int
     commented: Int
+    shouts: Int
 }
 
 
@@ -116,8 +117,8 @@ input TopicInput {
   title: String
   body: String
   pic: String
-  children: [String]
-  parents: [String]
+  # children: [String]
+  # parents: [String]
 }
 
 input ReactionInput {
@@ -481,7 +482,7 @@ type TopicStat {
   shouts: Int!
   followers: Int!
   authors: Int!
-  viewed: Int!
+  viewed: Int
   reacted: Int!
   commented: Int
   rating: Int
@@ -492,8 +493,6 @@ type Topic {
   title: String
   body: String
   pic: String
-  parents: [String] # NOTE: topic can have parent topics
-  children: [String] # and children
   community: Community!
   stat: TopicStat
   oid: String

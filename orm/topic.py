@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from sqlalchemy import JSON as JSONType
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 
 from base.orm import Base
@@ -25,10 +24,7 @@ class Topic(Base):
     title = Column(String, nullable=False, comment="Title")
     body = Column(String, nullable=True, comment="Body")
     pic = Column(String, nullable=True, comment="Picture")
-    children = Column(
-        JSONType, nullable=True, default=[], comment="list of children topics"
-    )
     community = Column(
-        ForeignKey("community.slug"), nullable=False, comment="Community"
+        ForeignKey("community.id"), default=1, comment="Community"
     )
     oid = Column(String, nullable=True, comment="Old ID")

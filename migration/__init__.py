@@ -7,7 +7,6 @@ import sys
 from datetime import datetime
 
 import bs4
-from base.redis import redis
 from migration.tables.comments import migrate as migrateComment
 from migration.tables.comments import migrate_2stage as migrateComment_2stage
 from migration.tables.content_items import get_shout_slug
@@ -17,6 +16,7 @@ from migration.tables.users import migrate as migrateUser
 from migration.tables.users import migrate_2stage as migrateUser_2stage
 from orm.reaction import Reaction
 from settings import DB_URL
+from orm import init_tables
 
 # from export import export_email_subscriptions
 from .export import export_mdx, export_slug
@@ -84,6 +84,7 @@ async def shouts_handle(storage, args):
     discours_author = 0
     anonymous_author = 0
     pub_counter = 0
+    ignored = 0
     topics_dataset_bodies = []
     topics_dataset_tlist = []
     for entry in storage["shouts"]["data"]:
@@ -96,40 +97,44 @@ async def shouts_handle(storage, args):
 
         # migrate
         shout = await migrateShout(entry, storage)
-        storage["shouts"]["by_oid"][entry["_id"]] = shout
-        storage["shouts"]["by_slug"][shout["slug"]] = shout
-        # shouts.topics
-        if not shout["topics"]:
-            print("[migration] no topics!")
+        if shout:
+            storage["shouts"]["by_oid"][entry["_id"]] = shout
+            storage["shouts"]["by_slug"][shout["slug"]] = shout
+            # shouts.topics
+            if not shout["topics"]:
+                print("[migration] no topics!")
 
-        # with author
-        author: str = shout["authors"][0].dict()
-        if author["slug"] == "discours":
-            discours_author += 1
-        if author["slug"] == "anonymous":
-            anonymous_author += 1
-        # print('[migration] ' + shout['slug'] + ' with author ' + author)
+            # with author
+            author: str = shout["authors"][0].dict()
+            if author["slug"] == "discours":
+                discours_author += 1
+            if author["slug"] == "anonymous":
+                anonymous_author += 1
+            # print('[migration] ' + shout['slug'] + ' with author ' + author)
 
-        if entry.get("published"):
-            if "mdx" in args:
-                export_mdx(shout)
-            pub_counter += 1
+            if entry.get("published"):
+                if "mdx" in args:
+                    export_mdx(shout)
+                pub_counter += 1
 
-        # print main counter
-        counter += 1
-        line = str(counter + 1) + ": " + shout["slug"] + " @" + author["slug"]
-        print(line)
+            # print main counter
+            counter += 1
+            line = str(counter + 1) + ": " + shout["slug"] + " @" + author["slug"]
+            print(line)
 
-        b = bs4.BeautifulSoup(shout["body"], "html.parser")
-        texts = [shout["title"].lower().replace(r"[^а-яА-Яa-zA-Z]", "")]
-        texts = texts + b.findAll(text=True)
-        topics_dataset_bodies.append(" ".join([x.strip().lower() for x in texts]))
-        topics_dataset_tlist.append(shout["topics"])
+            b = bs4.BeautifulSoup(shout["body"], "html.parser")
+            texts = [shout["title"].lower().replace(r"[^а-яА-Яa-zA-Z]", "")]
+            texts = texts + b.findAll(text=True)
+            topics_dataset_bodies.append(" ".join([x.strip().lower() for x in texts]))
+            topics_dataset_tlist.append(shout["topics"])
+        else:
+            ignored += 1
 
     # np.savetxt('topics_dataset.csv', (topics_dataset_bodies, topics_dataset_tlist), delimiter=',
     # ', fmt='%s')
 
     print("[migration] " + str(counter) + " content items were migrated")
+    print("[migration] " + str(ignored) + " content items were ignored")
     print("[migration] " + str(pub_counter) + " have been published")
     print("[migration] " + str(discours_author) + " authored by @discours")
     print("[migration] " + str(anonymous_author) + " authored by @anonymous")
@@ -182,8 +187,6 @@ async def all_handle(storage, args):
     await users_handle(storage)
     await topics_handle(storage)
     print("[migration] users and topics are migrated")
-    await redis.connect()
-    print("[migration] redis connected")
     await shouts_handle(storage, args)
     print("[migration] migrating comments")
     await comments_handle(storage)
@@ -314,6 +317,7 @@ async def main():
         cmd = sys.argv[1]
         if type(cmd) == str:
             print("[migration] command: " + cmd)
+        init_tables()
         await handle_auto()
     else:
         print("[migration] usage: python server.py migrate")

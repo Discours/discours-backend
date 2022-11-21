@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, JSON
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, JSON
 from sqlalchemy.orm import relationship
 
-from base.orm import Base
+from base.orm import Base, local_session
 from orm.reaction import Reaction
 from orm.topic import Topic
 from orm.user import User
@@ -43,7 +43,7 @@ class Shout(Base):
     __tablename__ = "shout"
 
     slug = Column(String, unique=True)
-    community = Column(Integer, ForeignKey("community.id"), nullable=False, comment="Community")
+    community = Column(ForeignKey("community.id"), default=1)
     lang = Column(String, nullable=False, default='ru', comment="Language")
     body = Column(String, nullable=False, comment="Body")
     title = Column(String, nullable=True)
@@ -56,7 +56,6 @@ class Shout(Base):
     reactions = relationship(lambda: Reaction)
     visibility = Column(String, nullable=True)  # owner authors community public
     versionOf = Column(ForeignKey("shout.slug"), nullable=True)
-    lang = Column(String, default='ru')
     oid = Column(String, nullable=True)
     media = Column(JSON, nullable=True)
 
@@ -64,3 +63,18 @@ class Shout(Base):
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
     publishedAt = Column(DateTime, nullable=True)
     deletedAt = Column(DateTime, nullable=True)
+
+    @staticmethod
+    def init_table():
+        with local_session() as session:
+            s = session.query(Shout).first()
+            if not s:
+                entry = {
+                    "slug": "genesis-block",
+                    "body": "",
+                    "title": "Ничего",
+                    "lang": "ru"
+                }
+                s = Shout.create(**entry)
+                session.add(s)
+                session.commit()
