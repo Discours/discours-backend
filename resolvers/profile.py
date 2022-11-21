@@ -212,3 +212,10 @@ async def load_authors_by(_, info, by, limit, offset):
     authors = list(set(authors))
     # authors = sorted(authors, key=lambda a: a["stat"].get(by.get("stat")))
     return authors
+
+
+@query.field("getAuthor")
+async def get_author(_, _info, slug):
+    author = await AuthorsStorage.get_author(slug)
+    author.stat = await get_author_stat(author.slug)
+    return author
