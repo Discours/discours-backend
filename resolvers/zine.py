@@ -104,14 +104,13 @@ async def load_shouts_by(_, info, options):
                 (Reaction.kind == ReactionKind.LIKE, 1),
                 (Reaction.kind == ReactionKind.DISLIKE, -1),
                 else_=0
-            )).label(options.get("order_by")))
+            )).label(o))
         order_by = o
     else:
         order_by = 'createdAt'
-    order_by_desc = True if options.get('order_by_desc') is None else options.get('order_by_desc')
-    query_order_by = desc(order_by) if order_by_desc else asc(order_by)
-    offset = options.get("offset") if options.get("offset") else 0
-    limit = options.get("limit") or 10
+    query_order_by = desc(order_by) if options.get("order_by_desc") else asc(order_by)
+    offset = options.get("offset", 0)
+    limit = options.get("limit", 10)
     q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
 
     with local_session() as session:
