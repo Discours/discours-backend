@@ -482,7 +482,7 @@ type TopicStat {
   shouts: Int!
   followers: Int!
   authors: Int!
-  viewed: Int!
+  viewed: Int
   reacted: Int!
   commented: Int
   rating: Int
