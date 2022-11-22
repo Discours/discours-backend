@@ -119,7 +119,7 @@ server {
         #
         # Custom headers and headers various browsers *should* be OK with but aren't
         #
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Auth';
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
         add_header 'Access-Control-Allow-Credentials' 'true';
         #
         # Tell client that this pre-flight info is valid for 20 days
@@ -133,7 +133,7 @@ server {
      if ($request_method = 'POST') {
         add_header 'Access-Control-Allow-Origin' '$allow_origin' always;
         add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Auth' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
         add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
         add_header 'Access-Control-Allow-Credentials' 'true' always;
      }
@@ -141,7 +141,7 @@ server {
      if ($request_method = 'GET') {
         add_header 'Access-Control-Allow-Origin' '$allow_origin' always;
         add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Auth' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
         add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
         add_header 'Access-Control-Allow-Credentials' 'true' always;
      }

@@ -18,6 +18,7 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
 from resolvers.zine.profile import user_subscriptions
+from settings import SESSION_TOKEN_HEADER
 
 
 @mutation.field("refreshSession")
@@ -143,7 +144,6 @@ async def auth_send_link(_, _info, email, lang="ru"):
 
 @query.field("signIn")
 async def login(_, info, email: str, password: str = "", lang: str = "ru"):
-
     with local_session() as session:
         orm_user = session.query(User).filter(User.email == email).first()
         if orm_user is None:
@@ -182,7 +182,7 @@ async def login(_, info, email: str, password: str = "", lang: str = "ru"):
 @query.field("signOut")
 @login_required
 async def sign_out(_, info: GraphQLResolveInfo):
-    token = info.context["request"].headers.get("Auth", "")
+    token = info.context["request"].headers.get(SESSION_TOKEN_HEADER, "")
     status = await TokenStorage.revoke(token)
     return status
 
