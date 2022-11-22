@@ -155,18 +155,17 @@ async def migrate(entry, storage):
         r["deletedAt"] = date_parse(entry["deletedAt"])
 
     # topics
-    category = entry["category"]
-    mainTopic = topics_by_oid.get(category)
-    if mainTopic:
-        r["mainTopic"] = storage["replacements"].get(mainTopic["slug"], mainTopic["slug"])
-    topic_oids = [category, ]
-    topic_oids.extend(entry.get("tags", []))
-    for oid in topic_oids:
-        if oid in storage["topics"]["by_oid"]:
-            r["topics"].add(storage["topics"]["by_oid"][oid]["slug"])
-        else:
-            print("[migration] unknown old topic id: " + oid)
+    category = entry.get("category")
+    for oid in [category, ] + entry.get("tags", []):
+        t = storage["topics"]["by_oid"].get(oid)
+        if t:
+            tslug = storage["topics"]["by_oid"][oid]["slug"]
+            r["topics"].add(tslug)
     r["topics"] = list(r["topics"])
+    # main topic
+    mt = topics_by_oid.get(category)
+    if mt and mt.get("slug"):
+        r["mainTopic"] = storage["replacements"].get(mt["slug"]) or r["topics"][0]
 
     # add author as TopicFollower
     with local_session() as session:
@@ -187,8 +186,10 @@ async def migrate(entry, storage):
                     )
                     session.add(tf)
             except IntegrityError:
-                print('[migration.shout] skipped by topic ' + tpc)
-                return
+                print('[migration.shout] hidden by topic ' + tpc)
+                r["visibility"] = "authors"
+                r["publishedAt"] = None
+                r["topics"].remove(tpc)
 
     entry["topics"] = r["topics"]
     entry["cover"] = r["cover"]
@@ -196,7 +197,7 @@ async def migrate(entry, storage):
     # body
     r["body"], media = prepare_html_body(entry)
     if media:
-        r["media"] = json.dumps(media)
+        r["media"] = json.dumps(media, ensure_ascii=True)
     # save shout to db
     s = object()
     shout_dict = r.copy()

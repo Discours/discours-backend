@@ -102,12 +102,15 @@ class ViewedStorage:
 
     @staticmethod
     async def init():
-        self = ViewedStorage
-        async with self.lock:
-            self.client = create_client({
-                "Authorization": "Bearer %s" % str(token)
-            }, schema=schema_str)
-            print("[stat.viewed] authorized permanentely by ackee.discours.io: %s" % token)
+        if token:
+            self = ViewedStorage
+            async with self.lock:
+                self.client = create_client({
+                    "Authorization": "Bearer %s" % str(token)
+                }, schema=schema_str)
+                print("[stat.viewed] authorized permanentely by ackee.discours.io: %s" % token)
+        else:
+            print("[stat.viewed] please, set ACKEE_TOKEN")
 
     @staticmethod
     async def update(session):
