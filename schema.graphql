@@ -255,7 +255,7 @@ input ReactionBy {
     author: String
     order: String
     days: Int
-    stat: String
+    sort: String
 }
 ################################### Query
 

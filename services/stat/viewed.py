@@ -99,18 +99,20 @@ class ViewedStorage:
     period = 24 * 60 * 60  # one time a day
     client = None
     auth_result = None
+    disabled = False
 
     @staticmethod
     async def init():
-        if token:
-            self = ViewedStorage
-            async with self.lock:
+        self = ViewedStorage
+        async with self.lock:
+            if token:
                 self.client = create_client({
                     "Authorization": "Bearer %s" % str(token)
                 }, schema=schema_str)
                 print("[stat.viewed] authorized permanentely by ackee.discours.io: %s" % token)
-        else:
-            print("[stat.viewed] please, set ACKEE_TOKEN")
+            else:
+                print("[stat.viewed] please set ACKEE_TOKEN")
+                self.disabled = True
 
     @staticmethod
     async def update(session):
@@ -203,26 +205,29 @@ class ViewedStorage:
 
     @staticmethod
     async def worker():
-        self = ViewedStorage
         failed = 0
-        while True:
-            try:
-                with local_session() as session:
-                    # await self.update(session)
-                    await self.update_pages(session)
-                    failed = 0
-            except Exception:
-                failed += 1
-                print("[stat.viewed] update failed #%d, wait 10 seconds" % failed)
-                if failed > 3:
-                    print("[stat.viewed] not trying to update anymore")
-                    break
-            if failed == 0:
-                when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
-                t = format(when.astimezone().isoformat())
-                t = t.split("T")[0] + " " + t.split("T")[1].split(".")[0]
-                print("[stat.viewed] next update: %s" % t)
-                await asyncio.sleep(self.period)
-            else:
-                await asyncio.sleep(10)
-                print("[stat.viewed] trying to update data again...")
+        self = ViewedStorage
+        if self.disabled:
+            return
+        async with self.lock:
+            while True:
+                try:
+                    with local_session() as session:
+                        # await self.update(session)
+                        await self.update_pages(session)
+                        failed = 0
+                except Exception:
+                    failed += 1
+                    print("[stat.viewed] update failed #%d, wait 10 seconds" % failed)
+                    if failed > 3:
+                        print("[stat.viewed] not trying to update anymore")
+                        break
+                if failed == 0:
+                    when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
+                    t = format(when.astimezone().isoformat())
+                    t = t.split("T")[0] + " " + t.split("T")[1].split(".")[0]
+                    print("[stat.viewed] next update: %s" % t)
+                    await asyncio.sleep(self.period)
+                else:
+                    await asyncio.sleep(10)
+                    print("[stat.viewed] trying to update data again...")

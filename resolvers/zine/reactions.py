@@ -199,33 +199,13 @@ async def delete_reaction(_, info, rid):
     return {}
 
 
-@query.field("loadReactionsBy")
-async def load_reactions_by(_, info, by, limit=50, offset=0):
-    """
-    :param by: {
-        shout: 'some-slug'
-        author: 'discours',
-        topic: 'culture',
-        body: 'something else',
-        stat: 'rating' | 'comments' | 'reacted' | 'views',
-        days: 30
-    }
-    :param limit: int amount of shouts
-    :param offset: int offset in this order
-    :return: Reaction[]
-    """
-
-    q = select(Reaction).join(
-        Shout
-    ).where(
-        Reaction.deletedAt.is_(None)
-    )
-    if by.get("slug"):
+def prepare_reactions(q, by, user=None):
+    if by.get("shout"):
         q = q.filter(Shout.slug == by["slug"])
     else:
         if by.get("reacted"):
-            user = info.context["request"].user
-            q = q.filter(Reaction.createdBy == user.slug)
+            if user:
+                q = q.filter(Reaction.createdBy == user.slug)
         if by.get("author"):
             q = q.filter(Reaction.createdBy == by["author"])
         if by.get("topic"):
@@ -240,8 +220,40 @@ async def load_reactions_by(_, info, by, limit=50, offset=0):
             q = q.filter(Reaction.createdAt > before)
 
         q = q.group_by(Reaction.id).order_by(
-            desc(by.get("order") or Reaction.createdAt)
-        ).limit(limit).offset(offset)
+            desc(by.get("sort") or Reaction.createdAt)
+        )
+    return q
+
+
+@query.field("loadReactionsBy")
+async def load_reactions_by(_, info, by, limit=50, offset=0):
+    """
+    :param by: {
+        shout: 'some-slug'
+        author: 'discours',
+        topic: 'culture',
+        body: 'something else' | true,
+        sort: 'rating' | 'comments' | 'reacted' | 'views',
+        days: 30
+    }
+    :param limit: int amount of shouts
+    :param offset: int offset in this order
+    :return: Reaction[]
+    """
+    user = None
+    try:
+        user = info.context["request"].user
+    except Exception:
+        pass
+
+    q = select(Reaction).join(
+        Shout,
+        Reaction.shout == Shout.slug
+    ).where(
+        Reaction.deletedAt.is_(None)
+    )
+    q = prepare_reactions(q, by, user)
+    q = q.limit(limit).offset(offset)
 
     rrr = []
     with local_session() as session:
