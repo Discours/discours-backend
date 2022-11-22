@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, asc, desc, select, text, func, selectinload
+from sqlalchemy import and_, asc, desc, select, text, func
+from sqlalchemy.orm import selectinload
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
