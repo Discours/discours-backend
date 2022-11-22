@@ -201,7 +201,7 @@ async def delete_reaction(_, info, rid):
 
 def prepare_reactions(q, by, user=None):
     if by.get("shout"):
-        q = q.filter(Shout.slug == by["slug"])
+        q = q.filter(Shout.slug == by["shout"])
     else:
         if by.get("reacted"):
             if user:
