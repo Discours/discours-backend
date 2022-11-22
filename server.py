@@ -59,7 +59,7 @@ if __name__ == "__main__":
             ("Access-Control-Allow-Origin", "http://localhost:3000"),
             (
                 "Access-Control-Allow-Headers",
-                "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Auth",
+                "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization",
             ),
             ("Access-Control-Expose-Headers", "Content-Length,Content-Range"),
             ("Access-Control-Allow-Credentials", "true"),

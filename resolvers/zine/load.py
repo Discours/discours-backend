@@ -10,7 +10,8 @@ from services.zine.shoutauthor import ShoutAuthorStorage
 from services.stat.reacted import ReactedStorage
 
 
-def apply_filters(filters, q, user=None):
+def apply_filters(q, filters, user=None):
+    filters = {} if filters is None else filters
     if filters.get("reacted") and user:
         q.join(Reaction, Reaction.createdBy == user.slug)
     if filters.get("visibility"):
@@ -106,7 +107,7 @@ async def load_shouts_by(_, info, options):
         Shout.deletedAt.is_(None)
     )
     user = info.context["request"].user
-    q = apply_filters(options.get("filters"), q, user)
+    q = apply_filters(q, options.get("filters"), user)
 
     order_by = extract_order(options.get("order_by"), q)
 
