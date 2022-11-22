@@ -1,8 +1,8 @@
 import sys
-
+import os
 import uvicorn
 
-from settings import PORT
+from settings import PORT, DEV_SERVER_STATUS_FILE_NAME
 
 log_settings = {
     'version': 1,
@@ -54,6 +54,9 @@ if __name__ == "__main__":
         x = sys.argv[1]
     if x == "dev":
         print("DEV MODE")
+        if os.path.exists(DEV_SERVER_STATUS_FILE_NAME):
+            os.remove(DEV_SERVER_STATUS_FILE_NAME)
+
         headers = [
             ("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD"),
             ("Access-Control-Allow-Origin", "http://localhost:3000"),
@@ -65,14 +68,15 @@ if __name__ == "__main__":
             ("Access-Control-Allow-Credentials", "true"),
         ]
         uvicorn.run(
-            "main:app",
+            "main:dev_app",
             host="localhost",
             port=8080,
             headers=headers,
             # log_config=LOGGING_CONFIG,
             log_level=None,
-            access_log=True
-        )  # , ssl_keyfile="discours.key", ssl_certfile="discours.crt", reload=True)
+            access_log=True,
+            reload=True
+        )  # , ssl_keyfile="discours.key", ssl_certfile="discours.crt")
     elif x == "migrate":
         from migration import migrate
 
