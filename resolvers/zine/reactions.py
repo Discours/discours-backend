@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, desc, select, text, func
+from sqlalchemy import and_, asc, desc, select, text, func, selectinload
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
@@ -199,29 +199,31 @@ async def delete_reaction(_, info, rid):
     return {}
 
 
-def prepare_reactions(q, by, user=None):
+def prepare_reactions(q, by):
+    """ query filters and order """
     if by.get("shout"):
         q = q.filter(Shout.slug == by["shout"])
-    else:
-        if by.get("reacted"):
-            if user:
-                q = q.filter(Reaction.createdBy == user.slug)
-        if by.get("author"):
-            q = q.filter(Reaction.createdBy == by["author"])
-        if by.get("topic"):
-            q = q.filter(Shout.topics.contains(by["topic"]))
-        if by.get("body"):
-            if by["body"] is True:
-                q = q.filter(func.length(Reaction.body) > 0)
-            else:
-                q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
-        if by.get("days"):
-            before = datetime.now() - timedelta(days=int(by["days"]) or 30)
-            q = q.filter(Reaction.createdAt > before)
-
-        q = q.group_by(Reaction.id).order_by(
-            desc(by.get("sort") or Reaction.createdAt)
-        )
+    elif by.get("shouts"):
+        q = q.filter(Shout.slug.in_(by["shouts"]))
+    if by.get("createdBy"):
+        q = q.filter(Reaction.createdBy == by.get("createdBy"))
+    if by.get("topic"):
+        q = q.filter(Shout.topics.contains(by["topic"]))
+    if by.get("body"):
+        if by["body"] is True:
+            q = q.filter(func.length(Reaction.body) > 0)
+        else:
+            q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
+    if by.get("days"):
+        before = datetime.now() - timedelta(days=int(by["days"]) or 30)
+        q = q.filter(Reaction.createdAt > before)
+    order_way = asc if by.get("sort", "").startswith("-") else desc
+    order_field = by.get("sort") or Reaction.createdAt
+    q = q.group_by(
+        Reaction.id
+    ).order_by(
+        order_way(order_field)
+    )
     return q
 
 
@@ -229,12 +231,13 @@ def prepare_reactions(q, by, user=None):
 async def load_reactions_by(_, info, by, limit=50, offset=0):
     """
     :param by: {
-        shout: 'some-slug'
-        author: 'discours',
-        topic: 'culture',
-        body: 'something else' | true,
-        sort: 'rating' | 'comments' | 'reacted' | 'views',
-        days: 30
+        :shout - filter by slug
+        :shouts - filer by shouts  luglist
+        :createdBy - to filter by author
+        :topic - to filter by topic
+        :body - to search by body
+        :days - a number of days ago
+        :sort - a fieldname to sort desc by default
     }
     :param limit: int amount of shouts
     :param offset: int offset in this order
@@ -246,9 +249,15 @@ async def load_reactions_by(_, info, by, limit=50, offset=0):
     except Exception:
         pass
 
-    q = select(Reaction).join(
-        Shout,
-        Reaction.shout == Shout.slug
+    q = select(
+        Reaction
+    ).options(
+        selectinload(Reaction.createdBy),
+        selectinload(Reaction.shout)
+    ).join(
+        User, Reaction.createdBy == User.slug
+    ).join(
+        Shout, Reaction.shout == Shout.slug
     ).where(
         Reaction.deletedAt.is_(None)
     )

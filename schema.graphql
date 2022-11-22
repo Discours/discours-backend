@@ -252,8 +252,7 @@ input ReactionBy {
     shouts: [String]
     body: String
     topic: String
-    author: String
-    order: String
+    createdBy: String
     days: Int
     sort: String
 }
