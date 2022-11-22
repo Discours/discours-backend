@@ -262,7 +262,7 @@ async def load_reactions_by(_, info, by, limit=50, offset=0):
     ).where(
         Reaction.deletedAt.is_(None)
     )
-    q = prepare_reactions(q, by, user)
+    q = prepare_reactions(q, by)
     q = q.limit(limit).offset(offset)
 
     rrr = []
