@@ -25,6 +25,8 @@ async def send_auth_email(user, token, lang="ru"):
             "h:X-Mailgun-Variables": "{ \"token\": \"%s\" }" % token
         }
         print('[auth.email] payload: %r' % payload)
+        # debug
+        # print('http://localhost:3000/?modal=auth&mode=confirm-email&token=%s' % token)
         response = requests.post(
             api_url,
             auth=("api", MAILGUN_API_KEY),

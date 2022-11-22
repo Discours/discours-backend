@@ -24,3 +24,4 @@ for provider in OAUTH_PROVIDERS:
     }
 
 SHOUTS_REPO = "content"
+SESSION_TOKEN_HEADER = "Authorization"

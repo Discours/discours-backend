@@ -11,6 +11,7 @@ from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
 from base.exceptions import InvalidToken
 from services.auth.users import UserStorage
+from settings import SESSION_TOKEN_HEADER
 
 
 class SessionToken:
@@ -48,10 +49,12 @@ class JWTAuthenticate(AuthenticationBackend):
     async def authenticate(
         self, request: HTTPConnection
     ) -> Optional[Tuple[AuthCredentials, AuthUser]]:
-        if "Auth" not in request.headers:
+
+        if SESSION_TOKEN_HEADER not in request.headers:
             return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-        token = request.headers.get("Auth", "")
+        token = request.headers.get(SESSION_TOKEN_HEADER, "")
+
         try:
             payload = await SessionToken.verify(token)
         except Exception as exc:

@@ -7,7 +7,7 @@ Tech stack:
 - ariadne
 - starlette
 
-# Local development 
+# Local development
 
 Install deps first
 
@@ -40,5 +40,5 @@ python3 server.py dev
 
 # How to do an authorized request
 
-Put the header 'Auth' with token from signInQuery or registerQuery.
+Put the header 'Authorization' with token from signInQuery or registerQuery.
 
