@@ -10,10 +10,10 @@ from base.orm import local_session
 async def storages_init():
     with local_session() as session:
         print('[main] initialize storages')
-        ViewedStorage.init()
         ReactedStorage.init(session)
         RoleStorage.init(session)
         UserStorage.init(session)
         TopicStorage.init(session)
         await SearchService.init(session)
         session.commit()
+        await ViewedStorage.init()
