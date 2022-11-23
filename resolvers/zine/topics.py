@@ -6,7 +6,7 @@ from base.resolvers import mutation, query
 from orm import Shout
 from orm.topic import Topic, TopicFollower
 from services.zine.topics import TopicStorage
-from services.stat.reacted import ReactedStorage
+# from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
 
 
@@ -19,9 +19,9 @@ async def get_topic_stat(slug):
         "authors": len(TopicStat.authors_by_topic.get(slug, {}).keys()),
         "followers": len(TopicStat.followers_by_topic.get(slug, {}).keys()),
         # "viewed": await ViewedStorage.get_topic(slug),
-        "reacted": len(await ReactedStorage.get_topic(slug)),
-        "commented": len(await ReactedStorage.get_topic_comments(slug)),
-        "rating": await ReactedStorage.get_topic_rating(slug)
+        # "reacted": len(await ReactedStorage.get_topic(slug)),
+        # "commented": len(await ReactedStorage.get_topic_comments(slug)),
+        # "rating": await ReactedStorage.get_topic_rating(slug)
     }
 
 

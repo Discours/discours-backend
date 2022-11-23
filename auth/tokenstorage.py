@@ -42,7 +42,7 @@ class TokenStorage:
             payload = JWTCodec.decode(token)
         except:  # noqa
             pass
-        finally:
+        else:
             await redis.execute("DEL", f"{payload.user_id}-{token}")
         return True
 
