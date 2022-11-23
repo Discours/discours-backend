@@ -8,10 +8,8 @@ from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 class JWTCodec:
     @staticmethod
     def encode(user: AuthInput, exp: datetime) -> str:
-        issued = int(datetime.now().timestamp())
-        print('[auth.jwtcodec] issued at %r' % issued)
-        expires = int(exp.timestamp())
-        print('[auth.jwtcodec] expires at %r' % expires)
+        expires = int(exp.timestamp() * 1000)
+        issued = int(datetime.now().timestamp() * 1000)
         payload = {
             "user_id": user.id,
             "username": user.email or user.phone,
@@ -42,8 +40,10 @@ class JWTCodec:
             print('[auth.jwtcodec] debug payload %r' % r)
             return r
         except jwt.InvalidIssuedAtError:
+            print('[auth.jwtcodec] invalid issued at: %r' % r)
             raise ExpiredToken('check token issued time')
         except jwt.ExpiredSignatureError:
+            print('[auth.jwtcodec] expired signature %r' % r)
             raise ExpiredToken('check token lifetime')
         except jwt.InvalidTokenError:
             raise InvalidToken('token is not valid')

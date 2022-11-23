@@ -477,9 +477,9 @@ type TopicStat {
   followers: Int!
   authors: Int!
   # viewed: Int
-  reacted: Int!
-  commented: Int
-  rating: Int
+  # reacted: Int!
+  #commented: Int
+  # rating: Int
 }
 
 type Topic {
