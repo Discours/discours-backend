@@ -74,7 +74,7 @@ if __name__ == "__main__":
             headers=headers,
             # log_config=LOGGING_CONFIG,
             log_level=None,
-            access_log=False,
+            access_log=True,
             reload=True
         )  # , ssl_keyfile="discours.key", ssl_certfile="discours.crt")
     elif x == "migrate":
