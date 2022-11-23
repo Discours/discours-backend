@@ -1,5 +1,5 @@
 from aioredis import from_url
-
+from asyncio import sleep
 from settings import REDIS_URL
 
 
@@ -21,7 +21,12 @@ class RedisCache:
         self._instance = None
 
     async def execute(self, command, *args, **kwargs):
-        return await self._instance.execute_command(command, *args, **kwargs)
+        while not self._instance:
+            await sleep(1)
+            try:
+                await self._instance.execute_command(command, *args, **kwargs)
+            except Exception:
+                pass
 
     async def lrange(self, key, start, stop):
         return await self._instance.lrange(key, start, stop)

@@ -81,6 +81,7 @@ class Identity:
     @staticmethod
     async def onetime(token: str) -> User:
         try:
+            print('[auth.identity] using one time token')
             payload = JWTCodec.decode(token)
             if not await TokenStorage.exist(f"{payload.user_id}-{token}"):
                 raise InvalidToken("Login token has expired, please login again")

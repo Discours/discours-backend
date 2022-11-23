@@ -42,6 +42,7 @@ async def get_current_user(_, info):
 async def confirm_email(_, info, token):
     """confirm owning email address"""
     try:
+        print('[resolvers.auth] confirm email by token')
         payload = JWTCodec.decode(token)
         user_id = payload.user_id
         await TokenStorage.get(f"{user_id}-{token}")
