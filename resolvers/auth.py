@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
 from graphql.type import GraphQLResolveInfo
@@ -26,7 +26,7 @@ from settings import SESSION_TOKEN_HEADER
 async def get_current_user(_, info):
     print('[resolvers.auth] get current user %s' % str(info))
     user = info.context["request"].user
-    user.lastSeen = datetime.now()
+    user.lastSeen = datetime.now(tz=timezone.utc)
     with local_session() as session:
         session.add(user)
         session.commit()
@@ -50,7 +50,7 @@ async def confirm_email(_, info, token):
             user = session.query(User).where(User.id == user_id).first()
             session_token = await TokenStorage.create_session(user)
             user.emailConfirmed = True
-            user.lastSeen = datetime.now()
+            user.lastSeen = datetime.now(tz=timezone.utc)
             session.add(user)
             session.commit()
             return {

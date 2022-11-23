@@ -1,5 +1,5 @@
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, func
 from sqlalchemy.orm import selectinload
 
@@ -203,10 +203,10 @@ async def load_authors_by(_, info, by, limit, offset):
             aaa = list(map(lambda a: a.slug, TopicStat.authors_by_topic.get(by["topic"])))
             aq = aq.filter(User.name._in(aaa))
         if by.get("lastSeen"):  # in days
-            days_before = datetime.now() - timedelta(days=by["lastSeen"])
+            days_before = datetime.now(tz=timezone.utc) - timedelta(days=by["lastSeen"])
             aq = aq.filter(User.lastSeen > days_before)
         elif by.get("createdAt"):  # in days
-            days_before = datetime.now() - timedelta(days=by["createdAt"])
+            days_before = datetime.now(tz=timezone.utc) - timedelta(days=by["createdAt"])
             aq = aq.filter(User.createdAt > days_before)
         aq = aq.group_by(
             User.id

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from auth.authenticate import login_required
 from base.orm import local_session
@@ -71,7 +71,7 @@ async def update_shout(_, info, inp):
                 return {"error": "access denied"}
         else:
             shout.update(inp)
-            shout.updatedAt = datetime.now()
+            shout.updatedAt = datetime.now(tz=timezone.utc)
             session.add(shout)
             if inp.get("topics"):
                 # remove old links
@@ -103,7 +103,7 @@ async def delete_shout(_, info, slug):
             return {"error": "access denied"}
         for a in authors:
             reactions_unfollow(a.slug, slug, True)
-        shout.deletedAt = datetime.now()
+        shout.deletedAt = datetime.now(tz=timezone.utc)
         session.add(shout)
         session.commit()
 

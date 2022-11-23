@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import jwt
 from base.exceptions import ExpiredToken, InvalidToken
 from validations.auth import TokenPayload, AuthInput
@@ -8,13 +8,11 @@ from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 class JWTCodec:
     @staticmethod
     def encode(user: AuthInput, exp: datetime) -> str:
-        expires = int(exp.timestamp() * 1000)
-        issued = int(datetime.now().timestamp() * 1000)
+        issued = datetime.now(tz=timezone.utc)
         payload = {
             "user_id": user.id,
             "username": user.email or user.phone,
-            # "device": device,  # no use cases
-            "exp": expires,
+            "exp": exp,
             "iat": issued,
             "iss": "discours"
         }

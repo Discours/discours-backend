@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from auth.authenticate import login_required
 from base.redis import redis
@@ -83,7 +83,7 @@ async def load_messages_by(_, info, by, limit: int = 50, offset: int = 0):
     days = by.get("days")
     if days:
         messages = filter(
-            lambda m: datetime.now() - int(m["createdAt"]) < timedelta(days=by.get("days")),
+            lambda m: datetime.now(tz=timezone.utc) - int(m["createdAt"]) < timedelta(days=by.get("days")),
             messages
         )
     return {

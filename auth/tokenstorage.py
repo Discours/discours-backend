@@ -9,7 +9,7 @@ from settings import SESSION_TOKEN_LIFE_SPAN, ONETIME_TOKEN_LIFE_SPAN
 async def save(token_key, life_span, auto_delete=True):
     await redis.execute("SET", token_key, "True")
     if auto_delete:
-        expire_at = (datetime.now() + timedelta(seconds=life_span)).timestamp()
+        expire_at = (datetime.now(tz=timezone.utc) + timedelta(seconds=life_span)).timestamp()
         await redis.execute("EXPIREAT", token_key, int(expire_at))
 
 
