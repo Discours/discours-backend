@@ -3,7 +3,7 @@ from datetime import timedelta, timezone, datetime
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from base.orm import local_session
-from sqlalchemy import func, select
+from sqlalchemy import func
 from orm.shout import ShoutTopic
 from orm.viewed import ViewedEntry
 from ssl import create_default_context
@@ -119,12 +119,14 @@ class ViewedStorage:
             if not shout_views:
                 shout_views = 0
                 with local_session() as session:
-                    shout_views_q = select(func.sum(ViewedEntry.amount)).where(
-                        ViewedEntry.shout == shout_slug
-                    )
-                    shout_views = session.execute(shout_views_q)
-                    self.by_shouts[shout_slug] = shout_views
-                    self.update_topics(session, shout_slug)
+                    try:
+                        shout_views = session.query(func.sum(ViewedEntry.amount)).where(
+                            ViewedEntry.shout == shout_slug
+                        ).all()[0][0]
+                        self.by_shouts[shout_slug] = shout_views
+                        self.update_topics(session, shout_slug)
+                    except Exception as e:
+                        raise e
 
             return shout_views
 

@@ -176,7 +176,7 @@ async def login(_, info, email: str, password: str = "", lang: str = "ru"):
                     }
                 except InvalidPassword:
                     print(f"[auth] {email}: invalid password")
-                    raise InvalidPassword("invalid passoword")  # contains webserver status
+                    raise InvalidPassword("invalid password")  # contains webserver status
                     # return {"error": "invalid password"}
 
 
