@@ -31,6 +31,7 @@ def apply_filters(q, filters, user=None):
         q = q.filter(Shout.createdAt > before)
     return q
 
+
 @query.field("loadShout")
 async def load_shout(_, info, slug):
     with local_session() as session:

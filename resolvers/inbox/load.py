@@ -33,18 +33,24 @@ async def load_messages(chatId: str, limit: int, offset: int):
 async def load_chats(_, info, limit: int, offset: int):
     """ load :limit chats of current user with :offset """
     user = info.context["request"].user
-    chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
-    if chats:
-        chats = list(json.loads(chats))[offset:offset + limit]
-    if not chats:
-        chats = []
-    for c in chats:
-        c['messages'] = await load_messages(c['id'], limit, offset)
-        c['unread'] = await get_unread_counter(c['id'], user.slug)
-    return {
-        "chats": chats,
-        "error": None
-    }
+    if user:
+        chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
+        if chats:
+            chats = list(json.loads(chats))[offset:offset + limit]
+        if not chats:
+            chats = []
+        for c in chats:
+            c['messages'] = await load_messages(c['id'], limit, offset)
+            c['unread'] = await get_unread_counter(c['id'], user.slug)
+        return {
+            "chats": chats,
+            "error": None
+        }
+    else:
+        return {
+            "error": "please login",
+            "chats": []
+        }
 
 
 @query.field("loadMessagesBy")

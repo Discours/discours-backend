@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from sqlalchemy import and_, asc, desc, select, text, func, column
+from sqlalchemy import and_, asc, desc, select, text, func
 from sqlalchemy.orm import aliased
 
 from auth.authenticate import login_required
@@ -23,12 +23,10 @@ async def get_reaction_stat(reaction_id):
 def reactions_follow(user: User, slug: str, auto=False):
     with local_session() as session:
         following = (
-            session.query(ShoutReactionsFollower)
-                .where(and_(
+            session.query(ShoutReactionsFollower).where(and_(
                 ShoutReactionsFollower.follower == user.slug,
                 ShoutReactionsFollower.shout == slug
-            ))
-                .first()
+            )).first()
         )
         if not following:
             following = ShoutReactionsFollower.create(
@@ -43,12 +41,10 @@ def reactions_follow(user: User, slug: str, auto=False):
 def reactions_unfollow(user, slug):
     with local_session() as session:
         following = (
-            session.query(ShoutReactionsFollower)
-                .where(and_(
+            session.query(ShoutReactionsFollower).where(and_(
                 ShoutReactionsFollower.follower == user.slug,
                 ShoutReactionsFollower.shout == slug
-            ))
-                .first()
+            )).first()
         )
         if following:
             session.delete(following)
@@ -198,6 +194,7 @@ async def delete_reaction(_, info, rid):
         reaction.deletedAt = datetime.now()
         session.commit()
     return {}
+
 
 def map_result_item(result_item):
     reaction = result_item[0]

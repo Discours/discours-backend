@@ -28,6 +28,7 @@ class SessionToken:
                 token is of specified type
         """
         try:
+            print('[auth.authenticate] session token verify')
             payload = JWTCodec.decode(token)
         except ExpiredSignatureError:
             payload = JWTCodec.decode(token, verify_exp=False)
@@ -58,6 +59,8 @@ class JWTAuthenticate(AuthenticationBackend):
         try:
             payload = await SessionToken.verify(token)
         except Exception as exc:
+            print("[auth.authenticate] session token verify error")
+            print(exc)
             return AuthCredentials(scopes=[], error_message=str(exc)), AuthUser(
                 user_id=None
             )

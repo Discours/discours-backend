@@ -23,10 +23,12 @@ class UserStorage:
     async def get_user(id):
         with local_session() as session:
             user = (
-                session.query(User)
-                    .options(selectinload(User.roles), selectinload(User.ratings))
-                    .filter(User.id == id)
-                    .one()
+                session.query(User).options(
+                    selectinload(User.roles),
+                    selectinload(User.ratings)
+                ).filter(
+                    User.id == id
+                ).one()
             )
 
             return user
