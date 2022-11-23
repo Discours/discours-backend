@@ -36,7 +36,7 @@ class ReactedStorage:
     @staticmethod
     async def get_shout_stat(slug):
         viewed = int(await ViewedStorage.get_shout(slug))
-        print(viewed)
+        # print(viewed)
         return {
             "viewed": viewed,
             "reacted": len(await ReactedStorage.get_shout(slug)),
