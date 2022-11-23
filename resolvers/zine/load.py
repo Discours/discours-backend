@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import sqlalchemy as sa
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import desc, asc, select, case
 from base.orm import local_session
 from base.resolvers import query
@@ -37,8 +37,8 @@ async def load_shout(_, info, slug):
     with local_session() as session:
         shout = session.query(Shout).options(
             # TODO add cation
-            selectinload(Shout.authors),
-            selectinload(Shout.topics),
+            joinedload(Shout.authors),
+            joinedload(Shout.topics),
         ).filter(
             Shout.slug == slug
         ).filter(
@@ -46,6 +46,12 @@ async def load_shout(_, info, slug):
         ).one()
 
         return shout
+
+
+def map_result_item(result_item):
+    shout = result_item[0]
+    shout.rating = result_item[1]
+    return shout
 
 
 @query.field("loadShouts")
@@ -71,14 +77,24 @@ async def load_shouts_by(_, info, options):
     """
 
     q = select(Shout).options(
-        # TODO add caption
-        selectinload(Shout.authors),
-        selectinload(Shout.topics),
+        joinedload(Shout.authors),
+        joinedload(Shout.topics),
     ).where(
         Shout.deletedAt.is_(None)
     )
     user = info.context["request"].user
     q = apply_filters(q, options.get("filters"), user)
+    q = q.join(Reaction).add_columns(sa.func.sum(case(
+        (Reaction.kind == ReactionKind.AGREE, 1),
+        (Reaction.kind == ReactionKind.DISAGREE, -1),
+        (Reaction.kind == ReactionKind.PROOF, 1),
+        (Reaction.kind == ReactionKind.DISPROOF, -1),
+        (Reaction.kind == ReactionKind.ACCEPT, 1),
+        (Reaction.kind == ReactionKind.REJECT, -1),
+        (Reaction.kind == ReactionKind.LIKE, 1),
+        (Reaction.kind == ReactionKind.DISLIKE, -1),
+        else_=0
+    )).label('rating'))
 
     o = options.get("order_by")
     if o:
@@ -92,21 +108,9 @@ async def load_shouts_by(_, info, options):
             ).add_columns(
                 sa.func.max(Reaction.createdAt).label(o)
             )
-        elif o == "rating":
-            q = q.join(Reaction).add_columns(sa.func.sum(case(
-                (Reaction.kind == ReactionKind.AGREE, 1),
-                (Reaction.kind == ReactionKind.DISAGREE, -1),
-                (Reaction.kind == ReactionKind.PROOF, 1),
-                (Reaction.kind == ReactionKind.DISPROOF, -1),
-                (Reaction.kind == ReactionKind.ACCEPT, 1),
-                (Reaction.kind == ReactionKind.REJECT, -1),
-                (Reaction.kind == ReactionKind.LIKE, 1),
-                (Reaction.kind == ReactionKind.DISLIKE, -1),
-                else_=0
-            )).label(o))
         order_by = o
     else:
-        order_by = 'createdAt'
+        order_by = Shout.createdAt
 
     order_by_desc = True if options.get('order_by_desc') is None else options.get('order_by_desc')
 
@@ -116,10 +120,13 @@ async def load_shouts_by(_, info, options):
     q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
 
     with local_session() as session:
-        shouts = list(map(lambda r: r.Shout, session.execute(q)))
-        for s in shouts:
-            s.stat = await ReactedStorage.get_shout_stat(s.slug)
-            for a in s.authors:
-                a.caption = await ShoutAuthorStorage.get_author_caption(s.slug, a.slug)
+        shouts = list(map(map_result_item, session.execute(q).unique()))
+
+        for shout in shouts:
+            shout.stat = await ReactedStorage.get_shout_stat(shout.slug, shout.rating)
+
+            del shout.rating
+            for author in shout.authors:
+                author.caption = await ShoutAuthorStorage.get_author_caption(shout.slug, author.slug)
 
     return shouts
