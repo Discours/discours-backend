@@ -30,7 +30,10 @@ async def create_shout(_, info, inp):
             new_shout = Shout.create({
                 "title": inp.get("title", body[:12] + '...'),
                 "body": body,
-                "authors": authors
+                "authors": authors,
+                "topics": inp.get("topics", []),
+                "mainTopic": inp.get("topics", []).pop(),
+                "visibility": "authors"
             })
             authors.remove(user.slug)
             if authors:
@@ -44,7 +47,6 @@ async def create_shout(_, info, inp):
                     "invites": authors
                 })
                 session.add(new_collab)
-                session.commit()
 
         # NOTE: shout made by one first author
         sa = ShoutAuthor.create(shout=new_shout.slug, user=user.slug)

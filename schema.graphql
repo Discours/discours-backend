@@ -187,8 +187,9 @@ type Mutation {
   deleteReaction(id: Int!): Result!
 
   # collab
-  inviteAuthor(author: String!, shout: String!): Result!
-  removeAuthor(author: String!, shout: String!): Result!
+  inviteCoauthor(author: String!, shout: int!): Result!
+  removeCouthor(author: String!, shout: Int!): Result!
+  acceptCoauthor(shout: Int!): Result!
 
   # following
   follow(what: FollowingEntity!, slug: String!): Result!
@@ -523,4 +524,5 @@ type Collab {
  invites: [String]
  shout: Shout
  chat: Chat
+ createdAt: Int!
 }
