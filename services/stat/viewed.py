@@ -1,4 +1,5 @@
 import asyncio
+import time
 from datetime import timedelta, timezone, datetime
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
@@ -8,7 +9,6 @@ from orm.shout import ShoutTopic
 from orm.viewed import ViewedEntry
 from ssl import create_default_context
 from os import environ, path
-
 
 load_facts = gql("""
 query getDomains {
@@ -82,8 +82,9 @@ class ViewedStorage:
                 self.disabled = True
 
     @staticmethod
-    async def update_pages(session):
+    async def update_pages():
         """ query all the pages from ackee sorted by views count """
+        start = time.time()
         self = ViewedStorage
         async with self.lock:
             try:
@@ -103,6 +104,9 @@ class ViewedStorage:
                 print("[stat.viewed] %d pages collected " % len(shouts.keys()))
             except Exception as e:
                 raise e
+
+        end = time.time()
+        print("[stat.viewed] update_pages took %fs " % (end - start))
 
     @staticmethod
     async def get_facts():
@@ -176,9 +180,8 @@ class ViewedStorage:
         async with self.lock:
             while True:
                 try:
-                    with local_session() as session:
-                        await self.update_pages(session)
-                        failed = 0
+                    await self.update_pages()
+                    failed = 0
                 except Exception:
                     failed += 1
                     print("[stat.viewed] update failed #%d, wait 10 seconds" % failed)
