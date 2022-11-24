@@ -1,14 +1,15 @@
-import random
-
-from sqlalchemy import and_
-
+import sqlalchemy as sa
+from sqlalchemy import and_, select
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
+from orm import Shout
 from orm.topic import Topic, TopicFollower
 from services.zine.topics import TopicStorage
-from services.stat.reacted import ReactedStorage
+# from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
+
+
 # from services.stat.viewed import ViewedStorage
 
 
@@ -18,9 +19,9 @@ async def get_topic_stat(slug):
         "authors": len(TopicStat.authors_by_topic.get(slug, {}).keys()),
         "followers": len(TopicStat.followers_by_topic.get(slug, {}).keys()),
         # "viewed": await ViewedStorage.get_topic(slug),
-        "reacted": len(await ReactedStorage.get_topic(slug)),
-        "commented": len(await ReactedStorage.get_topic_comments(slug)),
-        "rating": await ReactedStorage.get_topic_rating(slug)
+        # "reacted": len(await ReactedStorage.get_topic(slug)),
+        # "commented": len(await ReactedStorage.get_topic_comments(slug)),
+        # "rating": await ReactedStorage.get_topic_rating(slug)
     }
 
 
@@ -98,10 +99,10 @@ async def topic_unfollow(user, slug):
     with local_session() as session:
         sub = (
             session.query(TopicFollower)
-            .filter(
+                .filter(
                 and_(TopicFollower.follower == user.slug, TopicFollower.topic == slug)
             )
-            .first()
+                .first()
         )
         if not sub:
             raise Exception("[resolvers.topics] follower not exist")
@@ -113,11 +114,8 @@ async def topic_unfollow(user, slug):
 
 @query.field("topicsRandom")
 async def topics_random(_, info, amount=12):
-    topics = await TopicStorage.get_topics_all()
-    normalized_topics = []
-    for topic in topics:
-        topic.stat = await get_topic_stat(topic.slug)
-        if topic.stat["shouts"] > 2:
-            normalized_topics.append(topic)
-    sample_length = min(len(normalized_topics), amount)
-    return random.sample(normalized_topics, sample_length)
+    with local_session() as session:
+        q = select(Topic).join(Shout).group_by(Topic.id).having(sa.func.count(Shout.id) > 2).order_by(
+            sa.func.random()).limit(amount)
+        random_topics = list(map(lambda result_item: result_item.Topic, session.execute(q)))
+        return random_topics

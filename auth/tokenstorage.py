@@ -36,7 +36,9 @@ class TokenStorage:
 
     @staticmethod
     async def revoke(token: str) -> bool:
+        payload = None
         try:
+            print("[auth.tokenstorage] revoke token")
             payload = JWTCodec.decode(token)
         except:  # noqa
             pass

@@ -9,7 +9,7 @@ from starlette.requests import HTTPConnection
 from auth.credentials import AuthCredentials, AuthUser
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-from base.exceptions import InvalidToken
+from base.exceptions import ExpiredToken, InvalidToken
 from services.auth.users import UserStorage
 from settings import SESSION_TOKEN_HEADER
 
@@ -28,16 +28,17 @@ class SessionToken:
                 token is of specified type
         """
         try:
+            print('[auth.authenticate] session token verify')
             payload = JWTCodec.decode(token)
         except ExpiredSignatureError:
             payload = JWTCodec.decode(token, verify_exp=False)
             if not await cls.get(payload.user_id, token):
-                raise InvalidToken("Session token has expired, please try again")
+                raise ExpiredToken("Token signature has expired, please try again")
         except DecodeError as e:
             raise InvalidToken("token format error") from e
         else:
             if not await cls.get(payload.user_id, token):
-                raise InvalidToken("Session token has expired, please login again")
+                raise ExpiredToken("Session token has expired, please login again")
             return payload
 
     @classmethod
@@ -58,6 +59,8 @@ class JWTAuthenticate(AuthenticationBackend):
         try:
             payload = await SessionToken.verify(token)
         except Exception as exc:
+            print("[auth.authenticate] session token verify error")
+            print(exc)
             return AuthCredentials(scopes=[], error_message=str(exc)), AuthUser(
                 user_id=None
             )

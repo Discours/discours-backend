@@ -147,3 +147,4 @@ dump
 .vscode
 *dump.sql
 *.csv
+dev-server-status.txt

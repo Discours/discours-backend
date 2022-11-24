@@ -42,6 +42,7 @@ async def get_current_user(_, info):
 async def confirm_email(_, info, token):
     """confirm owning email address"""
     try:
+        print('[resolvers.auth] confirm email by token')
         payload = JWTCodec.decode(token)
         user_id = payload.user_id
         await TokenStorage.get(f"{user_id}-{token}")
@@ -175,7 +176,7 @@ async def login(_, info, email: str, password: str = "", lang: str = "ru"):
                     }
                 except InvalidPassword:
                     print(f"[auth] {email}: invalid password")
-                    raise InvalidPassword("invalid passoword")  # contains webserver status
+                    raise InvalidPassword("invalid password")  # contains webserver status
                     # return {"error": "invalid password"}
 
 

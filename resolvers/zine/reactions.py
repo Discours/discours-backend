@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
-
 from sqlalchemy import and_, asc, desc, select, text, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased
+
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
@@ -23,12 +23,10 @@ async def get_reaction_stat(reaction_id):
 def reactions_follow(user: User, slug: str, auto=False):
     with local_session() as session:
         following = (
-            session.query(ShoutReactionsFollower)
-            .where(and_(
+            session.query(ShoutReactionsFollower).where(and_(
                 ShoutReactionsFollower.follower == user.slug,
                 ShoutReactionsFollower.shout == slug
-            ))
-            .first()
+            )).first()
         )
         if not following:
             following = ShoutReactionsFollower.create(
@@ -43,12 +41,10 @@ def reactions_follow(user: User, slug: str, auto=False):
 def reactions_unfollow(user, slug):
     with local_session() as session:
         following = (
-            session.query(ShoutReactionsFollower)
-            .where(and_(
+            session.query(ShoutReactionsFollower).where(and_(
                 ShoutReactionsFollower.follower == user.slug,
                 ShoutReactionsFollower.shout == slug
-            ))
-            .first()
+            )).first()
         )
         if following:
             session.delete(following)
@@ -200,43 +196,23 @@ async def delete_reaction(_, info, rid):
     return {}
 
 
-def prepare_reactions(q, by):
-    """ query filters and order """
-    if by.get("shout"):
-        q = q.filter(Shout.slug == by["shout"])
-    elif by.get("shouts"):
-        q = q.filter(Shout.slug.in_(by["shouts"]))
-    if by.get("createdBy"):
-        q = q.filter(Reaction.createdBy == by.get("createdBy"))
-    if by.get("topic"):
-        q = q.filter(Shout.topics.contains(by["topic"]))
-    if by.get("body"):
-        if by["body"] is True:
-            q = q.filter(func.length(Reaction.body) > 0)
-        else:
-            q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
-    if by.get("days"):
-        before = datetime.now() - timedelta(days=int(by["days"]) or 30)
-        q = q.filter(Reaction.createdAt > before)
-    order_way = asc if by.get("sort", "").startswith("-") else desc
-    order_field = by.get("sort") or Reaction.createdAt
-    q = q.group_by(
-        Reaction.id
-    ).order_by(
-        order_way(order_field)
-    )
-    return q
+def map_result_item(result_item):
+    reaction = result_item[0]
+    user = result_item[1]
+    reaction.createdBy = user
+    return reaction
 
 
 @query.field("loadReactionsBy")
-async def load_reactions_by(_, info, by, limit=50, offset=0):
+async def load_reactions_by(_, _info, by, limit=50, offset=0):
     """
     :param by: {
         :shout - filter by slug
         :shouts - filer by shouts  luglist
         :createdBy - to filter by author
         :topic - to filter by topic
-        :body - to search by body
+        :search - to search by reactions' body
+        :comment - true if body.length > 0
         :days - a number of days ago
         :sort - a fieldname to sort desc by default
     }
@@ -244,33 +220,45 @@ async def load_reactions_by(_, info, by, limit=50, offset=0):
     :param offset: int offset in this order
     :return: Reaction[]
     """
-    user = None
-    try:
-        user = info.context["request"].user
-    except Exception:
-        pass
+
+    CreatedByUser = aliased(User)
 
     q = select(
-        Reaction
-    ).options(
-        selectinload(Reaction.createdBy),
-        selectinload(Reaction.shout)
-    ).join(
-        User, Reaction.createdBy == User.slug
-    ).join(
-        Shout, Reaction.shout == Shout.slug
-    ).where(
-        Reaction.deletedAt.is_(None)
+        Reaction, CreatedByUser
+    ).join(CreatedByUser, Reaction.createdBy == CreatedByUser.slug)
+
+    if by.get("shout"):
+        q = q.filter(Reaction.shout == by["shout"])
+    elif by.get("shouts"):
+        q = q.filter(Reaction.shout.in_(by["shouts"]))
+    if by.get("createdBy"):
+        q = q.filter(Reaction.createdBy == by.get("createdBy"))
+    if by.get("topic"):
+        q = q.filter(Shout.topics.contains(by["topic"]))
+    if by.get("comment"):
+        q = q.filter(func.length(Reaction.body) > 0)
+    if by.get('search', 0) > 2:
+        q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
+    if by.get("days"):
+        after = datetime.now() - timedelta(days=int(by["days"]) or 30)
+        q = q.filter(Reaction.createdAt > after)
+    order_way = asc if by.get("sort", "").startswith("-") else desc
+    order_field = by.get("sort") or Reaction.createdAt
+    q = q.group_by(
+        Reaction.id, CreatedByUser.id
+    ).order_by(
+        order_way(order_field)
     )
-    q = prepare_reactions(q, by, user)
+
+    q = q.where(Reaction.deletedAt.is_(None))
     q = q.limit(limit).offset(offset)
 
-    rrr = []
     with local_session() as session:
-        # post query stats and author's captions
-        for r in list(map(lambda r: r.Reaction, session.execute(q))):
-            r.stat = await get_reaction_stat(r.id)
-            rrr.append(r)
+        reactions = list(map(map_result_item, session.execute(q)))
+        for reaction in reactions:
+            reaction.stat = await get_reaction_stat(reaction.id)
+
         if by.get("stat"):
-            rrr.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
-    return rrr
+            reactions.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
+
+    return reactions

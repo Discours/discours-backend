@@ -248,13 +248,14 @@ input LoadShoutsOptions {
 }
 
 input ReactionBy {
-    shout: String
+    shout: String # slug
     shouts: [String]
-    body: String
-    topic: String
-    createdBy: String
-    days: Int
-    sort: String
+    search: String # fts on body
+    comment: Boolean
+    topic: String # topic.slug
+    createdBy: String # user.slug
+    days: Int # before
+    sort: String # how to sort, default createdAt
 }
 ################################### Query
 
@@ -476,9 +477,9 @@ type TopicStat {
   followers: Int!
   authors: Int!
   # viewed: Int
-  reacted: Int!
-  commented: Int
-  rating: Int
+  # reacted: Int!
+  #commented: Int
+  # rating: Int
 }
 
 type Topic {

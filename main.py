@@ -1,6 +1,6 @@
 import asyncio
 from importlib import import_module
-
+from os.path import exists
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
 from starlette.applications import Starlette
@@ -21,6 +21,8 @@ from services.stat.topicstat import TopicStat
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
 from services.zine.shoutauthor import ShoutAuthorStorage
+from settings import DEV_SERVER_STATUS_FILE_NAME
+
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
 
@@ -45,6 +47,15 @@ async def start_up():
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
 
+async def dev_start_up():
+    if exists(DEV_SERVER_STATUS_FILE_NAME):
+        return
+    else:
+        with open(DEV_SERVER_STATUS_FILE_NAME, 'w', encoding='utf-8') as f:
+            f.write('running')
+
+    await start_up()
+
 
 async def shutdown():
     await redis.disconnect()
@@ -64,3 +75,11 @@ app = Starlette(
     routes=routes,
 )
 app.mount("/", GraphQL(schema, debug=True))
+
+dev_app = app = Starlette(
+    debug=True,
+    on_startup=[dev_start_up],
+    middleware=middleware,
+    routes=routes,
+)
+dev_app.mount("/", GraphQL(schema, debug=True))
