@@ -185,8 +185,7 @@ async def get_authors_all(_, _info):
 async def get_author(_, _info, slug):
     with local_session() as session:
         author = session.query(User).join(ShoutAuthor).where(User.slug == slug).first()
-        for author in author:
-            author.stat = await get_author_stat(author.slug)
+        author.stat = await get_author_stat(author.slug)
     return author
 
 
