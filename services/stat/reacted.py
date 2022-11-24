@@ -34,14 +34,15 @@ class ReactedStorage:
     modified_shouts = set([])
 
     @staticmethod
-    async def get_shout_stat(slug):
+    async def get_shout_stat(slug, rating):
         viewed = int(await ViewedStorage.get_shout(slug))
         # print(viewed)
         return {
             "viewed": viewed,
             "reacted": len(await ReactedStorage.get_shout(slug)),
             "commented": len(await ReactedStorage.get_comments(slug)),
-            "rating": await ReactedStorage.get_rating(slug),
+            # "rating": await ReactedStorage.get_rating(slug),
+            "rating": rating
         }
 
     @staticmethod
