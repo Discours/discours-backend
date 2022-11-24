@@ -89,3 +89,18 @@ def login_required(func):
         return await func(parent, info, *args, **kwargs)
 
     return wrap
+
+
+def permission_required(resource, operation, func):
+    @wraps(func)
+    async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
+        # print('[auth.authenticate] login required for %r with info %r' % (func, info))  # debug only
+        auth: AuthCredentials = info.context["request"].auth
+        if not auth.logged_in:
+            return {"error": auth.error_message or "Please login"}
+
+        # TODO: add check permission logix
+
+        return await func(parent, info, *args, **kwargs)
+
+    return wrap

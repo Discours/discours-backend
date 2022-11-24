@@ -80,8 +80,8 @@ async def confirm_email_handler(request):
 
 def create_user(user_dict):
     user = User(**user_dict)
-    user.roles.append(Role.default_role)
     with local_session() as session:
+        user.roles.append(session.query(Role).first())
         session.add(user)
         session.commit()
     return user
