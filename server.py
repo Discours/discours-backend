@@ -48,37 +48,45 @@ log_settings = {
     }
 }
 
+local_headers = [
+    ("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD"),
+    ("Access-Control-Allow-Origin", "http://localhost:3000"),
+    (
+        "Access-Control-Allow-Headers",
+        "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization",
+    ),
+    ("Access-Control-Expose-Headers", "Content-Length,Content-Range"),
+    ("Access-Control-Allow-Credentials", "true"),
+]
+
 if __name__ == "__main__":
     x = ""
     if len(sys.argv) > 1:
         x = sys.argv[1]
     if x == "dev":
-        print("DEV MODE")
         if os.path.exists(DEV_SERVER_STATUS_FILE_NAME):
             os.remove(DEV_SERVER_STATUS_FILE_NAME)
 
-        headers = [
-            ("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD"),
-            ("Access-Control-Allow-Origin", "http://localhost:3000"),
-            (
-                "Access-Control-Allow-Headers",
-                "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization",
-            ),
-            ("Access-Control-Expose-Headers", "Content-Length,Content-Range"),
-            ("Access-Control-Allow-Credentials", "true"),
-        ]
+        want_reload = False
+        if "reload" in sys.argv:
+            print("MODE: DEV + RELOAD")
+            want_reload = True
+        else:
+            print("MODE: DEV")
+
         uvicorn.run(
             "main:dev_app",
             host="localhost",
             port=8080,
-            headers=headers,
+            headers=local_headers,
             # log_config=LOGGING_CONFIG,
             log_level=None,
             access_log=False,
-            reload=True
+            reload=want_reload
         )  # , ssl_keyfile="discours.key", ssl_certfile="discours.crt")
     elif x == "migrate":
         from migration import migrate
+        print("MODE: MIGRATE")
 
         migrate()
     else:

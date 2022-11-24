@@ -1,7 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean
-
+from sqlalchemy import Column, String, ForeignKey, DateTime
 from base.orm import Base, local_session
 
 
@@ -11,10 +10,10 @@ class CommunityFollower(Base):
     id = None  # type: ignore
     follower = Column(ForeignKey("user.slug"), primary_key=True)
     community = Column(ForeignKey("community.slug"), primary_key=True)
-    createdAt = Column(
+    joinedAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
-    auto = Column(Boolean, nullable=False, default=False)
+    # role = Column(ForeignKey(Role.id), nullable=False, comment="Role for member")
 
 
 class Community(Base):
@@ -27,7 +26,6 @@ class Community(Base):
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
-    createdBy = Column(ForeignKey("user.slug"), nullable=False, comment="Author")
 
     @staticmethod
     def init_table():
@@ -36,9 +34,7 @@ class Community(Base):
                 session.query(Community).filter(Community.slug == "discours").first()
             )
             if not d:
-                d = Community.create(
-                    name="Дискурс", slug="discours", createdBy="anonymous"
-                )
+                d = Community.create(name="Дискурс", slug="discours")
                 session.add(d)
                 session.commit()
             Community.default_community = d

@@ -20,7 +20,7 @@ class AuthCredentials(BaseModel):
         return True
 
     async def permissions(self) -> List[Permission]:
-        if self.user_id is not None:
+        if self.user_id is None:
             raise OperationNotAllowed("Please login first")
         return NotImplemented()
 

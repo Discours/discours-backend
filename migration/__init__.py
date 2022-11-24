@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 import bs4
 from migration.tables.comments import migrate as migrateComment
@@ -21,7 +21,7 @@ from orm import init_tables
 # from export import export_email_subscriptions
 from .export import export_mdx, export_slug
 
-TODAY = datetime.strftime(datetime.now(), "%Y%m%d")
+TODAY = datetime.strftime(datetime.now(tz=timezone.utc), "%Y%m%d")
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
 

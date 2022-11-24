@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from auth.authenticate import login_required
 from base.orm import local_session
@@ -37,7 +37,7 @@ async def invite_author(_, info, author, shout):
             if author.id in authors:
                 return {"error": "already added"}
             shout.authors.append(author)
-        shout.updated_at = datetime.now()
+        shout.updated_at = datetime.now(tz=timezone.utc)
         session.add(shout)
         session.commit()
 
@@ -63,7 +63,7 @@ async def remove_author(_, info, author, shout):
             if author.id not in authors:
                 return {"error": "not in authors"}
             shout.authors.remove(author)
-        shout.updated_at = datetime.now()
+        shout.updated_at = datetime.now(tz=timezone.utc)
         session.add(shout)
         session.commit()
 

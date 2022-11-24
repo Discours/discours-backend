@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sqlalchemy as sa
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import desc, asc, select, case
@@ -27,7 +27,7 @@ def apply_filters(q, filters, user=None):
     if filters.get("body"):
         q = q.filter(Shout.body.ilike(f'%{filters.get("body")}%s'))
     if filters.get("days"):
-        before = datetime.now() - timedelta(days=int(filters.get("days")) or 30)
+        before = datetime.now(tz=timezone.utc) - timedelta(days=int(filters.get("days")) or 30)
         q = q.filter(Shout.createdAt > before)
     return q
 

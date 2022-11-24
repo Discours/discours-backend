@@ -2,48 +2,14 @@ from functools import wraps
 from typing import Optional, Tuple
 
 from graphql.type import GraphQLResolveInfo
-from jwt import DecodeError, ExpiredSignatureError
 from starlette.authentication import AuthenticationBackend
 from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials, AuthUser
-from auth.jwtcodec import JWTCodec
-from auth.tokenstorage import TokenStorage
-from base.exceptions import ExpiredToken, InvalidToken
 from services.auth.users import UserStorage
 from settings import SESSION_TOKEN_HEADER
-
-
-class SessionToken:
-    @classmethod
-    async def verify(cls, token: str):
-        """
-        Rules for a token to be valid.
-        1. token format is legal &&
-                token exists in redis database &&
-                token is not expired
-        2. token format is legal &&
-                token exists in redis database &&
-                token is expired &&
-                token is of specified type
-        """
-        try:
-            print('[auth.authenticate] session token verify')
-            payload = JWTCodec.decode(token)
-        except ExpiredSignatureError:
-            payload = JWTCodec.decode(token, verify_exp=False)
-            if not await cls.get(payload.user_id, token):
-                raise ExpiredToken("Token signature has expired, please try again")
-        except DecodeError as e:
-            raise InvalidToken("token format error") from e
-        else:
-            if not await cls.get(payload.user_id, token):
-                raise ExpiredToken("Session token has expired, please login again")
-            return payload
-
-    @classmethod
-    async def get(cls, uid, token):
-        return await TokenStorage.get(f"{uid}-{token}")
+from auth.tokenstorage import SessionToken
+from base.exceptions import InvalidToken
 
 
 class JWTAuthenticate(AuthenticationBackend):
@@ -54,10 +20,18 @@ class JWTAuthenticate(AuthenticationBackend):
         if SESSION_TOKEN_HEADER not in request.headers:
             return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-        token = request.headers.get(SESSION_TOKEN_HEADER, "")
+        token = request.headers.get(SESSION_TOKEN_HEADER)
+        if not token:
+            print("[auth.authenticate] no token in header %s" % SESSION_TOKEN_HEADER)
+            return AuthCredentials(scopes=[], error_message=str("no token")), AuthUser(
+                user_id=None
+            )
 
         try:
-            payload = await SessionToken.verify(token)
+            if len(token.split('.')) > 1:
+                payload = await SessionToken.verify(token)
+            else:
+                InvalidToken("please try again")
         except Exception as exc:
             print("[auth.authenticate] session token verify error")
             print(exc)
@@ -84,8 +58,25 @@ def login_required(func):
     async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
         # print('[auth.authenticate] login required for %r with info %r' % (func, info))  # debug only
         auth: AuthCredentials = info.context["request"].auth
+        if auth and auth.user_id:
+            print(auth)  # debug only
         if not auth.logged_in:
             return {"error": auth.error_message or "Please login"}
+        return await func(parent, info, *args, **kwargs)
+
+    return wrap
+
+
+def permission_required(resource, operation, func):
+    @wraps(func)
+    async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
+        print('[auth.authenticate] permission_required for %r with info %r' % (func, info))  # debug only
+        auth: AuthCredentials = info.context["request"].auth
+        if not auth.logged_in:
+            return {"error": auth.error_message or "Please login"}
+
+        # TODO: add check permission logix
+
         return await func(parent, info, *args, **kwargs)
 
     return wrap

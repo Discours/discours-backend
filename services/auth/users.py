@@ -1,5 +1,5 @@
 import asyncio
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, exc
 from orm.user import User
 from base.orm import local_session
 
@@ -22,16 +22,18 @@ class UserStorage:
     @staticmethod
     async def get_user(id):
         with local_session() as session:
-            user = (
-                session.query(User).options(
-                    selectinload(User.roles),
-                    selectinload(User.ratings)
-                ).filter(
-                    User.id == id
-                ).one()
-            )
-
-            return user
+            try:
+                user = (
+                    session.query(User).options(
+                        selectinload(User.roles),
+                        selectinload(User.ratings)
+                    ).filter(
+                        User.id == id
+                    ).one()
+                )
+                return user
+            except exc.NoResultFound:
+                return None
 
     @staticmethod
     async def get_all_users():
