@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, asc, desc, select, text, func
 from sqlalchemy.orm import aliased
 
@@ -109,7 +109,7 @@ def check_to_hide(session, user, reaction):
 
 def set_published(session, slug, publisher):
     s = session.query(Shout).where(Shout.slug == slug).first()
-    s.publishedAt = datetime.now()
+    s.publishedAt = datetime.now(tz=timezone.utc)
     s.publishedBy = publisher
     s.visibility = text('public')
     session.add(s)
@@ -166,7 +166,7 @@ async def update_reaction(_, info, inp):
         if reaction.createdBy != user.slug:
             return {"error": "access denied"}
         reaction.body = inp["body"]
-        reaction.updatedAt = datetime.now()
+        reaction.updatedAt = datetime.now(tz=timezone.utc)
         if reaction.kind != inp["kind"]:
             # NOTE: change mind detection can be here
             pass
@@ -191,7 +191,7 @@ async def delete_reaction(_, info, rid):
             return {"error": "invalid reaction id"}
         if reaction.createdBy != user.slug:
             return {"error": "access denied"}
-        reaction.deletedAt = datetime.now()
+        reaction.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
     return {}
 
@@ -240,7 +240,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     if by.get('search', 0) > 2:
         q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
     if by.get("days"):
-        after = datetime.now() - timedelta(days=int(by["days"]) or 30)
+        after = datetime.now(tz=timezone.utc) - timedelta(days=int(by["days"]) or 30)
         q = q.filter(Reaction.createdAt > after)
     order_way = asc if by.get("sort", "").startswith("-") else desc
     order_field = by.get("sort") or Reaction.createdAt

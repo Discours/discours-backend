@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import frontmatter
 
@@ -11,7 +11,7 @@ OLD_DATE = "2016-03-05 22:22:00.350000"
 EXPORT_DEST = "../discoursio-web/data/"
 parentDir = "/".join(os.getcwd().split("/")[:-1])
 contentDir = parentDir + "/discoursio-web/content/"
-ts = datetime.now()
+ts = datetime.now(tz=timezone.utc)
 
 
 def get_metadata(r):

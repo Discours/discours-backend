@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
 from graphql.type import GraphQLResolveInfo
@@ -21,21 +21,23 @@ from resolvers.zine.profile import user_subscriptions
 from settings import SESSION_TOKEN_HEADER
 
 
-@mutation.field("refreshSession")
+@mutation.field("getSession")
 @login_required
 async def get_current_user(_, info):
-    print('[resolvers.auth] get current user %s' % str(info))
     user = info.context["request"].user
-    user.lastSeen = datetime.now()
-    with local_session() as session:
-        session.add(user)
-        session.commit()
-    token = await TokenStorage.create_session(user)
-    return {
-        "token": token,
-        "user": user,
-        "news": await user_subscriptions(user.slug),
-    }
+    token = info.context["request"].headers.get("Authorization")
+    if user and token:
+        user.lastSeen = datetime.now(tz=timezone.utc)
+        with local_session() as session:
+            session.add(user)
+            session.commit()
+            return {
+                "token": token,
+                "user": user,
+                "news": await user_subscriptions(user.slug),
+            }
+    else:
+        raise OperationNotAllowed("No session token present in request, try to login")
 
 
 @mutation.field("confirmEmail")
@@ -50,7 +52,7 @@ async def confirm_email(_, info, token):
             user = session.query(User).where(User.id == user_id).first()
             session_token = await TokenStorage.create_session(user)
             user.emailConfirmed = True
-            user.lastSeen = datetime.now()
+            user.lastSeen = datetime.now(tz=timezone.utc)
             session.add(user)
             session.commit()
             return {
@@ -80,8 +82,8 @@ async def confirm_email_handler(request):
 
 def create_user(user_dict):
     user = User(**user_dict)
-    user.roles.append(Role.default_role)
     with local_session() as session:
+        user.roles.append(session.query(Role).first())
         session.add(user)
         session.commit()
     return user

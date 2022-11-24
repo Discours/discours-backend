@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from dateutil.parser import parse as date_parse
 
@@ -10,7 +10,7 @@ from orm.topic import TopicFollower
 from orm.user import User
 from services.stat.reacted import ReactedStorage
 
-ts = datetime.now()
+ts = datetime.now(tz=timezone.utc)
 
 
 async def migrate(entry, storage):

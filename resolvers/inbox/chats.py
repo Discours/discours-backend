@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from auth.authenticate import login_required
 from base.redis import redis
@@ -67,7 +67,7 @@ async def update_chat(_, info, chat_new: dict):
         chat.update({
             "title": chat_new.get("title", chat["title"]),
             "description": chat_new.get("description", chat["description"]),
-            "updatedAt": int(datetime.now().timestamp()),
+            "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
             "admins": chat_new.get("admins", chat["admins"]),
             "users": chat_new.get("users", chat["users"])
         })
@@ -90,8 +90,8 @@ async def create_chat(_, info, title="", members=[]):
         members.append(user.slug)
     chat = {
         "title": title,
-        "createdAt": int(datetime.now().timestamp()),
-        "updatedAt": int(datetime.now().timestamp()),
+        "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
+        "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
         "createdBy": user.slug,
         "id": chat_id,
         "users": members,

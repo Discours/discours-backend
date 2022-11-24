@@ -1,6 +1,6 @@
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from auth.authenticate import login_required
 from base.redis import redis
@@ -28,7 +28,7 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
             "author": user.slug,
             "body": body,
             "replyTo": replyTo,
-            "createdAt": int(datetime.now().timestamp()),
+            "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
         }
         await redis.execute(
             "SET", f"chats/{chat['id']}/messages/{message_id}", json.dumps(new_message)
@@ -70,7 +70,7 @@ async def update_message(_, info, chat_id: str, message_id: int, body: str):
         return {"error": "access denied"}
 
     message["body"] = body
-    message["updatedAt"] = int(datetime.now().timestamp())
+    message["updatedAt"] = int(datetime.now(tz=timezone.utc).timestamp())
 
     await redis.execute("SET", f"chats/{chat_id}/messages/{message_id}", json.dumps(message))
 

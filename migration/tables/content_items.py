@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from dateutil.parser import parse as date_parse
 from sqlalchemy.exc import IntegrityError
@@ -13,7 +13,7 @@ from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
-ts = datetime.now()
+ts = datetime.now(tz=timezone.utc)
 type2layout = {
     "Article": "article",
     "Literature": "literature",

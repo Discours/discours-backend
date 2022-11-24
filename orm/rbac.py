@@ -7,6 +7,8 @@ from base.orm import Base, REGISTRY, engine, local_session
 from orm.community import Community
 
 
+# Role Based Access Control #
+
 class ClassType(TypeDecorator):
     impl = String
 
@@ -42,18 +44,44 @@ class Role(Base):
     @staticmethod
     def init_table():
         with local_session() as session:
-            default = session.query(Role).filter(Role.name == "author").first()
-        if default:
-            Role.default_role = default
-            return
+            r = session.query(Role).filter(Role.name == "author").first()
+            if r:
+                Role.default_role = r
+                return
 
-        default = Role.create(
+        r1 = Role.create(
             name="author",
-            desc="Role for author",
+            desc="Role for an author",
             community=1,
         )
 
-        Role.default_role = default
+        session.add(r1)
+
+        Role.default_role = r1
+
+        r2 = Role.create(
+            name="reader",
+            desc="Role for a reader",
+            community=1,
+        )
+
+        session.add(r2)
+
+        r3 = Role.create(
+            name="expert",
+            desc="Role for an expert",
+            community=1,
+        )
+
+        session.add(r3)
+
+        r4 = Role.create(
+            name="editor",
+            desc="Role for an editor",
+            community=1,
+        )
+
+        session.add(r4)
 
 
 class Operation(Base):
@@ -63,10 +91,33 @@ class Operation(Base):
     @staticmethod
     def init_table():
         with local_session() as session:
-            edit_op = session.query(Operation).filter(Operation.name == "edit").first()
-        if not edit_op:
-            edit_op = Operation.create(name="edit")
-        Operation.edit_id = edit_op.id  # type: ignore
+            for name in ["create", "update", "delete", "load"]:
+                """
+                * everyone can:
+                    - load shouts
+                    - load topics
+                    - load reactions
+                    - create an account to become a READER
+                * readers can:
+                    - update and delete their account
+                    - load chats
+                    - load messages
+                    - create reaction of some shout's author allowed kinds
+                    - create shout to become an AUTHOR
+                * authors can:
+                    - update and delete their shout
+                    - invite other authors to edit shout and chat
+                    - manage allowed reactions for their shout
+                * pros can:
+                    - create/update/delete their community
+                    - create/update/delete topics for their community
+
+                """
+                op = session.query(Operation).filter(Operation.name == name).first()
+                if not op:
+                    op = Operation.create(name=name)
+                    session.add(op)
+            session.commit()
 
 
 class Resource(Base):
@@ -75,14 +126,17 @@ class Resource(Base):
         String, nullable=False, unique=True, comment="Resource class"
     )
     name = Column(String, nullable=False, unique=True, comment="Resource name")
+    # TODO: community = Column(ForeignKey())
 
     @staticmethod
     def init_table():
         with local_session() as session:
-            shout_res = session.query(Resource).filter(Resource.name == "shout").first()
-        if not shout_res:
-            shout_res = Resource.create(name="shout", resource_class="shout")
-        Resource.shout_id = shout_res.id  # type: ignore
+            for res in ["shout", "topic", "reaction", "chat", "message", "invite", "community", "user"]:
+                r = session.query(Resource).filter(Resource.name == res).first()
+                if not r:
+                    r = Resource.create(name=res, resource_class=res)
+                    session.add(r)
+            session.commit()
 
 
 class Permission(Base):

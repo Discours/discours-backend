@@ -9,13 +9,34 @@ from settings import SESSION_TOKEN_LIFE_SPAN, ONETIME_TOKEN_LIFE_SPAN
 async def save(token_key, life_span, auto_delete=True):
     await redis.execute("SET", token_key, "True")
     if auto_delete:
-        expire_at = (datetime.now() + timedelta(seconds=life_span)).timestamp()
+        expire_at = (datetime.now(tz=timezone.utc) + timedelta(seconds=life_span)).timestamp()
         await redis.execute("EXPIREAT", token_key, int(expire_at))
+
+
+class SessionToken:
+    @classmethod
+    async def verify(cls, token: str):
+        """
+        Rules for a token to be valid.
+            - token format is legal
+            - token exists in redis database
+            - token is not expired
+        """
+        try:
+            return JWTCodec.decode(token)
+        except Exception as e:
+            raise e
+
+    @classmethod
+    async def get(cls, uid, token):
+        return await TokenStorage.get(f"{uid}-{token}")
 
 
 class TokenStorage:
     @staticmethod
     async def get(token_key):
+        print('[tokenstorage.get] ' + token_key)
+        # 2041-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMDQxLCJ1c2VybmFtZSI6ImFudG9uLnJld2luK3Rlc3QtbG9hZGNoYXRAZ21haWwuY29tIiwiZXhwIjoxNjcxNzgwNjE2LCJpYXQiOjE2NjkxODg2MTYsImlzcyI6ImRpc2NvdXJzIn0.Nml4oV6iMjMmc6xwM7lTKEZJKBXvJFEIZ-Up1C1rITQ
         return await redis.execute("GET", token_key)
 
     @staticmethod
