@@ -24,13 +24,24 @@ from settings import SESSION_TOKEN_HEADER
 @mutation.field("refreshSession")
 @login_required
 async def get_current_user(_, info):
-    print('[resolvers.auth] get current user %s' % str(info))
     user = info.context["request"].user
+    # print(info.context["request"].headers)
+    old_token = info.context["request"].headers.get("Authorization")
     user.lastSeen = datetime.now(tz=timezone.utc)
     with local_session() as session:
         session.add(user)
         session.commit()
     token = await TokenStorage.create_session(user)
+    print("[resolvers.auth] new session token created")
+    if old_token:
+        payload = await TokenStorage.get(str(user.id) + '-' + str(old_token))
+        if payload:
+            print("[resolvers.auth] got session from old token: %r" % payload)
+            return {
+                "token": token,
+                "user": user,
+                "news": await user_subscriptions(user.slug),
+            }
     return {
         "token": token,
         "user": user,

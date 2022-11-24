@@ -8,12 +8,11 @@ from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 class JWTCodec:
     @staticmethod
     def encode(user: AuthInput, exp: datetime) -> str:
-        issued = datetime.now(tz=timezone.utc)
         payload = {
             "user_id": user.id,
             "username": user.email or user.phone,
             "exp": exp,
-            "iat": issued,
+            "iat": datetime.now(tz=timezone.utc),
             "iss": "discours"
         }
         try:
