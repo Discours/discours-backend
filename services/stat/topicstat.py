@@ -1,9 +1,9 @@
 import asyncio
-
+import time
 from base.orm import local_session
-from orm.shout import Shout, ShoutTopic
+from orm.shout import Shout, ShoutTopic, ShoutAuthor
 from orm.topic import TopicFollower
-from services.zine.shoutauthor import ShoutAuthorStorage
+from sqlalchemy.sql.expression import select
 
 
 class TopicStat:
@@ -17,22 +17,24 @@ class TopicStat:
 
     @staticmethod
     async def load_stat(session):
+        start = time.time()
         self = TopicStat
-        shout_topics = session.query(ShoutTopic).all()
+        shout_topics = session.query(ShoutTopic, Shout).join(Shout).all()
+        all_shout_authors = session.query(ShoutAuthor).all()
         print("[stat.topics] %d links for shouts" % len(shout_topics))
-        for shout_topic in shout_topics:
+        for [shout_topic, shout] in shout_topics:
             tpc = shout_topic.topic
             # shouts by topics
-            shout = session.query(Shout).where(Shout.slug == shout_topic.shout).first()
+            # shout = session.query(Shout).where(Shout.slug == shout_topic.shout).first()
             self.shouts_by_topic[tpc] = self.shouts_by_topic.get(tpc, dict())
             self.shouts_by_topic[tpc][shout.slug] = shout
 
             # authors by topics
-            authors = await ShoutAuthorStorage.get_authors(shout.slug)
+            shout_authors = filter(lambda asa: asa.shout == shout.slug, all_shout_authors)
+
             self.authors_by_topic[tpc] = self.authors_by_topic.get(tpc, dict())
-            for a in authors:
-                [aslug, acaption] = a
-                self.authors_by_topic[tpc][aslug] = acaption
+            for sa in shout_authors:
+                self.authors_by_topic[tpc][sa.shout] = sa.caption
 
         self.followers_by_topic = {}
         followings = session.query(TopicFollower).all()
@@ -43,6 +45,9 @@ class TopicStat:
             self.followers_by_topic[topic] = self.followers_by_topic.get(topic, dict())
             self.followers_by_topic[topic][userslug] = userslug
 
+        end = time.time()
+        print("[stat.topics] load_stat took %fs " % (end - start))
+
     @staticmethod
     async def get_shouts(topic):
         self = TopicStat
@@ -52,6 +57,7 @@ class TopicStat:
     @staticmethod
     async def worker():
         self = TopicStat
+        first_run = True
         while True:
             try:
                 with local_session() as session:
@@ -59,4 +65,9 @@ class TopicStat:
                         await self.load_stat(session)
             except Exception as err:
                 raise Exception(err)
+            if first_run:
+                # sleep for period + 1 min after first run
+                # to distribute load on server by workers with the same period
+                await asyncio.sleep(60)
+                first_run = False
             await asyncio.sleep(self.period)

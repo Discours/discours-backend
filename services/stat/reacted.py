@@ -1,4 +1,5 @@
 import asyncio
+import time
 from base.orm import local_session
 from orm.reaction import ReactionKind, Reaction
 from services.zine.topics import TopicStorage
@@ -175,6 +176,7 @@ class ReactedStorage:
 
     @staticmethod
     async def recount_changed(session):
+        start = time.time()
         self = ReactedStorage
         async with self.lock:
             sss = list(self.modified_shouts)
@@ -190,6 +192,9 @@ class ReactedStorage:
             print("[stat.reacted] %d authors" % len(self.reacted["authors"].values()))
             print("[stat.reacted] %d replies" % len(self.reacted["reactions"]))
             self.modified_shouts = set([])
+
+        end = time.time()
+        print("[stat.reacted] recount_changed took %fs " % (end - start))
 
     @staticmethod
     async def worker():
