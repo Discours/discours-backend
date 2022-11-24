@@ -58,7 +58,8 @@ def login_required(func):
     async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
         # print('[auth.authenticate] login required for %r with info %r' % (func, info))  # debug only
         auth: AuthCredentials = info.context["request"].auth
-        print('[auth.authenticate] request auth data: %r' % auth)  # debug only
+        if auth and auth.user_id:
+            print(auth)  # debug only
         if not auth.logged_in:
             return {"error": auth.error_message or "Please login"}
         return await func(parent, info, *args, **kwargs)
