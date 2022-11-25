@@ -18,7 +18,7 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
 from resolvers.zine.profile import user_subscriptions
-from settings import SESSION_TOKEN_HEADER
+from settings import SESSION_TOKEN_HEADER, FRONTEND_URL
 
 
 @mutation.field("getSession")
@@ -75,7 +75,7 @@ async def confirm_email_handler(request):
     if "error" in res:
         raise BaseHttpException(res['error'])
     else:
-        response = RedirectResponse(url="https://new.discours.io")
+        response = RedirectResponse(url=FRONTEND_URL)
         response.set_cookie("token", res["token"])  # session token
         return response
 
