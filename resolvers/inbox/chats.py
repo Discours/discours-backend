@@ -63,12 +63,14 @@ async def create_chat(_, info, title="", members=[]):
     cids = await redis.execute("SMEMBERS", f"chats_by_user/{user.slug}")
     for cid in cids:
         c = await redis.execute("GET", F"chats/{cid.decode('utf-8')}")
-        isc = [x for x in c["users"] if x not in chat["users"]]
-        if isc == [] and chat["title"] == c["title"]:
-            return {
-                "error": "chat was created before",
-                "chat": chat
-            }
+        if c:
+            c = json.loads(c)
+            isc = [x for x in c["users"] if x not in chat["users"]]
+            if isc == [] and chat["title"] == c["title"]:
+                return {
+                    "error": "chat was created before",
+                    "chat": chat
+                }
 
     for m in members:
         await redis.execute("SADD", f"chats_by_user/{m}", chat_id)

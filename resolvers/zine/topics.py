@@ -98,11 +98,12 @@ async def topic_follow(user, slug):
 async def topic_unfollow(user, slug):
     with local_session() as session:
         sub = (
-            session.query(TopicFollower)
-                .filter(
-                and_(TopicFollower.follower == user.slug, TopicFollower.topic == slug)
-            )
-                .first()
+            session.query(TopicFollower).filter(
+                and_(
+                    TopicFollower.follower == user.slug,
+                    TopicFollower.topic == slug
+                )
+            ).first()
         )
         if not sub:
             raise Exception("[resolvers.topics] follower not exist")
