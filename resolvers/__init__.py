@@ -15,7 +15,8 @@ from resolvers.create.editor import create_shout, delete_shout, update_shout
 from resolvers.zine.profile import (
     load_authors_by,
     rate_user,
-    update_profile
+    update_profile,
+    get_authors_all
 )
 
 from resolvers.zine.reactions import (

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import sqlalchemy as sa
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, aliased, make_transient
 from sqlalchemy.sql.expression import desc, asc, select, case
 from base.orm import local_session
 from base.resolvers import query
@@ -9,8 +9,25 @@ from orm.shout import Shout, ShoutAuthor
 from orm.reaction import Reaction, ReactionKind
 
 
-def add_rating_column(q):
-    return q.join(Reaction).add_columns(sa.func.sum(case(
+def add_viewed_stat_column(q):
+    return q.outerjoin(ViewedEntry).add_columns(sa.func.sum(ViewedEntry.amount).label('viewed_stat'))
+
+
+def add_reacted_stat_column(q):
+    aliased_reaction = aliased(Reaction)
+    return q.outerjoin(aliased_reaction).add_columns(sa.func.count(aliased_reaction.id).label('reacted_stat'))
+
+
+def add_commented_stat_column(q):
+    aliased_reaction = aliased(Reaction)
+    return q.outerjoin(
+        aliased_reaction,
+        aliased_reaction.shout == Shout.slug and aliased_reaction.body.is_not(None)
+    ).add_columns(sa.func.count(aliased_reaction.id).label('commented_stat'))
+
+
+def add_rating_stat_column(q):
+    return q.outerjoin(Reaction).add_columns(sa.func.sum(case(
         (Reaction.kind == ReactionKind.AGREE, 1),
         (Reaction.kind == ReactionKind.DISAGREE, -1),
         (Reaction.kind == ReactionKind.PROOF, 1),
@@ -20,7 +37,7 @@ def add_rating_column(q):
         (Reaction.kind == ReactionKind.LIKE, 1),
         (Reaction.kind == ReactionKind.DISLIKE, -1),
         else_=0
-    )).label('rating'))
+    )).label('rating_stat'))
 
 
 def apply_filters(q, filters, user=None):
@@ -45,6 +62,14 @@ def apply_filters(q, filters, user=None):
     return q
 
 
+def add_stat_columns(q):
+    q = add_viewed_stat_column(q)
+    q = add_reacted_stat_column(q)
+    q = add_commented_stat_column(q)
+    q = add_rating_stat_column(q)
+    return q
+
+
 @query.field("loadShout")
 async def load_shout(_, info, slug):
     with local_session() as session:
@@ -53,24 +78,28 @@ async def load_shout(_, info, slug):
             joinedload(Shout.authors),
             joinedload(Shout.topics),
         )
-        q = add_rating_column(q)
+        q = add_stat_columns(q)
         q = q.filter(
             Shout.slug == slug
         ).filter(
             Shout.deletedAt.is_(None)
         ).group_by(Shout.id)
 
-        [shout, rating] = session.execute(q).unique().one()
+        [shout, viewed_stat, reacted_stat, commented_stat, rating_stat] = session.execute(q).unique().one()
 
-        shout.stat = await ReactedStorage.get_shout_stat(shout.slug, rating)
+        shout.stat = {
+            "viewed": viewed_stat,
+            "reacted": reacted_stat,
+            "commented": commented_stat,
+            "rating": rating_stat
+        }
+
+        for author_caption in session.query(ShoutAuthor).where(ShoutAuthor.shout == slug):
+            for author in shout.authors:
+                if author.slug == author_caption.user:
+                    author.caption = author_caption.caption
 
         return shout
-
-
-def map_result_item(result_item):
-    shout = result_item[0]
-    shout.rating = result_item[1]
-    return shout
 
 
 @query.field("loadShouts")
@@ -88,7 +117,7 @@ async def load_shouts_by(_, info, options):
         }
         offset: 0
         limit: 50
-        order_by: 'createdAt'
+        order_by: 'createdAt' | 'commented' | 'reacted' | 'rating'
         order_by_desc: true
 
     }
@@ -101,60 +130,36 @@ async def load_shouts_by(_, info, options):
     ).where(
         Shout.deletedAt.is_(None)
     )
+
+    q = add_stat_columns(q)
+
     user = info.context["request"].user
     q = apply_filters(q, options.get("filters"), user)
-    q = add_rating_column(q)
 
-    o = options.get("order_by")
-    if o:
-        if o == 'comments':
-            q = q.add_columns(sa.func.count(Reaction.id).label(o))
-            q = q.join(Reaction, Shout.slug == Reaction.shout)
-            q = q.filter(Reaction.body.is_not(None))
-        elif o == 'reacted':
-            q = q.join(
-                Reaction
-            ).add_columns(
-                sa.func.max(Reaction.createdAt).label(o)
-            )
-        elif o == 'views':
-            q = q.join(ViewedEntry)
-            q = q.add_columns(sa.func.sum(ViewedEntry.amount).label(o))
-        order_by = o
-    else:
-        order_by = Shout.createdAt
+    order_by = options.get("order_by", Shout.createdAt)
+    if order_by == 'reacted':
+        aliased_reaction = aliased(Reaction)
+        q.outerjoin(aliased_reaction).add_columns(sa.func.max(aliased_reaction.createdAt).label('reacted'))
 
-    order_by_desc = True if options.get('order_by_desc') is None else options.get('order_by_desc')
-
-    with_author_captions = False if options.get('with_author_captions') is None else options.get('with_author_captions')
+    order_by_desc = options.get('order_by_desc', True)
 
     query_order_by = desc(order_by) if order_by_desc else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
+
     q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
 
     with local_session() as session:
-        results = session.execute(q).unique()
-        for [shout, rating] in results:
-            shout.stat = await ReactedStorage.get_shout_stat(shout.slug, rating)
+        shouts = []
 
-            author_captions = {}
+        for [shout, viewed_stat, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
+            shouts.append(shout)
 
-            if with_author_captions:
-                author_captions_result = session.query(ShoutAuthor).where(
-                    ShoutAuthor.shout.in_(map(lambda result_item: result_item[0].slug, results))).all()
-
-                for author_captions_result_item in author_captions_result:
-                    if author_captions.get(author_captions_result_item.shout) is None:
-                        author_captions[author_captions_result_item.shout] = {}
-
-                    author_captions[
-                        author_captions_result_item.shout
-                    ][
-                        author_captions_result_item.user
-                    ] = author_captions_result_item.caption
-
-                for author in shout.authors:
-                    author.caption = author_captions[shout.slug][author.slug]
+            shout.stat = {
+                "viewed": viewed_stat,
+                "reacted": reacted_stat,
+                "commented": commented_stat,
+                "rating": rating_stat
+            }
 
     return shouts

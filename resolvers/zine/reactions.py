@@ -141,7 +141,6 @@ async def create_reaction(_, info, inp):
         elif check_to_publish(session, user, reaction):
             set_published(session, reaction.shout, reaction.createdBy)
 
-    ReactedStorage.react(reaction)
     try:
         reactions_follow(user, inp["shout"], True)
     except Exception as e:

@@ -76,7 +76,6 @@ async def migrate(entry, storage):
                 # creating reaction from old comment
                 reaction = Reaction.create(**reaction_dict)
                 session.add(reaction)
-                await ReactedStorage.react(reaction)
 
                 # creating shout's reactions following for reaction author
                 following1 = session.query(
@@ -147,7 +146,6 @@ async def migrate(entry, storage):
                             )
                             session.add(following2)
                         session.add(rr)
-                        await ReactedStorage.react(rr)
 
                     except Exception as e:
                         print("[migration] comment rating error: %r" % re_reaction_dict)

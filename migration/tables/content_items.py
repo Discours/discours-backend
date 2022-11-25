@@ -335,7 +335,6 @@ async def migrate(entry, storage):
                     else:
                         rea = Reaction.create(**reaction_dict)
                         session.add(rea)
-                        await ReactedStorage.react(rea)
                     # shout_dict['ratings'].append(reaction_dict)
 
             session.commit()

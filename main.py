@@ -35,12 +35,9 @@ async def start_up():
     await storages_init()
     views_stat_task = asyncio.create_task(ViewedStorage().worker())
     print(views_stat_task)
-    reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
-    print(reacted_storage_task)
-    topic_stat_task = asyncio.create_task(TopicStat.worker())
-    print(topic_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
+
 
 async def dev_start_up():
     if exists(DEV_SERVER_STATUS_FILE_NAME):
