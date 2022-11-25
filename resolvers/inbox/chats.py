@@ -7,43 +7,6 @@ from base.redis import redis
 from base.resolvers import mutation
 
 
-async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
-    for member in chat["users"]:
-        chats_ids = await redis.execute("GET", f"chats_by_user/{member}")
-        if chats_ids:
-            chats_ids = list(json.loads(chats_ids))
-        else:
-            chats_ids = []
-        if chat_id not in chats_ids:
-            chats_ids.append(chat_id)
-        await redis.execute("SET", f"chats_by_user/{member}", json.dumps(chats_ids))
-
-
-@mutation.field("inviteChat")
-async def invite_to_chat(_, info, invited: str, chat_id: str):
-    ''' invite user with :slug to chat with :chat_id '''
-    user = info.context["request"].user
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if not chat:
-        return {
-            "error": "chat not exist"
-        }
-    chat = dict(json.loads(chat))
-    if not chat['private'] and user.slug not in chat['admins']:
-        return {
-            "error": "only admins can invite to private chat",
-            "chat": chat
-        }
-    else:
-        chat["users"].append(invited)
-        await add_user_to_chat(user.slug, chat_id, chat)
-        await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
-        return {
-            "error": None,
-            "chat": chat
-        }
-
-
 @mutation.field("updateChat")
 @login_required
 async def update_chat(_, info, chat_new: dict):
@@ -71,9 +34,8 @@ async def update_chat(_, info, chat_new: dict):
             "admins": chat_new.get("admins", chat["admins"]),
             "users": chat_new.get("users", chat["users"])
         })
-    await add_user_to_chat(user.slug, chat_id, chat)
     await redis.execute("SET", f"chats/{chat.id}", json.dumps(chat))
-    await redis.execute("SET", f"chats/{chat.id}/next_message_id", 0)
+    await redis.execute("COMMIT")
 
     return {
         "error": None,
@@ -97,11 +59,22 @@ async def create_chat(_, info, title="", members=[]):
         "users": members,
         "admins": [user.slug, ]
     }
+    # double creation protection
+    cids = await redis.execute("SMEMBERS", f"chats_by_user/{user.slug}")
+    for cid in cids:
+        c = await redis.execute("GET", F"chats/{cid.decode('utf-8')}")
+        isc = [x for x in c["users"] if x not in chat["users"]]
+        if isc == [] and chat["title"] == c["title"]:
+            return {
+                "error": "chat was created before",
+                "chat": chat
+            }
 
-    await add_user_to_chat(user.slug, chat_id, chat)
+    for m in members:
+        await redis.execute("SADD", f"chats_by_user/{m}", chat_id)
     await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
     await redis.execute("SET", f"chats/{chat_id}/next_message_id", str(0))
-
+    await redis.execute("COMMIT")
     return {
         "error": None,
         "chat": chat
@@ -117,6 +90,8 @@ async def delete_chat(_, info, chat_id: str):
         chat = dict(json.loads(chat))
         if user.slug in chat['admins']:
             await redis.execute("DEL", f"chats/{chat_id}")
+            await redis.execute("SREM", "chats_by_user/" + user, chat_id)
+            await redis.execute("COMMIT")
     else:
         return {
             "error": "chat not exist"

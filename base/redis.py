@@ -12,6 +12,7 @@ class RedisCache:
         if self._instance is not None:
             return
         self._instance = await from_url(self._uri, encoding="utf-8")
+        # print(self._instance)
 
     async def disconnect(self):
         if self._instance is None:
@@ -23,10 +24,11 @@ class RedisCache:
     async def execute(self, command, *args, **kwargs):
         while not self._instance:
             await sleep(1)
-            try:
-                await self._instance.execute_command(command, *args, **kwargs)
-            except Exception:
-                pass
+        try:
+            print("[redis] " + command + ' ' + ' '.join(args))
+            return await self._instance.execute_command(command, *args, **kwargs)
+        except Exception:
+            pass
 
     async def lrange(self, key, start, stop):
         return await self._instance.lrange(key, start, stop)

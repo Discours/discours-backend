@@ -2,7 +2,7 @@ from typing import List, Optional, Text
 
 from pydantic import BaseModel
 
-from base.exceptions import OperationNotAllowed
+from base.exceptions import Unauthorized
 
 
 class Permission(BaseModel):
@@ -17,11 +17,13 @@ class AuthCredentials(BaseModel):
 
     @property
     def is_admin(self):
+        # TODO: check admin logix
         return True
 
     async def permissions(self) -> List[Permission]:
         if self.user_id is None:
-            raise OperationNotAllowed("Please login first")
+            raise Unauthorized("Please login first")
+        # TODO: implement permissions logix
         return NotImplemented()
 
 

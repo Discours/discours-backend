@@ -3,7 +3,7 @@ import time
 from base.orm import local_session
 from orm.shout import Shout, ShoutTopic, ShoutAuthor
 from orm.topic import TopicFollower
-from sqlalchemy.sql.expression import select
+# from sqlalchemy.sql.expression import select
 
 
 class TopicStat:
@@ -20,21 +20,19 @@ class TopicStat:
         start = time.time()
         self = TopicStat
         shout_topics = session.query(ShoutTopic, Shout).join(Shout).all()
-        all_shout_authors = session.query(ShoutAuthor).all()
         print("[stat.topics] %d links for shouts" % len(shout_topics))
         for [shout_topic, shout] in shout_topics:
             tpc = shout_topic.topic
-            # shouts by topics
-            # shout = session.query(Shout).where(Shout.slug == shout_topic.shout).first()
             self.shouts_by_topic[tpc] = self.shouts_by_topic.get(tpc, dict())
             self.shouts_by_topic[tpc][shout.slug] = shout
-
-            # authors by topics
-            shout_authors = filter(lambda asa: asa.shout == shout.slug, all_shout_authors)
-
             self.authors_by_topic[tpc] = self.authors_by_topic.get(tpc, dict())
-            for sa in shout_authors:
-                self.authors_by_topic[tpc][sa.shout] = sa.caption
+            authors = session.query(
+                ShoutAuthor.user, ShoutAuthor.caption
+            ).filter(
+                ShoutAuthor.shout == shout.slug
+            ).all()
+            for a in authors:
+                self.authors_by_topic[tpc][a[0]] = a[1]
 
         self.followers_by_topic = {}
         followings = session.query(TopicFollower).all()

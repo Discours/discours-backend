@@ -13,7 +13,7 @@ from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
 from base.exceptions import (BaseHttpException, InvalidPassword, InvalidToken,
-                             ObjectNotExist, OperationNotAllowed)
+                             ObjectNotExist, OperationNotAllowed, Unauthorized)
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
@@ -37,7 +37,7 @@ async def get_current_user(_, info):
                 "news": await user_subscriptions(user.slug),
             }
     else:
-        raise OperationNotAllowed("No session token present in request, try to login")
+        raise Unauthorized("No session token present in request, try to login")
 
 
 @mutation.field("confirmEmail")

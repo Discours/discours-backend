@@ -20,6 +20,7 @@ from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
+from services.zine.shoutauthor import ShoutAuthorStorage
 from settings import DEV_SERVER_STATUS_FILE_NAME
 
 import_module("resolvers")
@@ -39,10 +40,13 @@ async def start_up():
     print(views_stat_task)
     reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
     print(reacted_storage_task)
+    shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
+    print(shout_author_task)
     topic_stat_task = asyncio.create_task(TopicStat.worker())
     print(topic_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
+
 
 async def dev_start_up():
     if exists(DEV_SERVER_STATUS_FILE_NAME):

@@ -151,7 +151,6 @@ type Mutation {
   createChat(title: String, members: [String]!): Result!
   updateChat(chat: ChatInput!): Result!
   deleteChat(chatId: String!): Result!
-  inviteChat(chatId: String!, userslug: String!): Result!
 
   createMessage(chat: String!, body: String!, replyTo: String): Result!
   updateMessage(chatId: String!, id: Int!, body: String!): Result!
@@ -515,13 +514,13 @@ type Message {
 type Chat {
   id: String!
   createdAt: Int!
-  createdBy: User!
+  createdBy: String!
   updatedAt: Int!
   title: String
   description: String
-  users: [User]!
-  admins: [User]
-  messages: [Message]!
+  users: [String]!
+  admins: [String]
+  messages: [Message]
   unread: Int
   private: Boolean
 }

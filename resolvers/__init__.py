@@ -48,8 +48,8 @@ from resolvers.zine.load import (
 from resolvers.inbox.chats import (
     create_chat,
     delete_chat,
-    update_chat,
-    invite_to_chat
+    update_chat
+
 )
 from resolvers.inbox.messages import (
     create_message,
@@ -111,7 +111,6 @@ __all__ = [
     # inbox
     "load_chats",
     "load_messages_by",
-    "invite_to_chat",
     "create_chat",
     "delete_chat",
     "update_chat",
