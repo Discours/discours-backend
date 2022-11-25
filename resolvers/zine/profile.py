@@ -10,8 +10,6 @@ from orm.reaction import Reaction
 from orm.shout import ShoutAuthor
 from orm.topic import Topic, TopicFollower
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
-from services.stat.reacted import ReactedStorage
-from services.stat.topicstat import TopicStat
 
 # from .community import followed_communities
 from resolvers.inbox.unread import get_total_unread_counter

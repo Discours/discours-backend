@@ -8,7 +8,6 @@ from orm.reaction import Reaction, ReactionKind
 from orm.shout import ShoutReactionsFollower
 from orm.topic import TopicFollower
 from orm.user import User
-from services.stat.reacted import ReactedStorage
 
 ts = datetime.now(tz=timezone.utc)
 

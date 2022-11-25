@@ -5,9 +5,7 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Shout
 from orm.topic import Topic, TopicFollower
-from services.zine.topics import TopicStorage
 # from services.stat.reacted import ReactedStorage
-from services.stat.topicstat import TopicStat
 
 
 # from services.stat.viewed import ViewedStorage

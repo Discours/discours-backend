@@ -7,7 +7,6 @@ from base.resolvers import query
 from orm import ViewedEntry
 from orm.shout import Shout, ShoutAuthor
 from orm.reaction import Reaction, ReactionKind
-from services.stat.reacted import ReactedStorage
 
 
 def add_rating_column(q):
@@ -135,17 +134,15 @@ async def load_shouts_by(_, info, options):
     q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
 
     with local_session() as session:
-        shouts = list(map(map_result_item, session.execute(q).unique()))
-
-        for shout in shouts:
-            shout.stat = await ReactedStorage.get_shout_stat(shout.slug, shout.rating)
-            del shout.rating
+        results = session.execute(q).unique()
+        for [shout, rating] in results:
+            shout.stat = await ReactedStorage.get_shout_stat(shout.slug, rating)
 
             author_captions = {}
 
             if with_author_captions:
                 author_captions_result = session.query(ShoutAuthor).where(
-                    ShoutAuthor.shout.in_(map(lambda s: s.slug, shouts))).all()
+                    ShoutAuthor.shout.in_(map(lambda result_item: result_item[0].slug, results))).all()
 
                 for author_captions_result_item in author_captions_result:
                     if author_captions.get(author_captions_result_item.shout) is None:

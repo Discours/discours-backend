@@ -16,8 +16,6 @@ from base.redis import redis
 from base.resolvers import resolvers
 from resolvers.auth import confirm_email_handler
 from services.main import storages_init
-from services.stat.reacted import ReactedStorage
-from services.stat.topicstat import TopicStat
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
 from settings import DEV_SERVER_STATUS_FILE_NAME

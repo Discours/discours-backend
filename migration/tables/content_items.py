@@ -9,7 +9,6 @@ from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
 from orm.user import User
 from orm.topic import TopicFollower
-from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
 
 OLD_DATE = "2016-03-05 22:22:00.350000"

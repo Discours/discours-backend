@@ -8,7 +8,6 @@ from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
-from services.stat.reacted import ReactedStorage
 
 
 async def get_reaction_stat(reaction_id):
