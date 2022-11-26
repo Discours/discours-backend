@@ -37,8 +37,11 @@ def apply_filters(q, filters, user=None):
     filters = {} if filters is None else filters
     if filters.get("reacted") and user:
         q.join(Reaction, Reaction.createdBy == user.slug)
-    if filters.get("visibility"):
+    v = filters.get("visibility")
+    if v == "public":
         q = q.filter(Shout.visibility == filters.get("visibility"))
+    if v == "community":
+        q = q.filter(Shout.visibility.in_(["public", "community"]))
     if filters.get("layout"):
         q = q.filter(Shout.layout == filters.get("layout"))
     if filters.get("author"):
