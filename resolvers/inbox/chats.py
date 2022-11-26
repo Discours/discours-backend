@@ -47,30 +47,37 @@ async def update_chat(_, info, chat_new: dict):
 @login_required
 async def create_chat(_, info, title="", members=[]):
     user = info.context["request"].user
-    chat_id = str(uuid.uuid4())
+    chat = {}
     if user.slug not in members:
         members.append(user.slug)
+
+    # reuse chat craeted before if exists
+    if len(members) == 2 and title == "":
+        chats1 = await redis.execute("SMEMBERS", f"chats_by_user/{members[0].slug}")
+        chats2 = await redis.execute("SMEMBERS", f"chats_by_user/{members[1].slug}")
+        chat = None
+        for c in chats1.intersection(chats2):
+            chat = await redis.execute("GET", f"chats/{c.decode('utf-8')}")
+            if chat:
+                chat = json.loads(chat)
+                if chat.title == "":
+                    break
+        if chat:
+            return {
+                "chat": chat,
+                "error": "existed"
+            }
+
+    chat_id = str(uuid.uuid4())
     chat = {
-        "title": title,
-        "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
-        "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
-        "createdBy": user.slug,
         "id": chat_id,
         "users": members,
-        "admins": [user.slug, ]
+        "title": title,
+        "createdBy": user.slug,
+        "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
+        "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
+        # "admins": [user.slug, ]
     }
-    # double creation protection
-    cids = await redis.execute("SMEMBERS", f"chats_by_user/{user.slug}")
-    for cid in cids:
-        c = await redis.execute("GET", F"chats/{cid.decode('utf-8')}")
-        if c:
-            c = json.loads(c)
-            isc = [x for x in c["users"] if x not in chat["users"]]
-            if isc == [] and chat["title"] == c["title"]:
-                return {
-                    "error": "chat was created before",
-                    "chat": chat
-                }
 
     for m in members:
         await redis.execute("SADD", f"chats_by_user/{m}", chat_id)
