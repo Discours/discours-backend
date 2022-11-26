@@ -71,7 +71,7 @@ async def load_shout(_, info, slug):
 
         [shout, rating, commented] = session.execute(q).unique().one()
         for a in shout.authors:
-            a.caption = await ShoutAuthorStorage.get_author_caption(a.slug)
+            a.caption = await ShoutAuthorStorage.get_author_caption(shout.slug, a.slug)
         viewed = await ViewedStorage.get_shout(shout.slug)
         shout.stat = {
             "rating": rating,

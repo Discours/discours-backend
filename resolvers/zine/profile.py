@@ -56,7 +56,7 @@ async def followed_reactions(slug):
         return session.query(
             Reaction.shout
         ).where(
-            Reaction.author == slug
+            Reaction.createdBy == slug
         ).filter(
             Reaction.createdAt > user.lastSeen
         ).all()
