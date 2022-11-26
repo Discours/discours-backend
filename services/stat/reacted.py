@@ -163,32 +163,29 @@ class ReactedStorage:
 
     @staticmethod
     async def recount_changed(session):
-        start = time.time()
         self = ReactedStorage
-        async with self.lock:
-            sss = list(self.modified_shouts)
-            c = 0
-            for slug in sss:
-                siblings = session.query(Reaction).where(Reaction.shout == slug).all()
-                c += len(siblings)
-                await self.recount(siblings)
+        sss = list(self.modified_shouts)
+        c = 0
+        for slug in sss:
+            siblings = session.query(Reaction).where(Reaction.shout == slug).all()
+            c += len(siblings)
+            await self.recount(siblings)
 
-            print("[stat.reacted] %d reactions recounted" % c)
-            print("[stat.reacted] %d shouts modified" % len(self.modified_shouts))
-            print("[stat.reacted] %d topics" % len(self.reacted["topics"].values()))
-            print("[stat.reacted] %d authors" % len(self.reacted["authors"].values()))
-            print("[stat.reacted] %d replies" % len(self.reacted["reactions"]))
-            self.modified_shouts = set([])
-
-        end = time.time()
-        print("[stat.reacted] recount_changed took %fs " % (end - start))
+        print("[stat.reacted] %d reactions recounted" % c)
+        print("[stat.reacted] %d shouts modified" % len(self.modified_shouts))
+        print("[stat.reacted] %d topics" % len(self.reacted["topics"].values()))
+        print("[stat.reacted] %d authors" % len(self.reacted["authors"].values()))
+        print("[stat.reacted] %d replies" % len(self.reacted["reactions"]))
+        self.modified_shouts = set([])
 
     @staticmethod
     async def worker():
         while True:
             try:
                 with local_session() as session:
+                    ts = time.time()
                     await ReactedStorage.recount_changed(session)
+                    print("[stat.reacted] recount_changed took %fs " % (time.time() - ts))
             except Exception as err:
                 print("[stat.reacted] recount error %s" % (err))
             await asyncio.sleep(ReactedStorage.period)

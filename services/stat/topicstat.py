@@ -17,7 +17,6 @@ class TopicStat:
 
     @staticmethod
     async def load_stat(session):
-        start = time.time()
         self = TopicStat
         shout_topics = session.query(ShoutTopic, Shout).join(Shout).all()
         print("[stat.topics] %d links for shouts" % len(shout_topics))
@@ -43,9 +42,6 @@ class TopicStat:
             self.followers_by_topic[topic] = self.followers_by_topic.get(topic, dict())
             self.followers_by_topic[topic][userslug] = userslug
 
-        end = time.time()
-        print("[stat.topics] load_stat took %fs " % (end - start))
-
     @staticmethod
     async def get_shouts(topic):
         self = TopicStat
@@ -59,8 +55,10 @@ class TopicStat:
         while True:
             try:
                 with local_session() as session:
+                    ts = time.time()
                     async with self.lock:
                         await self.load_stat(session)
+                    print("[stat.topicstat] load_stat took %fs " % (time.time() - ts))
             except Exception as err:
                 raise Exception(err)
             if first_run:

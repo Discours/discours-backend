@@ -86,24 +86,23 @@ class ViewedStorage:
         """ query all the pages from ackee sorted by views count """
         start = time.time()
         self = ViewedStorage
-        async with self.lock:
+        try:
+            self.pages = await self.client.execute_async(load_pages)
+            self.pages = self.pages["domains"][0]["statistics"]["pages"]
+            print("[stat.viewed] ackee pages updated")
+            shouts = {}
             try:
-                self.pages = await self.client.execute_async(load_pages)
-                self.pages = self.pages["domains"][0]["statistics"]["pages"]
-                print("[stat.viewed] ackee pages updated")
-                shouts = {}
-                try:
-                    for page in self.pages:
-                        p = page["value"].split("?")[0]
-                        slug = p.split('discours.io/')[-1]
-                        shouts[slug] = page["count"]
-                    for slug, v in shouts:
-                        await ViewedStorage.increment(slug, v)
-                except Exception:
-                    pass
-                print("[stat.viewed] %d pages collected " % len(shouts.keys()))
-            except Exception as e:
-                raise e
+                for page in self.pages:
+                    p = page["value"].split("?")[0]
+                    slug = p.split('discours.io/')[-1]
+                    shouts[slug] = page["count"]
+                for slug, v in shouts:
+                    await ViewedStorage.increment(slug, v)
+            except Exception:
+                pass
+            print("[stat.viewed] %d pages collected " % len(shouts.keys()))
+        except Exception as e:
+            raise e
 
         end = time.time()
         print("[stat.viewed] update_pages took %fs " % (end - start))
@@ -180,8 +179,10 @@ class ViewedStorage:
         async with self.lock:
             while True:
                 try:
+                    ts = time.time()
                     await self.update_pages()
                     failed = 0
+                    print("[stat.viewed] update_pages took %fs " % (time.time() - ts))
                 except Exception:
                     failed += 1
                     print("[stat.viewed] update failed #%d, wait 10 seconds" % failed)
