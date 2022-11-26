@@ -439,7 +439,7 @@ type Shout {
   deletedBy: User
   publishedBy: User
   publishedAt: DateTime
-  media: String
+  media: String # json [ { title pic url body }, .. ]
   stat: Stat
 }
 

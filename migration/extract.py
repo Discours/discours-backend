@@ -3,8 +3,6 @@ import os
 import re
 import uuid
 
-from .html2text import html2text
-
 TOOLTIP_REGEX = r"(\/\/\/(.+)\/\/\/)"
 contentDir = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "..", "..", "discoursio-web", "content"
@@ -258,47 +256,44 @@ def extract_md(body, oid=""):
     return newbody
 
 
-def prepare_md_body(entry):
-    # body modifications
-    body = ""
-    kind = entry.get("type")
-    addon = ""
-    if kind == "Video":
-        addon = ""
-        for m in entry.get("media", []):
-            if "youtubeId" in m:
-                addon += "<VideoPlayer youtubeId='" + m["youtubeId"] + "' />\n"
+def extract_media(entry):
+    ''' normalized media extraction method '''
+    # media [ { title pic url body } ]}
+    kind = entry.get("layout")
+    media = []
+    for m in entry.get("media", []):
+        # title
+        title = m.get("title", "").replace("\n", " ").replace("&nbsp;", " ")
+        artist = m.get("performer") or m.get("artist")
+        if artist:
+            title = artist + " - " + title
+
+        # pic
+        url = m.get("fileUrl") or m.get("url", "")
+        pic = ""
+        if "thumborId" in m:
+            pic = cdn + "/unsafe/1600x/" + m["thumborId"]
+
+        # url
+        if not url:
+            if kind == "Image":
+                url = pic
+            elif "youtubeId" in m:
+                url = "https://youtube.com/?watch=" + m["youtubeId"]
             elif "vimeoId" in m:
-                addon += "<VideoPlayer vimeoId='" + m["vimeoId"] + "' />\n"
+                url = "https://vimeo.com/" + m["vimeoId"]
             else:
                 print("[extract] media is not supported")
-                print(m)
-        body = "import VideoPlayer from '$/components/Article/VideoPlayer'\n\n" + addon
+        # body
+        body = m.get("body") or m.get("literatureBody")
 
-    elif kind == "Music":
-        addon = ""
-        for m in entry.get("media", []):
-            artist = m.get("performer")
-            trackname = ""
-            if artist:
-                trackname += artist + " - "
-            if "title" in m:
-                trackname += m.get("title", "")
-            addon += (
-                '<AudioPlayer src="'
-                + m.get("fileUrl", "")
-                + '" title="'
-                + trackname
-                + '" />\n'
-            )
-        body = "import AudioPlayer from '$/components/Article/AudioPlayer'\n\n" + addon
-
-    body_orig, media = extract_html(entry)
-    if body_orig:
-        body += extract_md(html2text(body_orig), entry["_id"])
-    if not body:
-        print("[extract] empty MDX body")
-    return body, media
+        media.append({
+            "url": url,
+            "pic": pic,
+            "title": title,
+            "body": body
+        })
+    return media
 
 
 def prepare_html_body(entry):
@@ -339,11 +334,11 @@ def prepare_html_body(entry):
             addon += '"></audio></figure>'
         body += addon
 
-    body, media = extract_html(entry)
+    body = extract_html(entry)
     # if body_orig: body += extract_md(html2text(body_orig), entry['_id'])
     if not body:
         print("[extract] empty HTML body")
-    return body, media
+    return body
 
 
 def extract_html(entry):
@@ -403,4 +398,4 @@ def extract_html(entry):
     if not body_orig:
         print("[extract] empty HTML body")
     # body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-    return body_orig, media
+    return body_orig
