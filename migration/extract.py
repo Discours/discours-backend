@@ -3,6 +3,9 @@ import os
 import re
 import uuid
 
+from bs4 import BeautifulSoup
+
+
 TOOLTIP_REGEX = r"(\/\/\/(.+)\/\/\/)"
 contentDir = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "..", "..", "discoursio-web", "content"
@@ -343,59 +346,7 @@ def prepare_html_body(entry):
 
 def extract_html(entry):
     body_orig = (entry.get("body") or "").replace('\(', '(').replace('\)', ')')
-    media = entry.get("media", [])
-    kind = entry.get("type") or ""
-    print("[extract] kind: " + kind)
-    mbodies = set([])
-    if media:
-        # print('[extract] media is found')
-        for m in media:
-            mbody = m.get("body", "")
-            addon = ""
-            if kind == "Literature":
-                mbody = m.get("literatureBody") or m.get("body", "")
-            elif kind == "Image":
-                cover = ""
-                if "thumborId" in entry:
-                    cover = cdn + "/unsafe/1600x/" + entry["thumborId"]
-                if not cover:
-                    if "image" in entry:
-                        cover = entry["image"].get("url", "")
-                    if "cloudinary" in cover:
-                        cover = ""
-                # else: print('[extract] cover: ' + cover)
-                title = m.get("title", "").replace("\n", " ").replace("&nbsp;", " ")
-                u = m.get("thumborId") or cover or ""
-                if title:
-                    addon += "<h4>" + title + "</h4>\n"
-                if not u.startswith("http"):
-                    u = s3 + u
-                if not u:
-                    print("[extract] no image url for " + str(m))
-                if "cloudinary" in u:
-                    u = "img/lost.svg"
-                if u != cover or (u == cover and media.index(m) == 0):
-                    addon += '<img src="' + u + '" alt="' + title + '" />\n'
-            if addon:
-                body_orig += addon
-                # print('[extract] item addon: ' + addon)
-            # if addon: print('[extract] addon: %s' % addon)
-            if mbody and mbody not in mbodies:
-                mbodies.add(mbody)
-                body_orig += mbody
-        if len(list(mbodies)) != len(media):
-            print(
-                "[extract] %d/%d media item bodies appended"
-                % (len(list(mbodies)), len(media))
-            )
-        # print('[extract] media items body: \n' + body_orig)
-    if not body_orig:
-        for up in entry.get("bodyHistory", []) or []:
-            body_orig = up.get("text", "") or ""
-            if body_orig:
-                print("[extract] got html body from history")
-                break
     if not body_orig:
         print("[extract] empty HTML body")
-    # body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-    return body_orig
+    body_html = str(BeautifulSoup(body_orig, features="html.parser"))
+    return body_html

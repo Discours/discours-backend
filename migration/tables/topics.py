@@ -1,5 +1,6 @@
 from base.orm import local_session
-from migration.extract import extract_md, html2text
+from migration.extract import extract_md
+from migration.html2text import html2text
 from orm import Topic
 
 

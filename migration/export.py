@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import frontmatter
 
-from .extract import extract_html, prepare_html_body, extract_media
+from .extract import extract_html, extract_media
 from .utils import DateTimeEncoder
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
@@ -50,11 +50,12 @@ def export_mdx(r):
 def export_body(shout, storage):
     entry = storage["content_items"]["by_oid"][shout["oid"]]
     if entry:
-        shout["body"] = prepare_html_body(entry)  # prepare_md_body(entry)
-        shout["media"] = extract_media(entry)
+        body = extract_html(entry)
+        media = extract_media(entry)
+        shout["body"] = body  # prepare_html_body(entry)  # prepare_md_body(entry)
+        shout["media"] = media
         export_mdx(shout)
         print("[export] html for %s" % shout["slug"])
-        body = extract_html(entry)
         open(contentDir + shout["slug"] + ".html", "w").write(body)
     else:
         raise Exception("no content_items entry found")

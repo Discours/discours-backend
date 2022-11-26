@@ -4,7 +4,7 @@ from dateutil.parser import parse as date_parse
 from sqlalchemy.exc import IntegrityError
 from transliterate import translit
 from base.orm import local_session
-from migration.extract import prepare_html_body
+from migration.extract import extract_html, extract_media
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
 from orm.user import User
@@ -195,7 +195,8 @@ async def migrate(entry, storage):
     entry["cover"] = r["cover"]
 
     # body
-    r["body"], media = prepare_html_body(entry)
+    r["body"] = extract_html(entry)
+    media = extract_media(entry)
     if media:
         r["media"] = json.dumps(media, ensure_ascii=True)
     # save shout to db
