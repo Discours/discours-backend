@@ -3,7 +3,6 @@ import time
 from base.orm import local_session
 from orm.reaction import ReactionKind, Reaction
 from services.zine.topics import TopicStorage
-from services.stat.viewed import ViewedStorage
 
 
 def kind_to_rate(kind) -> int:
@@ -35,18 +34,6 @@ class ReactedStorage:
     modified_shouts = set([])
 
     @staticmethod
-    async def get_shout_stat(slug, rating):
-        viewed = int(await ViewedStorage.get_shout(slug))
-        # print(viewed)
-        return {
-            "viewed": viewed,
-            "reacted": len(await ReactedStorage.get_shout(slug)),
-            "commented": len(await ReactedStorage.get_comments(slug)),
-            # "rating": await ReactedStorage.get_rating(slug),
-            "rating": rating
-        }
-
-    @staticmethod
     async def get_shout(shout_slug):
         self = ReactedStorage
         async with self.lock:
@@ -59,7 +46,7 @@ class ReactedStorage:
             return self.reacted["authors"].get(user_slug, [])
 
     @staticmethod
-    async def get_shouts_by_author(user_slug):
+    async def get_followed_reactions(user_slug):
         self = ReactedStorage
         async with self.lock:
             author_reactions = self.reacted["authors"].get(user_slug, [])

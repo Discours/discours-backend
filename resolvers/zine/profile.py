@@ -10,7 +10,6 @@ from orm.reaction import Reaction
 from orm.shout import ShoutAuthor
 from orm.topic import Topic, TopicFollower
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
-from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
 
 # from .community import followed_communities
@@ -23,13 +22,12 @@ async def user_subscriptions(slug: str):
         "unread": await get_total_unread_counter(slug),       # unread inbox messages counter
         "topics": [t.slug for t in await followed_topics(slug)],  # followed topics slugs
         "authors": [a.slug for a in await followed_authors(slug)],  # followed authors slugs
-        "reactions": await ReactedStorage.get_shouts_by_author(slug),
+        "reactions": await followed_reactions(slug)
         # "communities": [c.slug for c in followed_communities(slug)],  # communities
     }
 
 
 async def get_author_stat(slug):
-    # TODO: implement author stat
     with local_session() as session:
         return {
             "shouts": session.query(ShoutAuthor).where(ShoutAuthor.user == slug).count(),
@@ -41,9 +39,27 @@ async def get_author_stat(slug):
             ).where(
                 Reaction.createdBy == slug
             ).filter(
-                func.length(Reaction.body) > 0
+                Reaction.body.is_not(None)
             ).count()
         }
+
+
+# @query.field("userFollowedDiscussions")
+@login_required
+async def followed_discussions(_, info, slug) -> List[Topic]:
+    return await followed_reactions(slug)
+
+
+async def followed_reactions(slug):
+    with local_session() as session:
+        user = session.query(User).where(User.slug == slug).first()
+        return session.query(
+            Reaction.shout
+        ).where(
+            Reaction.author == slug
+        ).filter(
+            Reaction.createdAt > user.lastSeen
+        ).all()
 
 
 @query.field("userFollowedTopics")
