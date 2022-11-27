@@ -19,6 +19,7 @@ from services.main import storages_init
 from services.stat.reacted import ReactedStorage
 from services.stat.topicstat import TopicStat
 from services.stat.viewed import ViewedStorage
+from services.zine.topics import TopicStorage
 from services.zine.gittask import GitTask
 from services.zine.shoutauthor import ShoutAuthorStorage
 from settings import DEV_SERVER_STATUS_FILE_NAME
@@ -36,6 +37,8 @@ async def start_up():
     init_tables()
     await redis.connect()
     await storages_init()
+    topics_random_work = asyncio.create_task(TopicStorage().worker())
+    print(topics_random_work)
     views_stat_task = asyncio.create_task(ViewedStorage().worker())
     print(views_stat_task)
     reacted_storage_task = asyncio.create_task(ReactedStorage.worker())

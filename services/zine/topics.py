@@ -1,10 +1,15 @@
 import asyncio
+from base.orm import local_session
 from orm.topic import Topic
+from orm.shout import Shout
+import sqlalchemy as sa
+from sqlalchemy import select
 
 
 class TopicStorage:
     topics = {}
     lock = asyncio.Lock()
+    random_topics = []
 
     @staticmethod
     def init(session):
@@ -26,6 +31,30 @@ class TopicStorage:
     #             parents.append(parent.slug)
     #     topic.parents = parents
     #     return topic
+
+    @staticmethod
+    def get_random_topics(amount):
+        return TopicStorage.random_topics[0:amount]
+
+    @staticmethod
+    def renew_topics_random():
+        with local_session() as session:
+            q = select(Topic).join(Shout).group_by(Topic.id).having(sa.func.count(Shout.id) > 2).order_by(
+                sa.func.random()).limit(50)
+            TopicStorage.random_topics = list(map(
+                lambda result_item: result_item.Topic, session.execute(q)
+            ))
+
+    @staticmethod
+    async def worker():
+        self = TopicStorage
+        async with self.lock:
+            while True:
+                try:
+                    self.renew_topics_random()
+                except Exception as err:
+                    print("[zine.topics] error %s" % (err))
+                await asyncio.sleep(300)  # 5 mins
 
     @staticmethod
     async def get_topics_all():

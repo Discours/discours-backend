@@ -1,9 +1,7 @@
-import sqlalchemy as sa
-from sqlalchemy import and_, select
+from sqlalchemy import and_
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
-from orm import Shout
 from orm.topic import Topic, TopicFollower
 from services.zine.topics import TopicStorage
 from services.stat.topicstat import TopicStat
@@ -110,8 +108,4 @@ async def topic_unfollow(user, slug):
 
 @query.field("topicsRandom")
 async def topics_random(_, info, amount=12):
-    with local_session() as session:
-        q = select(Topic).join(Shout).group_by(Topic.id).having(sa.func.count(Shout.id) > 2).order_by(
-            sa.func.random()).limit(amount)
-        random_topics = list(map(lambda result_item: result_item.Topic, session.execute(q)))
-        return random_topics
+    return TopicStorage.get_random_topics(amount)

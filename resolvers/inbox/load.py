@@ -80,6 +80,7 @@ async def search_user_chats(by, messages: set, slug: str, limit, offset):
     if body_like:
         # search in all messages in all user's chats
         for c in cids:
+            # FIXME: user redis scan here
             mmm = set(await load_messages(c, limit, offset))
             for m in mmm:
                 if body_like in m["body"]:
