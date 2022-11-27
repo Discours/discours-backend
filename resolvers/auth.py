@@ -133,7 +133,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
 
 
 @mutation.field("sendLink")
-async def auth_send_link(_, _info, email, lang="ru"):
+async def auth_send_link(_, _info, email, lang="ru", template="email_confirmation"):
     """send link with confirm code to email"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
@@ -141,7 +141,7 @@ async def auth_send_link(_, _info, email, lang="ru"):
             raise ObjectNotExist("User not found")
         else:
             token = await TokenStorage.create_onetime(user)
-            await send_auth_email(user, token, lang)
+            await send_auth_email(user, token, lang, template)
             return user
 
 

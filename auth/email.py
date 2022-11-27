@@ -10,13 +10,13 @@ lang_subject = {
 }
 
 
-async def send_auth_email(user, token, lang="ru"):
+async def send_auth_email(user, token, template="email_confirmation", lang="ru"):
     try:
         to = "%s <%s>" % (user.name, user.email)
         if lang not in ['ru', 'en']:
             lang = 'ru'
         subject = lang_subject.get(lang, lang_subject["en"])
-        template = "email_confirmation_" + lang
+        template = template + "_" + lang
         payload = {
             "from": noreply,
             "to": to,

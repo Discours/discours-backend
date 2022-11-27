@@ -160,7 +160,7 @@ type Mutation {
   # auth
   getSession: AuthResult!
   registerUser(email: String!, password: String, name: String): AuthResult!
-  sendLink(email: String!, lang: String): Result!
+  sendLink(email: String!, lang: String, template: String): Result!
   confirmEmail(token: String!): AuthResult!
 
   # shout

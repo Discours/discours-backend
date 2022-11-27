@@ -5,7 +5,7 @@ from auth.authenticate import login_required
 from base.redis import redis
 from base.orm import local_session
 from base.resolvers import query
-from base.exceptions import ObjectNotExist
+from base.exceptions import ObjectNotExist, Unauthorized
 from orm.user import User
 from resolvers.zine.profile import followed_authors
 from .unread import get_unread_counter
@@ -31,7 +31,10 @@ async def load_messages(chat_id: str, limit: int, offset: int):
 async def load_chats(_, info, limit: int = 50, offset: int = 0):
     """ load :limit chats of current user with :offset """
     user = info.context["request"].user
-    print('[inbox] load user\'s chats')
+    if user:
+        print('[inbox] load user\'s chats %s' % user.slug)
+    else:
+        raise Unauthorized("Please login to load chats")
     cids = await redis.execute("SMEMBERS", "chats_by_user/" + user.slug)
     if cids:
         cids = list(cids)[offset:offset + limit]
@@ -47,15 +50,14 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
             c['unread'] = await get_unread_counter(cid, user.slug)
             with local_session() as session:
                 c['members'] = []
-                for user in c["users"]:
-                    a = session.query(User).where(User.slug == user).first().dict()
+                for userslug in c["users"]:
+                    a = session.query(User).where(User.slug == userslug).first().dict()
                     c['members'].append({
-                        "slug": user,
+                        "slug": userslug,
                         "userpic": a["userpic"],
                         "name": a["name"],
                         "lastSeen": a["lastSeen"],
                     })
-                del c["users"]
             chats.append(c)
     return {
         "chats": chats,
@@ -66,7 +68,7 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
 @query.field("loadMessagesBy")
 @login_required
 async def load_messages_by(_, info, by, limit: int = 50, offset: int = 0):
-    ''' load :amolimitunt messages of :chat_id with :offset '''
+    ''' load :limit messages of :chat_id with :offset '''
     messages = set([])
     by_chat = by.get('chat')
     if by_chat:
