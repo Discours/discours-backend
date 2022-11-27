@@ -29,9 +29,9 @@ type ChatMember {
     name: String!
     userpic: String
     lastSeen: DateTime
-    invitedAt: DateTime
-    invitedBy: String # user slug
-    # TODO: add more
+    # invitedAt: DateTime
+    # invitedBy: String # user slug
+    # TODO: keep invite databit
 }
 
 type AuthorStat {
@@ -518,7 +518,8 @@ type Chat {
   updatedAt: Int!
   title: String
   description: String
-  users: [String]!
+  users: [String]
+  members: [ChatMember]
   admins: [String]
   messages: [Message]
   unread: Int
