@@ -179,10 +179,8 @@ class ViewedStorage:
         async with self.lock:
             while True:
                 try:
-                    ts = time.time()
                     await self.update_pages()
                     failed = 0
-                    print("[stat.viewed] update_pages took %fs " % (time.time() - ts))
                 except Exception:
                     failed += 1
                     print("[stat.viewed] update failed #%d, wait 10 seconds" % failed)
