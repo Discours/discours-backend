@@ -104,11 +104,11 @@ async def migrate(entry, storage):
         "authors": [],
         "topics": set([])
     }
-    topics_by_oid = storage["topics"]["by_oid"]
-    users_by_oid = storage["users"]["by_oid"]
+
     # author
-    oid = entry.get("createdBy", entry.get("_id", entry.get("oid")))
-    userdata = users_by_oid.get(oid)
+    users_by_oid = storage["users"]["by_oid"]
+    user_oid = entry.get("createdBy", "")
+    userdata = users_by_oid.get(user_oid)
     user = None
     if not userdata:
         app = entry.get("application")
@@ -140,6 +140,8 @@ async def migrate(entry, storage):
     # timestamps
     r["createdAt"] = date_parse(entry.get("createdAt", OLD_DATE))
     r["updatedAt"] = date_parse(entry["updatedAt"]) if "updatedAt" in entry else ts
+
+    # visibility
     if entry.get("published"):
         r["publishedAt"] = date_parse(entry.get("publishedAt", OLD_DATE))
         r["visibility"] = "public"
@@ -151,25 +153,67 @@ async def migrate(entry, storage):
             session.commit()
     else:
         r["visibility"] = "authors"
+
     if "deletedAt" in entry:
         r["deletedAt"] = date_parse(entry["deletedAt"])
 
     # topics
-    category = entry.get("category")
-    for oid in [category, ] + entry.get("tags", []):
-        t = storage["topics"]["by_oid"].get(oid)
-        if t:
-            tslug = storage["topics"]["by_oid"][oid]["slug"]
-            r["topics"].add(tslug)
-    r["topics"] = list(r["topics"])
-    # main topic
-    mt = topics_by_oid.get(category)
-    if mt and mt.get("slug"):
-        r["mainTopic"] = storage["replacements"].get(mt["slug"]) or r["topics"][0]
+    r['topics'] = await add_topics_follower(entry, storage, userslug)
+    r['mainTopic'] = r['topics'][0]
 
+    entry["topics"] = r["topics"]
+    entry["cover"] = r["cover"]
+
+    # body
+    r["body"] = extract_html(entry)
+    media = extract_media(entry)
+    if media:
+        r["media"] = json.dumps(media, ensure_ascii=True)
+
+    shout_dict = r.copy()
+
+    # user
+    user = await get_user(userslug, userdata, storage, user_oid)
+    shout_dict["authors"] = [user, ]
+    del shout_dict["topics"]
+    try:
+        # save shout to db
+        await create_shout(shout_dict, userslug)
+    except IntegrityError as e:
+        print(e)
+        await resolve_create_shout(shout_dict, userslug)
+    except Exception as e:
+        raise Exception(e)
+
+    # shout topics aftermath
+    shout_dict["topics"] = await topics_aftermath(r, storage)
+
+    # content_item ratings to reactions
+    await content_ratings_to_reactions(entry, shout_dict["slug"])
+
+    # shout views
+    await ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1))
+    # del shout_dict['ratings']
+
+    shout_dict["oid"] = entry.get("_id", "")
+    storage["shouts"]["by_oid"][entry["_id"]] = shout_dict
+    storage["shouts"]["by_slug"][slug] = shout_dict
+    return shout_dict
+
+
+async def add_topics_follower(entry, storage, userslug):
+    topics = set([])
+    category = entry.get("category")
+    topics_by_oid = storage["topics"]["by_oid"]
+    oids = [category, ] + entry.get("tags", [])
+    for toid in oids:
+        tslug = topics_by_oid.get(toid, {}).get("slug")
+        if tslug:
+            topics.add(tslug)
+    ttt = list(topics)
     # add author as TopicFollower
     with local_session() as session:
-        for tpc in r['topics']:
+        for tpc in topics:
             try:
                 tf = session.query(
                     TopicFollower
@@ -185,25 +229,19 @@ async def migrate(entry, storage):
                         auto=True
                     )
                     session.add(tf)
+                    session.commit()
             except IntegrityError:
                 print('[migration.shout] hidden by topic ' + tpc)
-                r["visibility"] = "authors"
-                r["publishedAt"] = None
-                r["topics"].remove(tpc)
+    # main topic
+    maintopic = storage["replacements"].get(topics_by_oid.get(category, {}).get("slug"))
+    if maintopic in ttt:
+        ttt.remove(maintopic)
+    ttt.insert(0, maintopic)
+    return ttt
 
-    entry["topics"] = r["topics"]
-    entry["cover"] = r["cover"]
 
-    # body
-    r["body"] = extract_html(entry)
-    media = extract_media(entry)
-    if media:
-        r["media"] = json.dumps(media, ensure_ascii=True)
-    # save shout to db
-    s = object()
-    shout_dict = r.copy()
+async def get_user(userslug, userdata, storage, oid):
     user = None
-    del shout_dict["topics"]
     with local_session() as session:
         if not user and userslug:
             user = session.query(User).filter(User.slug == userslug).first()
@@ -218,60 +256,56 @@ async def migrate(entry, storage):
             userdata["id"] = user.id
             userdata["createdAt"] = user.createdAt
             storage["users"]["by_slug"][userdata["slug"]] = userdata
-            storage["users"]["by_oid"][entry["_id"]] = userdata
-
+            storage["users"]["by_oid"][oid] = userdata
     if not user:
         raise Exception("could not get a user")
-    shout_dict["authors"] = [user, ]
-    try:
-        await create_shout(shout_dict, userslug)
-    except IntegrityError as e:
-        with local_session() as session:
-            s = session.query(Shout).filter(Shout.slug == shout_dict["slug"]).first()
-            bump = False
-            if s:
-                if s.authors[0] != userslug:
-                    # create new with different slug
-                    shout_dict["slug"] += '-' + shout_dict["layout"]
-                    try:
-                        await create_shout(shout_dict, userslug)
-                    except IntegrityError as e:
-                        print(e)
-                        bump = True
-                else:
-                    # update old
-                    for key in shout_dict:
-                        if key in s.__dict__:
-                            if s.__dict__[key] != shout_dict[key]:
-                                print(
-                                    "[migration] shout already exists, but differs in %s"
-                                    % key
-                                )
-                                bump = True
-                        else:
-                            print("[migration] shout already exists, but lacks %s" % key)
-                            bump = True
-                    if bump:
-                        s.update(shout_dict)
-            else:
-                print("[migration] something went wrong with shout: \n%r" % shout_dict)
-                raise e
-            session.commit()
-    except Exception as e:
-        print(e)
-        print(s)
-        raise Exception
+    return user
 
-    # shout topics aftermath
-    shout_dict["topics"] = []
-    for tpc in r["topics"]:
+
+async def resolve_create_shout(shout_dict, userslug):
+    with local_session() as session:
+        s = session.query(Shout).filter(Shout.slug == shout_dict["slug"]).first()
+        bump = False
+        if s:
+            if s.authors[0] != userslug:
+                # create new with different slug
+                shout_dict["slug"] += '-' + shout_dict["layout"]
+                try:
+                    await create_shout(shout_dict, userslug)
+                except IntegrityError as e:
+                    print(e)
+                    bump = True
+            else:
+                # update old
+                for key in shout_dict:
+                    if key in s.__dict__:
+                        if s.__dict__[key] != shout_dict[key]:
+                            print(
+                                "[migration] shout already exists, but differs in %s"
+                                % key
+                            )
+                            bump = True
+                    else:
+                        print("[migration] shout already exists, but lacks %s" % key)
+                        bump = True
+                if bump:
+                    s.update(shout_dict)
+        else:
+            print("[migration] something went wrong with shout: \n%r" % shout_dict)
+            raise Exception("")
+        session.commit()
+
+
+async def topics_aftermath(entry, storage):
+    r = []
+    for tpc in filter(lambda x: bool(x), entry["topics"]):
         oldslug = tpc
         newslug = storage["replacements"].get(oldslug, oldslug)
         if newslug:
             with local_session() as session:
                 shout_topic_old = (
                     session.query(ShoutTopic)
-                    .filter(ShoutTopic.shout == shout_dict["slug"])
+                    .filter(ShoutTopic.shout == entry["slug"])
                     .filter(ShoutTopic.topic == oldslug)
                     .first()
                 )
@@ -280,25 +314,27 @@ async def migrate(entry, storage):
                 else:
                     shout_topic_new = (
                         session.query(ShoutTopic)
-                        .filter(ShoutTopic.shout == shout_dict["slug"])
+                        .filter(ShoutTopic.shout == entry["slug"])
                         .filter(ShoutTopic.topic == newslug)
                         .first()
                     )
                     if not shout_topic_new:
                         try:
                             ShoutTopic.create(
-                                **{"shout": shout_dict["slug"], "topic": newslug}
+                                **{"shout": entry["slug"], "topic": newslug}
                             )
                         except Exception:
                             print("[migration] shout topic error: " + newslug)
                 session.commit()
-            if newslug not in shout_dict["topics"]:
-                shout_dict["topics"].append(newslug)
+            if newslug not in r:
+                r.append(newslug)
         else:
             print("[migration] ignored topic slug: \n%r" % tpc["slug"])
             # raise Exception
+    return r
 
-    # content_item ratings to reactions
+
+async def content_ratings_to_reactions(entry, slug):
     try:
         with local_session() as session:
             for content_rating in entry.get("ratings", []):
@@ -318,7 +354,7 @@ async def migrate(entry, storage):
                         if content_rating["value"] > 0
                         else ReactionKind.DISLIKE,
                         "createdBy": reactedBy.slug,
-                        "shout": shout_dict["slug"],
+                        "shout": slug,
                     }
                     cts = content_rating.get("createdAt")
                     if cts:
@@ -343,11 +379,3 @@ async def migrate(entry, storage):
             session.commit()
     except Exception:
         raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
-
-    # shout views
-    await ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1))
-    # del shout_dict['ratings']
-    shout_dict["oid"] = entry.get("_id")
-    storage["shouts"]["by_oid"][entry["_id"]] = shout_dict
-    storage["shouts"]["by_slug"][slug] = shout_dict
-    return shout_dict

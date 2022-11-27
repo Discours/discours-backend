@@ -199,7 +199,9 @@ async def delete_reaction(_, info, rid):
 def map_result_item(result_item):
     reaction = result_item[0]
     user = result_item[1]
+    shout = result_item[2]
     reaction.createdBy = user
+    reaction.shout = shout
     return reaction
 
 
@@ -222,10 +224,14 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     """
 
     CreatedByUser = aliased(User)
-
+    ReactedShout = aliased(Shout)
     q = select(
-        Reaction, CreatedByUser
-    ).join(CreatedByUser, Reaction.createdBy == CreatedByUser.slug)
+        Reaction, CreatedByUser, ReactedShout
+    ).join(
+        CreatedByUser, Reaction.createdBy == CreatedByUser.slug
+    ).join(
+        ReactedShout, Reaction.shout == ReactedShout.slug
+    )
 
     if by.get("shout"):
         q = q.filter(Reaction.shout == by["shout"])
@@ -245,7 +251,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     order_way = asc if by.get("sort", "").startswith("-") else desc
     order_field = by.get("sort") or Reaction.createdAt
     q = q.group_by(
-        Reaction.id, CreatedByUser.id
+        Reaction.id, CreatedByUser.id, ReactedShout.id
     ).order_by(
         order_way(order_field)
     )

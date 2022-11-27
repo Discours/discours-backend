@@ -262,9 +262,12 @@ def extract_md(body, oid=""):
 def extract_media(entry):
     ''' normalized media extraction method '''
     # media [ { title pic url body } ]}
-    kind = entry.get("layout")
+    kind = entry.get("type")
+    if not kind:
+        print(entry)
+        raise Exception("shout no layout")
     media = []
-    for m in entry.get("media", []):
+    for m in entry.get("media") or []:
         # title
         title = m.get("title", "").replace("\n", " ").replace("&nbsp;", " ")
         artist = m.get("performer") or m.get("artist")
@@ -274,7 +277,7 @@ def extract_media(entry):
         # pic
         url = m.get("fileUrl") or m.get("url", "")
         pic = ""
-        if "thumborId" in m:
+        if m.get("thumborId"):
             pic = cdn + "/unsafe/1600x/" + m["thumborId"]
 
         # url
@@ -285,11 +288,8 @@ def extract_media(entry):
                 url = "https://youtube.com/?watch=" + m["youtubeId"]
             elif "vimeoId" in m:
                 url = "https://vimeo.com/" + m["vimeoId"]
-            else:
-                print("[extract] media is not supported")
         # body
-        body = m.get("body") or m.get("literatureBody")
-
+        body = m.get("body") or m.get("literatureBody") or ""
         media.append({
             "url": url,
             "pic": pic,
@@ -306,7 +306,7 @@ def prepare_html_body(entry):
     addon = ""
     if kind == "Video":
         addon = ""
-        for m in entry.get("media", []):
+        for m in entry.get("media") or []:
             if "youtubeId" in m:
                 addon += '<iframe width="420" height="345" src="http://www.youtube.com/embed/'
                 addon += m["youtubeId"]
@@ -323,7 +323,7 @@ def prepare_html_body(entry):
 
     elif kind == "Music":
         addon = ""
-        for m in entry.get("media", []):
+        for m in entry.get("media") or []:
             artist = m.get("performer")
             trackname = ""
             if artist:
@@ -339,14 +339,10 @@ def prepare_html_body(entry):
 
     body = extract_html(entry)
     # if body_orig: body += extract_md(html2text(body_orig), entry['_id'])
-    if not body:
-        print("[extract] empty HTML body")
     return body
 
 
 def extract_html(entry):
     body_orig = (entry.get("body") or "").replace('\(', '(').replace('\)', ')')
-    if not body_orig:
-        print("[extract] empty HTML body")
     body_html = str(BeautifulSoup(body_orig, features="html.parser"))
     return body_html
