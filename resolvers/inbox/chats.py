@@ -31,7 +31,7 @@ async def update_chat(_, info, chat_new: dict):
             "title": chat_new.get("title", chat["title"]),
             "description": chat_new.get("description", chat["description"]),
             "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
-            "admins": chat_new.get("admins", chat["admins"]),
+            "admins": chat_new.get("admins", chat.get("admins") or []),
             "users": chat_new.get("users", chat["users"])
         })
     await redis.execute("SET", f"chats/{chat.id}", json.dumps(chat))
@@ -76,7 +76,7 @@ async def create_chat(_, info, title="", members=[]):
         "createdBy": user.slug,
         "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
         "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
-        # "admins": [user.slug, ]
+        "admins": []
     }
 
     for m in members:

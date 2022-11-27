@@ -46,7 +46,7 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
         c = await redis.execute("GET", "chats/" + cid.decode("utf-8"))
         if c:
             c = dict(json.loads(c))
-            c['messages'] = await load_messages(cid, 50, 0)
+            c['messages'] = await load_messages(cid, 5, 0)
             c['unread'] = await get_unread_counter(cid, user.slug)
             with local_session() as session:
                 c['members'] = []
@@ -65,9 +65,34 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
     }
 
 
+async def search_user_chats(by, messages: set, slug: str, limit, offset):
+    cids = set([])
+    by_author = by.get('author')
+    body_like = by.get('body')
+    cids.unioin(set(await redis.execute("SMEMBERS", "chats_by_user/" + slug)))
+    if by_author:
+        # all author's messages
+        cids.union(set(await redis.execute("SMEMBERS", f"chats_by_user/{by_author}")))
+        # author's messages in filtered chat
+        messages.union(set(filter(lambda m: m["author"] == by_author, list(messages))))
+        for c in cids:
+            messages.union(set(await load_messages(c, limit, offset)))
+    if body_like:
+        # search in all messages in all user's chats
+        for c in cids:
+            mmm = set(await load_messages(c, limit, offset))
+            for m in mmm:
+                if body_like in m["body"]:
+                    messages.add(m)
+        else:
+            # search in chat's messages
+            messages.union(set(filter(lambda m: body_like in m["body"], list(messages))))
+    return messages
+
+
 @query.field("loadMessagesBy")
 @login_required
-async def load_messages_by(_, info, by, limit: int = 50, offset: int = 0):
+async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
     ''' load :limit messages of :chat_id with :offset '''
     messages = set([])
     by_chat = by.get('chat')
@@ -78,40 +103,21 @@ async def load_messages_by(_, info, by, limit: int = 50, offset: int = 0):
         # everyone's messages in filtered chat
         messages.union(set(await load_messages(by_chat, limit, offset)))
 
-    cids = set([])
-    by_author = by.get('author')
-    body_like = by.get('body')
     user = info.context["request"].user
-    if user:
-        cids.unioin(set(await redis.execute("SMEMBERS", "chats_by_user/" + user.slug)))
-    if len(messages) == 0:
-        if by_author:
-            # all author's messages
-            cids.union(set(await redis.execute("SMEMBERS", f"chats_by_user/{by_author}")))
-            if by_chat:
-                # author's messages in filtered chat
-                messages.union(set(filter(lambda m: m["author"] == by_author, list(messages))))
-        for c in cids:
-            messages.union(set(await load_messages(c, limit, offset)))
-        if body_like:
-            # search in all messages in all user's chats
-            for c in cids:
-                mmm = set(await load_messages(c, limit, offset))
-                for m in mmm:
-                    if body_like in m["body"]:
-                        messages.add(m)
-            else:
-                # search in chat's messages
-                messages.union(set(filter(lambda m: body_like in m["body"], list(messages))))
+    if user and len(messages) == 0:
+        messages.union(search_user_chats(by, messages, user.slug, limit, offset))
 
     days = by.get("days")
     if days:
         messages.union(set(filter(
             lambda m: datetime.now(tz=timezone.utc) - int(m["createdAt"]) < timedelta(days=by.get("days")),
-            messages
+            list(messages)
         )))
     return {
-        "messages": sorted(list(messages)),
+        "messages": sorted(
+            lambda m: m.createdAt,
+            list(messages)
+        ),
         "error": None
     }
 
