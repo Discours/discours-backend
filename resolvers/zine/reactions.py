@@ -197,11 +197,10 @@ async def delete_reaction(_, info, rid):
 
 
 def map_result_item(result_item):
-    reaction = result_item[0]
-    user = result_item[1]
-    shout = result_item[2]
+    [user, shout, reaction] = result_item
     reaction.createdBy = user
     reaction.shout = shout
+    reaction.replyTo = reaction
     return reaction
 
 
