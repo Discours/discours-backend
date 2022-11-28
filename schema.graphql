@@ -152,7 +152,7 @@ type Mutation {
   updateChat(chat: ChatInput!): Result!
   deleteChat(chatId: String!): Result!
 
-  createMessage(chat: String!, body: String!, replyTo: String): Result!
+  createMessage(chat: String!, body: String!, replyTo: Int): Result!
   updateMessage(chatId: String!, id: Int!, body: String!): Result!
   deleteMessage(chatId: String!, id: Int!): Result!
   markAsRead(chatId: String!, ids: [Int]!): Result!
@@ -410,7 +410,7 @@ type Reaction {
   range: String # full / 0:2340
   kind: ReactionKind!
   body: String
-  replyTo: Reaction
+  replyTo: Int
   stat: Stat
   old_id: String
   old_thread: String

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import sqlalchemy as sa
-from sqlalchemy.orm import joinedload, aliased, make_transient
+from sqlalchemy.orm import joinedload, aliased
 from sqlalchemy.sql.expression import desc, asc, select, case
 from base.orm import local_session
 from base.resolvers import query
@@ -38,6 +38,32 @@ def add_rating_stat_column(q):
         (Reaction.kind == ReactionKind.DISLIKE, -1),
         else_=0
     )).label('rating_stat'))
+
+
+# def calc_reactions(q):
+#     aliased_reaction = aliased(Reaction)
+#     return q.join(aliased_reaction).add_columns(
+#         sa.func.sum(case(
+#             (aliased_reaction.kind == ReactionKind.AGREE, 1),
+#             (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
+#             (aliased_reaction.kind == ReactionKind.PROOF, 1),
+#             (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
+#             (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
+#             (aliased_reaction.kind == ReactionKind.REJECT, -1),
+#             (aliased_reaction.kind == ReactionKind.LIKE, 1),
+#             (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
+#             else_=0)
+#         ).label('rating'),
+#         sa.func.sum(
+#             case(
+#                 (aliased_reaction.body.is_not(None), 1),
+#                 else_=0
+#             )
+#         ).label('commented'),
+#         sa.func.sum(
+#             aliased_reaction.id
+#         ).label('reacted')
+#     )
 
 
 def apply_filters(q, filters, user=None):
