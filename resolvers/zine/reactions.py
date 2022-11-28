@@ -199,15 +199,6 @@ async def delete_reaction(_, info, rid):
         session.commit()
     return {}
 
-
-def map_result_item(result_item):
-    [reaction, user, shout] = result_item
-    print(reaction)
-    reaction.createdBy = user
-    reaction.shout = shout
-    return reaction
-
-
 @query.field("loadReactionsBy")
 async def load_reactions_by(_, _info, by, limit=50, offset=0):
     """
@@ -251,21 +242,24 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     if by.get("days"):
         after = datetime.now(tz=timezone.utc) - timedelta(days=int(by["days"]) or 30)
         q = q.filter(Reaction.createdAt > after)
+
     order_way = asc if by.get("sort", "").startswith("-") else desc
     order_field = by.get("sort") or Reaction.createdAt
+
     q = q.group_by(
         Reaction.id, CreatedByUser.id, ReactedShout.id
     ).order_by(
         order_way(order_field)
     )
+
     q = calc_reactions(q)
+
     q = q.where(Reaction.deletedAt.is_(None))
     q = q.limit(limit).offset(offset)
     reactions = []
+
     with local_session() as session:
-        for [
-            [reaction, rating, commented, reacted], user, shout
-        ] in list(map(map_result_item, session.execute(q))):
+        for [reaction, user, shout, rating, commented, reacted] in session.execute(q):
             reaction.createdBy = user
             reaction.shout = shout
             reaction.stat = {
