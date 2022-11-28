@@ -201,11 +201,10 @@ async def delete_reaction(_, info, rid):
 
 
 def map_result_item(result_item):
-    [user, shout, reaction] = result_item
+    [reaction, user, shout] = result_item
     print(reaction)
     reaction.createdBy = user
     reaction.shout = shout
-    reaction.replyTo = reaction
     return reaction
 
 
@@ -229,15 +228,12 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
 
     CreatedByUser = aliased(User)
     ReactedShout = aliased(Shout)
-    RepliedReaction = aliased(Reaction)
     q = select(
-        Reaction, CreatedByUser, ReactedShout, RepliedReaction
+        Reaction, CreatedByUser, ReactedShout
     ).join(
         CreatedByUser, Reaction.createdBy == CreatedByUser.slug
     ).join(
         ReactedShout, Reaction.shout == ReactedShout.slug
-    ).join(
-        RepliedReaction, Reaction.replyTo == RepliedReaction.id
     )
 
     if by.get("shout"):
@@ -268,10 +264,10 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     reactions = []
     with local_session() as session:
         for [
-            [reaction, rating, commented, reacted], shout, reply
+            [reaction, rating, commented, reacted], user, shout
         ] in list(map(map_result_item, session.execute(q))):
+            reaction.createdBy = user
             reaction.shout = shout
-            reaction.replyTo = reply
             reaction.stat = {
                 "rating": rating,
                 "commented": commented,
