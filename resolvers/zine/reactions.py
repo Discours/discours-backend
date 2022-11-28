@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import and_, asc, desc, select, text, func, case
+from sqlalchemy import and_, asc, desc, select, text, func
 from sqlalchemy.orm import aliased
 from auth.authenticate import login_required
 from base.orm import local_session
@@ -7,34 +7,11 @@ from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
+from resolvers.zine._common import add_common_stat_columns
 
 
 def add_reaction_stat_columns(q):
-    aliased_reaction = aliased(Reaction)
-
-    q = q.outerjoin(aliased_reaction).add_columns(
-        func.sum(
-            aliased_reaction.id
-        ).label('reacted_stat'),
-        func.sum(
-            case(
-                (aliased_reaction.body.is_not(None), 1),
-                else_=0
-            )
-        ).label('commented_stat'),
-        func.sum(case(
-            (aliased_reaction.kind == ReactionKind.AGREE, 1),
-            (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
-            (aliased_reaction.kind == ReactionKind.PROOF, 1),
-            (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
-            (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
-            (aliased_reaction.kind == ReactionKind.REJECT, -1),
-            (aliased_reaction.kind == ReactionKind.LIKE, 1),
-            (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
-            else_=0)
-        ).label('rating_stat'))
-
-    return q
+    return add_common_stat_columns(q)
 
 
 def reactions_follow(user: User, slug: str, auto=False):
@@ -181,9 +158,9 @@ async def update_reaction(_, info, inp):
     with local_session() as session:
         user = session.query(User).where(User.id == user_id).first()
         q = select(Reaction).filter(Reaction.id == inp.id)
-        q = calc_reactions(q)
+        q = add_reaction_stat_columns(q)
 
-        [reaction, rating, commented, reacted] = session.execute(q).unique().one()
+        [reaction, reacted_stat, commented_stat, rating_stat] = session.execute(q).unique().one()
 
         if not reaction:
             return {"error": "invalid reaction id"}
@@ -199,9 +176,9 @@ async def update_reaction(_, info, inp):
             reaction.range = inp.get("range")
         session.commit()
         reaction.stat = {
-            "commented": commented,
-            "reacted": reacted,
-            "rating": rating
+            "commented": commented_stat,
+            "reacted": reacted_stat,
+            "rating": rating_stat
         }
 
     return {"reaction": reaction}
@@ -269,6 +246,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
         q = q.filter(Reaction.createdAt > after)
 
     order_way = asc if by.get("sort", "").startswith("-") else desc
+    # replace "-" -> "" ?
     order_field = by.get("sort") or Reaction.createdAt
 
     q = q.group_by(
@@ -277,23 +255,24 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
         order_way(order_field)
     )
 
-    q = calc_reactions(q)
+    q = add_reaction_stat_columns(q)
 
     q = q.where(Reaction.deletedAt.is_(None))
     q = q.limit(limit).offset(offset)
     reactions = []
 
     with local_session() as session:
-        for [reaction, user, shout, rating, commented, reacted] in session.execute(q):
+        for [reaction, user, shout, reacted_stat, commented_stat, rating_stat] in session.execute(q):
             reaction.createdBy = user
             reaction.shout = shout
             reaction.stat = {
-                "rating": rating,
-                "commented": commented,
-                "reacted": reacted
+                "rating": rating_stat,
+                "commented": commented_stat,
+                "reacted": reacted_stat
             }
             reactions.append(reaction)
 
+    # ?
     if by.get("stat"):
         reactions.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
 
