@@ -229,12 +229,15 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
 
     CreatedByUser = aliased(User)
     ReactedShout = aliased(Shout)
+    RepliedReaction = aliased(Reaction)
     q = select(
         Reaction, CreatedByUser, ReactedShout
     ).join(
         CreatedByUser, Reaction.createdBy == CreatedByUser.slug
     ).join(
         ReactedShout, Reaction.shout == ReactedShout.slug
+    ).join(
+        RepliedReaction, Reaction.replyTo == RepliedReaction.id
     )
 
     if by.get("shout"):

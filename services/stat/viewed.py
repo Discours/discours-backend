@@ -184,7 +184,7 @@ class ViewedStorage:
                     failed = 0
                 except Exception:
                     failed += 1
-                    print("[stat.viewed] ⎪ update failed #%d, wait 10 seconds" % failed)
+                    print("[stat.viewed] ⎩ update failed #%d, wait 10 seconds" % failed)
                     if failed > 3:
                         print("[stat.viewed] ⎩ not trying to update anymore")
                         break
@@ -197,4 +197,4 @@ class ViewedStorage:
                     await asyncio.sleep(self.period)
                 else:
                     await asyncio.sleep(10)
-                    print("[stat.viewed] ⎪ trying to update data again...")
+                    print("[stat.viewed] ⎧ trying to update data again...")
