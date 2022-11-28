@@ -58,7 +58,7 @@ def login_required(func):
         # print('[auth.authenticate] login required for %r with info %r' % (func, info))  # debug only
         auth: AuthCredentials = info.context["request"].auth
         # print(auth)
-        if not auth.logged_in:
+        if not auth or not auth.logged_in:
             raise OperationNotAllowed(auth.error_message or "Please login")
         return await func(parent, info, *args, **kwargs)
 
