@@ -103,12 +103,12 @@ class User(Base):
 
     async def get_permission(self):
         scope = {}
-        for user_role in self.roles:
-            role: Role = await RoleStorage.get_role(user_role.id)  # type: ignore
+        for role in self.roles:
             for p in role.permissions:
                 if p.resource_id not in scope:
                     scope[p.resource_id] = set()
                 scope[p.resource_id].add(p.operation_id)
+
         return scope
 
 
