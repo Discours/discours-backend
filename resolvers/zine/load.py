@@ -9,72 +9,47 @@ from orm.shout import Shout, ShoutAuthor
 from orm.reaction import Reaction, ReactionKind
 
 
-def add_viewed_stat_column(q):
-    return q.outerjoin(ViewedEntry).add_columns(sa.func.sum(ViewedEntry.amount).label('viewed_stat'))
+def add_stat_columns(q):
+    q = q.outerjoin(ViewedEntry).add_columns(sa.func.sum(ViewedEntry.amount).label('viewed_stat'))
 
-
-def add_reacted_stat_column(q):
     aliased_reaction = aliased(Reaction)
-    return q.outerjoin(aliased_reaction).add_columns(sa.func.count(aliased_reaction.id).label('reacted_stat'))
 
+    q = q.outerjoin(aliased_reaction).add_columns(
+        sa.func.sum(
+            aliased_reaction.id
+        ).label('reacted_stat'),
+        sa.func.sum(
+            case(
+                (aliased_reaction.body.is_not(None), 1),
+                else_=0
+            )
+        ).label('commented_stat'),
+        sa.func.sum(case(
+            (aliased_reaction.kind == ReactionKind.AGREE, 1),
+            (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
+            (aliased_reaction.kind == ReactionKind.PROOF, 1),
+            (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
+            (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
+            (aliased_reaction.kind == ReactionKind.REJECT, -1),
+            (aliased_reaction.kind == ReactionKind.LIKE, 1),
+            (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
+            else_=0)
+        ).label('rating_stat'))
 
-def add_commented_stat_column(q):
-    aliased_reaction = aliased(Reaction)
-    return q.outerjoin(
-        aliased_reaction,
-        aliased_reaction.shout == Shout.slug and aliased_reaction.body.is_not(None)
-    ).add_columns(sa.func.count(aliased_reaction.id).label('commented_stat'))
-
-
-def add_rating_stat_column(q):
-    return q.outerjoin(Reaction).add_columns(sa.func.sum(case(
-        (Reaction.kind == ReactionKind.AGREE, 1),
-        (Reaction.kind == ReactionKind.DISAGREE, -1),
-        (Reaction.kind == ReactionKind.PROOF, 1),
-        (Reaction.kind == ReactionKind.DISPROOF, -1),
-        (Reaction.kind == ReactionKind.ACCEPT, 1),
-        (Reaction.kind == ReactionKind.REJECT, -1),
-        (Reaction.kind == ReactionKind.LIKE, 1),
-        (Reaction.kind == ReactionKind.DISLIKE, -1),
-        else_=0
-    )).label('rating_stat'))
-
-
-# def calc_reactions(q):
-#     aliased_reaction = aliased(Reaction)
-#     return q.join(aliased_reaction).add_columns(
-#         sa.func.sum(case(
-#             (aliased_reaction.kind == ReactionKind.AGREE, 1),
-#             (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
-#             (aliased_reaction.kind == ReactionKind.PROOF, 1),
-#             (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
-#             (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
-#             (aliased_reaction.kind == ReactionKind.REJECT, -1),
-#             (aliased_reaction.kind == ReactionKind.LIKE, 1),
-#             (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
-#             else_=0)
-#         ).label('rating'),
-#         sa.func.sum(
-#             case(
-#                 (aliased_reaction.body.is_not(None), 1),
-#                 else_=0
-#             )
-#         ).label('commented'),
-#         sa.func.sum(
-#             aliased_reaction.id
-#         ).label('reacted')
-#     )
+    return q
 
 
 def apply_filters(q, filters, user=None):
-    filters = {} if filters is None else filters
+
     if filters.get("reacted") and user:
         q.join(Reaction, Reaction.createdBy == user.slug)
+
     v = filters.get("visibility")
     if v == "public":
         q = q.filter(Shout.visibility == filters.get("visibility"))
     if v == "community":
         q = q.filter(Shout.visibility.in_(["public", "community"]))
+
     if filters.get("layout"):
         q = q.filter(Shout.layout == filters.get("layout"))
     if filters.get("author"):
@@ -88,14 +63,7 @@ def apply_filters(q, filters, user=None):
     if filters.get("days"):
         before = datetime.now(tz=timezone.utc) - timedelta(days=int(filters.get("days")) or 30)
         q = q.filter(Shout.createdAt > before)
-    return q
 
-
-def add_stat_columns(q):
-    q = add_viewed_stat_column(q)
-    q = add_reacted_stat_column(q)
-    q = add_commented_stat_column(q)
-    q = add_rating_stat_column(q)
     return q
 
 
@@ -162,7 +130,7 @@ async def load_shouts_by(_, info, options):
     q = add_stat_columns(q)
 
     user = info.context["request"].user
-    q = apply_filters(q, options.get("filters"), user)
+    q = apply_filters(q, options.get("filters", {}), user)
 
     order_by = options.get("order_by", Shout.createdAt)
     if order_by == 'reacted':

@@ -9,9 +9,10 @@ def migrate(entry):
     topic_dict = {
         "slug": entry["slug"],
         "oid": entry["_id"],
-        "title": entry["title"].replace("&nbsp;", " ")
+        "title": entry["title"].replace("&nbsp;", " "),
+        "body": extract_md(html2text(body_orig), entry["_id"])
     }
-    topic_dict["body"] = extract_md(html2text(body_orig), entry["_id"])
+
     with local_session() as session:
         slug = topic_dict["slug"]
         topic = session.query(Topic).filter(Topic.slug == slug).first() or Topic.create(

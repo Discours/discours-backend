@@ -10,15 +10,6 @@ from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
 
 
-async def get_reaction_stat(reaction_id):
-    return {
-        # "viewed": await ViewedStorage.get_reaction(reaction_id),
-        "reacted": len(await ReactedStorage.get_reaction(reaction_id)),
-        "rating": await ReactedStorage.get_reaction_rating(reaction_id),
-        "commented": len(await ReactedStorage.get_reaction_comments(reaction_id)),
-    }
-
-
 def reactions_follow(user: User, slug: str, auto=False):
     with local_session() as session:
         following = (
@@ -204,6 +195,7 @@ async def delete_reaction(_, info, rid):
         reaction.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
     return {}
+
 
 @query.field("loadReactionsBy")
 async def load_reactions_by(_, _info, by, limit=50, offset=0):

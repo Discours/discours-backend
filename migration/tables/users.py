@@ -23,8 +23,9 @@ def migrate(entry):
         "notifications": [],
         "links": [],
         "name": "anonymous",
+        "password": entry["services"]["password"].get("bcrypt")
     }
-    user_dict["password"] = entry["services"]["password"].get("bcrypt")
+
     if "updatedAt" in entry:
         user_dict["updatedAt"] = parse(entry["updatedAt"])
     if "wasOnineAt" in entry:
