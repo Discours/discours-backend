@@ -1,6 +1,4 @@
-import sqlalchemy as sa
-from sqlalchemy import and_, select, distinct
-
+from sqlalchemy import and_, select, distinct, func
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
@@ -11,15 +9,15 @@ from orm import Shout
 
 def add_topic_stat_columns(q):
     q = q.outerjoin(ShoutTopic, Topic.slug == ShoutTopic.topic).add_columns(
-        sa.func.count(distinct(ShoutTopic.shout)).label('shouts_stat')
+        func.count(distinct(ShoutTopic.shout)).label('shouts_stat')
     ).outerjoin(ShoutAuthor, ShoutTopic.shout == ShoutAuthor.shout).add_columns(
-        sa.func.count(distinct(ShoutAuthor.user)).label('authors_stat')
+        func.count(distinct(ShoutAuthor.user)).label('authors_stat')
     ).outerjoin(TopicFollower,
                 and_(
                     TopicFollower.topic == Topic.slug,
                     TopicFollower.follower == ShoutAuthor.user
                 )).add_columns(
-        sa.func.count(distinct(TopicFollower.follower)).label('followers_stat')
+        func.count(distinct(TopicFollower.follower)).label('followers_stat')
     )
 
     q = q.group_by(Topic.id)
@@ -54,7 +52,6 @@ def followed_by_user(user_slug):
     q = q.where(TopicFollower.follower == user_slug)
 
     return get_topics_from_query(q)
-
 
 
 @query.field("topicsAll")
@@ -146,7 +143,7 @@ async def topic_unfollow(user, slug):
 async def topics_random(_, info, amount=12):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.join(Shout, ShoutTopic.shout == Shout.slug).group_by(Topic.id).having(sa.func.count(Shout.id) > 2)
-    q = q.order_by(sa.func.random()).limit(amount)
+    q = q.join(Shout, ShoutTopic.shout == Shout.slug).group_by(Topic.id).having(func.count(Shout.id) > 2)
+    q = q.order_by(func.random()).limit(amount)
 
     return get_topics_from_query(q)

@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
-import sqlalchemy as sa
 from sqlalchemy.orm import joinedload, aliased
-from sqlalchemy.sql.expression import desc, asc, select, case
+from sqlalchemy.sql.expression import desc, asc, select, case, func
 from base.orm import local_session
 from base.resolvers import query
 from orm import ViewedEntry
@@ -10,21 +9,21 @@ from orm.reaction import Reaction, ReactionKind
 
 
 def add_stat_columns(q):
-    q = q.outerjoin(ViewedEntry).add_columns(sa.func.sum(ViewedEntry.amount).label('viewed_stat'))
+    q = q.outerjoin(ViewedEntry).add_columns(func.sum(ViewedEntry.amount).label('viewed_stat'))
 
     aliased_reaction = aliased(Reaction)
 
     q = q.outerjoin(aliased_reaction).add_columns(
-        sa.func.sum(
+        func.sum(
             aliased_reaction.id
         ).label('reacted_stat'),
-        sa.func.sum(
+        func.sum(
             case(
                 (aliased_reaction.body.is_not(None), 1),
                 else_=0
             )
         ).label('commented_stat'),
-        sa.func.sum(case(
+        func.sum(case(
             (aliased_reaction.kind == ReactionKind.AGREE, 1),
             (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
             (aliased_reaction.kind == ReactionKind.PROOF, 1),
@@ -135,7 +134,7 @@ async def load_shouts_by(_, info, options):
     order_by = options.get("order_by", Shout.createdAt)
     if order_by == 'reacted':
         aliased_reaction = aliased(Reaction)
-        q.outerjoin(aliased_reaction).add_columns(sa.func.max(aliased_reaction.createdAt).label('reacted'))
+        q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
 
     order_by_desc = options.get('order_by_desc', True)
 
