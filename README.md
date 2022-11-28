@@ -24,10 +24,8 @@ apt install redis nginx
 
 First, install Postgres. Then you'll need some data
 ```
-
-psql -U postgres
-> create database discoursio;
-> \q
+brew install postgres
+createdb discoursio
 python server.py migrate
 ```
 
@@ -41,4 +39,8 @@ python3 server.py dev
 # How to do an authorized request
 
 Put the header 'Authorization' with token from signIn query or registerUser mutation.
+
+# How to debug Ackee
+
+Set ACKEE_TOKEN var
 

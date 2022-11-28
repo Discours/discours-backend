@@ -13,12 +13,12 @@ from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
 from base.exceptions import (BaseHttpException, InvalidPassword, InvalidToken,
-                             ObjectNotExist, OperationNotAllowed)
+                             ObjectNotExist, OperationNotAllowed, Unauthorized)
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
 from resolvers.zine.profile import user_subscriptions
-from settings import SESSION_TOKEN_HEADER
+from settings import SESSION_TOKEN_HEADER, FRONTEND_URL
 
 
 @mutation.field("getSession")
@@ -37,7 +37,7 @@ async def get_current_user(_, info):
                 "news": await user_subscriptions(user.slug),
             }
     else:
-        raise OperationNotAllowed("No session token present in request, try to login")
+        raise Unauthorized("No session token present in request, try to login")
 
 
 @mutation.field("confirmEmail")
@@ -75,7 +75,7 @@ async def confirm_email_handler(request):
     if "error" in res:
         raise BaseHttpException(res['error'])
     else:
-        response = RedirectResponse(url="https://new.discours.io")
+        response = RedirectResponse(url=FRONTEND_URL)
         response.set_cookie("token", res["token"])  # session token
         return response
 
@@ -133,7 +133,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
 
 
 @mutation.field("sendLink")
-async def auth_send_link(_, _info, email, lang="ru"):
+async def auth_send_link(_, _info, email, lang="ru", template="email_confirmation"):
     """send link with confirm code to email"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
@@ -141,7 +141,7 @@ async def auth_send_link(_, _info, email, lang="ru"):
             raise ObjectNotExist("User not found")
         else:
             token = await TokenStorage.create_onetime(user)
-            await send_auth_email(user, token, lang)
+            await send_auth_email(user, token, lang, template)
             return user
 
 

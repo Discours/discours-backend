@@ -2,7 +2,7 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.responses import RedirectResponse
 from auth.identity import Identity
 from auth.tokenstorage import TokenStorage
-from settings import OAUTH_CLIENTS
+from settings import OAUTH_CLIENTS, FRONTEND_URL
 
 oauth = OAuth()
 
@@ -84,6 +84,6 @@ async def oauth_authorize(request):
     }
     user = Identity.oauth(user_input)
     session_token = await TokenStorage.create_session(user)
-    response = RedirectResponse(url="https://new.discours.io/confirm")
+    response = RedirectResponse(url=FRONTEND_URL + "/confirm")
     response.set_cookie("token", session_token)
     return response

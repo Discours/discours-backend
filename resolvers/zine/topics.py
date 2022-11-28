@@ -3,23 +3,14 @@ from sqlalchemy import and_, select
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
-from orm import Shout
 from orm.topic import Topic, TopicFollower
-# from services.stat.reacted import ReactedStorage
-
-
-# from services.stat.viewed import ViewedStorage
-
+from orm import Shout
 
 async def get_topic_stat(slug):
     return {
         "shouts": len(TopicStat.shouts_by_topic.get(slug, {}).keys()),
         "authors": len(TopicStat.authors_by_topic.get(slug, {}).keys()),
-        "followers": len(TopicStat.followers_by_topic.get(slug, {}).keys()),
-        # "viewed": await ViewedStorage.get_topic(slug),
-        # "reacted": len(await ReactedStorage.get_topic(slug)),
-        # "commented": len(await ReactedStorage.get_topic_comments(slug)),
-        # "rating": await ReactedStorage.get_topic_rating(slug)
+        "followers": len(TopicStat.followers_by_topic.get(slug, {}).keys())
     }
 
 
@@ -96,11 +87,12 @@ async def topic_follow(user, slug):
 async def topic_unfollow(user, slug):
     with local_session() as session:
         sub = (
-            session.query(TopicFollower)
-                .filter(
-                and_(TopicFollower.follower == user.slug, TopicFollower.topic == slug)
-            )
-                .first()
+            session.query(TopicFollower).filter(
+                and_(
+                    TopicFollower.follower == user.slug,
+                    TopicFollower.topic == slug
+                )
+            ).first()
         )
         if not sub:
             raise Exception("[resolvers.topics] follower not exist")

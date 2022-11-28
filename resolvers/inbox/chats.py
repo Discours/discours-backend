@@ -7,43 +7,6 @@ from base.redis import redis
 from base.resolvers import mutation
 
 
-async def add_user_to_chat(user_slug: str, chat_id: str, chat=None):
-    for member in chat["users"]:
-        chats_ids = await redis.execute("GET", f"chats_by_user/{member}")
-        if chats_ids:
-            chats_ids = list(json.loads(chats_ids))
-        else:
-            chats_ids = []
-        if chat_id not in chats_ids:
-            chats_ids.append(chat_id)
-        await redis.execute("SET", f"chats_by_user/{member}", json.dumps(chats_ids))
-
-
-@mutation.field("inviteChat")
-async def invite_to_chat(_, info, invited: str, chat_id: str):
-    ''' invite user with :slug to chat with :chat_id '''
-    user = info.context["request"].user
-    chat = await redis.execute("GET", f"chats/{chat_id}")
-    if not chat:
-        return {
-            "error": "chat not exist"
-        }
-    chat = dict(json.loads(chat))
-    if not chat['private'] and user.slug not in chat['admins']:
-        return {
-            "error": "only admins can invite to private chat",
-            "chat": chat
-        }
-    else:
-        chat["users"].append(invited)
-        await add_user_to_chat(user.slug, chat_id, chat)
-        await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
-        return {
-            "error": None,
-            "chat": chat
-        }
-
-
 @mutation.field("updateChat")
 @login_required
 async def update_chat(_, info, chat_new: dict):
@@ -68,12 +31,11 @@ async def update_chat(_, info, chat_new: dict):
             "title": chat_new.get("title", chat["title"]),
             "description": chat_new.get("description", chat["description"]),
             "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
-            "admins": chat_new.get("admins", chat["admins"]),
+            "admins": chat_new.get("admins", chat.get("admins") or []),
             "users": chat_new.get("users", chat["users"])
         })
-    await add_user_to_chat(user.slug, chat_id, chat)
     await redis.execute("SET", f"chats/{chat.id}", json.dumps(chat))
-    await redis.execute("SET", f"chats/{chat.id}/next_message_id", 0)
+    await redis.execute("COMMIT")
 
     return {
         "error": None,
@@ -85,23 +47,43 @@ async def update_chat(_, info, chat_new: dict):
 @login_required
 async def create_chat(_, info, title="", members=[]):
     user = info.context["request"].user
-    chat_id = str(uuid.uuid4())
+    chat = {}
     if user.slug not in members:
         members.append(user.slug)
+
+    # reuse chat craeted before if exists
+    if len(members) == 2 and title == "":
+        chats1 = await redis.execute("SMEMBERS", f"chats_by_user/{members[0].slug}")
+        chats2 = await redis.execute("SMEMBERS", f"chats_by_user/{members[1].slug}")
+        chat = None
+        for c in chats1.intersection(chats2):
+            chat = await redis.execute("GET", f"chats/{c.decode('utf-8')}")
+            if chat:
+                chat = json.loads(chat)
+                if chat.title == "":
+                    break
+        if chat:
+            return {
+                "chat": chat,
+                "error": "existed"
+            }
+
+    chat_id = str(uuid.uuid4())
     chat = {
-        "title": title,
-        "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
-        "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
-        "createdBy": user.slug,
         "id": chat_id,
         "users": members,
-        "admins": [user.slug, ]
+        "title": title,
+        "createdBy": user.slug,
+        "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
+        "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
+        "admins": []
     }
 
-    await add_user_to_chat(user.slug, chat_id, chat)
+    for m in members:
+        await redis.execute("SADD", f"chats_by_user/{m}", chat_id)
     await redis.execute("SET", f"chats/{chat_id}", json.dumps(chat))
     await redis.execute("SET", f"chats/{chat_id}/next_message_id", str(0))
-
+    await redis.execute("COMMIT")
     return {
         "error": None,
         "chat": chat
@@ -117,6 +99,8 @@ async def delete_chat(_, info, chat_id: str):
         chat = dict(json.loads(chat))
         if user.slug in chat['admins']:
             await redis.execute("DEL", f"chats/{chat_id}")
+            await redis.execute("SREM", "chats_by_user/" + user, chat_id)
+            await redis.execute("COMMIT")
     else:
         return {
             "error": "chat not exist"

@@ -3,7 +3,8 @@ import os
 import re
 import uuid
 
-from .html2text import html2text
+from bs4 import BeautifulSoup
+
 
 TOOLTIP_REGEX = r"(\/\/\/(.+)\/\/\/)"
 contentDir = os.path.join(
@@ -258,47 +259,44 @@ def extract_md(body, oid=""):
     return newbody
 
 
-def prepare_md_body(entry):
-    # body modifications
-    body = ""
+def extract_media(entry):
+    ''' normalized media extraction method '''
+    # media [ { title pic url body } ]}
     kind = entry.get("type")
-    addon = ""
-    if kind == "Video":
-        addon = ""
-        for m in entry.get("media", []):
-            if "youtubeId" in m:
-                addon += "<VideoPlayer youtubeId='" + m["youtubeId"] + "' />\n"
+    if not kind:
+        print(entry)
+        raise Exception("shout no layout")
+    media = []
+    for m in entry.get("media") or []:
+        # title
+        title = m.get("title", "").replace("\n", " ").replace("&nbsp;", " ")
+        artist = m.get("performer") or m.get("artist")
+        if artist:
+            title = artist + " - " + title
+
+        # pic
+        url = m.get("fileUrl") or m.get("url", "")
+        pic = ""
+        if m.get("thumborId"):
+            pic = cdn + "/unsafe/1600x/" + m["thumborId"]
+
+        # url
+        if not url:
+            if kind == "Image":
+                url = pic
+            elif "youtubeId" in m:
+                url = "https://youtube.com/?watch=" + m["youtubeId"]
             elif "vimeoId" in m:
-                addon += "<VideoPlayer vimeoId='" + m["vimeoId"] + "' />\n"
-            else:
-                print("[extract] media is not supported")
-                print(m)
-        body = "import VideoPlayer from '$/components/Article/VideoPlayer'\n\n" + addon
-
-    elif kind == "Music":
-        addon = ""
-        for m in entry.get("media", []):
-            artist = m.get("performer")
-            trackname = ""
-            if artist:
-                trackname += artist + " - "
-            if "title" in m:
-                trackname += m.get("title", "")
-            addon += (
-                '<AudioPlayer src="'
-                + m.get("fileUrl", "")
-                + '" title="'
-                + trackname
-                + '" />\n'
-            )
-        body = "import AudioPlayer from '$/components/Article/AudioPlayer'\n\n" + addon
-
-    body_orig, media = extract_html(entry)
-    if body_orig:
-        body += extract_md(html2text(body_orig), entry["_id"])
-    if not body:
-        print("[extract] empty MDX body")
-    return body, media
+                url = "https://vimeo.com/" + m["vimeoId"]
+        # body
+        body = m.get("body") or m.get("literatureBody") or ""
+        media.append({
+            "url": url,
+            "pic": pic,
+            "title": title,
+            "body": body
+        })
+    return media
 
 
 def prepare_html_body(entry):
@@ -308,7 +306,7 @@ def prepare_html_body(entry):
     addon = ""
     if kind == "Video":
         addon = ""
-        for m in entry.get("media", []):
+        for m in entry.get("media") or []:
             if "youtubeId" in m:
                 addon += '<iframe width="420" height="345" src="http://www.youtube.com/embed/'
                 addon += m["youtubeId"]
@@ -325,7 +323,7 @@ def prepare_html_body(entry):
 
     elif kind == "Music":
         addon = ""
-        for m in entry.get("media", []):
+        for m in entry.get("media") or []:
             artist = m.get("performer")
             trackname = ""
             if artist:
@@ -339,68 +337,12 @@ def prepare_html_body(entry):
             addon += '"></audio></figure>'
         body += addon
 
-    body, media = extract_html(entry)
+    body = extract_html(entry)
     # if body_orig: body += extract_md(html2text(body_orig), entry['_id'])
-    if not body:
-        print("[extract] empty HTML body")
-    return body, media
+    return body
 
 
 def extract_html(entry):
     body_orig = (entry.get("body") or "").replace('\(', '(').replace('\)', ')')
-    media = entry.get("media", [])
-    kind = entry.get("type") or ""
-    print("[extract] kind: " + kind)
-    mbodies = set([])
-    if media:
-        # print('[extract] media is found')
-        for m in media:
-            mbody = m.get("body", "")
-            addon = ""
-            if kind == "Literature":
-                mbody = m.get("literatureBody") or m.get("body", "")
-            elif kind == "Image":
-                cover = ""
-                if "thumborId" in entry:
-                    cover = cdn + "/unsafe/1600x/" + entry["thumborId"]
-                if not cover:
-                    if "image" in entry:
-                        cover = entry["image"].get("url", "")
-                    if "cloudinary" in cover:
-                        cover = ""
-                # else: print('[extract] cover: ' + cover)
-                title = m.get("title", "").replace("\n", " ").replace("&nbsp;", " ")
-                u = m.get("thumborId") or cover or ""
-                if title:
-                    addon += "<h4>" + title + "</h4>\n"
-                if not u.startswith("http"):
-                    u = s3 + u
-                if not u:
-                    print("[extract] no image url for " + str(m))
-                if "cloudinary" in u:
-                    u = "img/lost.svg"
-                if u != cover or (u == cover and media.index(m) == 0):
-                    addon += '<img src="' + u + '" alt="' + title + '" />\n'
-            if addon:
-                body_orig += addon
-                # print('[extract] item addon: ' + addon)
-            # if addon: print('[extract] addon: %s' % addon)
-            if mbody and mbody not in mbodies:
-                mbodies.add(mbody)
-                body_orig += mbody
-        if len(list(mbodies)) != len(media):
-            print(
-                "[extract] %d/%d media item bodies appended"
-                % (len(list(mbodies)), len(media))
-            )
-        # print('[extract] media items body: \n' + body_orig)
-    if not body_orig:
-        for up in entry.get("bodyHistory", []) or []:
-            body_orig = up.get("text", "") or ""
-            if body_orig:
-                print("[extract] got html body from history")
-                break
-    if not body_orig:
-        print("[extract] empty HTML body")
-    # body_html = str(BeautifulSoup(body_orig, features="html.parser"))
-    return body_orig, media
+    body_html = str(BeautifulSoup(body_orig, features="html.parser"))
+    return body_html

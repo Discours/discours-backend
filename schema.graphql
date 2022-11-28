@@ -29,9 +29,9 @@ type ChatMember {
     name: String!
     userpic: String
     lastSeen: DateTime
-    invitedAt: DateTime
-    invitedBy: String # user slug
-    # TODO: add more
+    # invitedAt: DateTime
+    # invitedBy: String # user slug
+    # TODO: keep invite databit
 }
 
 type AuthorStat {
@@ -151,7 +151,6 @@ type Mutation {
   createChat(title: String, members: [String]!): Result!
   updateChat(chat: ChatInput!): Result!
   deleteChat(chatId: String!): Result!
-  inviteChat(chatId: String!, userslug: String!): Result!
 
   createMessage(chat: String!, body: String!, replyTo: String): Result!
   updateMessage(chatId: String!, id: Int!, body: String!): Result!
@@ -161,7 +160,7 @@ type Mutation {
   # auth
   getSession: AuthResult!
   registerUser(email: String!, password: String, name: String): AuthResult!
-  sendLink(email: String!, lang: String): Result!
+  sendLink(email: String!, lang: String, template: String): Result!
   confirmEmail(token: String!): AuthResult!
 
   # shout
@@ -440,7 +439,7 @@ type Shout {
   deletedBy: User
   publishedBy: User
   publishedAt: DateTime
-  media: String
+  media: String # json [ { title pic url body }, .. ]
   stat: Stat
 }
 
@@ -515,13 +514,14 @@ type Message {
 type Chat {
   id: String!
   createdAt: Int!
-  createdBy: User!
+  createdBy: String!
   updatedAt: Int!
   title: String
   description: String
-  users: [User]!
-  admins: [User]
-  messages: [Message]!
+  users: [String]
+  members: [ChatMember]
+  admins: [String]
+  messages: [Message]
   unread: Int
   private: Boolean
 }

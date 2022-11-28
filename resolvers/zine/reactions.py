@@ -146,7 +146,11 @@ async def create_reaction(_, info, inp):
     except Exception as e:
         print(f"[resolvers.reactions] error on reactions autofollowing: {e}")
 
-    reaction.stat = await get_reaction_stat(reaction.id)
+    reaction.stat = {
+        "commented": 0,
+        "reacted": 0,
+        "rating": 0
+    }
     return {"reaction": reaction}
 
 
@@ -158,11 +162,16 @@ async def update_reaction(_, info, inp):
 
     with local_session() as session:
         user = session.query(User).where(User.id == user_id).first()
-        reaction = session.query(Reaction).filter(Reaction.id == inp.id).first()
+        q = select(Reaction).filter(Reaction.id == inp.id)
+        q = calc_reactions(q)
+
+        [reaction, rating, commented, reacted] = session.execute(q).unique().one()
+
         if not reaction:
             return {"error": "invalid reaction id"}
         if reaction.createdBy != user.slug:
             return {"error": "access denied"}
+
         reaction.body = inp["body"]
         reaction.updatedAt = datetime.now(tz=timezone.utc)
         if reaction.kind != inp["kind"]:
@@ -171,8 +180,11 @@ async def update_reaction(_, info, inp):
         if inp.get("range"):
             reaction.range = inp.get("range")
         session.commit()
-
-        reaction.stat = await get_reaction_stat(reaction.id)
+        reaction.stat = {
+            "commented": commented,
+            "reacted": reacted,
+            "rating": rating
+        }
 
     return {"reaction": reaction}
 
@@ -195,9 +207,11 @@ async def delete_reaction(_, info, rid):
 
 
 def map_result_item(result_item):
-    reaction = result_item[0]
-    user = result_item[1]
+    [user, shout, reaction] = result_item
+    print(reaction)
     reaction.createdBy = user
+    reaction.shout = shout
+    reaction.replyTo = reaction
     return reaction
 
 
@@ -220,10 +234,17 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     """
 
     CreatedByUser = aliased(User)
-
+    ReactedShout = aliased(Shout)
+    RepliedReaction = aliased(Reaction)
     q = select(
-        Reaction, CreatedByUser
-    ).join(CreatedByUser, Reaction.createdBy == CreatedByUser.slug)
+        Reaction, CreatedByUser, ReactedShout, RepliedReaction
+    ).join(
+        CreatedByUser, Reaction.createdBy == CreatedByUser.slug
+    ).join(
+        ReactedShout, Reaction.shout == ReactedShout.slug
+    ).join(
+        RepliedReaction, Reaction.replyTo == RepliedReaction.id
+    )
 
     if by.get("shout"):
         q = q.filter(Reaction.shout == by["shout"])
@@ -243,20 +264,28 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     order_way = asc if by.get("sort", "").startswith("-") else desc
     order_field = by.get("sort") or Reaction.createdAt
     q = q.group_by(
-        Reaction.id, CreatedByUser.id
+        Reaction.id, CreatedByUser.id, ReactedShout.id
     ).order_by(
         order_way(order_field)
     )
-
+    q = calc_reactions(q)
     q = q.where(Reaction.deletedAt.is_(None))
     q = q.limit(limit).offset(offset)
-
+    reactions = []
     with local_session() as session:
-        reactions = list(map(map_result_item, session.execute(q)))
-        for reaction in reactions:
-            reaction.stat = await get_reaction_stat(reaction.id)
+        for [
+            [reaction, rating, commented, reacted], shout, reply
+        ] in list(map(map_result_item, session.execute(q))):
+            reaction.shout = shout
+            reaction.replyTo = reply
+            reaction.stat = {
+                "rating": rating,
+                "commented": commented,
+                "reacted": reacted
+            }
+            reactions.append(reaction)
 
-        if by.get("stat"):
-            reactions.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
+    if by.get("stat"):
+        reactions.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
 
     return reactions

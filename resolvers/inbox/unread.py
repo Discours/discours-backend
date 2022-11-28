@@ -17,6 +17,6 @@ async def get_total_unread_counter(user_slug: str):
     if chats:
         chats = json.loads(chats)
         for chat_id in chats:
-            n = await get_unread_counter(chat_id, user_slug)
+            n = await get_unread_counter(chat_id.decode('utf-8'), user_slug)
             unread += n
     return unread

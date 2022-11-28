@@ -20,11 +20,13 @@ class SearchService:
         cached = await redis.execute("GET", text)
         if not cached:
             async with SearchService.lock:
-                by = {
+                options = {
                     "title": text,
-                    "body": text
+                    "body": text,
+                    "limit": limit,
+                    "offset": offset
                 }
-                payload = await load_shouts_by(None, None, by, limit, offset)
+                payload = await load_shouts_by(None, None, options)
                 await redis.execute("SET", text, json.dumps(payload))
                 return payload
         else:

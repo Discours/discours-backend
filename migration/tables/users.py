@@ -17,7 +17,7 @@ def migrate(entry):
         "username": email,
         "email": email,
         "createdAt": parse(entry["createdAt"]),
-        "emailConfirmed": bool(entry["emails"][0]["verified"]),
+        "emailConfirmed": ("@discours.io" in email) or bool(entry["emails"][0]["verified"]),
         "muted": False,  # amnesty
         "bio": entry["profile"].get("bio", ""),
         "notifications": [],

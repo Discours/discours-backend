@@ -314,9 +314,6 @@ async def handle_auto():
 
 async def main():
     if len(sys.argv) > 1:
-        cmd = sys.argv[1]
-        if type(cmd) == str:
-            print("[migration] command: " + cmd)
         init_tables()
         await handle_auto()
     else:
