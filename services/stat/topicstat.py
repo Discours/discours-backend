@@ -17,9 +17,12 @@ class TopicStat:
 
     @staticmethod
     async def load_stat(session):
+        print("[stat.topics] ⎧ loading stat -------")
+        ts = time.time()
         self = TopicStat
-        shout_topics = session.query(ShoutTopic, Shout).join(Shout).all()
-        print("[stat.topics] %d links for shouts" % len(shout_topics))
+        shout_topics = session.query(ShoutTopic, Shout).join(Shout).all()   # ~ 10 secs
+        print("[stat.topics] ⎪ shout topics joined query took %fs " % (time.time() - ts))
+        print("[stat.topics] ⎪ indexing %d links..." % len(shout_topics))
         for [shout_topic, shout] in shout_topics:
             tpc = shout_topic.topic
             self.shouts_by_topic[tpc] = self.shouts_by_topic.get(tpc, dict())
@@ -35,7 +38,7 @@ class TopicStat:
 
         self.followers_by_topic = {}
         followings = session.query(TopicFollower).all()
-        print("[stat.topics] %d followings by users" % len(followings))
+        print("[stat.topics] ⎪ indexing %d followings..." % len(followings))
         for flw in followings:
             topic = flw.topic
             userslug = flw.follower
@@ -58,7 +61,7 @@ class TopicStat:
                     ts = time.time()
                     async with self.lock:
                         await self.load_stat(session)
-                    print("[stat.topicstat] load_stat took %fs " % (time.time() - ts))
+                    print("[stat.topics] ⎩ load_stat took %fs " % (time.time() - ts))
             except Exception as err:
                 raise Exception(err)
             if first_run:

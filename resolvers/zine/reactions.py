@@ -8,16 +8,8 @@ from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
-from services.stat.reacted import ReactedStorage
-
-
-async def get_reaction_stat(reaction_id):
-    return {
-        # "viewed": await ViewedStorage.get_reaction(reaction_id),
-        "reacted": len(await ReactedStorage.get_reaction(reaction_id)),
-        "rating": await ReactedStorage.get_reaction_rating(reaction_id),
-        "commented": len(await ReactedStorage.get_reaction_comments(reaction_id)),
-    }
+# from services.stat.reacted import ReactedStorage
+from resolvers.zine.load import calc_reactions
 
 
 def reactions_follow(user: User, slug: str, auto=False):
@@ -142,13 +134,17 @@ async def create_reaction(_, info, inp):
         elif check_to_publish(session, user, reaction):
             set_published(session, reaction.shout, reaction.createdBy)
 
-    ReactedStorage.react(reaction)
+    # ReactedStorage.react(reaction)
     try:
         reactions_follow(user, inp["shout"], True)
     except Exception as e:
         print(f"[resolvers.reactions] error on reactions autofollowing: {e}")
 
-    reaction.stat = await get_reaction_stat(reaction.id)
+    reaction.stat = {
+        "commented": 0,
+        "reacted": 0,
+        "rating": 0
+    }
     return {"reaction": reaction}
 
 
@@ -160,11 +156,16 @@ async def update_reaction(_, info, inp):
 
     with local_session() as session:
         user = session.query(User).where(User.id == user_id).first()
-        reaction = session.query(Reaction).filter(Reaction.id == inp.id).first()
+        q = select(Reaction).filter(Reaction.id == inp.id)
+        q = calc_reactions(q)
+
+        [reaction, rating, commented, reacted] = session.execute(q).unique().one()
+
         if not reaction:
             return {"error": "invalid reaction id"}
         if reaction.createdBy != user.slug:
             return {"error": "access denied"}
+
         reaction.body = inp["body"]
         reaction.updatedAt = datetime.now(tz=timezone.utc)
         if reaction.kind != inp["kind"]:
@@ -173,8 +174,11 @@ async def update_reaction(_, info, inp):
         if inp.get("range"):
             reaction.range = inp.get("range")
         session.commit()
-
-        reaction.stat = await get_reaction_stat(reaction.id)
+        reaction.stat = {
+            "commented": commented,
+            "reacted": reacted,
+            "rating": rating
+        }
 
     return {"reaction": reaction}
 
@@ -198,6 +202,7 @@ async def delete_reaction(_, info, rid):
 
 def map_result_item(result_item):
     [user, shout, reaction] = result_item
+    print(reaction)
     reaction.createdBy = user
     reaction.shout = shout
     reaction.replyTo = reaction
@@ -254,16 +259,24 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     ).order_by(
         order_way(order_field)
     )
-
+    q = calc_reactions(q)
     q = q.where(Reaction.deletedAt.is_(None))
     q = q.limit(limit).offset(offset)
-
+    reactions = []
     with local_session() as session:
-        reactions = list(map(map_result_item, session.execute(q)))
-        for reaction in reactions:
-            reaction.stat = await get_reaction_stat(reaction.id)
+        for [
+            [reaction, rating, commented, reacted], shout, reply
+        ] in list(map(map_result_item, session.execute(q))):
+            reaction.shout = shout
+            reaction.replyTo = reply
+            reaction.stat = {
+                "rating": rating,
+                "commented": commented,
+                "reacted": reacted
+            }
+            reactions.append(reaction)
 
-        if by.get("stat"):
-            reactions.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
+    if by.get("stat"):
+        reactions.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
 
     return reactions

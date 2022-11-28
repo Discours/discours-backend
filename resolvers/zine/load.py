@@ -29,7 +29,10 @@ def calc_reactions(q):
                 (Reaction.body.is_not(None), 1),
                 else_=0
             )
-        ).label('commented')
+        ).label('commented'),
+        sa.func.sum(
+            Reaction.id
+        ).label('reacted')
     )
 
 
@@ -72,7 +75,7 @@ async def load_shout(_, info, slug):
             Shout.deletedAt.is_(None)
         ).group_by(Shout.id)
 
-        [shout, rating, commented] = session.execute(q).unique().one()
+        [shout, rating, commented, reacted] = session.execute(q).unique().one()
         for a in shout.authors:
             a.caption = await ShoutAuthorStorage.get_author_caption(shout.slug, a.slug)
         viewed = await ViewedStorage.get_shout(shout.slug)
@@ -80,7 +83,7 @@ async def load_shout(_, info, slug):
             "rating": rating,
             "viewed": viewed,
             "commented": commented,
-            # "reacted": reacted
+            "reacted": reacted
         }
 
         return shout
@@ -146,12 +149,12 @@ async def load_shouts_by(_, info, options):
 
     shouts = []
     with local_session() as session:
-        for [shout, rating, commented] in session.execute(q).unique():
+        for [shout, rating, commented, reacted] in session.execute(q).unique():
             shout.stat = {
                 "rating": rating,
                 "viewed": await ViewedStorage.get_shout(shout.slug),
                 "commented": commented,
-                # "reacted": reacted
+                "reacted": reacted
             }
             # NOTE: no need authors captions in arrays
             # for author in shout.authors:

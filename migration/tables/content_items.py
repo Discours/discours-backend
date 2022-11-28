@@ -9,7 +9,7 @@ from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
 from orm.user import User
 from orm.topic import TopicFollower
-from services.stat.reacted import ReactedStorage
+# from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
@@ -373,7 +373,7 @@ async def content_ratings_to_reactions(entry, slug):
                     else:
                         rea = Reaction.create(**reaction_dict)
                         session.add(rea)
-                        await ReactedStorage.react(rea)
+                        # await ReactedStorage.react(rea)
                     # shout_dict['ratings'].append(reaction_dict)
 
             session.commit()

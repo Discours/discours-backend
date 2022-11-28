@@ -16,7 +16,7 @@ class ShoutAuthorStorage:
         for sa in sas:
             self.authors_by_shout[sa.shout] = self.authors_by_shout.get(sa.shout, {})
             self.authors_by_shout[sa.shout][sa.user] = sa.caption
-        print("[zine.authors] %d shouts indexed by authors" % len(self.authors_by_shout))
+        print("[zine.authors] ⎧ %d shouts indexed by authors" % len(self.authors_by_shout))
 
     @staticmethod
     async def get_author_caption(shout, author):
@@ -43,7 +43,7 @@ class ShoutAuthorStorage:
                 with local_session() as session:
                     ts = time.time()
                     await self.load_captions(session)
-                    print("[zine.authors] load_captions took %fs " % (time.time() - ts))
+                    print("[zine.authors] ⎩ load_captions took %fs " % (time.time() - ts))
             except Exception as err:
-                print("[zine.authors] error indexing by author: %s" % (err))
+                print("[zine.authors] ⎩ error indexing by author: %s" % (err))
             # await asyncio.sleep(self.period)

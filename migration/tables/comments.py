@@ -8,7 +8,7 @@ from orm.reaction import Reaction, ReactionKind
 from orm.shout import ShoutReactionsFollower
 from orm.topic import TopicFollower
 from orm.user import User
-from services.stat.reacted import ReactedStorage
+# from services.stat.reacted import ReactedStorage
 
 ts = datetime.now(tz=timezone.utc)
 
@@ -77,7 +77,7 @@ async def migrate(entry, storage):
                 # creating reaction from old comment
                 reaction = Reaction.create(**reaction_dict)
                 session.add(reaction)
-                await ReactedStorage.react(reaction)
+                # await ReactedStorage.react(reaction)
 
                 # creating shout's reactions following for reaction author
                 following1 = session.query(
@@ -148,7 +148,7 @@ async def migrate(entry, storage):
                             )
                             session.add(following2)
                         session.add(rr)
-                        await ReactedStorage.react(rr)
+                        # await ReactedStorage.react(rr)
 
                     except Exception as e:
                         print("[migration] comment rating error: %r" % re_reaction_dict)
