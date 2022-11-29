@@ -122,7 +122,7 @@ class Operation(Base):
 
 class Resource(Base):
     __tablename__ = "resource"
-    resource_class = Column(
+    resourceClass = Column(
         String, nullable=False, unique=True, comment="Resource class"
     )
     name = Column(String, nullable=False, unique=True, comment="Resource name")
@@ -134,7 +134,7 @@ class Resource(Base):
             for res in ["shout", "topic", "reaction", "chat", "message", "invite", "community", "user"]:
                 r = session.query(Resource).filter(Resource.name == res).first()
                 if not r:
-                    r = Resource.create(name=res, resource_class=res)
+                    r = Resource.create(name=res, resourceClass=res)
                     session.add(r)
             session.commit()
 
@@ -142,19 +142,19 @@ class Resource(Base):
 class Permission(Base):
     __tablename__ = "permission"
     __table_args__ = (
-        UniqueConstraint("role_id", "operation_id", "resource_id"),
+        UniqueConstraint("roleId", "operationId", "resourceId"),
         {"extend_existing": True},
     )
 
-    role_id = Column(
+    roleId = Column(
         ForeignKey("role.id", ondelete="CASCADE"), nullable=False, comment="Role"
     )
-    operation_id = Column(
+    operationId = Column(
         ForeignKey("operation.id", ondelete="CASCADE"),
         nullable=False,
         comment="Operation",
     )
-    resource_id = Column(
+    resourceId = Column(
         ForeignKey("resource.id", ondelete="CASCADE"),
         nullable=False,
         comment="Resource",
@@ -164,11 +164,11 @@ class Permission(Base):
 if __name__ == "__main__":
     Base.metadata.create_all(engine)
     ops = [
-        Permission(role_id=1, operation_id=1, resource_id=1),
-        Permission(role_id=1, operation_id=2, resource_id=1),
-        Permission(role_id=1, operation_id=3, resource_id=1),
-        Permission(role_id=1, operation_id=4, resource_id=1),
-        Permission(role_id=2, operation_id=4, resource_id=1),
+        Permission(roleId=1, operationId=1, resourceId=1),
+        Permission(roleId=1, operationId=2, resourceId=1),
+        Permission(roleId=1, operationId=3, resourceId=1),
+        Permission(roleId=1, operationId=4, resourceId=1),
+        Permission(roleId=2, operationId=4, resourceId=1),
     ]
     global_session.add_all(ops)
     global_session.commit()

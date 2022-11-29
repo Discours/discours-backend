@@ -9,8 +9,8 @@ class TopicFollower(Base):
     __tablename__ = "topic_followers"
 
     id = None  # type: ignore
-    follower_id = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    topic_id = Column(ForeignKey("topic.id"), primary_key=True, index=True)
+    followerId = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    topicId = Column(ForeignKey("topic.id"), primary_key=True, index=True)
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )

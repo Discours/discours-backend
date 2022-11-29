@@ -13,16 +13,16 @@ class ShoutTopic(Base):
     __tablename__ = "shout_topic"
 
     id = None  # type: ignore
-    shout_id = Column(ForeignKey("shout.id"), primary_key=True, index=True)
-    topic_id = Column(ForeignKey("topic.id"), primary_key=True, index=True)
+    shoutId = Column(ForeignKey("shout.id"), primary_key=True, index=True)
+    topicId = Column(ForeignKey("topic.id"), primary_key=True, index=True)
 
 
 class ShoutReactionsFollower(Base):
     __tablename__ = "shout_reactions_followers"
 
     id = None  # type: ignore
-    follower_id = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    shout_id = Column(ForeignKey("shout.id"), primary_key=True, index=True)
+    followerId = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    shoutId = Column(ForeignKey("shout.id"), primary_key=True, index=True)
     auto = Column(Boolean, nullable=False, default=False)
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
@@ -34,8 +34,8 @@ class ShoutAuthor(Base):
     __tablename__ = "shout_author"
 
     id = None  # type: ignore
-    shout_id = Column(ForeignKey("shout.id"), primary_key=True, index=True)
-    user_id = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    shoutId = Column(ForeignKey("shout.id"), primary_key=True, index=True)
+    userId = Column(ForeignKey("user.id"), primary_key=True, index=True)
     caption = Column(String, nullable=True, default="")
 
 

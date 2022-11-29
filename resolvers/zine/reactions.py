@@ -20,15 +20,15 @@ def reactions_follow(user: User, slug: str, auto=False):
 
         following = (
             session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower_id == user.id,
-                ShoutReactionsFollower.shout_id == shout.id,
+                ShoutReactionsFollower.followerId == user.id,
+                ShoutReactionsFollower.shoutId == shout.id,
             )).first()
         )
 
         if not following:
             following = ShoutReactionsFollower.create(
-                follower_id=user.id,
-                shout_id=shout.id,
+                followerId=user.id,
+                shoutId=shout.id,
                 auto=auto
             )
             session.add(following)
@@ -41,8 +41,8 @@ def reactions_unfollow(user, slug):
 
         following = (
             session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower_id == user.id,
-                ShoutReactionsFollower.shout_id == shout.id
+                ShoutReactionsFollower.followerId == user.id,
+                ShoutReactionsFollower.shoutId == shout.id
             )).first()
         )
 
@@ -74,7 +74,7 @@ def check_to_publish(session, user, reaction):
     ]:
         if is_published_author(user):
             # now count how many approvers are voted already
-            approvers_reactions = session.query(Reaction).where(Reaction.shout_id == reaction.shout_id).all()
+            approvers_reactions = session.query(Reaction).where(Reaction.shoutId == reaction.shoutId).all()
             approvers = [user.slug, ]
             for ar in approvers_reactions:
                 a = ar.createdBy
@@ -93,7 +93,7 @@ def check_to_hide(session, user, reaction):
         ReactionKind.UNPROOF
     ]:
         # if is_published_author(user):
-        approvers_reactions = session.query(Reaction).where(Reaction.shout_id == reaction.shout_id).all()
+        approvers_reactions = session.query(Reaction).where(Reaction.shoutId == reaction.shoutId).all()
         declines = 0
         for r in approvers_reactions:
             if r.kind in [
@@ -232,7 +232,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     ).join(
         CreatedByUser, Reaction.createdBy == CreatedByUser.id
     ).join(
-        ReactedShout, Reaction.shout_id == ReactedShout.id
+        ReactedShout, Reaction.shoutId == ReactedShout.id
     )
 
     if by.get("shout"):

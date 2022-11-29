@@ -26,7 +26,7 @@ async def create_shout(_, info, inp):
         new_shout = Shout.create(**inp)
 
         # NOTE: shout made by one first author
-        sa = ShoutAuthor.create(shout_id=new_shout.id, user_id=user.id)
+        sa = ShoutAuthor.create(shoutId=new_shout.id, userId=user.id)
         session.add(sa)
 
         reactions_follow(user, new_shout.slug, True)
@@ -37,14 +37,14 @@ async def create_shout(_, info, inp):
         for slug in topic_slugs:
             topic = session.query(Topic).where(Topic.slug == slug).one()
 
-            st = ShoutTopic.create(shout_id=new_shout.id, topic_id=topic.id)
+            st = ShoutTopic.create(shoutId=new_shout.id, topicId=topic.id)
             session.add(st)
             tf = session.query(TopicFollower).where(
-                and_(TopicFollower.follower_id == user.id, TopicFollower.topic_id == topic.id)
+                and_(TopicFollower.followerId == user.id, TopicFollower.topicId == topic.id)
             )
 
             if not tf:
-                tf = TopicFollower.create(follower_id=user.id, topic_id=topic.id, auto=True)
+                tf = TopicFollower.create(followerId=user.id, topicId=topic.id, auto=True)
                 session.add(tf)
 
         new_shout.topic_slugs = topic_slugs
@@ -74,7 +74,7 @@ async def update_shout(_, info, inp):
         if user_id not in authors:
             scopes = auth.scopes
             print(scopes)
-            if Resource.shout_id not in scopes:
+            if Resource.shoutId not in scopes:
                 return {"error": "access denied"}
         else:
             shout.update(inp)
@@ -82,7 +82,7 @@ async def update_shout(_, info, inp):
             session.add(shout)
             if inp.get("topics"):
                 # remove old links
-                links = session.query(ShoutTopic).where(ShoutTopic.shout_id == shout.id).all()
+                links = session.query(ShoutTopic).where(ShoutTopic.shoutId == shout.id).all()
                 for topiclink in links:
                     session.delete(topiclink)
                 # add new topic links

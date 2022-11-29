@@ -8,8 +8,8 @@ class CommunityFollower(Base):
     __tablename__ = "community_followers"
 
     id = None  # type: ignore
-    follower_id = Column(ForeignKey("user.id"), primary_key=True)
-    community_id = Column(ForeignKey("community.id"), primary_key=True)
+    followerId = Column(ForeignKey("user.id"), primary_key=True)
+    communityId = Column(ForeignKey("community.id"), primary_key=True)
     joinedAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )

@@ -319,8 +319,8 @@ type Operation {
 }
 
 type Permission {
-  operation_id: Int!
-  resource_id: Int!
+  operationId: Int!
+  resourceId: Int!
 }
 
 type Role {

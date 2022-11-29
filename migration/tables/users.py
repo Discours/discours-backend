@@ -123,15 +123,15 @@ def migrate_2stage(entry, id_map):
 
                 user_rating_dict = {
                     "value": rating_entry["value"],
-                    "rater_id": rater.id,
-                    "user_id": user.id,
+                    "raterId": rater.id,
+                    "userId": user.id,
                 }
 
                 user_rating = UserRating.create(**user_rating_dict)
                 if user_rating_dict['value'] > 0:
                     af = AuthorFollower.create(
-                        author_id=user.id,
-                        follower_id=rater.id,
+                        authorId=user.id,
+                        followerId=rater.id,
                         auto=True
                     )
                     session.add(af)
