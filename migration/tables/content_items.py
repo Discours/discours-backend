@@ -75,7 +75,7 @@ def create_author_from_app(app):
                     session.commit()
             userdata = user.dict()
         if not userdata:
-            userdata = User.default_user.dict()
+            userdata = User.default_user.dict()  # anonymous
     except Exception as e:
         print(app)
         raise e
@@ -96,84 +96,59 @@ async def create_shout(shout_dict, userslug):
         session.commit()
 
 
+def get_userdata(entry, storage):
+    user_oid = entry.get("createdBy", "")
+    userdata = None
+    app = entry.get("application")
+    if app:
+        userdata = create_author_from_app(app) or {"slug": "anonymous"}
+    else:
+        userdata = storage["users"]["by_oid"].get(user_oid) or {"slug": "anonymous"}
+    userslug = userdata.get("slug")
+    return userslug, userdata, user_oid
+
+
 async def migrate(entry, storage):
-    # init, set title and layout
+    userslug, userdata, user_oid = get_userdata(entry, storage)
+    user = await get_user(userslug, userdata, storage, user_oid)
     r = {
         "layout": type2layout[entry["type"]],
         "title": entry["title"],
-        "authors": [],
-        "topics": set([])
+        "authors": [userslug, ],
+        "slug": get_shout_slug(entry),
+        "cover": (
+            "https://assets.discours.io/unsafe/1600x/" +
+            entry["thumborId"] if entry.get("thumborId") else entry.get("image", {}).get("url")
+        ),
+        "visibility": "public" if entry.get("published") else "authors",
+        "publishedAt": date_parse(entry.get("publishedAt")) if entry.get("published") else None,
+        "deletedAt": date_parse(entry.get("deletedAt")) if entry.get("deletedAt") else None,
+        "createdAt": date_parse(entry.get("createdAt", OLD_DATE)),
+        "updatedAt": date_parse(entry["updatedAt"]) if "updatedAt" in entry else ts,
+        "topics": await add_topics_follower(entry, storage, userslug),
+        "body": extract_html(entry)
     }
 
-    # author
-    users_by_oid = storage["users"]["by_oid"]
-    user_oid = entry.get("createdBy", "")
-    userdata = users_by_oid.get(user_oid)
-    user = None
-    if not userdata:
-        app = entry.get("application")
-        if app:
-            userdata = create_author_from_app(app)
-    if userdata:
-        userslug = userdata.get('slug')
-    else:
-        userslug = "anonymous"  # bad old id slug was found
-    r["authors"] = [userslug, ]
+    # main topic patch
+    r['mainTopic'] = r['topics'][0]
 
-    # slug
-    slug = get_shout_slug(entry)
-    if slug:
-        r["slug"] = slug
-    else:
-        raise Exception
-
-    # cover
-    c = ""
-    if entry.get("thumborId"):
-        c = "https://assets.discours.io/unsafe/1600x/" + entry["thumborId"]
-    else:
-        c = entry.get("image", {}).get("url")
-        if not c or "cloudinary" in c:
-            c = ""
-    r["cover"] = c
-
-    # timestamps
-    r["createdAt"] = date_parse(entry.get("createdAt", OLD_DATE))
-    r["updatedAt"] = date_parse(entry["updatedAt"]) if "updatedAt" in entry else ts
-
-    # visibility
+    # published author auto-confirm
     if entry.get("published"):
-        r["publishedAt"] = date_parse(entry.get("publishedAt", OLD_DATE))
-        r["visibility"] = "public"
         with local_session() as session:
             # update user.emailConfirmed if published
             author = session.query(User).where(User.slug == userslug).first()
             author.emailConfirmed = True
             session.add(author)
             session.commit()
-    else:
-        r["visibility"] = "authors"
 
-    if "deletedAt" in entry:
-        r["deletedAt"] = date_parse(entry["deletedAt"])
-
-    # topics
-    r['topics'] = await add_topics_follower(entry, storage, userslug)
-    r['mainTopic'] = r['topics'][0]
-
-    entry["topics"] = r["topics"]
-    entry["cover"] = r["cover"]
-
-    # body
-    r["body"] = extract_html(entry)
+    # media
     media = extract_media(entry)
-    if media:
-        r["media"] = json.dumps(media, ensure_ascii=True)
+    r["media"] = json.dumps(media, ensure_ascii=True) if media else None
 
+    # ----------------------------------- copy
     shout_dict = r.copy()
 
     # user
-    user = await get_user(userslug, userdata, storage, user_oid)
     shout_dict["authors"] = [user, ]
     del shout_dict["topics"]
     try:
@@ -197,7 +172,7 @@ async def migrate(entry, storage):
 
     shout_dict["oid"] = entry.get("_id", "")
     storage["shouts"]["by_oid"][entry["_id"]] = shout_dict
-    storage["shouts"]["by_slug"][slug] = shout_dict
+    storage["shouts"]["by_slug"][shout_dict["slug"]] = shout_dict
     return shout_dict
 
 
@@ -342,40 +317,34 @@ async def content_ratings_to_reactions(entry, slug):
                     session.query(User)
                     .filter(User.oid == content_rating["createdBy"])
                     .first()
+                ) or User.default_user
+                cts = content_rating.get("createdAt")
+                reaction_dict = {
+                    "createdAt": date_parse(cts) if cts else None,
+                    "kind": ReactionKind.LIKE
+                    if content_rating["value"] > 0
+                    else ReactionKind.DISLIKE,
+                    "createdBy": rater.slug,
+                    "shout": slug
+                }
+                reaction = (
+                    session.query(Reaction)
+                    .filter(Reaction.shout == reaction_dict["shout"])
+                    .filter(Reaction.createdBy == reaction_dict["createdBy"])
+                    .filter(Reaction.kind == reaction_dict["kind"])
+                    .first()
                 )
-                reactedBy = (
-                    rater
-                    if rater
-                    else session.query(User).filter(User.slug == "noname").first()
-                )
-                if rater:
-                    reaction_dict = {
-                        "kind": ReactionKind.LIKE
-                        if content_rating["value"] > 0
-                        else ReactionKind.DISLIKE,
-                        "createdBy": reactedBy.slug,
-                        "shout": slug,
-                    }
-                    cts = content_rating.get("createdAt")
-                    if cts:
-                        reaction_dict["createdAt"] = date_parse(cts)
-                    reaction = (
-                        session.query(Reaction)
-                        .filter(Reaction.shout == reaction_dict["shout"])
-                        .filter(Reaction.createdBy == reaction_dict["createdBy"])
-                        .filter(Reaction.kind == reaction_dict["kind"])
-                        .first()
-                    )
-                    if reaction:
-                        k = ReactionKind.AGREE if content_rating["value"] > 0 else ReactionKind.DISAGREE
-                        reaction_dict["kind"] = k
-                        reaction.update(reaction_dict)
-                    else:
-                        rea = Reaction.create(**reaction_dict)
-                        session.add(rea)
-                        # await ReactedStorage.react(rea)
-                    # shout_dict['ratings'].append(reaction_dict)
+                if reaction:
+                    k = ReactionKind.AGREE if content_rating["value"] > 0 else ReactionKind.DISAGREE
+                    reaction_dict["kind"] = k
+                    reaction.update(reaction_dict)
+                    session.add(reaction)
+                else:
+                    rea = Reaction.create(**reaction_dict)
+                    session.add(rea)
+                    # await ReactedStorage.react(rea)
+                # shout_dict['ratings'].append(reaction_dict)
 
             session.commit()
     except Exception:
-        raise Exception("[migration] content_item.ratings error: \n%r" % content_rating)
+        print("[migration] content_item.ratings error: \n%r" % content_rating)

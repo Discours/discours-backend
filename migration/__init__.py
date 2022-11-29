@@ -141,6 +141,7 @@ async def shouts_handle(storage, args):
 
 
 async def comments_handle(storage):
+    print("[migration] comments")
     id_map = {}
     ignored_counter = 0
     missed_shouts = {}
@@ -280,15 +281,25 @@ def mongo_download(url):
     if not url:
         raise Exception("\n\nYou should set MONGODB_URL enviroment variable\n")
     print("[migration] mongodump " + url)
-    subprocess.call(
-        [
-            "mongodump",
-            "--uri",
-            url + "/?authSource=admin",
-            "--forceTableScan",
-        ],
-        stderr=subprocess.STDOUT,
-    )
+    for one in [
+        "content_items",
+        "users",
+        "tags",
+        "categories",
+        "comments",
+        "remarks"
+    ]:
+        subprocess.call(
+            [
+                "mongodump",
+                "--uri",
+                url + "/?authSource=admin",
+                "--forceTableScan",
+                "--db=discours",
+                "--collection=" + one
+            ],
+            stderr=subprocess.STDOUT,
+        )
 
 
 def create_pgdump():
@@ -312,10 +323,19 @@ async def handle_auto():
     create_pgdump()
 
 
+async def handle_comments():
+    # 1 load migrated users and shouts to storage
+    storage = None
+    await comments_handle(storage)
+
+
 async def main():
     if len(sys.argv) > 1:
         init_tables()
-        await handle_auto()
+        if len(sys.argv) == 2:
+            await handle_auto()
+        elif "comments" in sys.srgv:
+            await handle_comments()
     else:
         print("[migration] usage: python server.py migrate")
 

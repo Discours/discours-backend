@@ -81,25 +81,25 @@ class User(Base):
     def init_table():
         with local_session() as session:
             default = session.query(User).filter(User.slug == "anonymous").first()
-        if not default:
-            defaul_dict = {
-                "email": "noreply@discours.io",
-                "username": "noreply@discours.io",
-                "name": "Аноним",
-                "slug": "anonymous",
-            }
-            default = User.create(**defaul_dict)
-            session.add(default)
-            discours_dict = {
-                "email": "welcome@discours.io",
-                "username": "welcome@discours.io",
-                "name": "Дискурс",
-                "slug": "discours",
-            }
-            discours = User.create(**discours_dict)
-            session.add(discours)
-            session.commit()
-        User.default_user = default
+            if not default:
+                default_dict = {
+                    "email": "noreply@discours.io",
+                    "username": "noreply@discours.io",
+                    "name": "Аноним",
+                    "slug": "anonymous",
+                }
+                default = User.create(**default_dict)
+                session.add(default)
+                discours_dict = {
+                    "email": "welcome@discours.io",
+                    "username": "welcome@discours.io",
+                    "name": "Дискурс",
+                    "slug": "discours",
+                }
+                discours = User.create(**discours_dict)
+                session.add(discours)
+                session.commit()
+            User.default_user = default
 
     async def get_permission(self):
         scope = {}
