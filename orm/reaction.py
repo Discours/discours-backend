@@ -28,12 +28,12 @@ class Reaction(Base):
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
-    createdBy = Column(ForeignKey("user.slug"), nullable=False, comment="Sender")
+    createdBy = Column(ForeignKey("user.id"), nullable=False, index=True, comment="Sender")
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
-    updatedBy = Column(ForeignKey("user.slug"), nullable=True, comment="Last Editor")
+    updatedBy = Column(ForeignKey("user.id"), nullable=True, index=True, comment="Last Editor")
     deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
-    deletedBy = Column(ForeignKey("user.slug"), nullable=True, comment="Deleted by")
-    shout = Column(ForeignKey("shout.slug"), nullable=False)
+    deletedBy = Column(ForeignKey("user.id"), nullable=True, index=True, comment="Deleted by")
+    shout_id = Column(ForeignKey("shout.id"), nullable=False, index=True)
     replyTo = Column(
         ForeignKey("reaction.id"), nullable=True, comment="Reply to reaction ID"
     )

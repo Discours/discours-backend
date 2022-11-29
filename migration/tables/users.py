@@ -115,18 +115,23 @@ def migrate_2stage(entry, id_map):
             continue
         oid = entry["_id"]
         author_slug = id_map.get(oid)
-        user_rating_dict = {
-            "value": rating_entry["value"],
-            "rater": rater_slug,
-            "user": author_slug,
-        }
+
         with local_session() as session:
             try:
+                rater = session.query(User).where(User.slug == rater_slug).one()
+                user = session.query(User).where(User.slug == author_slug).one()
+
+                user_rating_dict = {
+                    "value": rating_entry["value"],
+                    "rater_id": rater.id,
+                    "user_id": user.id,
+                }
+
                 user_rating = UserRating.create(**user_rating_dict)
                 if user_rating_dict['value'] > 0:
                     af = AuthorFollower.create(
-                        author=user_rating_dict['user'],
-                        follower=user_rating_dict['rater'],
+                        author_id=user.id,
+                        follower_id=rater.id,
                         auto=True
                     )
                     session.add(af)

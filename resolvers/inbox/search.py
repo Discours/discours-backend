@@ -4,7 +4,7 @@ from auth.authenticate import login_required
 from base.redis import redis
 from base.resolvers import query
 from base.orm import local_session
-from orm.user import AuthorFollower
+from orm.user import AuthorFollower, User
 
 
 @query.field("searchRecipients")
@@ -30,13 +30,19 @@ async def search_recipients(_, info, query: str, limit: int = 50, offset: int = 
 
     with local_session() as session:
         # followings
-        result += session.query(AuthorFollower.author).where(AuthorFollower.follower.startswith(query))\
-            .offset(offset + len(result)).limit(more_amount)
+        result += session.query(AuthorFollower.author).join(
+            User, User.id == AuthorFollower.follower_id
+        ).where(
+            User.slug.startswith(query)
+        ).offset(offset + len(result)).limit(more_amount)
 
         more_amount = limit
         # followers
-        result += session.query(AuthorFollower.follower).where(AuthorFollower.author.startswith(query))\
-            .offset(offset + len(result)).limit(offset + len(result) + limit)
+        result += session.query(AuthorFollower.follower).join(
+            User, User.id == AuthorFollower.author_id
+        ).where(
+            User.slug.startswith(query)
+        ).offset(offset + len(result)).limit(offset + len(result) + limit)
     return {
         "members": list(result),
         "error": None

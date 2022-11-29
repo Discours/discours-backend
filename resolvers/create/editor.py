@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 
+from sqlalchemy import and_
+
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation
 from orm.rbac import Resource
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
-from orm.topic import TopicFollower
+from orm.topic import TopicFollower, Topic
 from orm.user import User
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from services.zine.gittask import GitTask
@@ -24,7 +26,7 @@ async def create_shout(_, info, inp):
         new_shout = Shout.create(**inp)
 
         # NOTE: shout made by one first author
-        sa = ShoutAuthor.create(shout=new_shout.slug, user=user.slug)
+        sa = ShoutAuthor.create(shout_id=new_shout.id, user_id=user.id)
         session.add(sa)
 
         reactions_follow(user, new_shout.slug, True)
@@ -33,11 +35,16 @@ async def create_shout(_, info, inp):
             topic_slugs.append(inp["mainTopic"])
 
         for slug in topic_slugs:
-            st = ShoutTopic.create(shout=new_shout.slug, topic=slug)
+            topic = session.query(Topic).where(Topic.slug == slug).one()
+
+            st = ShoutTopic.create(shout_id=new_shout.id, topic_id=topic.id)
             session.add(st)
-            tf = session.query(TopicFollower).where(follower=user.slug, topic=slug)
+            tf = session.query(TopicFollower).where(
+                and_(TopicFollower.follower_id == user.id, TopicFollower.topic_id == topic.id)
+            )
+
             if not tf:
-                tf = TopicFollower.create(follower=user.slug, topic=slug, auto=True)
+                tf = TopicFollower.create(follower_id=user.id, topic_id=topic.id, auto=True)
                 session.add(tf)
 
         new_shout.topic_slugs = topic_slugs
@@ -45,7 +52,7 @@ async def create_shout(_, info, inp):
 
         session.commit()
 
-    GitTask(inp, user.username, user.email, "new shout %s" % (new_shout.slug))
+    GitTask(inp, user.username, user.email, "new shout %s" % new_shout.slug)
 
     return {"shout": new_shout}
 
@@ -75,7 +82,7 @@ async def update_shout(_, info, inp):
             session.add(shout)
             if inp.get("topics"):
                 # remove old links
-                links = session.query(ShoutTopic).where(ShoutTopic.shout == slug).all()
+                links = session.query(ShoutTopic).where(ShoutTopic.shout_id == shout.id).all()
                 for topiclink in links:
                     session.delete(topiclink)
                 # add new topic links

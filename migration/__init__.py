@@ -119,8 +119,7 @@ async def shouts_handle(storage, args):
 
             # print main counter
             counter += 1
-            line = str(counter + 1) + ": " + shout["slug"] + " @" + author["slug"]
-            print(line)
+            print('[migration] shouts_handle %d: %s @%s' % ((counter + 1), shout["slug"], author["slug"]))
 
             b = bs4.BeautifulSoup(shout["body"], "html.parser")
             texts = [shout["title"].lower().replace(r"[^а-яА-Яa-zA-Z]", "")]

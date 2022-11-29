@@ -11,14 +11,13 @@ class CollabAuthor(Base):
 
     id = None  # type: ignore
     collab = Column(ForeignKey("collab.id"), primary_key=True)
-    author = Column(ForeignKey("user.slug"), primary_key=True)
+    author_id = Column(ForeignKey("user.id"), primary_key=True)
     accepted = Column(Boolean, default=False)
 
 
 class Collab(Base):
     __tablename__ = "collab"
 
-    authors = Column()
     title = Column(String, nullable=True, comment="Title")
     body = Column(String, nullable=True, comment="Body")
     pic = Column(String, nullable=True, comment="Picture")

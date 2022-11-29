@@ -6,7 +6,6 @@ from sqlalchemy.orm import relationship
 
 from base.orm import Base, local_session
 from orm.rbac import Role
-from services.auth.roles import RoleStorage
 
 
 class UserNotifications(Base):
@@ -21,8 +20,8 @@ class UserRating(Base):
     __tablename__ = "user_rating"
 
     id = None  # type: ignore
-    rater = Column(ForeignKey("user.slug"), primary_key=True)
-    user = Column(ForeignKey("user.slug"), primary_key=True)
+    rater_id = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    user_id = Column(ForeignKey("user.id"), primary_key=True, index=True)
     value = Column(Integer)
 
     @staticmethod
@@ -34,16 +33,16 @@ class UserRole(Base):
     __tablename__ = "user_role"
 
     id = None  # type: ignore
-    user_id = Column(ForeignKey("user.id"), primary_key=True)
-    role_id = Column(ForeignKey("role.id"), primary_key=True)
+    user_id = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    role_id = Column(ForeignKey("role.id"), primary_key=True, index=True)
 
 
 class AuthorFollower(Base):
     __tablename__ = "author_follower"
 
     id = None  # type: ignore
-    follower = Column(ForeignKey("user.slug"), primary_key=True)
-    author = Column(ForeignKey("user.slug"), primary_key=True)
+    follower_id = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    author_id = Column(ForeignKey("user.id"), primary_key=True, index=True)
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
@@ -73,7 +72,7 @@ class User(Base):
     links = Column(JSONType, nullable=True, comment="Links")
     oauth = Column(String, nullable=True)
     notifications = relationship(lambda: UserNotifications)
-    ratings = relationship(UserRating, foreign_keys=UserRating.user)
+    ratings = relationship(UserRating, foreign_keys=UserRating.user_id)
     roles = relationship(lambda: Role, secondary=UserRole.__tablename__)
     oid = Column(String, nullable=True)
 

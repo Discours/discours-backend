@@ -6,8 +6,8 @@ from base.orm import Base, local_session
 class ViewedEntry(Base):
     __tablename__ = "viewed"
 
-    viewer = Column(ForeignKey("user.slug"), default='anonymous')
-    shout = Column(ForeignKey("shout.slug"), default="genesis-block")
+    viewer_id = Column(ForeignKey("user.id"), index=True, default=1)
+    shout_id = Column(ForeignKey("shout.id"), index=True, default=1)
     amount = Column(Integer, default=1)
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"

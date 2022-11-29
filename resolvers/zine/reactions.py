@@ -16,16 +16,19 @@ def add_reaction_stat_columns(q):
 
 def reactions_follow(user: User, slug: str, auto=False):
     with local_session() as session:
+        shout = session.query(Shout).where(Shout.slug == slug).one()
+
         following = (
             session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower == user.slug,
-                ShoutReactionsFollower.shout == slug
+                ShoutReactionsFollower.follower_id == user.id,
+                ShoutReactionsFollower.shout_id == shout.id,
             )).first()
         )
+
         if not following:
             following = ShoutReactionsFollower.create(
-                follower=user.slug,
-                shout=slug,
+                follower_id=user.id,
+                shout_id=shout.id,
                 auto=auto
             )
             session.add(following)
@@ -34,12 +37,15 @@ def reactions_follow(user: User, slug: str, auto=False):
 
 def reactions_unfollow(user, slug):
     with local_session() as session:
+        shout = session.query(Shout).where(Shout.slug == slug).one()
+
         following = (
             session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower == user.slug,
-                ShoutReactionsFollower.shout == slug
+                ShoutReactionsFollower.follower_id == user.id,
+                ShoutReactionsFollower.shout_id == shout.id
             )).first()
         )
+
         if following:
             session.delete(following)
             session.commit()
@@ -68,7 +74,7 @@ def check_to_publish(session, user, reaction):
     ]:
         if is_published_author(user):
             # now count how many approvers are voted already
-            approvers_reactions = session.query(Reaction).where(Reaction.shout == reaction.shout).all()
+            approvers_reactions = session.query(Reaction).where(Reaction.shout_id == reaction.shout_id).all()
             approvers = [user.slug, ]
             for ar in approvers_reactions:
                 a = ar.createdBy
@@ -87,7 +93,7 @@ def check_to_hide(session, user, reaction):
         ReactionKind.UNPROOF
     ]:
         # if is_published_author(user):
-        approvers_reactions = session.query(Reaction).where(Reaction.shout == reaction.shout).all()
+        approvers_reactions = session.query(Reaction).where(Reaction.shout_id == reaction.shout_id).all()
         declines = 0
         for r in approvers_reactions:
             if r.kind in [
@@ -224,22 +230,26 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     q = select(
         Reaction, CreatedByUser, ReactedShout
     ).join(
-        CreatedByUser, Reaction.createdBy == CreatedByUser.slug
+        CreatedByUser, Reaction.createdBy == CreatedByUser.id
     ).join(
-        ReactedShout, Reaction.shout == ReactedShout.slug
+        ReactedShout, Reaction.shout_id == ReactedShout.id
     )
 
     if by.get("shout"):
-        q = q.filter(Reaction.shout == by["shout"])
+        aliased_shout = aliased(Shout)
+        q = q.join(aliased_shout).filter(aliased_shout.slug == by["shout"])
     elif by.get("shouts"):
-        q = q.filter(Reaction.shout.in_(by["shouts"]))
+        aliased_shout = aliased(Shout)
+        q = q.join(aliased_shout).filter(aliased_shout.shout.in_(by["shouts"]))
     if by.get("createdBy"):
-        q = q.filter(Reaction.createdBy == by.get("createdBy"))
+        aliased_user = aliased(User)
+        q = q.join(aliased_user).filter(aliased_user.slug == by.get("createdBy"))
     if by.get("topic"):
+        # TODO: check
         q = q.filter(Shout.topics.contains(by["topic"]))
     if by.get("comment"):
         q = q.filter(func.length(Reaction.body) > 0)
-    if by.get('search', 0) > 2:
+    if len(by.get('search', '')) > 2:
         q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
     if by.get("days"):
         after = datetime.now(tz=timezone.utc) - timedelta(days=int(by["days"]) or 30)

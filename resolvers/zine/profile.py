@@ -19,17 +19,19 @@ from resolvers.zine.topics import followed_by_user
 def add_author_stat_columns(q):
     author_followers = aliased(AuthorFollower)
     author_following = aliased(AuthorFollower)
+    shout_author_aliased = aliased(ShoutAuthor)
+    user_rating_aliased = aliased(UserRating)
 
-    q = q.outerjoin(ShoutAuthor).add_columns(
-        func.count(distinct(ShoutAuthor.shout)).label('shouts_stat')
-    ).outerjoin(author_followers, author_followers.author == User.slug).add_columns(
-        func.count(distinct(author_followers.follower)).label('followers_stat')
-    ).outerjoin(author_following, author_following.follower == User.slug).add_columns(
-        func.count(distinct(author_following.author)).label('followings_stat')
-    ).outerjoin(UserRating).add_columns(
+    q = q.outerjoin(shout_author_aliased).add_columns(
+        func.count(distinct(shout_author_aliased.shout_id)).label('shouts_stat')
+    ).outerjoin(author_followers, author_followers.author_id == User.id).add_columns(
+        func.count(distinct(author_followers.follower_id)).label('followers_stat')
+    ).outerjoin(author_following, author_following.follower_id == User.id).add_columns(
+        func.count(distinct(author_following.author_id)).label('followings_stat')
+    ).outerjoin(user_rating_aliased, user_rating_aliased.user_id == User.id).add_columns(
         # TODO: check
-        func.sum(UserRating.value).label('rating_stat')
-    ).outerjoin(Reaction, and_(Reaction.createdBy == User.slug, Reaction.body.is_not(None))).add_columns(
+        func.sum(user_rating_aliased.value).label('rating_stat')
+    ).outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
         func.count(distinct(Reaction.id)).label('commented_stat')
     )
 
@@ -83,7 +85,7 @@ async def followed_reactions(slug):
         return session.query(
             Reaction.shout
         ).where(
-            Reaction.createdBy == slug
+            Reaction.createdBy == user.id
         ).filter(
             Reaction.createdAt > user.lastSeen
         ).all()
@@ -107,7 +109,7 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
 async def followed_authors(slug) -> List[User]:
     q = select(User)
     q = add_author_stat_columns(q)
-    q = q.join(AuthorFollower).where(AuthorFollower.follower == slug)
+    q = q.join(AuthorFollower).join(User, User.id == AuthorFollower.follower_id).where(User.slug == slug)
 
     return get_authors_from_query(q)
 
@@ -116,7 +118,13 @@ async def followed_authors(slug) -> List[User]:
 async def user_followers(_, _info, slug) -> List[User]:
     q = select(User)
     q = add_author_stat_columns(q)
-    q = q.join(AuthorFollower).where(AuthorFollower.author == slug)
+
+    aliased_user = aliased(User)
+    q = q.join(AuthorFollower).join(
+        aliased_user, aliased_user.id == AuthorFollower.author_id
+    ).where(
+        aliased_user.slug == slug
+    )
 
     return get_authors_from_query(q)
 
@@ -173,7 +181,8 @@ async def rate_user(_, info, rated_userslug, value):
 # for mutation.field("follow")
 def author_follow(user, slug):
     with local_session() as session:
-        af = AuthorFollower.create(follower=user.slug, author=slug)
+        author = session.query(User).where(User.slug == slug).one()
+        af = AuthorFollower.create(follower_id=user.id, author_id=author.id)
         session.add(af)
         session.commit()
 
@@ -182,13 +191,13 @@ def author_follow(user, slug):
 def author_unfollow(user, slug):
     with local_session() as session:
         flw = (
-            session.query(AuthorFollower)
-                .filter(
+            session.query(
+                AuthorFollower
+            ).join(User, User.id == AuthorFollower.author_id).filter(
                 and_(
-                    AuthorFollower.follower == user.slug, AuthorFollower.author == slug
+                    AuthorFollower.follower_id == user.id, User.slug == slug
                 )
-            )
-                .first()
+            ).first()
         )
         if not flw:
             raise Exception("[resolvers.profile] follower not exist, cant unfollow")
@@ -224,7 +233,7 @@ async def load_authors_by(_, info, by, limit, offset):
     elif by.get("name"):
         q = q.filter(User.name.ilike(f"%{by['name']}%"))
     elif by.get("topic"):
-        q = q.join(ShoutAuthor).join(ShoutTopic).where(ShoutTopic.topic == by["topic"])
+        q = q.join(ShoutAuthor).join(ShoutTopic).join(Topic).where(Topic.slug == by["topic"])
     if by.get("lastSeen"):  # in days
         days_before = datetime.now(tz=timezone.utc) - timedelta(days=by["lastSeen"])
         q = q.filter(User.lastSeen > days_before)

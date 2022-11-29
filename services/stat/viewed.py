@@ -5,7 +5,9 @@ from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from base.orm import local_session
 from sqlalchemy import func
-from orm.shout import ShoutTopic
+
+from orm import User, Topic
+from orm.shout import ShoutTopic, Shout
 from orm.viewed import ViewedEntry
 from ssl import create_default_context
 from os import environ, path
@@ -113,6 +115,7 @@ class ViewedStorage:
         async with self.lock:
             return self.client.execute_async(load_facts)
 
+    # unused yet
     @staticmethod
     async def get_shout(shout_slug):
         """ getting shout views metric by slug """
@@ -123,8 +126,9 @@ class ViewedStorage:
                 shout_views = 0
                 with local_session() as session:
                     try:
+                        shout = session.query(Shout).where(Shout.slug == shout_slug).one()
                         shout_views = session.query(func.sum(ViewedEntry.amount)).where(
-                            ViewedEntry.shout == shout_slug
+                            ViewedEntry.shout_id == shout.id
                         ).all()[0][0]
                         self.by_shouts[shout_slug] = shout_views
                         self.update_topics(session, shout_slug)
@@ -147,11 +151,12 @@ class ViewedStorage:
     def update_topics(session, shout_slug):
         """ updates topics counters by shout slug """
         self = ViewedStorage
-        for t in session.query(ShoutTopic).where(ShoutTopic.shout == shout_slug).all():
-            tpc = t.topic
-            if not self.by_topics.get(tpc):
-                self.by_topics[tpc] = {}
-            self.by_topics[tpc][shout_slug] = self.by_shouts[shout_slug]
+        for [shout_topic, topic] in session.query(ShoutTopic, Topic).join(Topic).join(Shout).where(
+            Shout.slug == shout_slug
+        ).all():
+            if not self.by_topics.get(topic.slug):
+                self.by_topics[topic.slug] = {}
+            self.by_topics[topic.slug][shout_slug] = self.by_shouts[shout_slug]
 
     @staticmethod
     async def increment(shout_slug, amount=1, viewer='anonymous'):
@@ -159,9 +164,12 @@ class ViewedStorage:
         self = ViewedStorage
         async with self.lock:
             with local_session() as session:
+                shout = session.query(Shout).where(Shout.slug == shout_slug).one()
+                viewer = session.query(User).where(User.slug == viewer).one()
+
                 viewed = ViewedEntry.create(**{
-                    "viewer": viewer,
-                    "shout": shout_slug,
+                    "viewer_id": viewer.id,
+                    "shout_id": shout.id,
                     "amount": amount
                 })
                 session.add(viewed)

@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import joinedload, aliased
-from sqlalchemy.sql.expression import desc, asc, select, case, func
+from sqlalchemy.sql.expression import desc, asc, select, func
 from base.orm import local_session
 from base.resolvers import query
 from orm import ViewedEntry
 from orm.shout import Shout, ShoutAuthor
-from orm.reaction import Reaction, ReactionKind
+from orm.reaction import Reaction
 from resolvers.zine._common import add_common_stat_columns
 
 
@@ -18,7 +18,7 @@ def add_stat_columns(q):
 def apply_filters(q, filters, user=None):
 
     if filters.get("reacted") and user:
-        q.join(Reaction, Reaction.createdBy == user.slug)
+        q.join(Reaction, Reaction.createdBy == user.id)
 
     v = filters.get("visibility")
     if v == "public":
@@ -66,9 +66,9 @@ async def load_shout(_, info, slug):
             "rating": rating_stat
         }
 
-        for author_caption in session.query(ShoutAuthor).where(ShoutAuthor.shout == slug):
+        for author_caption in session.query(ShoutAuthor).join(Shout).where(Shout.slug == slug):
             for author in shout.authors:
-                if author.slug == author_caption.user:
+                if author.id == author_caption.user_id:
                     author.caption = author_caption.caption
 
         return shout

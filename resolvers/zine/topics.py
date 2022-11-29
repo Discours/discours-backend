@@ -4,20 +4,20 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.shout import ShoutTopic, ShoutAuthor
 from orm.topic import Topic, TopicFollower
-from orm import Shout
+from orm import Shout, User
 
 
 def add_topic_stat_columns(q):
-    q = q.outerjoin(ShoutTopic, Topic.slug == ShoutTopic.topic).add_columns(
-        func.count(distinct(ShoutTopic.shout)).label('shouts_stat')
-    ).outerjoin(ShoutAuthor, ShoutTopic.shout == ShoutAuthor.shout).add_columns(
-        func.count(distinct(ShoutAuthor.user)).label('authors_stat')
+    q = q.outerjoin(ShoutTopic, Topic.id == ShoutTopic.topic_id).add_columns(
+        func.count(distinct(ShoutTopic.shout_id)).label('shouts_stat')
+    ).outerjoin(ShoutAuthor, ShoutTopic.shout_id == ShoutAuthor.shout_id).add_columns(
+        func.count(distinct(ShoutAuthor.user_id)).label('authors_stat')
     ).outerjoin(TopicFollower,
                 and_(
-                    TopicFollower.topic == Topic.slug,
-                    TopicFollower.follower == ShoutAuthor.user
+                    TopicFollower.topic_id == Topic.id,
+                    TopicFollower.follower_id == ShoutAuthor.id
                 )).add_columns(
-        func.count(distinct(TopicFollower.follower)).label('followers_stat')
+        func.count(distinct(TopicFollower.follower_id)).label('followers_stat')
     )
 
     q = q.group_by(Topic.id)
@@ -49,7 +49,7 @@ def get_topics_from_query(q):
 def followed_by_user(user_slug):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.where(TopicFollower.follower == user_slug)
+    q = q.join(User).where(User.slug == user_slug)
 
     return get_topics_from_query(q)
 
@@ -74,7 +74,7 @@ async def topics_by_community(_, info, community):
 async def topics_by_author(_, _info, author):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.where(ShoutAuthor.user == author)
+    q = q.join(User).where(User.slug == author)
 
     return get_topics_from_query(q)
 
@@ -117,7 +117,9 @@ async def update_topic(_, _info, inp):
 
 async def topic_follow(user, slug):
     with local_session() as session:
-        following = TopicFollower.create(topic=slug, follower=user.slug)
+        topic = session.query(Topic).where(Topic.slug == slug).one()
+
+        following = TopicFollower.create(topic_id=topic.id, follower=user.id)
         session.add(following)
         session.commit()
 
@@ -125,10 +127,10 @@ async def topic_follow(user, slug):
 async def topic_unfollow(user, slug):
     with local_session() as session:
         sub = (
-            session.query(TopicFollower).filter(
+            session.query(TopicFollower).join(Topic).filter(
                 and_(
-                    TopicFollower.follower == user.slug,
-                    TopicFollower.topic == slug
+                    TopicFollower.follower_id == user.id,
+                    Topic.slug == slug
                 )
             ).first()
         )
@@ -143,7 +145,7 @@ async def topic_unfollow(user, slug):
 async def topics_random(_, info, amount=12):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.join(Shout, ShoutTopic.shout == Shout.slug).group_by(Topic.id).having(func.count(Shout.id) > 2)
+    q = q.join(Shout, ShoutTopic.shout_id == Shout.id).group_by(Topic.id).having(func.count(Shout.id) > 2)
     q = q.order_by(func.random()).limit(amount)
 
     return get_topics_from_query(q)

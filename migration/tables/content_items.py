@@ -8,7 +8,7 @@ from migration.extract import extract_html, extract_media
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
 from orm.user import User
-from orm.topic import TopicFollower
+from orm.topic import TopicFollower, Topic
 from services.stat.viewed import ViewedStorage
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
@@ -41,10 +41,10 @@ def create_author_from_app(app):
                 name = app.get('name')
                 slug = (
                     translit(name, "ru", reversed=True)
-                    .replace(" ", "-")
-                    .replace("'", "")
-                    .replace(".", "-")
-                    .lower()
+                        .replace(" ", "-")
+                        .replace("'", "")
+                        .replace(".", "-")
+                        .lower()
                 )
                 # check if nameslug is used
                 user = session.query(User).where(User.slug == slug).first()
@@ -84,13 +84,19 @@ def create_author_from_app(app):
 async def create_shout(shout_dict, userslug):
     s = Shout.create(**shout_dict)
     with local_session() as session:
-        srf = session.query(ShoutReactionsFollower).where(
-            ShoutReactionsFollower.shout == s.slug
+        follower = session.query(User).where(User.slug == userslug).one()
+
+        srf = session.query(
+            ShoutReactionsFollower
+        ).join(
+            User
+        ).where(
+            ShoutReactionsFollower.shout_id == s.id
         ).filter(
-            ShoutReactionsFollower.follower == userslug
+            User.slug == userslug
         ).first()
         if not srf:
-            srf = ShoutReactionsFollower.create(shout=s.slug, follower=userslug, auto=True)
+            srf = ShoutReactionsFollower.create(shout_id=s.id, follower_id=follower.id, auto=True)
             session.add(srf)
         session.commit()
 
@@ -214,17 +220,21 @@ async def add_topics_follower(entry, storage, userslug):
     with local_session() as session:
         for tpc in topics:
             try:
+                topic = session.query(Topic).where(Topic.slug == tpc).one()
+                follower = session.query(User).where(User.slug == userslug).one()
+
                 tf = session.query(
                     TopicFollower
                 ).where(
-                    TopicFollower.follower == userslug
+                    TopicFollower.follower_id == follower.id
                 ).filter(
-                    TopicFollower.topic == tpc
+                    TopicFollower.topic_id == topic.id
                 ).first()
+
                 if not tf:
                     tf = TopicFollower.create(
-                        topic=tpc,
-                        follower=userslug,
+                        topic_id=topic.id,
+                        follower_id=follower.id,
                         auto=True
                     )
                     session.add(tf)
@@ -300,27 +310,35 @@ async def topics_aftermath(entry, storage):
     for tpc in filter(lambda x: bool(x), entry["topics"]):
         oldslug = tpc
         newslug = storage["replacements"].get(oldslug, oldslug)
+
         if newslug:
             with local_session() as session:
+                shout = session.query(Shout).where(Shout.slug == entry["slug"]).one()
+                new_topic = session.query(Topic).where(Topic.slug == newslug).one()
+
                 shout_topic_old = (
                     session.query(ShoutTopic)
-                    .filter(ShoutTopic.shout == entry["slug"])
-                    .filter(ShoutTopic.topic == oldslug)
-                    .first()
+                        .join(Shout)
+                        .join(Topic)
+                        .filter(Shout.slug == entry["slug"])
+                        .filter(Topic.slug == oldslug)
+                        .first()
                 )
                 if shout_topic_old:
-                    shout_topic_old.update({"slug": newslug})
+                    shout_topic_old.update({"topic_id": new_topic.id})
                 else:
                     shout_topic_new = (
                         session.query(ShoutTopic)
-                        .filter(ShoutTopic.shout == entry["slug"])
-                        .filter(ShoutTopic.topic == newslug)
-                        .first()
+                            .join(Shout)
+                            .join(Topic)
+                            .filter(Shout.slug == entry["slug"])
+                            .filter(Topic.slug == newslug)
+                            .first()
                     )
                     if not shout_topic_new:
                         try:
                             ShoutTopic.create(
-                                **{"shout": entry["slug"], "topic": newslug}
+                                **{"shout_id": shout.id, "topic_id": new_topic.id}
                             )
                         except Exception:
                             print("[migration] shout topic error: " + newslug)
@@ -339,31 +357,35 @@ async def content_ratings_to_reactions(entry, slug):
             for content_rating in entry.get("ratings", []):
                 rater = (
                     session.query(User)
-                    .filter(User.oid == content_rating["createdBy"])
-                    .first()
+                        .filter(User.oid == content_rating["createdBy"])
+                        .first()
                 )
                 reactedBy = (
                     rater
                     if rater
-                    else session.query(User).filter(User.slug == "noname").first()
+                    else session.query(User).filter(User.slug == "anonymous").first()
                 )
                 if rater:
+                    shout = session.query(Shout).where(Shout.slug == slug).one()
+
                     reaction_dict = {
                         "kind": ReactionKind.LIKE
                         if content_rating["value"] > 0
                         else ReactionKind.DISLIKE,
-                        "createdBy": reactedBy.slug,
-                        "shout": slug,
+                        "createdBy": reactedBy.id,
+                        "shout_id": shout.id,
                     }
                     cts = content_rating.get("createdAt")
                     if cts:
                         reaction_dict["createdAt"] = date_parse(cts)
                     reaction = (
-                        session.query(Reaction)
-                        .filter(Reaction.shout == reaction_dict["shout"])
-                        .filter(Reaction.createdBy == reaction_dict["createdBy"])
-                        .filter(Reaction.kind == reaction_dict["kind"])
-                        .first()
+                        session.query(Reaction).filter(
+                            Reaction.shout_id == reaction_dict["shout_id"]
+                        ).filter(
+                            Reaction.createdBy == reaction_dict["createdBy"]
+                        ).filter(
+                            Reaction.kind == reaction_dict["kind"]
+                        ).first()
                     )
                     if reaction:
                         k = ReactionKind.AGREE if content_rating["value"] > 0 else ReactionKind.DISAGREE
