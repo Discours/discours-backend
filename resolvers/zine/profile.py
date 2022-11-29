@@ -1,6 +1,6 @@
 from typing import List
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import and_, func, distinct, select
+from sqlalchemy import and_, func, distinct, select, literal
 from sqlalchemy.orm import aliased, joinedload
 
 from auth.authenticate import login_required
@@ -24,16 +24,27 @@ def add_author_stat_columns(q):
 
     q = q.outerjoin(shout_author_aliased).add_columns(
         func.count(distinct(shout_author_aliased.shout_id)).label('shouts_stat')
-    ).outerjoin(author_followers, author_followers.author_id == User.id).add_columns(
-        func.count(distinct(author_followers.follower_id)).label('followers_stat')
-    ).outerjoin(author_following, author_following.follower_id == User.id).add_columns(
-        func.count(distinct(author_following.author_id)).label('followings_stat')
-    ).outerjoin(user_rating_aliased, user_rating_aliased.user_id == User.id).add_columns(
-        # TODO: check
-        func.sum(user_rating_aliased.value).label('rating_stat')
-    ).outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
-        func.count(distinct(Reaction.id)).label('commented_stat')
     )
+    q = q.outerjoin(author_followers, author_followers.author_id == User.id).add_columns(
+        func.count(distinct(author_followers.follower_id)).label('followers_stat')
+    )
+
+    q = q.outerjoin(author_following, author_following.follower_id == User.id).add_columns(
+        func.count(distinct(author_following.author_id)).label('followings_stat')
+    )
+
+    q = q.add_columns(literal(0).label('rating_stat'))
+    # FIXME
+    # q = q.outerjoin(user_rating_aliased, user_rating_aliased.user_id == User.id).add_columns(
+    #     # TODO: check
+    #     func.sum(user_rating_aliased.value).label('rating_stat')
+    # )
+
+    q = q.add_columns(literal(0).label('commented_stat'))
+    # FIXME
+    # q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
+    #     func.count(distinct(Reaction.id)).label('commented_stat')
+    # )
 
     q = q.group_by(User.id)
 
@@ -210,7 +221,7 @@ def author_unfollow(user, slug):
 async def get_authors_all(_, _info):
     q = select(User)
     q = add_author_stat_columns(q)
-    q = q.join(ShoutAuthor)
+    q = q.join(ShoutAuthor, User.id == ShoutAuthor.user_id)
 
     return get_authors_from_query(q)
 
