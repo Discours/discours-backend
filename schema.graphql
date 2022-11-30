@@ -371,6 +371,12 @@ type User {
   oid: String
 }
 
+type Draft {
+  title: String
+  body: String
+  createdBy: Int
+}
+
 type Collab {
  authors: [String]!
  invites: [String]

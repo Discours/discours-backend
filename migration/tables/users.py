@@ -1,7 +1,7 @@
 from dateutil.parser import parse
 from sqlalchemy.exc import IntegrityError
 from bs4 import BeautifulSoup
-
+import re
 from base.orm import local_session
 from orm.user import AuthorFollower, User, UserRating
 
@@ -32,9 +32,9 @@ def migrate(entry):
         user_dict["lastSeen"] = parse(entry["wasOnlineAt"])
     if entry.get("profile"):
         # slug
-        user_dict["slug"] = (
-            entry["profile"].get("path").lower().replace(" ", "-").strip()
-        )
+        slug = entry["profile"].get("path").lower()
+        slug = re.sub('[^0-9a-zA-Z]+', '-', slug).strip()
+        user_dict["slug"] = slug
         bio = BeautifulSoup(entry.get("profile").get("bio") or "", features="lxml").text
         if bio.startswith('<'):
             print('[migration] bio! ' + bio)
