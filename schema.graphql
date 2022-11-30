@@ -94,12 +94,13 @@ type ReactionUpdating {
 ################################### Inputs ###################################
 
 input ShoutInput {
-  slug: String!
-  body: String!
-  community: String!
-  mainTopic: String
-  topic_slugs: [String]
+  slug: String
   title: String
+  body: String!
+  authors: [String]
+  topics: [String]
+  community: Int
+  mainTopic: String
   subtitle: String
   versionOf: String
   visibleForRoles: [String] # role ids are strings
@@ -164,8 +165,8 @@ type Mutation {
   confirmEmail(token: String!): AuthResult!
 
   # shout
-  createShout(input: ShoutInput!): Result!
-  updateShout(input: ShoutInput!): Result!
+  createShout(inp: ShoutInput!): Result!
+  updateShout(inp: ShoutInput!): Result!
   deleteShout(slug: String!): Result!
 
   # user profile
@@ -185,8 +186,9 @@ type Mutation {
   deleteReaction(id: Int!): Result!
 
   # collab
-  inviteAuthor(author: String!, shout: String!): Result!
-  removeAuthor(author: String!, shout: String!): Result!
+  inviteCoauthor(author: String!, shout: int!): Result!
+  removeCouthor(author: String!, shout: Int!): Result!
+  acceptCoauthor(shout: Int!): Result!
 
   # following
   follow(what: FollowingEntity!, slug: String!): Result!
@@ -371,14 +373,6 @@ type User {
   oid: String
 }
 
-type Collab {
- authors: [String]!
- invites: [String]
- createdAt: DateTime!
- title: String
- body: String
-}
-
 enum ReactionKind {
   LIKE
   DISLIKE
@@ -524,4 +518,12 @@ type Chat {
   messages: [Message]
   unread: Int
   private: Boolean
+}
+
+type Collab {
+ authors: [String]!
+ invites: [String]
+ shout: Shout
+ chat: Chat
+ createdAt: Int!
 }

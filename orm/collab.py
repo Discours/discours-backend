@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, String, ForeignKey, DateTime
+from sqlalchemy import Column, ForeignKey, DateTime, String
 from sqlalchemy.orm import relationship
 from base.orm import Base
 from orm.user import User
@@ -12,16 +12,23 @@ class CollabAuthor(Base):
     id = None  # type: ignore
     collab = Column(ForeignKey("collab.id"), primary_key=True)
     author = Column(ForeignKey("user.slug"), primary_key=True)
-    accepted = Column(Boolean, default=False)
+    invitedBy = Column(ForeignKey("user.slug"))
+
+
+class CollabInvited(Base):
+    __tablename__ = "collab_invited"
+
+    id = None  # type: ignore
+    collab = Column(ForeignKey("collab.id"), primary_key=True)
+    author = Column(ForeignKey("user.slug"), primary_key=True)
+    invitedBy = Column(ForeignKey("user.slug"))
 
 
 class Collab(Base):
     __tablename__ = "collab"
 
-    authors = Column()
-    title = Column(String, nullable=True, comment="Title")
-    body = Column(String, nullable=True, comment="Body")
-    pic = Column(String, nullable=True, comment="Picture")
+    shout = Column(ForeignKey("shout.id"), primary_key=True)
     authors = relationship(lambda: User, secondary=CollabAuthor.__tablename__)
+    invites = relationship(lambda: User, secondary=CollabInvited.__tablename__)
     createdAt = Column(DateTime, default=datetime.now, comment="Created At")
-    createdBy = Column(ForeignKey("user.id"), comment="Created By")
+    chat = Column(String, unique=True, nullable=False)
