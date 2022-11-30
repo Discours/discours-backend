@@ -7,10 +7,14 @@ from base.orm import local_session
 from base.resolvers import mutation
 from orm.rbac import Resource
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
+from orm.collab import Collab
+from services.inbox import MessagesStorage
+from orm.topic import TopicFollower
 from orm.topic import TopicFollower, Topic
 from orm.user import User
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from services.zine.gittask import GitTask
+from resolvers.inbox.chats import create_chat
 
 
 @mutation.field("createShout")
@@ -21,9 +25,31 @@ async def create_shout(_, info, inp):
     topic_slugs = inp.get("topic_slugs", [])
     if topic_slugs:
         del inp["topic_slugs"]
-
+    body = inp.get("body")
     with local_session() as session:
-        new_shout = Shout.create(**inp)
+        if body:
+            # now we should create a draft shout (can be viewed only by authors)
+            authors = inp.get("authors", [])
+            new_shout = Shout.create({
+                "title": inp.get("title", body[:12] + '...'),
+                "body": body,
+                "authors": authors,
+                "topics": inp.get("topics", []),
+                "mainTopic": inp.get("topics", []).pop(),
+                "visibility": "authors"
+            })
+            authors.remove(user.slug)
+            if authors:
+                chat = create_chat(None, info, new_shout.title, members=authors)
+                # create a cooperative chatroom
+                MessagesStorage.register_chat(chat)
+                # now we should create a collab
+                new_collab = Collab.create({
+                    "shout": new_shout.id,
+                    "authors": [user.slug, ],
+                    "invites": authors
+                })
+                session.add(new_collab)
 
         # NOTE: shout made by one first author
         sa = ShoutAuthor.create(shoutId=new_shout.id, userId=user.id)
