@@ -1,8 +1,9 @@
+from datetime import datetime, timezone
+
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import query, mutation
-from base.exceptions import OperationNotAllowed, ObjectNotExist
-from orm.collab import Collab, CollabAuthor
+from orm.collab import Collab
 from orm.shout import Shout
 from orm.user import User
 
@@ -10,74 +11,65 @@ from orm.user import User
 @query.field("getCollabs")
 @login_required
 async def get_collabs(_, info):
-    user = info.context["request"].user
+    auth = info.context["request"].auth
+    user_id = auth.user_id
     with local_session() as session:
+        user = session.query(User).where(User.id == user_id).first()
         collabs = session.query(Collab).filter(user.slug in Collab.authors)
         return collabs
 
 
-@mutation.field("inviteCoauthor")
+@mutation.field("inviteAuthor")
 @login_required
-async def invite_coauthor(_, info, author: str, shout: int):
-    user = info.context["request"].user
+async def invite_author(_, info, author, shout):
+    auth = info.context["request"].auth
+    user_id = auth.user_id
+
     with local_session() as session:
-        s = session.query(Shout).where(Shout.id == shout).one()
-        if not s:
-            raise ObjectNotExist("invalid shout id")
-        else:
-            c = session.query(Collab).where(Collab.shout == shout).one()
-            if user.slug not in c.authors:
-                raise OperationNotAllowed("you are not in authors list")
-            else:
-                invited_user = session.query(User).where(User.slug == author).one()
-                c.invites.append(invited_user)
-                session.add(c)
-                session.commit()
+        shout = session.query(Shout).filter(Shout.slug == shout).first()
+        if not shout:
+            return {"error": "invalid shout slug"}
+        authors = [a.id for a in shout.authors]
+        if user_id not in authors:
+            return {"error": "access denied"}
+        author = session.query(User).filter(User.id == author.id).first()
+        if author:
+            if author.id in authors:
+                return {"error": "already added"}
+            shout.authors.append(author)
+        shout.updated_at = datetime.now(tz=timezone.utc)
+        session.add(shout)
+        session.commit()
 
     # TODO: email notify
     return {}
 
 
-@mutation.field("removeCoauthor")
+@mutation.field("removeAuthor")
 @login_required
-async def remove_coauthor(_, info, author: str, shout: int):
-    user = info.context["request"].user
+async def remove_author(_, info, author, shout):
+    auth = info.context["request"].auth
+    user_id = auth.user_id
+
     with local_session() as session:
-        s = session.query(Shout).where(Shout.id == shout).one()
-        if not s:
-            raise ObjectNotExist("invalid shout id")
-        if user.slug != s.createdBy.slug:
-            raise OperationNotAllowed("only onwer can remove coauthors")
-        else:
-            c = session.query(Collab).where(Collab.shout == shout).one()
-            ca = session.query(CollabAuthor).where(c.shout == shout, c.author == author).one()
-            session.remve(ca)
-            c.invites = filter(lambda x: x.slug == author, c.invites)
-            c.authors = filter(lambda x: x.slug == author, c.authors)
-            session.add(c)
-            session.commit()
+        shout = session.query(Shout).filter(Shout.slug == shout).first()
+        if not shout:
+            return {"error": "invalid shout slug"}
+        authors = [author.id for author in shout.authors]
+        if user_id not in authors:
+            return {"error": "access denied"}
+        author = session.query(User).filter(User.slug == author).first()
+        if author:
+            if author.id not in authors:
+                return {"error": "not in authors"}
+            shout.authors.remove(author)
+        shout.updated_at = datetime.now(tz=timezone.utc)
+        session.add(shout)
+        session.commit()
+
+    # result = Result("INVITED")
+    # FIXME: await ShoutStorage.put(result)
 
     # TODO: email notify
+
     return {}
-
-
-@mutation.field("acceptCoauthor")
-@login_required
-async def accept_coauthor(_, info, shout: int):
-    user = info.context["request"].user
-    with local_session() as session:
-        s = session.query(Shout).where(Shout.id == shout).one()
-        if not s:
-            raise ObjectNotExist("invalid shout id")
-        else:
-            c = session.query(Collab).where(Collab.shout == shout).one()
-            accepted = filter(lambda x: x.slug == user.slug, c.invites).pop()
-            if accepted:
-                c.authors.append(accepted)
-                s.authors.append(accepted)
-                session.add(s)
-                session.add(c)
-                session.commit()
-                return {}
-            else:
-                raise OperationNotAllowed("only invited can accept")
