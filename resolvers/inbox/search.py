@@ -31,7 +31,7 @@ async def search_recipients(_, info, query: str, limit: int = 50, offset: int = 
     with local_session() as session:
         # followings
         result += session.query(AuthorFollower.author).join(
-            User, User.id == AuthorFollower.followerId
+            User, User.id == AuthorFollower.follower
         ).where(
             User.slug.startswith(query)
         ).offset(offset + len(result)).limit(more_amount)
@@ -39,7 +39,7 @@ async def search_recipients(_, info, query: str, limit: int = 50, offset: int = 
         more_amount = limit
         # followers
         result += session.query(AuthorFollower.follower).join(
-            User, User.id == AuthorFollower.authorId
+            User, User.id == AuthorFollower.author
         ).where(
             User.slug.startswith(query)
         ).offset(offset + len(result)).limit(offset + len(result) + limit)

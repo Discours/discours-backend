@@ -68,7 +68,7 @@ async def load_shout(_, info, slug):
 
         for author_caption in session.query(ShoutAuthor).join(Shout).where(Shout.slug == slug):
             for author in shout.authors:
-                if author.id == author_caption.userId:
+                if author.id == author_caption.user:
                     author.caption = author_caption.caption
 
         return shout

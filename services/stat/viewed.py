@@ -128,7 +128,7 @@ class ViewedStorage:
                     try:
                         shout = session.query(Shout).where(Shout.slug == shout_slug).one()
                         shout_views = session.query(func.sum(ViewedEntry.amount)).where(
-                            ViewedEntry.shoutId == shout.id
+                            ViewedEntry.shout == shout.id
                         ).all()[0][0]
                         self.by_shouts[shout_slug] = shout_views
                         self.update_topics(session, shout_slug)
@@ -168,8 +168,8 @@ class ViewedStorage:
                 viewer = session.query(User).where(User.slug == viewer).one()
 
                 viewed = ViewedEntry.create(**{
-                    "viewerId": viewer.id,
-                    "shoutId": shout.id,
+                    "viewer": viewer.id,
+                    "shout": shout.id,
                     "amount": amount
                 })
                 session.add(viewed)

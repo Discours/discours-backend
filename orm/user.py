@@ -11,7 +11,7 @@ from orm.rbac import Role
 class UserNotifications(Base):
     __tablename__ = "user_notifications"
     # id auto
-    userId = Column(Integer, ForeignKey("user.id"))
+    user = Column(Integer, ForeignKey("user.id"))
     kind = Column(String, ForeignKey("notification.kind"))
     values = Column(JSONType, nullable=True)  # [ <var1>, .. ]
 
@@ -20,8 +20,8 @@ class UserRating(Base):
     __tablename__ = "user_rating"
 
     id = None  # type: ignore
-    raterId = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    userId = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    rater = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    user = Column(ForeignKey("user.id"), primary_key=True, index=True)
     value = Column(Integer)
 
     @staticmethod
@@ -33,16 +33,16 @@ class UserRole(Base):
     __tablename__ = "user_role"
 
     id = None  # type: ignore
-    userId = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    roleId = Column(ForeignKey("role.id"), primary_key=True, index=True)
+    user = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    role = Column(ForeignKey("role.id"), primary_key=True, index=True)
 
 
 class AuthorFollower(Base):
     __tablename__ = "author_follower"
 
     id = None  # type: ignore
-    followerId = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    authorId = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    follower = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    author = Column(ForeignKey("user.id"), primary_key=True, index=True)
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
@@ -72,7 +72,7 @@ class User(Base):
     links = Column(JSONType, nullable=True, comment="Links")
     oauth = Column(String, nullable=True)
     notifications = relationship(lambda: UserNotifications)
-    ratings = relationship(UserRating, foreign_keys=UserRating.userId)
+    ratings = relationship(UserRating, foreign_keys=UserRating.user)
     roles = relationship(lambda: Role, secondary=UserRole.__tablename__)
     oid = Column(String, nullable=True)
 
@@ -104,9 +104,9 @@ class User(Base):
         scope = {}
         for role in self.roles:
             for p in role.permissions:
-                if p.resourceId not in scope:
-                    scope[p.resourceId] = set()
-                scope[p.resourceId].add(p.operationId)
+                if p.resource not in scope:
+                    scope[p.resource] = set()
+                scope[p.resource].add(p.operation)
 
         return scope
 
