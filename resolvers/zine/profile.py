@@ -23,19 +23,19 @@ def add_author_stat_columns(q):
     user_rating_aliased = aliased(UserRating)
 
     q = q.outerjoin(shout_author_aliased).add_columns(
-        func.count(distinct(shout_author_aliased.shoutId)).label('shouts_stat')
+        func.count(distinct(shout_author_aliased.shout)).label('shouts_stat')
     )
-    q = q.outerjoin(author_followers, author_followers.authorId == User.id).add_columns(
-        func.count(distinct(author_followers.followerId)).label('followers_stat')
+    q = q.outerjoin(author_followers, author_followers.author == User.id).add_columns(
+        func.count(distinct(author_followers.follower)).label('followers_stat')
     )
 
-    q = q.outerjoin(author_following, author_following.followerId == User.id).add_columns(
-        func.count(distinct(author_following.authorId)).label('followings_stat')
+    q = q.outerjoin(author_following, author_following.follower == User.id).add_columns(
+        func.count(distinct(author_following.author)).label('followings_stat')
     )
 
     q = q.add_columns(literal(0).label('rating_stat'))
     # FIXME
-    # q = q.outerjoin(user_rating_aliased, user_rating_aliased.userId == User.id).add_columns(
+    # q = q.outerjoin(user_rating_aliased, user_rating_aliased.user == User.id).add_columns(
     #     # TODO: check
     #     func.sum(user_rating_aliased.value).label('rating_stat')
     # )
@@ -120,7 +120,7 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
 async def followed_authors(slug) -> List[User]:
     q = select(User)
     q = add_author_stat_columns(q)
-    q = q.join(AuthorFollower).join(User, User.id == AuthorFollower.followerId).where(User.slug == slug)
+    q = q.join(AuthorFollower).join(User, User.id == AuthorFollower.follower).where(User.slug == slug)
 
     return get_authors_from_query(q)
 
@@ -132,7 +132,7 @@ async def user_followers(_, _info, slug) -> List[User]:
 
     aliased_user = aliased(User)
     q = q.join(AuthorFollower).join(
-        aliased_user, aliased_user.id == AuthorFollower.authorId
+        aliased_user, aliased_user.id == AuthorFollower.author
     ).where(
         aliased_user.slug == slug
     )
@@ -147,7 +147,7 @@ async def get_user_roles(slug):
             session.query(Role)
                 .options(joinedload(Role.permissions))
                 .join(UserRole)
-                .where(UserRole.userId == user.id)
+                .where(UserRole.user == user.id)
                 .all()
         )
 
@@ -193,7 +193,7 @@ async def rate_user(_, info, rated_userslug, value):
 def author_follow(user, slug):
     with local_session() as session:
         author = session.query(User).where(User.slug == slug).one()
-        af = AuthorFollower.create(followerId=user.id, authorId=author.id)
+        af = AuthorFollower.create(follower=user.id, author=author.id)
         session.add(af)
         session.commit()
 
@@ -204,9 +204,9 @@ def author_unfollow(user, slug):
         flw = (
             session.query(
                 AuthorFollower
-            ).join(User, User.id == AuthorFollower.authorId).filter(
+            ).join(User, User.id == AuthorFollower.author).filter(
                 and_(
-                    AuthorFollower.followerId == user.id, User.slug == slug
+                    AuthorFollower.follower == user.id, User.slug == slug
                 )
             ).first()
         )
@@ -221,7 +221,7 @@ def author_unfollow(user, slug):
 async def get_authors_all(_, _info):
     q = select(User)
     q = add_author_stat_columns(q)
-    q = q.join(ShoutAuthor, User.id == ShoutAuthor.userId)
+    q = q.join(ShoutAuthor, User.id == ShoutAuthor.user)
 
     return get_authors_from_query(q)
 

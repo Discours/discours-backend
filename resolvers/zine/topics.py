@@ -8,16 +8,16 @@ from orm import Shout, User
 
 
 def add_topic_stat_columns(q):
-    q = q.outerjoin(ShoutTopic, Topic.id == ShoutTopic.topicId).add_columns(
-        func.count(distinct(ShoutTopic.shoutId)).label('shouts_stat')
-    ).outerjoin(ShoutAuthor, ShoutTopic.shoutId == ShoutAuthor.shoutId).add_columns(
-        func.count(distinct(ShoutAuthor.userId)).label('authors_stat')
+    q = q.outerjoin(ShoutTopic, Topic.id == ShoutTopic.topic).add_columns(
+        func.count(distinct(ShoutTopic.shout)).label('shouts_stat')
+    ).outerjoin(ShoutAuthor, ShoutTopic.shout == ShoutAuthor.shout).add_columns(
+        func.count(distinct(ShoutAuthor.user)).label('authors_stat')
     ).outerjoin(TopicFollower,
                 and_(
-                    TopicFollower.topicId == Topic.id,
-                    TopicFollower.followerId == ShoutAuthor.id
+                    TopicFollower.topic == Topic.id,
+                    TopicFollower.follower == ShoutAuthor.id
                 )).add_columns(
-        func.count(distinct(TopicFollower.followerId)).label('followers_stat')
+        func.count(distinct(TopicFollower.follower)).label('followers_stat')
     )
 
     q = q.group_by(Topic.id)
@@ -119,7 +119,7 @@ async def topic_follow(user, slug):
     with local_session() as session:
         topic = session.query(Topic).where(Topic.slug == slug).one()
 
-        following = TopicFollower.create(topicId=topic.id, followerId=user.id)
+        following = TopicFollower.create(topic=topic.id, follower=user.id)
         session.add(following)
         session.commit()
 
@@ -129,7 +129,7 @@ async def topic_unfollow(user, slug):
         sub = (
             session.query(TopicFollower).join(Topic).filter(
                 and_(
-                    TopicFollower.followerId == user.id,
+                    TopicFollower.follower == user.id,
                     Topic.slug == slug
                 )
             ).first()
@@ -145,7 +145,7 @@ async def topic_unfollow(user, slug):
 async def topics_random(_, info, amount=12):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.join(Shout, ShoutTopic.shoutId == Shout.id).group_by(Topic.id).having(func.count(Shout.id) > 2)
+    q = q.join(Shout, ShoutTopic.shout == Shout.id).group_by(Topic.id).having(func.count(Shout.id) > 2)
     q = q.order_by(func.random()).limit(amount)
 
     return get_topics_from_query(q)

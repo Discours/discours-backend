@@ -11,7 +11,7 @@ class CollabAuthor(Base):
 
     id = None  # type: ignore
     collab = Column(ForeignKey("collab.id"), primary_key=True)
-    authorId = Column(ForeignKey("user.id"), primary_key=True)
+    author = Column(ForeignKey("user.id"), primary_key=True)
     accepted = Column(Boolean, default=False)
 
 

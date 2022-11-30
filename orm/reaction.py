@@ -33,7 +33,7 @@ class Reaction(Base):
     updatedBy = Column(ForeignKey("user.id"), nullable=True, index=True, comment="Last Editor")
     deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
     deletedBy = Column(ForeignKey("user.id"), nullable=True, index=True, comment="Deleted by")
-    shoutId = Column(ForeignKey("shout.id"), nullable=False, index=True)
+    shout = Column(ForeignKey("shout.id"), nullable=False, index=True)
     replyTo = Column(
         ForeignKey("reaction.id"), nullable=True, comment="Reply to reaction ID"
     )
