@@ -9,7 +9,7 @@ class CommunityFollower(Base):
 
     id = None  # type: ignore
     follower = Column(ForeignKey("user.id"), primary_key=True)
-    communityId = Column(ForeignKey("community.id"), primary_key=True)
+    community = Column(ForeignKey("community.id"), primary_key=True)
     joinedAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )

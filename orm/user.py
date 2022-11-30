@@ -20,7 +20,7 @@ class UserRating(Base):
     __tablename__ = "user_rating"
 
     id = None  # type: ignore
-    raterId = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    rater = Column(ForeignKey("user.id"), primary_key=True, index=True)
     user = Column(ForeignKey("user.id"), primary_key=True, index=True)
     value = Column(Integer)
 
@@ -34,7 +34,7 @@ class UserRole(Base):
 
     id = None  # type: ignore
     user = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    roleId = Column(ForeignKey("role.id"), primary_key=True, index=True)
+    role = Column(ForeignKey("role.id"), primary_key=True, index=True)
 
 
 class AuthorFollower(Base):
@@ -104,9 +104,9 @@ class User(Base):
         scope = {}
         for role in self.roles:
             for p in role.permissions:
-                if p.resourceId not in scope:
-                    scope[p.resourceId] = set()
-                scope[p.resourceId].add(p.operationId)
+                if p.resource not in scope:
+                    scope[p.resource] = set()
+                scope[p.resource].add(p.operation)
 
         return scope
 

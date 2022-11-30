@@ -123,7 +123,7 @@ def migrate_2stage(entry, id_map):
 
                 user_rating_dict = {
                     "value": rating_entry["value"],
-                    "raterId": rater.id,
+                    "rater": rater.id,
                     "user": user.id,
                 }
 

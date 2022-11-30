@@ -12,7 +12,7 @@ class CollabAuthor(Base):
     id = None  # type: ignore
     collab = Column(ForeignKey("collab.id"), primary_key=True)
     author = Column(ForeignKey("user.id"), primary_key=True)
-    accepted = Column(Boolean, default=False)
+    # accepted = Column(Boolean, default=False)
 
 
 class Collab(Base):
@@ -22,6 +22,6 @@ class Collab(Base):
     body = Column(String, nullable=True, comment="Body")
     pic = Column(String, nullable=True, comment="Picture")
     authors = relationship(lambda: User, secondary=CollabAuthor.__tablename__)
-    invites = relationship(lambda: User, secondary=CollabInvited.__tablename__)
+    # invites = relationship(lambda: User, secondary=CollabInvited.__tablename__)
     createdAt = Column(DateTime, default=datetime.now, comment="Created At")
     chat = Column(String, unique=True, nullable=False)

@@ -6,7 +6,7 @@ from base.orm import Base, local_session
 class ViewedEntry(Base):
     __tablename__ = "viewed"
 
-    viewerId = Column(ForeignKey("user.id"), index=True, default=1)
+    viewer = Column(ForeignKey("user.id"), index=True, default=1)
     shout = Column(ForeignKey("shout.id"), index=True, default=1)
     amount = Column(Integer, default=1)
     createdAt = Column(

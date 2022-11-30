@@ -142,19 +142,19 @@ class Resource(Base):
 class Permission(Base):
     __tablename__ = "permission"
     __table_args__ = (
-        UniqueConstraint("roleId", "operationId", "resourceId"),
+        UniqueConstraint("role", "operation", "resource"),
         {"extend_existing": True},
     )
 
-    roleId = Column(
+    role = Column(
         ForeignKey("role.id", ondelete="CASCADE"), nullable=False, comment="Role"
     )
-    operationId = Column(
+    operation = Column(
         ForeignKey("operation.id", ondelete="CASCADE"),
         nullable=False,
         comment="Operation",
     )
-    resourceId = Column(
+    resource = Column(
         ForeignKey("resource.id", ondelete="CASCADE"),
         nullable=False,
         comment="Resource",
@@ -164,11 +164,11 @@ class Permission(Base):
 if __name__ == "__main__":
     Base.metadata.create_all(engine)
     ops = [
-        Permission(roleId=1, operationId=1, resourceId=1),
-        Permission(roleId=1, operationId=2, resourceId=1),
-        Permission(roleId=1, operationId=3, resourceId=1),
-        Permission(roleId=1, operationId=4, resourceId=1),
-        Permission(roleId=2, operationId=4, resourceId=1),
+        Permission(role=1, operation=1, resource=1),
+        Permission(role=1, operation=2, resource=1),
+        Permission(role=1, operation=3, resource=1),
+        Permission(role=1, operation=4, resource=1),
+        Permission(role=2, operation=4, resource=1),
     ]
     global_session.add_all(ops)
     global_session.commit()

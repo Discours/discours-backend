@@ -168,7 +168,7 @@ class ViewedStorage:
                 viewer = session.query(User).where(User.slug == viewer).one()
 
                 viewed = ViewedEntry.create(**{
-                    "viewerId": viewer.id,
+                    "viewer": viewer.id,
                     "shout": shout.id,
                     "amount": amount
                 })
