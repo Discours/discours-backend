@@ -2,11 +2,14 @@ from functools import wraps
 from typing import Optional, Tuple
 
 from graphql.type import GraphQLResolveInfo
+from sqlalchemy.orm import joinedload, exc
 from starlette.authentication import AuthenticationBackend
 from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials, AuthUser
-from services.auth.users import UserStorage
+from base.orm import local_session
+from orm import User, Role
+
 from settings import SESSION_TOKEN_HEADER
 from auth.tokenstorage import SessionToken
 from base.exceptions import InvalidToken, OperationNotAllowed, Unauthorized
@@ -32,10 +35,26 @@ class JWTAuthenticate(AuthenticationBackend):
                 payload = await SessionToken.verify(token)
                 if payload is None:
                     return AuthCredentials(scopes=[]), AuthUser(user_id=None)
-                user = await UserStorage.get_user(payload.user_id)
+
+                with local_session() as session:
+                    try:
+                        user = (
+                            session.query(User).options(
+                                joinedload(User.roles),
+                                joinedload(Role.permissions),
+                                joinedload(User.ratings)
+                            ).filter(
+                                User.id == id
+                            ).one()
+                        )
+                    except exc.NoResultFound:
+                        user = None
+
                 if not user:
                     return AuthCredentials(scopes=[]), AuthUser(user_id=None)
-                scopes = await user.get_permission()
+
+                scopes = user.get_permission()
+
                 return (
                     AuthCredentials(
                         user_id=payload.user_id,
@@ -46,10 +65,10 @@ class JWTAuthenticate(AuthenticationBackend):
                 )
             else:
                 InvalidToken("please try again")
-        except Exception as exc:
+        except Exception as e:
             print("[auth.authenticate] session token verify error")
-            print(exc)
-            return AuthCredentials(scopes=[], error_message=str(exc)), AuthUser(user_id=None)
+            print(e)
+            return AuthCredentials(scopes=[], error_message=str(e)), AuthUser(user_id=None)
 
 
 def login_required(func):

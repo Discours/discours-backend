@@ -9,8 +9,8 @@ class ShoutCollection(Base):
     __tablename__ = "shout_collection"
 
     id = None  # type: ignore
-    shout = Column(ForeignKey("shout.slug"), primary_key=True)
-    collection = Column(ForeignKey("collection.slug"), primary_key=True)
+    shout = Column(ForeignKey("shout.id"), primary_key=True)
+    collectionId = Column(ForeignKey("collection.id"), primary_key=True)
 
 
 class Collection(Base):

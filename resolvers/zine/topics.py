@@ -1,56 +1,91 @@
-from sqlalchemy import and_
+from sqlalchemy import and_, select, distinct, func
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
+from orm.shout import ShoutTopic, ShoutAuthor
 from orm.topic import Topic, TopicFollower
-from services.zine.topics import TopicStorage
-from services.stat.topicstat import TopicStat
+from orm import Shout, User
 
 
-# from services.stat.viewed import ViewedStorage
+def add_topic_stat_columns(q):
+    q = q.outerjoin(ShoutTopic, Topic.id == ShoutTopic.topic).add_columns(
+        func.count(distinct(ShoutTopic.shout)).label('shouts_stat')
+    ).outerjoin(ShoutAuthor, ShoutTopic.shout == ShoutAuthor.shout).add_columns(
+        func.count(distinct(ShoutAuthor.user)).label('authors_stat')
+    ).outerjoin(TopicFollower,
+                and_(
+                    TopicFollower.topic == Topic.id,
+                    TopicFollower.follower == ShoutAuthor.id
+                )).add_columns(
+        func.count(distinct(TopicFollower.follower)).label('followers_stat')
+    )
+
+    q = q.group_by(Topic.id)
+
+    return q
 
 
-async def get_topic_stat(slug):
-    return {
-        "shouts": len(TopicStat.shouts_by_topic.get(slug, {}).keys()),
-        "authors": len(TopicStat.authors_by_topic.get(slug, {}).keys()),
-        "followers": len(TopicStat.followers_by_topic.get(slug, {}).keys())
+def add_stat(topic, stat_columns):
+    [shouts_stat, authors_stat, followers_stat] = stat_columns
+    topic.stat = {
+        "shouts": shouts_stat,
+        "authors": authors_stat,
+        "followers": followers_stat
     }
+
+    return topic
+
+
+def get_topics_from_query(q):
+    topics = []
+    with local_session() as session:
+        for [topic, *stat_columns] in session.execute(q):
+            topic = add_stat(topic, stat_columns)
+            topics.append(topic)
+
+    return topics
+
+
+def followed_by_user(user_slug):
+    q = select(Topic)
+    q = add_topic_stat_columns(q)
+    q = q.join(User).where(User.slug == user_slug)
+
+    return get_topics_from_query(q)
 
 
 @query.field("topicsAll")
 async def topics_all(_, _info):
-    topics = await TopicStorage.get_topics_all()
-    for topic in topics:
-        topic.stat = await get_topic_stat(topic.slug)
-    return topics
+    q = select(Topic)
+    q = add_topic_stat_columns(q)
+
+    return get_topics_from_query(q)
 
 
 @query.field("topicsByCommunity")
 async def topics_by_community(_, info, community):
-    topics = await TopicStorage.get_topics_by_community(community)
-    for topic in topics:
-        topic.stat = await get_topic_stat(topic.slug)
-    return topics
+    q = select(Topic).where(Topic.community == community)
+    q = add_topic_stat_columns(q)
+
+    return get_topics_from_query(q)
 
 
 @query.field("topicsByAuthor")
 async def topics_by_author(_, _info, author):
-    shouts = TopicStorage.get_topics_by_author(author)
-    author_topics = set()
-    for s in shouts:
-        for tpc in s.topics:
-            tpc = await TopicStorage.topics[tpc.slug]
-            tpc.stat = await get_topic_stat(tpc.slug)
-            author_topics.add(tpc)
-    return list(author_topics)
+    q = select(Topic)
+    q = add_topic_stat_columns(q)
+    q = q.join(User).where(User.slug == author)
+
+    return get_topics_from_query(q)
 
 
 @query.field("getTopic")
 async def get_topic(_, _info, slug):
-    t = TopicStorage.topics[slug]
-    t.stat = await get_topic_stat(slug)
-    return t
+    q = select(Topic).where(Topic.slug == slug)
+    q = add_topic_stat_columns(q)
+
+    topics = get_topics_from_query(q)
+    return topics[0]
 
 
 @mutation.field("createTopic")
@@ -61,7 +96,7 @@ async def create_topic(_, _info, inp):
         new_topic = Topic.create(**inp)
         session.add(new_topic)
         session.commit()
-    await TopicStorage.update_topic(new_topic)
+
     return {"topic": new_topic}
 
 
@@ -76,25 +111,26 @@ async def update_topic(_, _info, inp):
         else:
             topic.update(**inp)
             session.commit()
-            await TopicStorage.update_topic(topic.slug)
+
             return {"topic": topic}
 
 
 async def topic_follow(user, slug):
     with local_session() as session:
-        following = TopicFollower.create(topic=slug, follower=user.slug)
+        topic = session.query(Topic).where(Topic.slug == slug).one()
+
+        following = TopicFollower.create(topic=topic.id, follower=user.id)
         session.add(following)
         session.commit()
-        await TopicStorage.update_topic(slug)
 
 
 async def topic_unfollow(user, slug):
     with local_session() as session:
         sub = (
-            session.query(TopicFollower).filter(
+            session.query(TopicFollower).join(Topic).filter(
                 and_(
-                    TopicFollower.follower == user.slug,
-                    TopicFollower.topic == slug
+                    TopicFollower.follower == user.id,
+                    Topic.slug == slug
                 )
             ).first()
         )
@@ -103,9 +139,13 @@ async def topic_unfollow(user, slug):
         else:
             session.delete(sub)
         session.commit()
-    await TopicStorage.update_topic(slug)
 
 
 @query.field("topicsRandom")
 async def topics_random(_, info, amount=12):
-    return TopicStorage.get_random_topics(amount)
+    q = select(Topic)
+    q = add_topic_stat_columns(q)
+    q = q.join(Shout, ShoutTopic.shout == Shout.id).group_by(Topic.id).having(func.count(Shout.id) > 2)
+    q = q.order_by(func.random()).limit(amount)
+
+    return get_topics_from_query(q)

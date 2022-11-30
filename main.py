@@ -16,12 +16,8 @@ from base.redis import redis
 from base.resolvers import resolvers
 from resolvers.auth import confirm_email_handler
 from services.main import storages_init
-# from services.stat.reacted import ReactedStorage
-from services.stat.topicstat import TopicStat
 from services.stat.viewed import ViewedStorage
-from services.zine.topics import TopicStorage
 from services.zine.gittask import GitTask
-from services.zine.shoutauthor import ShoutAuthorStorage
 from settings import DEV_SERVER_STATUS_FILE_NAME
 
 import_module("resolvers")
@@ -37,16 +33,8 @@ async def start_up():
     init_tables()
     await redis.connect()
     await storages_init()
-    topics_random_work = asyncio.create_task(TopicStorage().worker())
-    print(topics_random_work)
     views_stat_task = asyncio.create_task(ViewedStorage().worker())
     print(views_stat_task)
-    # reacted_storage_task = asyncio.create_task(ReactedStorage.worker())
-    # print(reacted_storage_task)
-    shout_author_task = asyncio.create_task(ShoutAuthorStorage.worker())
-    print(shout_author_task)
-    topic_stat_task = asyncio.create_task(TopicStat.worker())
-    print(topic_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
 

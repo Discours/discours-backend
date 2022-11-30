@@ -148,3 +148,4 @@ dump
 *dump.sql
 *.csv
 dev-server-status.txt
+/resetdb.sh

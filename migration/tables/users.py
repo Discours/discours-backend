@@ -1,7 +1,7 @@
 from dateutil.parser import parse
 from sqlalchemy.exc import IntegrityError
 from bs4 import BeautifulSoup
-
+import re
 from base.orm import local_session
 from orm.user import AuthorFollower, User, UserRating
 
@@ -23,17 +23,18 @@ def migrate(entry):
         "notifications": [],
         "links": [],
         "name": "anonymous",
+        "password": entry["services"]["password"].get("bcrypt")
     }
-    user_dict["password"] = entry["services"]["password"].get("bcrypt")
+
     if "updatedAt" in entry:
         user_dict["updatedAt"] = parse(entry["updatedAt"])
     if "wasOnineAt" in entry:
         user_dict["lastSeen"] = parse(entry["wasOnlineAt"])
     if entry.get("profile"):
         # slug
-        user_dict["slug"] = (
-            entry["profile"].get("path").lower().replace(" ", "-").strip()
-        )
+        slug = entry["profile"].get("path").lower()
+        slug = re.sub('[^0-9a-zA-Z]+', '-', slug).strip()
+        user_dict["slug"] = slug
         bio = BeautifulSoup(entry.get("profile").get("bio") or "", features="lxml").text
         if bio.startswith('<'):
             print('[migration] bio! ' + bio)
@@ -114,18 +115,23 @@ def migrate_2stage(entry, id_map):
             continue
         oid = entry["_id"]
         author_slug = id_map.get(oid)
-        user_rating_dict = {
-            "value": rating_entry["value"],
-            "rater": rater_slug,
-            "user": author_slug,
-        }
+
         with local_session() as session:
             try:
+                rater = session.query(User).where(User.slug == rater_slug).one()
+                user = session.query(User).where(User.slug == author_slug).one()
+
+                user_rating_dict = {
+                    "value": rating_entry["value"],
+                    "raterId": rater.id,
+                    "user": user.id,
+                }
+
                 user_rating = UserRating.create(**user_rating_dict)
                 if user_rating_dict['value'] > 0:
                     af = AuthorFollower.create(
-                        author=user_rating_dict['user'],
-                        follower=user_rating_dict['rater'],
+                        author=user.id,
+                        follower=rater.id,
                         auto=True
                     )
                     session.add(af)

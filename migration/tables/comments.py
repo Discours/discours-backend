@@ -8,12 +8,13 @@ from orm.reaction import Reaction, ReactionKind
 from orm.shout import ShoutReactionsFollower
 from orm.topic import TopicFollower
 from orm.user import User
+from orm.shout import Shout
 # from services.stat.reacted import ReactedStorage
 
 ts = datetime.now(tz=timezone.utc)
 
 
-def auto_followers(session, shout_dict, reaction_dict):
+def auto_followers(session, topics, reaction_dict):
     # creating shout's reactions following for reaction author
     following1 = session.query(
         ShoutReactionsFollower
@@ -30,18 +31,18 @@ def auto_followers(session, shout_dict, reaction_dict):
         )
         session.add(following1)
     # creating topics followings for reaction author
-    for t in shout_dict["topics"]:
+    for t in topics:
         tf = session.query(
             TopicFollower
         ).where(
             TopicFollower.follower == reaction_dict["createdBy"]
         ).filter(
-            TopicFollower.topic == t
+            TopicFollower.topic == t['id']
         ).first()
         if not tf:
             topic_following = TopicFollower.create(
                 follower=reaction_dict["createdBy"],
-                topic=t,
+                topic=t['id'],
                 auto=True
             )
             session.add(topic_following)
@@ -60,7 +61,7 @@ def migrate_ratings(session, entry, reaction_dict):
             "kind": ReactionKind.LIKE
             if comment_rating_old["value"] > 0
             else ReactionKind.DISLIKE,
-            "createdBy": rater.slug if rater else "anonymous",
+            "createdBy": rater.id if rater else 1,
         }
         cts = comment_rating_old.get("createdAt")
         if cts:
@@ -108,9 +109,7 @@ async def migrate(entry, storage):
       "updatedAt": "2020-05-27 19:22:57.091000+00:00",
       "updatedBy": "0"
     }
-
     ->
-
     type Reaction {
             id: Int!
             shout: Shout!
@@ -143,30 +142,41 @@ async def migrate(entry, storage):
             raise Exception
         return
     else:
+        stage = "started"
+        reaction = None
         with local_session() as session:
             author = session.query(User).filter(User.oid == entry["createdBy"]).first()
-            shout_dict = storage["shouts"]["by_oid"][shout_oid]
-            if shout_dict:
-                reaction_dict["shout"] = shout_dict["slug"]
-                reaction_dict["createdBy"] = author.slug if author else "discours"
-                reaction_dict["kind"] = ReactionKind.COMMENT
-
-                # creating reaction from old comment
-                reaction = Reaction.create(**reaction_dict)
-                session.add(reaction)
-                # await ReactedStorage.react(reaction)
-
-                reaction_dict = reaction.dict()
-
-                auto_followers(session, shout_dict, reaction_dict)
-
-                migrate_ratings(session, shout_dict, reaction_dict)
+            old_shout = storage["shouts"]["by_oid"].get(shout_oid)
+            if not old_shout:
+                raise Exception("no old shout in storage")
             else:
-                print(
-                    "[migration] error: cannot find shout for comment %r"
-                    % reaction_dict
-                )
-        return reaction
+                stage = "author and old id found"
+                try:
+                    shout = session.query(
+                        Shout
+                    ).where(Shout.slug == old_shout["slug"]).one()
+                    if shout:
+                        reaction_dict["shout"] = shout.id
+                        reaction_dict["createdBy"] = author.id if author else 1
+                        reaction_dict["kind"] = ReactionKind.COMMENT
+
+                        # creating reaction from old comment
+                        reaction = Reaction.create(**reaction_dict)
+                        session.add(reaction)
+                        # session.commit()
+                        stage = "new reaction commited"
+                        reaction_dict = reaction.dict()
+                        topics = [t.dict() for t in shout.topics]
+                        auto_followers(session, topics, reaction_dict)
+
+                        migrate_ratings(session, entry, reaction_dict)
+
+                        return reaction
+                except Exception as e:
+                    print(e)
+                    print(reaction)
+                    raise Exception(stage)
+    return
 
 
 def migrate_2stage(old_comment, idmap):

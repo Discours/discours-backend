@@ -1,5 +1,5 @@
-WAIT=30
+WAIT=10
 TIMEOUT=10
-ATTEMPTS=60 # 60 * 30 = 30 min
+ATTEMPTS=30 # 10 * 30 = 5 min
 
 /           Playground

@@ -6,13 +6,12 @@ from sqlalchemy.orm import relationship
 
 from base.orm import Base, local_session
 from orm.rbac import Role
-from services.auth.roles import RoleStorage
 
 
 class UserNotifications(Base):
     __tablename__ = "user_notifications"
     # id auto
-    user_id = Column(Integer, ForeignKey("user.id"))
+    user = Column(Integer, ForeignKey("user.id"))
     kind = Column(String, ForeignKey("notification.kind"))
     values = Column(JSONType, nullable=True)  # [ <var1>, .. ]
 
@@ -21,8 +20,8 @@ class UserRating(Base):
     __tablename__ = "user_rating"
 
     id = None  # type: ignore
-    rater = Column(ForeignKey("user.slug"), primary_key=True)
-    user = Column(ForeignKey("user.slug"), primary_key=True)
+    raterId = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    user = Column(ForeignKey("user.id"), primary_key=True, index=True)
     value = Column(Integer)
 
     @staticmethod
@@ -34,16 +33,16 @@ class UserRole(Base):
     __tablename__ = "user_role"
 
     id = None  # type: ignore
-    user_id = Column(ForeignKey("user.id"), primary_key=True)
-    role_id = Column(ForeignKey("role.id"), primary_key=True)
+    user = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    roleId = Column(ForeignKey("role.id"), primary_key=True, index=True)
 
 
 class AuthorFollower(Base):
     __tablename__ = "author_follower"
 
     id = None  # type: ignore
-    follower = Column(ForeignKey("user.slug"), primary_key=True)
-    author = Column(ForeignKey("user.slug"), primary_key=True)
+    follower = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    author = Column(ForeignKey("user.id"), primary_key=True, index=True)
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
@@ -103,12 +102,12 @@ class User(Base):
 
     async def get_permission(self):
         scope = {}
-        for user_role in self.roles:
-            role: Role = await RoleStorage.get_role(user_role.id)  # type: ignore
+        for role in self.roles:
             for p in role.permissions:
-                if p.resource_id not in scope:
-                    scope[p.resource_id] = set()
-                scope[p.resource_id].add(p.operation_id)
+                if p.resourceId not in scope:
+                    scope[p.resourceId] = set()
+                scope[p.resourceId].add(p.operationId)
+
         return scope
 
 

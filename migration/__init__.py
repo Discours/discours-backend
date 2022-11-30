@@ -96,16 +96,16 @@ async def shouts_handle(storage, args):
             continue
 
         # migrate
-        shout = await migrateShout(entry, storage)
-        if shout:
-            storage["shouts"]["by_oid"][entry["_id"]] = shout
-            storage["shouts"]["by_slug"][shout["slug"]] = shout
+        shout_dict = await migrateShout(entry, storage)
+        if shout_dict:
+            storage["shouts"]["by_oid"][entry["_id"]] = shout_dict
+            storage["shouts"]["by_slug"][shout_dict["slug"]] = shout_dict
             # shouts.topics
-            if not shout["topics"]:
+            if not shout_dict["topics"]:
                 print("[migration] no topics!")
 
             # with author
-            author: str = shout["authors"][0].dict()
+            author = shout_dict["authors"][0]
             if author["slug"] == "discours":
                 discours_author += 1
             if author["slug"] == "anonymous":
@@ -114,19 +114,20 @@ async def shouts_handle(storage, args):
 
             if entry.get("published"):
                 if "mdx" in args:
-                    export_mdx(shout)
+                    export_mdx(shout_dict)
                 pub_counter += 1
 
             # print main counter
             counter += 1
-            line = str(counter + 1) + ": " + shout["slug"] + " @" + author["slug"]
-            print(line)
+            print('[migration] shouts_handle %d: %s @%s' % (
+                (counter + 1), shout_dict["slug"], author["slug"]
+            ))
 
-            b = bs4.BeautifulSoup(shout["body"], "html.parser")
-            texts = [shout["title"].lower().replace(r"[^а-яА-Яa-zA-Z]", "")]
+            b = bs4.BeautifulSoup(shout_dict["body"], "html.parser")
+            texts = [shout_dict["title"].lower().replace(r"[^а-яА-Яa-zA-Z]", "")]
             texts = texts + b.findAll(text=True)
             topics_dataset_bodies.append(" ".join([x.strip().lower() for x in texts]))
-            topics_dataset_tlist.append(shout["topics"])
+            topics_dataset_tlist.append(shout_dict["topics"])
         else:
             ignored += 1
 
@@ -134,9 +135,7 @@ async def shouts_handle(storage, args):
     # ', fmt='%s')
 
     print("[migration] " + str(counter) + " content items were migrated")
-    print("[migration] " + str(ignored) + " content items were ignored")
     print("[migration] " + str(pub_counter) + " have been published")
-    print("[migration] " + str(discours_author) + " authored by @discours")
     print("[migration] " + str(anonymous_author) + " authored by @anonymous")
 
 

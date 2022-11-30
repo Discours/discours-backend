@@ -321,8 +321,8 @@ type Operation {
 }
 
 type Permission {
-  operation_id: Int!
-  resource_id: Int!
+  operationId: Int!
+  resourceId: Int!
 }
 
 type Role {
@@ -373,6 +373,23 @@ type User {
   oid: String
 }
 
+<<<<<<< HEAD
+=======
+type Draft {
+  title: String
+  body: String
+  createdBy: Int
+}
+
+type Collab {
+ authors: [String]!
+ invites: [String]
+ createdAt: DateTime!
+ title: String
+ body: String
+}
+
+>>>>>>> migation-fix2
 enum ReactionKind {
   LIKE
   DISLIKE

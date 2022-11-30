@@ -1,29 +1,34 @@
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, asc, desc, select, text, func
 from sqlalchemy.orm import aliased
-
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
-# from services.stat.reacted import ReactedStorage
-from resolvers.zine.load import calc_reactions
+from resolvers.zine._common import add_common_stat_columns
+
+
+def add_reaction_stat_columns(q):
+    return add_common_stat_columns(q)
 
 
 def reactions_follow(user: User, slug: str, auto=False):
     with local_session() as session:
+        shout = session.query(Shout).where(Shout.slug == slug).one()
+
         following = (
             session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower == user.slug,
-                ShoutReactionsFollower.shout == slug
+                ShoutReactionsFollower.follower == user.id,
+                ShoutReactionsFollower.shout == shout.id,
             )).first()
         )
+
         if not following:
             following = ShoutReactionsFollower.create(
-                follower=user.slug,
-                shout=slug,
+                follower=user.id,
+                shout=shout.id,
                 auto=auto
             )
             session.add(following)
@@ -32,12 +37,15 @@ def reactions_follow(user: User, slug: str, auto=False):
 
 def reactions_unfollow(user, slug):
     with local_session() as session:
+        shout = session.query(Shout).where(Shout.slug == slug).one()
+
         following = (
             session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower == user.slug,
-                ShoutReactionsFollower.shout == slug
+                ShoutReactionsFollower.follower == user.id,
+                ShoutReactionsFollower.shout == shout.id
             )).first()
         )
+
         if following:
             session.delete(following)
             session.commit()
@@ -134,7 +142,6 @@ async def create_reaction(_, info, inp):
         elif check_to_publish(session, user, reaction):
             set_published(session, reaction.shout, reaction.createdBy)
 
-    # ReactedStorage.react(reaction)
     try:
         reactions_follow(user, inp["shout"], True)
     except Exception as e:
@@ -157,9 +164,9 @@ async def update_reaction(_, info, inp):
     with local_session() as session:
         user = session.query(User).where(User.id == user_id).first()
         q = select(Reaction).filter(Reaction.id == inp.id)
-        q = calc_reactions(q)
+        q = add_reaction_stat_columns(q)
 
-        [reaction, rating, commented, reacted] = session.execute(q).unique().one()
+        [reaction, reacted_stat, commented_stat, rating_stat] = session.execute(q).unique().one()
 
         if not reaction:
             return {"error": "invalid reaction id"}
@@ -175,9 +182,9 @@ async def update_reaction(_, info, inp):
             reaction.range = inp.get("range")
         session.commit()
         reaction.stat = {
-            "commented": commented,
-            "reacted": reacted,
-            "rating": rating
+            "commented": commented_stat,
+            "reacted": reacted_stat,
+            "rating": rating_stat
         }
 
     return {"reaction": reaction}
@@ -198,6 +205,7 @@ async def delete_reaction(_, info, rid):
         reaction.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
     return {}
+
 
 @query.field("loadReactionsBy")
 async def load_reactions_by(_, _info, by, limit=50, offset=0):
@@ -222,28 +230,33 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     q = select(
         Reaction, CreatedByUser, ReactedShout
     ).join(
-        CreatedByUser, Reaction.createdBy == CreatedByUser.slug
+        CreatedByUser, Reaction.createdBy == CreatedByUser.id
     ).join(
-        ReactedShout, Reaction.shout == ReactedShout.slug
+        ReactedShout, Reaction.shout == ReactedShout.id
     )
 
     if by.get("shout"):
-        q = q.filter(Reaction.shout == by["shout"])
+        aliased_shout = aliased(Shout)
+        q = q.join(aliased_shout).filter(aliased_shout.slug == by["shout"])
     elif by.get("shouts"):
-        q = q.filter(Reaction.shout.in_(by["shouts"]))
+        aliased_shout = aliased(Shout)
+        q = q.join(aliased_shout).filter(aliased_shout.shout.in_(by["shouts"]))
     if by.get("createdBy"):
-        q = q.filter(Reaction.createdBy == by.get("createdBy"))
+        aliased_user = aliased(User)
+        q = q.join(aliased_user).filter(aliased_user.slug == by.get("createdBy"))
     if by.get("topic"):
+        # TODO: check
         q = q.filter(Shout.topics.contains(by["topic"]))
     if by.get("comment"):
         q = q.filter(func.length(Reaction.body) > 0)
-    if by.get('search', 0) > 2:
+    if len(by.get('search', '')) > 2:
         q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
     if by.get("days"):
         after = datetime.now(tz=timezone.utc) - timedelta(days=int(by["days"]) or 30)
         q = q.filter(Reaction.createdAt > after)
 
     order_way = asc if by.get("sort", "").startswith("-") else desc
+    # replace "-" -> "" ?
     order_field = by.get("sort") or Reaction.createdAt
 
     q = q.group_by(
@@ -252,23 +265,24 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
         order_way(order_field)
     )
 
-    q = calc_reactions(q)
+    q = add_reaction_stat_columns(q)
 
     q = q.where(Reaction.deletedAt.is_(None))
     q = q.limit(limit).offset(offset)
     reactions = []
 
     with local_session() as session:
-        for [reaction, user, shout, rating, commented, reacted] in session.execute(q):
+        for [reaction, user, shout, reacted_stat, commented_stat, rating_stat] in session.execute(q):
             reaction.createdBy = user
             reaction.shout = shout
             reaction.stat = {
-                "rating": rating,
-                "commented": commented,
-                "reacted": reacted
+                "rating": rating_stat,
+                "commented": commented_stat,
+                "reacted": reacted_stat
             }
             reactions.append(reaction)
 
+    # ?
     if by.get("stat"):
         reactions.sort(lambda r: r.stat.get(by["stat"]) or r.createdAt)
 

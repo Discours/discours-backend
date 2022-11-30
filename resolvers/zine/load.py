@@ -1,51 +1,31 @@
 from datetime import datetime, timedelta, timezone
-import sqlalchemy as sa
 from sqlalchemy.orm import joinedload, aliased
-from sqlalchemy.sql.expression import desc, asc, select, case
+from sqlalchemy.sql.expression import desc, asc, select, func
 from base.orm import local_session
 from base.resolvers import query
 from orm import ViewedEntry
-from orm.shout import Shout
-from orm.reaction import Reaction, ReactionKind
-from services.zine.shoutauthor import ShoutAuthorStorage
-from services.stat.viewed import ViewedStorage
+from orm.shout import Shout, ShoutAuthor
+from orm.reaction import Reaction
+from resolvers.zine._common import add_common_stat_columns
 
 
-def calc_reactions(q):
-    aliased_reaction = aliased(Reaction)
-    return q.join(aliased_reaction).add_columns(
-        sa.func.sum(case(
-            (aliased_reaction.kind == ReactionKind.AGREE, 1),
-            (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
-            (aliased_reaction.kind == ReactionKind.PROOF, 1),
-            (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
-            (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
-            (aliased_reaction.kind == ReactionKind.REJECT, -1),
-            (aliased_reaction.kind == ReactionKind.LIKE, 1),
-            (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
-            else_=0)
-        ).label('rating'),
-        sa.func.sum(
-            case(
-                (aliased_reaction.body.is_not(None), 1),
-                else_=0
-            )
-        ).label('commented'),
-        sa.func.sum(
-            aliased_reaction.id
-        ).label('reacted')
-    )
+def add_stat_columns(q):
+    q = q.outerjoin(ViewedEntry).add_columns(func.sum(ViewedEntry.amount).label('viewed_stat'))
+
+    return add_common_stat_columns(q)
 
 
 def apply_filters(q, filters, user=None):
-    filters = {} if filters is None else filters
+
     if filters.get("reacted") and user:
-        q.join(Reaction, Reaction.createdBy == user.slug)
+        q.join(Reaction, Reaction.createdBy == user.id)
+
     v = filters.get("visibility")
     if v == "public":
         q = q.filter(Shout.visibility == filters.get("visibility"))
     if v == "community":
         q = q.filter(Shout.visibility.in_(["public", "community"]))
+
     if filters.get("layout"):
         q = q.filter(Shout.layout == filters.get("layout"))
     if filters.get("author"):
@@ -59,6 +39,7 @@ def apply_filters(q, filters, user=None):
     if filters.get("days"):
         before = datetime.now(tz=timezone.utc) - timedelta(days=int(filters.get("days")) or 30)
         q = q.filter(Shout.createdAt > before)
+
     return q
 
 
@@ -69,23 +50,26 @@ async def load_shout(_, info, slug):
             joinedload(Shout.authors),
             joinedload(Shout.topics),
         )
-        q = calc_reactions(q)
+        q = add_stat_columns(q)
         q = q.filter(
             Shout.slug == slug
         ).filter(
             Shout.deletedAt.is_(None)
         ).group_by(Shout.id)
 
-        [shout, rating, commented, reacted] = session.execute(q).unique().one()
-        for a in shout.authors:
-            a.caption = await ShoutAuthorStorage.get_author_caption(shout.slug, a.slug)
-        viewed = await ViewedStorage.get_shout(shout.slug)
+        [shout, viewed_stat, reacted_stat, commented_stat, rating_stat] = session.execute(q).unique().one()
+
         shout.stat = {
-            "rating": rating,
-            "viewed": viewed,
-            "commented": commented,
-            "reacted": reacted
+            "viewed": viewed_stat,
+            "reacted": reacted_stat,
+            "commented": commented_stat,
+            "rating": rating_stat
         }
+
+        for author_caption in session.query(ShoutAuthor).join(Shout).where(Shout.slug == slug):
+            for author in shout.authors:
+                if author.id == author_caption.user:
+                    author.caption = author_caption.caption
 
         return shout
 
@@ -105,7 +89,7 @@ async def load_shouts_by(_, info, options):
         }
         offset: 0
         limit: 50
-        order_by: 'createdAt'
+        order_by: 'createdAt' | 'commented' | 'reacted' | 'rating'
         order_by_desc: true
 
     }
@@ -118,47 +102,36 @@ async def load_shouts_by(_, info, options):
     ).where(
         Shout.deletedAt.is_(None)
     )
+
+    q = add_stat_columns(q)
+
     user = info.context["request"].user
-    q = apply_filters(q, options.get("filters"), user)
-    q = calc_reactions(q)
+    q = apply_filters(q, options.get("filters", {}), user)
 
-    o = options.get("order_by")
-    if o:
-        if o == 'comments':
-            q = q.add_columns(sa.func.count(Reaction.id).label(o))
-            q = q.join(Reaction, Shout.slug == Reaction.shout)
-            q = q.filter(Reaction.body.is_not(None))
-        elif o == 'reacted':
-            q = q.join(
-                Reaction
-            ).add_columns(
-                sa.func.max(Reaction.createdAt).label(o)
-            )
-        elif o == 'views':
-            q = q.join(ViewedEntry)
-            q = q.add_columns(sa.func.sum(ViewedEntry.amount).label(o))
-        order_by = o
-    else:
-        order_by = Shout.createdAt
+    order_by = options.get("order_by", Shout.createdAt)
+    if order_by == 'reacted':
+        aliased_reaction = aliased(Reaction)
+        q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
 
-    order_by_desc = True if options.get('order_by_desc') is None else options.get('order_by_desc')
+    order_by_desc = options.get('order_by_desc', True)
 
     query_order_by = desc(order_by) if order_by_desc else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
+
     q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
 
-    shouts = []
     with local_session() as session:
-        for [shout, rating, commented, reacted] in session.execute(q).unique():
-            shout.stat = {
-                "rating": rating,
-                "viewed": await ViewedStorage.get_shout(shout.slug),
-                "commented": commented,
-                "reacted": reacted
-            }
-            # NOTE: no need authors captions in arrays
-            # for author in shout.authors:
-            #    author.caption = await ShoutAuthorStorage.get_author_caption(shout.slug, author.slug)
+        shouts = []
+
+        for [shout, viewed_stat, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
             shouts.append(shout)
+
+            shout.stat = {
+                "viewed": viewed_stat,
+                "reacted": reacted_stat,
+                "commented": commented_stat,
+                "rating": rating_stat
+            }
+
     return shouts
