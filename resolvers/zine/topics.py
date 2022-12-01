@@ -1,4 +1,6 @@
 from sqlalchemy import and_, select, distinct, func
+from sqlalchemy.orm import aliased
+
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
@@ -8,16 +10,20 @@ from orm import Shout, User
 
 
 def add_topic_stat_columns(q):
-    q = q.outerjoin(ShoutTopic, Topic.id == ShoutTopic.topic).add_columns(
-        func.count(distinct(ShoutTopic.shout)).label('shouts_stat')
-    ).outerjoin(ShoutAuthor, ShoutTopic.shout == ShoutAuthor.shout).add_columns(
-        func.count(distinct(ShoutAuthor.user)).label('authors_stat')
-    ).outerjoin(TopicFollower,
+    aliased_shout_topic = aliased(ShoutTopic)
+    aliased_shout_author = aliased(ShoutAuthor)
+    aliased_topic_follower = aliased(TopicFollower)
+
+    q = q.outerjoin(aliased_shout_topic, Topic.id == aliased_shout_topic.topic).add_columns(
+        func.count(distinct(aliased_shout_topic.shout)).label('shouts_stat')
+    ).outerjoin(aliased_shout_author, aliased_shout_topic.shout == aliased_shout_author.shout).add_columns(
+        func.count(distinct(aliased_shout_author.user)).label('authors_stat')
+    ).outerjoin(aliased_topic_follower,
                 and_(
-                    TopicFollower.topic == Topic.id,
-                    TopicFollower.follower == ShoutAuthor.id
+                    aliased_topic_follower.topic == Topic.id,
+                    aliased_topic_follower.follower == aliased_shout_author.id
                 )).add_columns(
-        func.count(distinct(TopicFollower.follower)).label('followers_stat')
+        func.count(distinct(aliased_topic_follower.follower)).label('followers_stat')
     )
 
     q = q.group_by(Topic.id)
@@ -49,7 +55,7 @@ def get_topics_from_query(q):
 def followed_by_user(user_id):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.join(User).where(User.id == user_id)
+    q = q.join(TopicFollower).where(TopicFollower.follower == user_id)
 
     return get_topics_from_query(q)
 
