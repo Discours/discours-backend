@@ -151,7 +151,7 @@ def topic_unfollow(user_id, slug):
 async def topics_random(_, info, amount=12):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.join(Shout, ShoutTopic.shout == Shout.id).group_by(Topic.id).having(func.count(Shout.id) > 2)
+    q = q.join(ShoutTopic).join(Shout, ShoutTopic.shout == Shout.id).group_by(Topic.id).having(func.count(Shout.id) > 2)
     q = q.order_by(func.random()).limit(amount)
 
     return get_topics_from_query(q)
