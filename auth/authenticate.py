@@ -41,6 +41,7 @@ class JWTAuthenticate(AuthenticationBackend):
                         user = (
                             session.query(User).options(
                                 joinedload(User.roles),
+                                joinedload(Role.permissions),
                                 joinedload(User.ratings)
                             ).filter(
                                 User.id == id
@@ -52,7 +53,7 @@ class JWTAuthenticate(AuthenticationBackend):
                 if not user:
                     return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-                scopes = user.get_permission()
+                scopes = []  # user.get_permission()
 
                 return (
                     AuthCredentials(

@@ -157,7 +157,7 @@ async def get_user_roles(slug):
             .all()
         )
 
-    return roles
+    return []  # roles
 
 
 @mutation.field("updateProfile")
