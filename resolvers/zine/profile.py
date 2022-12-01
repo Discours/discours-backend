@@ -120,11 +120,8 @@ async def get_followed_authors(_, _info, user_id: int) -> List[User]:
 async def followed_authors(user_id):
     q = select(User)
     q = add_author_stat_columns(q)
-    aliased_user = aliased(User)
-    q = q.join(AuthorFollower, AuthorFollower.author == user_id).join(
-        aliased_user, aliased_user.id == AuthorFollower.follower
-    ).where(
-        aliased_user.id == user_id
+    q = q.join(AuthorFollower, AuthorFollower.author == User.id).where(
+        AuthorFollower.follower == user_id
     )
     return get_authors_from_query(q)
 
