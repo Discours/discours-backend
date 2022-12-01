@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, asc, desc, select, text, func
 from sqlalchemy.orm import aliased
 from auth.authenticate import login_required
+from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
@@ -14,20 +15,20 @@ def add_reaction_stat_columns(q):
     return add_common_stat_columns(q)
 
 
-def reactions_follow(user: User, slug: str, auto=False):
+def reactions_follow(user_id, slug: str, auto=False):
     with local_session() as session:
         shout = session.query(Shout).where(Shout.slug == slug).one()
 
         following = (
             session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower == user.id,
+                ShoutReactionsFollower.follower == user_id,
                 ShoutReactionsFollower.shout == shout.id,
             )).first()
         )
 
         if not following:
             following = ShoutReactionsFollower.create(
-                follower=user.id,
+                follower=user_id,
                 shout=shout.id,
                 auto=auto
             )
@@ -35,13 +36,13 @@ def reactions_follow(user: User, slug: str, auto=False):
             session.commit()
 
 
-def reactions_unfollow(user, slug):
+def reactions_unfollow(user_id, slug):
     with local_session() as session:
         shout = session.query(Shout).where(Shout.slug == slug).one()
 
         following = (
             session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower == user.id,
+                ShoutReactionsFollower.follower == user_id,
                 ShoutReactionsFollower.shout == shout.id
             )).first()
         )
@@ -51,12 +52,12 @@ def reactions_unfollow(user, slug):
             session.commit()
 
 
-def is_published_author(session, userslug):
+def is_published_author(session, user_id):
     ''' checks if user has at least one publication '''
     return session.query(
         Shout
     ).where(
-        Shout.authors.contains(userslug)
+        Shout.authors.contains(user_id)
     ).filter(
         and_(
             Shout.publishedAt.is_not(None),
@@ -65,17 +66,17 @@ def is_published_author(session, userslug):
     ).count() > 0
 
 
-def check_to_publish(session, user, reaction):
+def check_to_publish(session, user_id, reaction):
     ''' set shout to public if publicated approvers amount > 4 '''
     if not reaction.replyTo and reaction.kind in [
         ReactionKind.ACCEPT,
         ReactionKind.LIKE,
         ReactionKind.PROOF
     ]:
-        if is_published_author(user):
+        if is_published_author(user_id):
             # now count how many approvers are voted already
             approvers_reactions = session.query(Reaction).where(Reaction.shout == reaction.shout).all()
-            approvers = [user.slug, ]
+            approvers = [user_id, ]
             for ar in approvers_reactions:
                 a = ar.createdBy
                 if is_published_author(session, a):
@@ -85,7 +86,7 @@ def check_to_publish(session, user, reaction):
     return False
 
 
-def check_to_hide(session, user, reaction):
+def check_to_hide(session, user_id, reaction):
     ''' hides any shout if 20% of reactions are negative '''
     if not reaction.replyTo and reaction.kind in [
         ReactionKind.DECLINE,
@@ -107,8 +108,8 @@ def check_to_hide(session, user, reaction):
     return False
 
 
-def set_published(session, slug, publisher):
-    s = session.query(Shout).where(Shout.slug == slug).first()
+def set_published(session, shout_id, publisher):
+    s = session.query(Shout).where(Shout.id == shout_id).first()
     s.publishedAt = datetime.now(tz=timezone.utc)
     s.publishedBy = publisher
     s.visibility = text('public')
@@ -116,8 +117,8 @@ def set_published(session, slug, publisher):
     session.commit()
 
 
-def set_hidden(session, slug):
-    s = session.query(Shout).where(Shout.slug == slug).first()
+def set_hidden(session, shout_id):
+    s = session.query(Shout).where(Shout.id == shout_id).first()
     s.visibility = text('authors')
     s.publishedAt = None  # TODO: discuss
     s.publishedBy = None  # TODO: store changes history in git
@@ -128,7 +129,7 @@ def set_hidden(session, slug):
 @mutation.field("createReaction")
 @login_required
 async def create_reaction(_, info, inp):
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
         reaction = Reaction.create(**inp)
@@ -137,13 +138,13 @@ async def create_reaction(_, info, inp):
 
         # self-regulation mechanics
 
-        if check_to_hide(session, user, reaction):
+        if check_to_hide(session, auth.user_id, reaction):
             set_hidden(session, reaction.shout)
-        elif check_to_publish(session, user, reaction):
+        elif check_to_publish(session, auth.user_id, reaction):
             set_published(session, reaction.shout, reaction.createdBy)
 
     try:
-        reactions_follow(user, inp["shout"], True)
+        reactions_follow(auth.user_id, inp["shout"], True)
     except Exception as e:
         print(f"[resolvers.reactions] error on reactions autofollowing: {e}")
 
@@ -158,11 +159,10 @@ async def create_reaction(_, info, inp):
 @mutation.field("updateReaction")
 @login_required
 async def update_reaction(_, info, inp):
-    auth = info.context["request"].auth
-    user_id = auth.user_id
+    auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        user = session.query(User).where(User.id == user_id).first()
+        user = session.query(User).where(User.id == auth.user_id).first()
         q = select(Reaction).filter(Reaction.id == inp.id)
         q = add_reaction_stat_columns(q)
 
@@ -193,10 +193,10 @@ async def update_reaction(_, info, inp):
 @mutation.field("deleteReaction")
 @login_required
 async def delete_reaction(_, info, rid):
-    auth = info.context["request"].auth
-    user_id = auth.user_id
+    auth: AuthCredentials = info.context["request"].auth
+
     with local_session() as session:
-        user = session.query(User).where(User.id == user_id).first()
+        user = session.query(User).where(User.id == auth.user_id).first()
         reaction = session.query(Reaction).filter(Reaction.id == rid).first()
         if not reaction:
             return {"error": "invalid reaction id"}

@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 from auth.authenticate import login_required
+from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import mutation
 
@@ -18,7 +19,7 @@ async def update_chat(_, info, chat_new: dict):
     :param chat_new: dict with chat data
     :return: Result { error chat }
     """
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
     chat_id = chat_new["id"]
     chat = await redis.execute("GET", f"chats/{chat_id}")
     if not chat:
@@ -26,7 +27,9 @@ async def update_chat(_, info, chat_new: dict):
             "error": "chat not exist"
         }
     chat = dict(json.loads(chat))
-    if user.slug in chat["admins"]:
+
+    # TODO
+    if auth.user_id in chat["admins"]:
         chat.update({
             "title": chat_new.get("title", chat["title"]),
             "description": chat_new.get("description", chat["description"]),
@@ -46,10 +49,11 @@ async def update_chat(_, info, chat_new: dict):
 @mutation.field("createChat")
 @login_required
 async def create_chat(_, info, title="", members=[]):
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
     chat = {}
-    if user.slug not in members:
-        members.append(user.slug)
+
+    if auth.user_id not in members:
+        members.append(auth.user_id)
 
     # reuse chat craeted before if exists
     if len(members) == 2 and title == "":
@@ -73,7 +77,7 @@ async def create_chat(_, info, title="", members=[]):
         "id": chat_id,
         "users": members,
         "title": title,
-        "createdBy": user.slug,
+        "createdBy": auth.user_id,
         "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
         "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
         "admins": []
@@ -93,13 +97,14 @@ async def create_chat(_, info, title="", members=[]):
 @mutation.field("deleteChat")
 @login_required
 async def delete_chat(_, info, chat_id: str):
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
+
     chat = await redis.execute("GET", f"/chats/{chat_id}")
     if chat:
         chat = dict(json.loads(chat))
-        if user.slug in chat['admins']:
+        if auth.user_id in chat['admins']:
             await redis.execute("DEL", f"chats/{chat_id}")
-            await redis.execute("SREM", "chats_by_user/" + user, chat_id)
+            await redis.execute("SREM", "chats_by_user/" + str(auth.user_id), chat_id)
             await redis.execute("COMMIT")
     else:
         return {

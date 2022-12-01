@@ -46,10 +46,10 @@ def get_topics_from_query(q):
     return topics
 
 
-def followed_by_user(user_slug):
+def followed_by_user(user_id):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.join(User).where(User.slug == user_slug)
+    q = q.join(User).where(User.id == user_id)
 
     return get_topics_from_query(q)
 
@@ -115,21 +115,21 @@ async def update_topic(_, _info, inp):
             return {"topic": topic}
 
 
-def topic_follow(user, slug):
+def topic_follow(user_id, slug):
     with local_session() as session:
         topic = session.query(Topic).where(Topic.slug == slug).one()
 
-        following = TopicFollower.create(topic=topic.id, follower=user.id)
+        following = TopicFollower.create(topic=topic.id, follower=user_id)
         session.add(following)
         session.commit()
 
 
-def topic_unfollow(user, slug):
+def topic_unfollow(user_id, slug):
     with local_session() as session:
         sub = (
             session.query(TopicFollower).join(Topic).filter(
                 and_(
-                    TopicFollower.follower == user.id,
+                    TopicFollower.follower == user_id,
                     Topic.slug == slug
                 )
             ).first()

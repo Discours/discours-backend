@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import and_
 
 from auth.authenticate import login_required
+from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation
 from orm.rbac import Resource
@@ -19,7 +20,7 @@ from orm.collab import Collab
 @mutation.field("createShout")
 @login_required
 async def create_shout(_, info, inp):
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
 
     topic_slugs = inp.get("topic_slugs", [])
     if topic_slugs:
@@ -37,24 +38,24 @@ async def create_shout(_, info, inp):
                 "mainTopic": inp.get("topics", []).pop(),
                 "visibility": "authors"
             })
-            authors.remove(user.slug)
+            authors.remove(auth.user_id)
             if authors:
                 chat = create_chat(None, info, new_shout.title, members=authors)
                 # create a cooperative chatroom
-                MessagesStorage.register_chat(chat)
+                await MessagesStorage.register_chat(chat)
                 # now we should create a collab
                 new_collab = Collab.create({
                     "shout": new_shout.id,
-                    "authors": [user.slug, ],
+                    "authors": [auth.user_id, ],
                     "invites": authors
                 })
                 session.add(new_collab)
 
         # NOTE: shout made by one first author
-        sa = ShoutAuthor.create(shout=new_shout.id, user=user.id)
+        sa = ShoutAuthor.create(shout=new_shout.id, user=auth.user_id)
         session.add(sa)
 
-        reactions_follow(user, new_shout.slug, True)
+        reactions_follow(auth.user_id, new_shout.slug, True)
 
         if "mainTopic" in inp:
             topic_slugs.append(inp["mainTopic"])
@@ -65,11 +66,11 @@ async def create_shout(_, info, inp):
             st = ShoutTopic.create(shout=new_shout.id, topic=topic.id)
             session.add(st)
             tf = session.query(TopicFollower).where(
-                and_(TopicFollower.follower == user.id, TopicFollower.topic == topic.id)
+                and_(TopicFollower.follower == auth.user_id, TopicFollower.topic == topic.id)
             )
 
             if not tf:
-                tf = TopicFollower.create(follower=user.id, topic=topic.id, auto=True)
+                tf = TopicFollower.create(follower=auth.user_id, topic=topic.id, auto=True)
                 session.add(tf)
 
         new_shout.topic_slugs = topic_slugs
@@ -77,7 +78,8 @@ async def create_shout(_, info, inp):
 
         session.commit()
 
-    GitTask(inp, user.username, user.email, "new shout %s" % new_shout.slug)
+    # TODO
+    # GitTask(inp, user.username, user.email, "new shout %s" % new_shout.slug)
 
     return {"shout": new_shout}
 
@@ -85,18 +87,17 @@ async def create_shout(_, info, inp):
 @mutation.field("updateShout")
 @login_required
 async def update_shout(_, info, inp):
-    auth = info.context["request"].auth
-    user_id = auth.user_id
+    auth: AuthCredentials = info.context["request"].auth
     slug = inp["slug"]
 
     with local_session() as session:
-        user = session.query(User).filter(User.id == user_id).first()
+        user = session.query(User).filter(User.id == auth.user_id).first()
         shout = session.query(Shout).filter(Shout.slug == slug).first()
         if not shout:
             return {"error": "shout not found"}
 
         authors = [author.id for author in shout.authors]
-        if user_id not in authors:
+        if auth.user_id not in authors:
             scopes = auth.scopes
             print(scopes)
             if Resource.shout not in scopes:
@@ -115,7 +116,7 @@ async def update_shout(_, info, inp):
                     ShoutTopic.create(shout=slug, topic=topic)
             session.commit()
 
-    GitTask(inp, user.username, user.email, "update shout %s" % (slug))
+    GitTask(inp, user.username, user.email, "update shout %s" % slug)
 
     return {"shout": shout}
 
@@ -123,18 +124,17 @@ async def update_shout(_, info, inp):
 @mutation.field("deleteShout")
 @login_required
 async def delete_shout(_, info, slug):
-    auth = info.context["request"].auth
-    user_id = auth.user_id
+    auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
         shout = session.query(Shout).filter(Shout.slug == slug).first()
         authors = [a.id for a in shout.authors]
         if not shout:
             return {"error": "invalid shout slug"}
-        if user_id not in authors:
+        if auth.user_id not in authors:
             return {"error": "access denied"}
         for a in authors:
-            reactions_unfollow(a.slug, slug, True)
+            reactions_unfollow(a.id, slug)
         shout.deletedAt = datetime.now(tz=timezone.utc)
         session.add(shout)
         session.commit()

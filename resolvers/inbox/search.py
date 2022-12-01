@@ -1,6 +1,7 @@
 import json
 
 from auth.authenticate import login_required
+from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import query
 from base.orm import local_session
@@ -12,8 +13,8 @@ from orm.user import AuthorFollower, User
 async def search_recipients(_, info, query: str, limit: int = 50, offset: int = 0):
     result = []
     # TODO: maybe redis scan?
-    user = info.context["request"].user
-    talk_before = await redis.execute("GET", f"/chats_by_user/{user.slug}")
+    auth: AuthCredentials = info.context["request"].auth
+    talk_before = await redis.execute("GET", f"/chats_by_user/{auth.user_id}")
     if talk_before:
         talk_before = list(json.loads(talk_before))[offset:offset + limit]
         for chat_id in talk_before:
@@ -24,7 +25,6 @@ async def search_recipients(_, info, query: str, limit: int = 50, offset: int = 
                     if member.startswith(query):
                         if member not in result:
                             result.append(member)
-    user = info.context["request"].user
 
     more_amount = limit - len(result)
 
