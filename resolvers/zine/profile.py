@@ -20,7 +20,7 @@ def add_author_stat_columns(q):
     author_followers = aliased(AuthorFollower)
     author_following = aliased(AuthorFollower)
     shout_author_aliased = aliased(ShoutAuthor)
-    user_rating_aliased = aliased(UserRating)
+    # user_rating_aliased = aliased(UserRating)
 
     q = q.outerjoin(shout_author_aliased).add_columns(
         func.count(distinct(shout_author_aliased.shout)).label('shouts_stat')
@@ -40,11 +40,11 @@ def add_author_stat_columns(q):
     #     func.sum(user_rating_aliased.value).label('rating_stat')
     # )
 
-    q = q.add_columns(literal(0).label('commented_stat'))
-    # FIXME
-    # q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
-    #     func.count(distinct(Reaction.id)).label('commented_stat')
-    # )
+    # q = q.add_columns(literal(0).label('commented_stat'))
+
+    q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
+        func.count(distinct(Reaction.id)).label('commented_stat')
+    )
 
     q = q.group_by(User.id)
 
@@ -117,12 +117,18 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
     return await followed_authors(slug)
 
 
-async def followed_authors(slug) -> List[User]:
-    q = select(User)
-    q = add_author_stat_columns(q)
-    q = q.join(AuthorFollower).join(User, User.id == AuthorFollower.follower).where(User.slug == slug)
-
-    return get_authors_from_query(q)
+async def followed_authors(slug):
+    with local_session() as session:
+        user = session.query(User).where(User.slug == slug).first()
+        q = select(User)
+        q = add_author_stat_columns(q)
+        aliased_user = aliased(User)
+        q = q.join(AuthorFollower, AuthorFollower.author == user.id).join(
+            aliased_user, aliased_user.id == AuthorFollower.follower
+        ).where(
+            aliased_user.slug == slug
+        )
+        return get_authors_from_query(q)
 
 
 @query.field("userFollowers")
@@ -145,10 +151,10 @@ async def get_user_roles(slug):
         user = session.query(User).where(User.slug == slug).first()
         roles = (
             session.query(Role)
-                .options(joinedload(Role.permissions))
-                .join(UserRole)
-                .where(UserRole.user == user.id)
-                .all()
+            .options(joinedload(Role.permissions))
+            .join(UserRole)
+            .where(UserRole.user == user.id)
+            .all()
         )
 
     return roles
@@ -175,8 +181,8 @@ async def rate_user(_, info, rated_userslug, value):
     with local_session() as session:
         rating = (
             session.query(UserRating)
-                .filter(and_(UserRating.rater == user.slug, UserRating.user == rated_userslug))
-                .first()
+            .filter(and_(UserRating.rater == user.slug, UserRating.user == rated_userslug))
+            .first()
         )
         if rating:
             rating.value = value

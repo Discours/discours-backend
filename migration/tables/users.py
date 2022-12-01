@@ -56,9 +56,10 @@ def migrate(entry):
         # name
         fn = entry["profile"].get("firstName", "")
         ln = entry["profile"].get("lastName", "")
-        name = user_dict["slug"] if user_dict["slug"] else "anonymous"
-        name = fn if fn else name
+        name = fn if fn else ""
         name = (name + " " + ln) if ln else name
+        if not name:
+            name = slug if slug else "anonymous"
         name = (
             entry["profile"]["path"].lower().strip().replace(" ", "-")
             if len(name) < 2

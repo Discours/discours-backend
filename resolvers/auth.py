@@ -13,7 +13,7 @@ from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
 from base.exceptions import (BaseHttpException, InvalidPassword, InvalidToken,
-                             ObjectNotExist, OperationNotAllowed, Unauthorized)
+                             ObjectNotExist, Unauthorized)
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
@@ -113,7 +113,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     if user:
-        raise OperationNotAllowed("User already exist")
+        raise Unauthorized("User already exist")
     else:
         slug = generate_unique_slug(name)
         user = session.query(User).where(User.slug == slug).first()

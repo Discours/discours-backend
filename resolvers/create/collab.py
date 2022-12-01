@@ -1,7 +1,7 @@
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import query, mutation
-from base.exceptions import OperationNotAllowed, ObjectNotExist
+from base.exceptions import ObjectNotExist, BaseHttpException
 from orm.collab import Collab, CollabAuthor
 from orm.shout import Shout
 from orm.user import User
@@ -27,7 +27,7 @@ async def invite_coauthor(_, info, author: str, shout: int):
         else:
             c = session.query(Collab).where(Collab.shout == shout).one()
             if user.slug not in c.authors:
-                raise OperationNotAllowed("you are not in authors list")
+                raise BaseHttpException("you are not in authors list")
             else:
                 invited_user = session.query(User).where(User.slug == author).one()
                 c.invites.append(invited_user)
@@ -47,7 +47,7 @@ async def remove_coauthor(_, info, author: str, shout: int):
         if not s:
             raise ObjectNotExist("invalid shout id")
         if user.slug != s.createdBy.slug:
-            raise OperationNotAllowed("only onwer can remove coauthors")
+            raise BaseHttpException("only onwer can remove coauthors")
         else:
             c = session.query(Collab).where(Collab.shout == shout).one()
             ca = session.query(CollabAuthor).where(c.shout == shout, c.author == author).one()
@@ -80,4 +80,4 @@ async def accept_coauthor(_, info, shout: int):
                 session.commit()
                 return {}
             else:
-                raise OperationNotAllowed("only invited can accept")
+                raise BaseHttpException("only invited can accept")

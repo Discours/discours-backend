@@ -186,8 +186,8 @@ type Mutation {
   deleteReaction(id: Int!): Result!
 
   # collab
-  inviteCoauthor(author: String!, shout: int!): Result!
-  removeCouthor(author: String!, shout: Int!): Result!
+  inviteCoauthor(author: String!, shout: Int!): Result!
+  removeCoauthor(author: String!, shout: Int!): Result!
   acceptCoauthor(shout: Int!): Result!
 
   # following
@@ -373,23 +373,6 @@ type User {
   oid: String
 }
 
-<<<<<<< HEAD
-=======
-type Draft {
-  title: String
-  body: String
-  createdBy: Int
-}
-
-type Collab {
- authors: [String]!
- invites: [String]
- createdAt: DateTime!
- title: String
- body: String
-}
-
->>>>>>> migation-fix2
 enum ReactionKind {
   LIKE
   DISLIKE

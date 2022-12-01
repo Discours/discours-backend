@@ -23,7 +23,9 @@ class AuthCredentials(BaseModel):
     async def permissions(self) -> List[Permission]:
         if self.user_id is None:
             raise Unauthorized("Please login first")
-        # TODO: implement permissions logix
+        else:
+            # TODO: implement permissions logix
+            print(self.user_id)
         return NotImplemented()
 
 

@@ -110,18 +110,6 @@ def get_userdata(entry, storage):
     return userdata, user_oid
 
 
-def get_userdata(entry, storage):
-    user_oid = entry.get("createdBy", "")
-    userdata = None
-    app = entry.get("application")
-    if app:
-        userdata = create_author_from_app(app) or {"slug": "anonymous"}
-    else:
-        userdata = storage["users"]["by_oid"].get(user_oid) or {"slug": "anonymous"}
-    userslug = userdata.get("slug")
-    return userslug, userdata, user_oid
-
-
 async def migrate(entry, storage):
     userdata, user_oid = get_userdata(entry, storage)
     user = await get_user(userdata, storage, user_oid)
@@ -209,21 +197,22 @@ async def add_topics_follower(entry, storage, user):
         for tpcslug in topics:
             try:
                 tpc = session.query(Topic).where(Topic.slug == tpcslug).first()
-                tf = session.query(
-                    TopicFollower
-                ).where(
-                    TopicFollower.follower == user.id
-                ).filter(
-                    TopicFollower.topic == tpc.id
-                ).first()
-                if not tf:
-                    tf = TopicFollower.create(
-                        topic=tpc.id,
-                        follower=user.id,
-                        auto=True
-                    )
-                    session.add(tf)
-                    session.commit()
+                if tpc:
+                    tf = session.query(
+                        TopicFollower
+                    ).where(
+                        TopicFollower.follower == user.id
+                    ).filter(
+                        TopicFollower.topic == tpc.id
+                    ).first()
+                    if not tf:
+                        tf = TopicFollower.create(
+                            topic=tpc.id,
+                            follower=user.id,
+                            auto=True
+                        )
+                        session.add(tf)
+                        session.commit()
             except IntegrityError:
                 print('[migration.shout] hidden by topic ' + tpc.slug)
     # main topic

@@ -107,7 +107,7 @@ class User(Base):
                 if p.resource not in scope:
                     scope[p.resource] = set()
                 scope[p.resource].add(p.operation)
-
+        print(scope)
         return scope
 
 

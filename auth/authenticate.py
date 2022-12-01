@@ -8,11 +8,11 @@ from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials, AuthUser
 from base.orm import local_session
-from orm import User, Role
+from orm.user import User, Role, UserRole
 
 from settings import SESSION_TOKEN_HEADER
 from auth.tokenstorage import SessionToken
-from base.exceptions import InvalidToken, OperationNotAllowed, Unauthorized
+from base.exceptions import InvalidToken, Unauthorized, OperationNotAllowed
 
 
 class JWTAuthenticate(AuthenticationBackend):
@@ -41,7 +41,6 @@ class JWTAuthenticate(AuthenticationBackend):
                         user = (
                             session.query(User).options(
                                 joinedload(User.roles),
-                                joinedload(Role.permissions),
                                 joinedload(User.ratings)
                             ).filter(
                                 User.id == id
@@ -78,7 +77,7 @@ def login_required(func):
         auth: AuthCredentials = info.context["request"].auth
         # print(auth)
         if not auth or not auth.logged_in:
-            raise OperationNotAllowed(auth.error_message or "Please login")
+            raise Unauthorized(auth.error_message or "Please login")
         return await func(parent, info, *args, **kwargs)
 
     return wrap
@@ -90,7 +89,7 @@ def permission_required(resource, operation, func):
         print('[auth.authenticate] permission_required for %r with info %r' % (func, info))  # debug only
         auth: AuthCredentials = info.context["request"].auth
         if not auth.logged_in:
-            raise Unauthorized(auth.error_message or "Please login")
+            raise OperationNotAllowed(auth.error_message or "Please login")
 
         # TODO: add actual check permission logix here
 
