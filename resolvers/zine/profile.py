@@ -188,7 +188,7 @@ async def rate_user(_, info, rated_userslug, value):
             session.commit()
             return {}
     try:
-        UserRating.create(rater=user.slug, user=rated_userslug, value=value)
+        UserRating.create(rater=auth.user_id, user=rated_userslug, value=value)
     except Exception as err:
         return {"error": err}
     return {}
