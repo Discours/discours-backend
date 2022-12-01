@@ -115,9 +115,7 @@ async def load_shouts_by(_, info, options):
         aliased_reaction = aliased(Reaction)
         q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
 
-    order_by_desc = options.get('order_by_desc', True)
-
-    query_order_by = desc(order_by) if order_by_desc else asc(order_by)
+    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
 
