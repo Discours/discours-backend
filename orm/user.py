@@ -56,7 +56,8 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, comment="Email")
     username = Column(String, nullable=False, comment="Login")
     password = Column(String, nullable=True, comment="Password")
-    bio = Column(String, nullable=True, comment="Bio")
+    bio = Column(String, nullable=True, comment="Bio")  # status description
+    about = Column(String, nullable=True, comment="About")  # long and formatted
     userpic = Column(String, nullable=True, comment="Userpic")
     name = Column(String, nullable=True, comment="Display name")
     slug = Column(String, unique=True, comment="User's slug")

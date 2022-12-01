@@ -35,11 +35,12 @@ def migrate(entry):
         slug = entry["profile"].get("path").lower()
         slug = re.sub('[^0-9a-zA-Z]+', '-', slug).strip()
         user_dict["slug"] = slug
-        bio = BeautifulSoup(entry.get("profile").get("bio") or "", features="lxml").text
-        if bio.startswith('<'):
-            print('[migration] bio! ' + bio)
-            bio = BeautifulSoup(bio, features="lxml").text
-        bio = bio.replace('\(', '(').replace('\)', ')')
+        bio = (entry.get("profile", {"bio": ""}).get("bio") or "").replace('\(', '(').replace('\)', ')')
+        bio_html = BeautifulSoup(bio, features="lxml").text
+        if bio == bio_html:
+            user_dict["bio"] = bio
+        else:
+            user_dict["about"] = bio
 
         # userpic
         try:
