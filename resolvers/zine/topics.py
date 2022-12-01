@@ -115,7 +115,7 @@ async def update_topic(_, _info, inp):
             return {"topic": topic}
 
 
-async def topic_follow(user, slug):
+def topic_follow(user, slug):
     with local_session() as session:
         topic = session.query(Topic).where(Topic.slug == slug).one()
 
@@ -124,7 +124,7 @@ async def topic_follow(user, slug):
         session.commit()
 
 
-async def topic_unfollow(user, slug):
+def topic_unfollow(user, slug):
     with local_session() as session:
         sub = (
             session.query(TopicFollower).join(Topic).filter(

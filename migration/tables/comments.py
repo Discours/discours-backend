@@ -9,7 +9,6 @@ from orm.shout import ShoutReactionsFollower
 from orm.topic import TopicFollower
 from orm.user import User
 from orm.shout import Shout
-# from services.stat.reacted import ReactedStorage
 
 ts = datetime.now(tz=timezone.utc)
 
@@ -84,7 +83,6 @@ def migrate_ratings(session, entry, reaction_dict):
                 )
                 session.add(following2)
             session.add(rr)
-            # await ReactedStorage.react(rr)
 
         except Exception as e:
             print("[migration] comment rating error: %r" % re_reaction_dict)

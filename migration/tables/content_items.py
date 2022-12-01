@@ -9,7 +9,6 @@ from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutTopic, ShoutReactionsFollower
 from orm.user import User
 from orm.topic import TopicFollower, Topic
-# from services.stat.reacted import ReactedStorage
 from services.stat.viewed import ViewedStorage
 import re
 
@@ -365,7 +364,6 @@ async def content_ratings_to_reactions(entry, slug):
                 else:
                     rea = Reaction.create(**reaction_dict)
                     session.add(rea)
-                    # await ReactedStorage.react(rea)
                 # shout_dict['ratings'].append(reaction_dict)
 
             session.commit()

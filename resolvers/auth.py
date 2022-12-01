@@ -24,13 +24,15 @@ from settings import SESSION_TOKEN_HEADER, FRONTEND_URL
 @mutation.field("getSession")
 @login_required
 async def get_current_user(_, info):
-    user = info.context["request"].user
-    token = info.context["request"].headers.get("Authorization")
-    if user and token:
-        user.lastSeen = datetime.now(tz=timezone.utc)
+    context_user = info.context["request"].user
+    token = info.context["request"].headers.get(SESSION_TOKEN_HEADER)
+
+    if context_user and token:
         with local_session() as session:
-            session.add(user)
+            user = session.query(User).where(User.id == context_user.user_id).one()
+            user.lastSeen = datetime.now(tz=timezone.utc)
             session.commit()
+
             return {
                 "token": token,
                 "user": user,

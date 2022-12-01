@@ -101,7 +101,7 @@ class User(Base):
                 session.commit()
             User.default_user = default
 
-    async def get_permission(self):
+    def get_permission(self):
         scope = {}
         for role in self.roles:
             for p in role.permissions:

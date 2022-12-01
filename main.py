@@ -41,6 +41,7 @@ async def start_up():
 
 async def dev_start_up():
     if exists(DEV_SERVER_STATUS_FILE_NAME):
+        await redis.connect()
         return
     else:
         with open(DEV_SERVER_STATUS_FILE_NAME, 'w', encoding='utf-8') as f:
@@ -71,6 +72,7 @@ app.mount("/", GraphQL(schema, debug=True))
 dev_app = app = Starlette(
     debug=True,
     on_startup=[dev_start_up],
+    on_shutdown=[shutdown],
     middleware=middleware,
     routes=routes,
 )

@@ -8,7 +8,7 @@ from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials, AuthUser
 from base.orm import local_session
-from orm.user import User, Role, UserRole
+from orm.user import User, Role
 
 from settings import SESSION_TOKEN_HEADER
 from auth.tokenstorage import SessionToken
@@ -40,11 +40,10 @@ class JWTAuthenticate(AuthenticationBackend):
                     try:
                         user = (
                             session.query(User).options(
-                                joinedload(User.roles),
-                                joinedload(Role.permissions),
+                                joinedload(User.roles).options(joinedload(Role.permissions)),
                                 joinedload(User.ratings)
                             ).filter(
-                                User.id == id
+                                User.id == payload.user_id
                             ).one()
                         )
                     except exc.NoResultFound:
@@ -53,7 +52,7 @@ class JWTAuthenticate(AuthenticationBackend):
                 if not user:
                     return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-                scopes = []  # user.get_permission()
+                scopes = user.get_permission()
 
                 return (
                     AuthCredentials(
@@ -61,7 +60,7 @@ class JWTAuthenticate(AuthenticationBackend):
                         scopes=scopes,
                         logged_in=True
                     ),
-                    user,
+                    AuthUser(user_id=user.id),
                 )
             else:
                 InvalidToken("please try again")
