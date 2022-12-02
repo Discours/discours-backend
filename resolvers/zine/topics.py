@@ -6,17 +6,16 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.shout import ShoutTopic, ShoutAuthor
 from orm.topic import Topic, TopicFollower
-from orm import Shout, User
+from orm import User
 
 
 def add_topic_stat_columns(q):
-    aliased_shout_topic = aliased(ShoutTopic)
     aliased_shout_author = aliased(ShoutAuthor)
     aliased_topic_follower = aliased(TopicFollower)
 
-    q = q.outerjoin(aliased_shout_topic, Topic.id == aliased_shout_topic.topic).add_columns(
-        func.count(distinct(aliased_shout_topic.shout)).label('shouts_stat')
-    ).outerjoin(aliased_shout_author, aliased_shout_topic.shout == aliased_shout_author.shout).add_columns(
+    q = q.outerjoin(ShoutTopic, Topic.id == ShoutTopic.topic).add_columns(
+        func.count(distinct(ShoutTopic.shout)).label('shouts_stat')
+    ).outerjoin(aliased_shout_author, ShoutTopic.shout == aliased_shout_author.shout).add_columns(
         func.count(distinct(aliased_shout_author.user)).label('authors_stat')
     ).outerjoin(aliased_topic_follower,
                 and_(
@@ -151,7 +150,7 @@ def topic_unfollow(user_id, slug):
 async def topics_random(_, info, amount=12):
     q = select(Topic)
     q = add_topic_stat_columns(q)
-    q = q.join(ShoutTopic).join(Shout, ShoutTopic.shout == Shout.id).group_by(Topic.id).having(func.count(Shout.id) > 2)
+    q = q.having(func.count(distinct(ShoutTopic.shout)) > 2)
     q = q.order_by(func.random()).limit(amount)
 
     return get_topics_from_query(q)
