@@ -111,5 +111,5 @@ class User(Base):
         return scope
 
 
-if __name__ == "__main__":
-    print(User.get_permission(user_id=1))  # type: ignore
+# if __name__ == "__main__":
+#   print(User.get_permission(user_id=1))  # type: ignore

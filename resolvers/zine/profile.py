@@ -163,14 +163,20 @@ async def get_user_roles(slug):
 @mutation.field("updateProfile")
 @login_required
 async def update_profile(_, info, profile):
+    print('[zine] update_profile')
+    print(profile)
     auth = info.context["request"].auth
     user_id = auth.user_id
     with local_session() as session:
-        user = session.query(User).filter(User.id == user_id).first()
-        if user:
-            User.update(user, **profile)
-            session.add(user)
-            session.commit()
+        session.query(User).filter(User.id == user_id).update({
+            "name": profile['name'],
+            "slug": profile['slug'],
+            "bio": profile['bio'],
+            "userpic": profile['userpic'],
+            "about": profile['about'],
+            "links": profile['links']
+        })
+        session.commit()
     return {}
 
 

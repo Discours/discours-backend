@@ -108,10 +108,12 @@ input ShoutInput {
 }
 
 input ProfileInput {
+  slug: String
   name: String
   userpic: String
   links: [String]
   bio: String
+  about: String
 }
 
 input TopicInput {

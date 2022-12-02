@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 
 from graphql.type import GraphQLResolveInfo
 from sqlalchemy.orm import joinedload, exc
+from sqlalchemy import select, and_
 from starlette.authentication import AuthenticationBackend
 from starlette.requests import HTTPConnection
 
@@ -35,24 +36,22 @@ class JWTAuthenticate(AuthenticationBackend):
                 payload = await SessionToken.verify(token)
                 if payload is None:
                     return AuthCredentials(scopes=[]), AuthUser(user_id=None)
-
+                user = None
                 with local_session() as session:
                     try:
-                        user = (
-                            session.query(User).options(
-                                joinedload(User.roles),
-                                joinedload(User.ratings)
-                            ).filter(
-                                User.id == id
-                            ).one()
-                        )
+                        q = select(
+                            User
+                        ).filter(
+                            User.id == payload.user_id
+                        ).select_from(User)
+                        user = session.execute(q).unique().one()
                     except exc.NoResultFound:
                         user = None
 
                 if not user:
                     return AuthCredentials(scopes=[]), AuthUser(user_id=None)
 
-                scopes = user.get_permission()
+                scopes = {}  # await user.get_permission()
 
                 return (
                     AuthCredentials(
