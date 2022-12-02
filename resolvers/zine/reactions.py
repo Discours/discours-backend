@@ -256,8 +256,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
         q = q.filter(Reaction.createdAt > after)
 
     order_way = asc if by.get("sort", "").startswith("-") else desc
-    # replace "-" -> "" ?
-    order_field = by.get("sort") or Reaction.createdAt
+    order_field = by.get("sort", "").replace('-', '') or Reaction.createdAt
 
     q = q.group_by(
         Reaction.id, CreatedByUser.id, ReactedShout.id

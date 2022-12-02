@@ -6,7 +6,7 @@ from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.orm import local_session
 from base.resolvers import query
-from base.exceptions import ObjectNotExist, Unauthorized
+from base.exceptions import ObjectNotExist
 from orm.user import User
 from resolvers.zine.profile import followed_authors
 from .unread import get_unread_counter
@@ -48,15 +48,17 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
             c['unread'] = await get_unread_counter(cid, auth.user_id)
             with local_session() as session:
                 c['members'] = []
-                for userslug in c["users"]:
-                    a = session.query(User).where(User.slug == userslug).first().dict()
-                    c['members'].append({
-                        "slug": userslug,
-                        "userpic": a["userpic"],
-                        "name": a["name"],
-                        "lastSeen": a["lastSeen"],
-                    })
-            chats.append(c)
+                for uid in c["users"]:
+                    a = session.query(User).where(User.id == uid).first()
+                    if a:
+                        c['members'].append({
+                            "id": a.id,
+                            "slug": a.slug,
+                            "userpic": a.userpic,
+                            "name": a.name,
+                            "lastSeen": a.lastSeen,
+                        })
+                        chats.append(c)
     return {
         "chats": chats,
         "error": None

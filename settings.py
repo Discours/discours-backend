@@ -28,3 +28,4 @@ SESSION_TOKEN_HEADER = "Authorization"
 
 # for local development
 DEV_SERVER_STATUS_FILE_NAME = 'dev-server-status.txt'
+SENTRY_ID = environ.get("SENTRY_ID")
