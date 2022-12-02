@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import joinedload, aliased
 from sqlalchemy.sql.expression import desc, asc, select, func
+
+from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import query
 from orm import ViewedEntry
@@ -15,10 +17,10 @@ def add_stat_columns(q):
     return add_common_stat_columns(q)
 
 
-def apply_filters(q, filters, user=None):
+def apply_filters(q, filters, user_id=None):
 
-    if filters.get("reacted") and user:
-        q.join(Reaction, Reaction.createdBy == user.id)
+    if filters.get("reacted") and user_id:
+        q.join(Reaction, Reaction.createdBy == user_id)
 
     v = filters.get("visibility")
     if v == "public":
@@ -105,17 +107,15 @@ async def load_shouts_by(_, info, options):
 
     q = add_stat_columns(q)
 
-    user = info.context["request"].user
-    q = apply_filters(q, options.get("filters", {}), user)
+    auth: AuthCredentials = info.context["request"].auth
+    q = apply_filters(q, options.get("filters", {}), auth.user_id)
 
     order_by = options.get("order_by", Shout.createdAt)
     if order_by == 'reacted':
         aliased_reaction = aliased(Reaction)
         q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
 
-    order_by_desc = options.get('order_by_desc', True)
-
-    query_order_by = desc(order_by) if order_by_desc else asc(order_by)
+    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
 

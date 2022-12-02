@@ -8,6 +8,7 @@ from starlette.responses import RedirectResponse
 from transliterate import translit
 
 from auth.authenticate import login_required
+from auth.credentials import AuthCredentials
 from auth.email import send_auth_email
 from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
@@ -24,20 +25,19 @@ from settings import SESSION_TOKEN_HEADER, FRONTEND_URL
 @mutation.field("getSession")
 @login_required
 async def get_current_user(_, info):
-    user = info.context["request"].user
-    token = info.context["request"].headers.get("Authorization")
-    if user and token:
+    auth: AuthCredentials = info.context["request"].auth
+    token = info.context["request"].headers.get(SESSION_TOKEN_HEADER)
+
+    with local_session() as session:
+        user = session.query(User).where(User.id == auth.user_id).one()
         user.lastSeen = datetime.now(tz=timezone.utc)
-        with local_session() as session:
-            session.add(user)
-            session.commit()
-            return {
-                "token": token,
-                "user": user,
-                "news": await user_subscriptions(user.slug),
-            }
-    else:
-        raise Unauthorized("No session token present in request, try to login")
+        session.commit()
+
+        return {
+            "token": token,
+            "user": user,
+            "news": await user_subscriptions(user.id),
+        }
 
 
 @mutation.field("confirmEmail")
@@ -58,7 +58,7 @@ async def confirm_email(_, info, token):
             return {
                 "token": session_token,
                 "user": user,
-                "news": await user_subscriptions(user.slug)
+                "news": await user_subscriptions(user.id)
             }
     except InvalidToken as e:
         raise InvalidToken(e.message)
@@ -174,7 +174,7 @@ async def login(_, info, email: str, password: str = "", lang: str = "ru"):
                     return {
                         "token": session_token,
                         "user": user,
-                        "news": await user_subscriptions(user.slug),
+                        "news": await user_subscriptions(user.id),
                     }
                 except InvalidPassword:
                     print(f"[auth] {email}: invalid password")

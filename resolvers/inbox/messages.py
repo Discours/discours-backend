@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timezone
 
 from auth.authenticate import login_required
+from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import mutation, subscription
 from services.inbox import ChatFollowing, MessageResult, MessagesStorage
@@ -12,7 +13,8 @@ from services.inbox import ChatFollowing, MessageResult, MessagesStorage
 @login_required
 async def create_message(_, info, chat: str, body: str, replyTo=None):
     """ create message with :body for :chat_id replying to :replyTo optionally """
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
+
     chat = await redis.execute("GET", f"chats/{chat}")
     if not chat:
         return {
@@ -25,7 +27,7 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
         new_message = {
             "chatId": chat['id'],
             "id": message_id,
-            "author": user.slug,
+            "author": auth.user_id,
             "body": body,
             "replyTo": replyTo,
             "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
@@ -55,7 +57,7 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
 @mutation.field("updateMessage")
 @login_required
 async def update_message(_, info, chat_id: str, message_id: int, body: str):
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
 
     chat = await redis.execute("GET", f"chats/{chat_id}")
     if not chat:
@@ -66,7 +68,7 @@ async def update_message(_, info, chat_id: str, message_id: int, body: str):
         return {"error": "message  not exist"}
 
     message = json.loads(message)
-    if message["author"] != user.slug:
+    if message["author"] != auth.user_id:
         return {"error": "access denied"}
 
     message["body"] = body
@@ -86,7 +88,7 @@ async def update_message(_, info, chat_id: str, message_id: int, body: str):
 @mutation.field("deleteMessage")
 @login_required
 async def delete_message(_, info, chat_id: str, message_id: int):
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
 
     chat = await redis.execute("GET", f"chats/{chat_id}")
     if not chat:
@@ -97,15 +99,15 @@ async def delete_message(_, info, chat_id: str, message_id: int):
     if not message:
         return {"error": "message  not exist"}
     message = json.loads(message)
-    if message["author"] != user.slug:
+    if message["author"] != auth.user_id:
         return {"error": "access denied"}
 
     await redis.execute("LREM", f"chats/{chat_id}/message_ids", 0, str(message_id))
     await redis.execute("DEL", f"chats/{chat_id}/messages/{str(message_id)}")
 
     users = chat["users"]
-    for user_slug in users:
-        await redis.execute("LREM", f"chats/{chat_id}/unread/{user_slug}", 0, str(message_id))
+    for user_id in users:
+        await redis.execute("LREM", f"chats/{chat_id}/unread/{user_id}", 0, str(message_id))
 
     result = MessageResult("DELETED", message)
     await MessagesStorage.put(result)
@@ -116,7 +118,7 @@ async def delete_message(_, info, chat_id: str, message_id: int):
 @mutation.field("markAsRead")
 @login_required
 async def mark_as_read(_, info, chat_id: str, messages: [int]):
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
 
     chat = await redis.execute("GET", f"chats/{chat_id}")
     if not chat:
@@ -124,11 +126,11 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
 
     chat = json.loads(chat)
     users = set(chat["users"])
-    if user.slug not in users:
+    if auth.user_id not in users:
         return {"error": "access denied"}
 
     for message_id in messages:
-        await redis.execute("LREM", f"chats/{chat_id}/unread/{user.slug}", 0, str(message_id))
+        await redis.execute("LREM", f"chats/{chat_id}/unread/{auth.user_id}", 0, str(message_id))
 
     return {
         "error": None
@@ -139,8 +141,9 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
 @login_required
 async def message_generator(obj, info):
     try:
-        user = info.context["request"].user
-        user_following_chats = await redis.execute("GET", f"chats_by_user/{user.slug}")
+        auth: AuthCredentials = info.context["request"].auth
+
+        user_following_chats = await redis.execute("GET", f"chats_by_user/{auth.user_id}")
         if user_following_chats:
             user_following_chats = list(json.loads(user_following_chats))  # chat ids
         else:

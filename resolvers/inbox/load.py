@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from auth.authenticate import login_required
+from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.orm import local_session
 from base.resolvers import query
@@ -30,12 +31,9 @@ async def load_messages(chat_id: str, limit: int, offset: int):
 @login_required
 async def load_chats(_, info, limit: int = 50, offset: int = 0):
     """ load :limit chats of current user with :offset """
-    user = info.context["request"].user
-    if user:
-        print('[inbox] load user\'s chats %s' % user.slug)
-    else:
-        raise Unauthorized("Please login to load chats")
-    cids = await redis.execute("SMEMBERS", "chats_by_user/" + user.slug)
+    auth: AuthCredentials = info.context["request"].auth
+
+    cids = await redis.execute("SMEMBERS", "chats_by_user/" + str(auth.user_id))
     if cids:
         cids = list(cids)[offset:offset + limit]
     if not cids:
@@ -47,7 +45,7 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
         if c:
             c = dict(json.loads(c))
             c['messages'] = await load_messages(cid, 5, 0)
-            c['unread'] = await get_unread_counter(cid, user.slug)
+            c['unread'] = await get_unread_counter(cid, auth.user_id)
             with local_session() as session:
                 c['members'] = []
                 for userslug in c["users"]:
@@ -65,11 +63,11 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
     }
 
 
-async def search_user_chats(by, messages: set, slug: str, limit, offset):
+async def search_user_chats(by, messages: set, user_id: int, limit, offset):
     cids = set([])
     by_author = by.get('author')
     body_like = by.get('body')
-    cids.unioin(set(await redis.execute("SMEMBERS", "chats_by_user/" + slug)))
+    cids.unioin(set(await redis.execute("SMEMBERS", "chats_by_user/" + str(user_id))))
     if by_author:
         # all author's messages
         cids.union(set(await redis.execute("SMEMBERS", f"chats_by_user/{by_author}")))
@@ -104,9 +102,11 @@ async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
         # everyone's messages in filtered chat
         messages.union(set(await load_messages(by_chat, limit, offset)))
 
-    user = info.context["request"].user
-    if user and len(messages) == 0:
-        messages.union(search_user_chats(by, messages, user.slug, limit, offset))
+    auth: AuthCredentials = info.context["request"].auth
+
+    if len(messages) == 0:
+        # FIXME
+        messages.union(search_user_chats(by, messages, auth.user_id, limit, offset))
 
     days = by.get("days")
     if days:
@@ -126,9 +126,10 @@ async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
 @query.field("loadRecipients")
 async def load_recipients(_, info, limit=50, offset=0):
     chat_users = []
-    user = info.context["request"].user
+    auth: AuthCredentials = info.context["request"].auth
+
     try:
-        chat_users += await followed_authors(user.slug)
+        chat_users += await followed_authors(auth.user_id)
         limit = limit - len(chat_users)
     except Exception:
         pass
