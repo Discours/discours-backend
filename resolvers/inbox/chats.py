@@ -51,20 +51,20 @@ async def update_chat(_, info, chat_new: dict):
 async def create_chat(_, info, title="", members=[]):
     auth: AuthCredentials = info.context["request"].auth
     chat = {}
-
+    print('create_chat members: %r' % members)
     if auth.user_id not in members:
-        members.append(auth.user_id)
+        members.append(int(auth.user_id))
 
     # reuse chat craeted before if exists
     if len(members) == 2 and title == "":
-        chats1 = await redis.execute("SMEMBERS", f"chats_by_user/{members[0].slug}")
-        chats2 = await redis.execute("SMEMBERS", f"chats_by_user/{members[1].slug}")
+        chats1 = await redis.execute("SMEMBERS", f"chats_by_user/{members[0]}")
+        chats2 = await redis.execute("SMEMBERS", f"chats_by_user/{members[1]}")
         chat = None
         for c in chats1.intersection(chats2):
             chat = await redis.execute("GET", f"chats/{c.decode('utf-8')}")
             if chat:
                 chat = json.loads(chat)
-                if chat.title == "":
+                if chat['title'] == "":
                     break
         if chat:
             return {

@@ -79,7 +79,7 @@ if __name__ == "__main__":
             host="localhost",
             port=8080,
             headers=local_headers,
-            # log_config=LOGGING_CONFIG,
+            # log_config=log_settings,
             log_level=None,
             access_log=False,
             reload=want_reload

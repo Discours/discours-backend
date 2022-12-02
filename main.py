@@ -18,7 +18,7 @@ from resolvers.auth import confirm_email_handler
 from services.main import storages_init
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
-from settings import DEV_SERVER_STATUS_FILE_NAME
+from settings import DEV_SERVER_STATUS_FILE_NAME, SENTRY_ID
 
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
@@ -37,6 +37,8 @@ async def start_up():
     print(views_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
+    import sentry_sdk
+    sentry_sdk.init("https://%s@testsentry.discours.io/2" % SENTRY_ID)
 
 
 async def dev_start_up():

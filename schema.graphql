@@ -151,7 +151,7 @@ enum FollowingEntity {
 
 type Mutation {
   # inbox
-  createChat(title: String, members: [String]!): Result!
+  createChat(title: String, members: [Int]!): Result!
   updateChat(chat: ChatInput!): Result!
   deleteChat(chatId: String!): Result!
 

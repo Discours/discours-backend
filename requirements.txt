@@ -26,3 +26,4 @@ asyncio~=3.4.3
 python-dateutil~=2.8.2
 beautifulsoup4~=4.11.1
 lxml
+sentry-sdk>=0.10.2
