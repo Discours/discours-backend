@@ -13,7 +13,7 @@ Install deps first
 
 on osx
 ```
-brew install redis nginx
+brew install redis nginx postgres
 brew services start redis
 ```
 
@@ -22,9 +22,8 @@ on debian/ubuntu
 apt install redis nginx
 ```
 
-First, install Postgres. Then you'll need some data
+First, install Postgres. Then you'll need some data, so migrate it:
 ```
-brew install postgres
 createdb discoursio
 python server.py migrate
 ```
