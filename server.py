@@ -4,6 +4,11 @@ import uvicorn
 
 from settings import PORT, DEV_SERVER_STATUS_FILE_NAME
 
+
+def exception_handler(exception_type, exception, traceback, debug_hook=sys.excepthook):
+    print("%s: %s" % (exception_type.__name__, exception))
+
+
 log_settings = {
     'version': 1,
     'disable_existing_loggers': True,
@@ -66,7 +71,6 @@ if __name__ == "__main__":
     if x == "dev":
         if os.path.exists(DEV_SERVER_STATUS_FILE_NAME):
             os.remove(DEV_SERVER_STATUS_FILE_NAME)
-
         want_reload = False
         if "reload" in sys.argv:
             print("MODE: DEV + RELOAD")
@@ -90,6 +94,7 @@ if __name__ == "__main__":
 
         migrate()
     else:
+        sys.excepthook = exception_handler
         uvicorn.run(
             "main:app",
             host="0.0.0.0",

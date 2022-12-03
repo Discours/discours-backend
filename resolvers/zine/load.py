@@ -5,6 +5,7 @@ from sqlalchemy.sql.expression import desc, asc, select, func
 from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import query
+from base.exceptions import ObjectNotExist
 from orm import ViewedEntry
 from orm.shout import Shout, ShoutAuthor
 from orm.reaction import Reaction
@@ -58,22 +59,23 @@ async def load_shout(_, info, slug):
         ).filter(
             Shout.deletedAt.is_(None)
         ).group_by(Shout.id)
+        try:
+            [shout, viewed_stat, reacted_stat, commented_stat, rating_stat] = session.execute(q).first()
 
-        [shout, viewed_stat, reacted_stat, commented_stat, rating_stat] = session.execute(q).unique().one()
+            shout.stat = {
+                "viewed": viewed_stat,
+                "reacted": reacted_stat,
+                "commented": commented_stat,
+                "rating": rating_stat
+            }
 
-        shout.stat = {
-            "viewed": viewed_stat,
-            "reacted": reacted_stat,
-            "commented": commented_stat,
-            "rating": rating_stat
-        }
-
-        for author_caption in session.query(ShoutAuthor).join(Shout).where(Shout.slug == slug):
-            for author in shout.authors:
-                if author.id == author_caption.user:
-                    author.caption = author_caption.caption
-
-        return shout
+            for author_caption in session.query(ShoutAuthor).join(Shout).where(Shout.slug == slug):
+                for author in shout.authors:
+                    if author.id == author_caption.user:
+                        author.caption = author_caption.caption
+            return shout
+        except Exception:
+            raise ObjectNotExist("Slug was not found: %s" % slug)
 
 
 @query.field("loadShouts")
