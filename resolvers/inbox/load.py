@@ -23,7 +23,7 @@ async def load_messages(chat_id: str, limit: int, offset: int):
         ]
         messages = await redis.mget(*message_keys)
         messages = [json.loads(msg) for msg in messages]
-    return messages
+    return set(messages)
 
 
 @query.field("loadChats")
@@ -64,11 +64,11 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
     }
 
 
-async def search_user_chats(by, messages: set, user_id: int, limit, offset):
+async def search_user_chats(by, messages, user_id: int, limit, offset):
     cids = set([])
     by_author = by.get('author')
     body_like = by.get('body')
-    cids.unioin(set(await redis.execute("SMEMBERS", "chats_by_user/" + str(user_id))))
+    cids.union(set(await redis.execute("SMEMBERS", "chats_by_user/" + str(user_id))))
     if by_author:
         # all author's messages
         cids.union(set(await redis.execute("SMEMBERS", f"chats_by_user/{by_author}")))
@@ -79,7 +79,7 @@ async def search_user_chats(by, messages: set, user_id: int, limit, offset):
     if body_like:
         # search in all messages in all user's chats
         for c in cids:
-            # FIXME: user redis scan here
+            # FIXME: use redis scan here
             mmm = set(await load_messages(c, limit, offset))
             for m in mmm:
                 if body_like in m["body"]:
@@ -109,8 +109,7 @@ async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
     auth: AuthCredentials = info.context["request"].auth
 
     if len(messages) == 0:
-        # FIXME
-        messages.union(search_user_chats(by, messages, auth.user_id, limit, offset))
+        messages.union(set(await search_user_chats(by, messages, auth.user_id, limit, offset)))
 
     days = by.get("days")
     if days:
@@ -120,8 +119,8 @@ async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
         )))
     return {
         "messages": sorted(
-            lambda m: m.createdAt,
-            list(messages)
+            list(messages),
+            key=lambda m: m.createdAt
         ),
         "error": None
     }
