@@ -498,7 +498,7 @@ type Token {
 }
 
 type Message {
-  author: String!
+  author: Int!
   chatId: String!
   body: String!
   createdAt: Int!
