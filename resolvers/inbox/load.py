@@ -6,7 +6,6 @@ from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.orm import local_session
 from base.resolvers import query
-from base.exceptions import ObjectNotExist
 from orm.user import User
 from resolvers.zine.profile import followed_authors
 from .unread import get_unread_counter
@@ -100,7 +99,10 @@ async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
     if by_chat:
         chat = await redis.execute("GET", f"chats/{by_chat}")
         if not chat:
-            raise ObjectNotExist("Chat not exists")
+            return {
+                "messages": [],
+                "error": "chat not exist"
+            }
         # everyone's messages in filtered chat
         messages.union(set(await load_messages(by_chat, limit, offset)))
 
