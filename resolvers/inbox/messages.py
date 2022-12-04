@@ -38,7 +38,6 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
         await redis.execute("LPUSH", f"chats/{chat['id']}/message_ids", str(message_id))
         await redis.execute("SET", f"chats/{chat['id']}/next_message_id", str(message_id + 1))
 
-        chat = json.loads(chat)
         users = chat["users"]
         for user_slug in users:
             await redis.execute(
