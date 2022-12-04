@@ -33,6 +33,7 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
     auth: AuthCredentials = info.context["request"].auth
 
     cids = await redis.execute("SMEMBERS", "chats_by_user/" + str(auth.user_id))
+    onliners = await redis.execute("SMEMBERS", "users-online")
     if cids:
         cids = list(cids)[offset:offset + limit]
     if not cids:
@@ -56,6 +57,7 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
                             "userpic": a.userpic,
                             "name": a.name,
                             "lastSeen": a.lastSeen,
+                            "online": a.id in onliners
                         })
                 chats.append(c)
     return {

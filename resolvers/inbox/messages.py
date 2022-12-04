@@ -6,7 +6,8 @@ from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import mutation, subscription
-from services.inbox import ChatFollowing, MessageResult, MessagesStorage
+from services.inbox.helpers import ChatFollowing, MessageResult
+from services.inbox.storage import MessagesStorage
 
 
 @mutation.field("createMessage")
@@ -18,7 +19,7 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
     chat = await redis.execute("GET", f"chats/{chat}")
     if not chat:
         return {
-            "error": "chat not exist"
+            "error": "chat is not exist"
         }
     else:
         chat = dict(json.loads(chat))
@@ -153,6 +154,7 @@ async def message_generator(obj, info):
             chat = await redis.execute("GET", f"chats/{chat_id}")
             updated[chat_id] = chat['updatedAt']
         user_following_chats_sorted = sorted(user_following_chats, key=lambda x: updated[x], reverse=True)
+
         for chat_id in user_following_chats_sorted:
             following_chat = ChatFollowing(chat_id)
             await MessagesStorage.register_chat(following_chat)

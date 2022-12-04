@@ -29,6 +29,7 @@ type ChatMember {
     name: String!
     userpic: String
     lastSeen: DateTime
+    online: Boolean
     # invitedAt: DateTime
     # invitedBy: String # user slug
     # TODO: keep invite databit

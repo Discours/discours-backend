@@ -1,13 +1,6 @@
 import asyncio
 
 
-class ChatFollowing:
-    queue = asyncio.Queue()
-
-    def __init__(self, chat_id):
-        self.chat_id = chat_id
-
-
 class MessagesStorage:
     lock = asyncio.Lock()
     chats = []
@@ -28,9 +21,3 @@ class MessagesStorage:
             for chat in MessagesStorage.chats:
                 if message_result.message["chatId"] == chat.chat_id:
                     chat.queue.put_nowait(message_result)
-
-
-class MessageResult:
-    def __init__(self, status, message):
-        self.status = status
-        self.message = message
