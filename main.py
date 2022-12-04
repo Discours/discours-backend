@@ -37,8 +37,12 @@ async def start_up():
     print(views_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
-    import sentry_sdk
-    sentry_sdk.init("https://%s@testsentry.discours.io/2" % SENTRY_ID)
+    try:
+        import sentry_sdk
+        sentry_sdk.init("https://%s@testsentry.discours.io/2" % SENTRY_ID)
+    except Exception as e:
+        print('[sentry] init error')
+        print(e)
 
 
 async def dev_start_up():
