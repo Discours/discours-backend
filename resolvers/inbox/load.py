@@ -57,7 +57,7 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
                             "name": a.name,
                             "lastSeen": a.lastSeen,
                         })
-                        chats.append(c)
+                chats.append(c)
     return {
         "chats": chats,
         "error": None
