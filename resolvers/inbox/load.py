@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+# from datetime import datetime, timedelta, timezone
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
@@ -14,16 +14,25 @@ from .unread import get_unread_counter
 async def load_messages(chat_id: str, limit: int, offset: int):
     ''' load :limit messages for :chat_id with :offset '''
     messages = []
-    message_ids = await redis.lrange(
-        f"chats/{chat_id}/message_ids", offset + limit, offset
-    )
+    # print(f'[inbox] loading messages by chat: {chat_id}[{offset}:{offset + limit}]')
+    try:
+        message_ids = await redis.lrange(f"chats/{chat_id}/message_ids",
+                                         offset,
+                                         offset + limit
+                                         )
+
+        # print(f'[inbox] message_ids: {message_ids}')
+    except Exception as e:
+        print(e)
     if message_ids:
         message_keys = [
-            f"chats/{chat_id}/messages/{mid}" for mid in message_ids
+            f"chats/{chat_id}/messages/{mid.decode('utf-8')}" for mid in message_ids
         ]
+        # print(message_keys)
         messages = await redis.mget(*message_keys)
-        messages = [json.loads(msg) for msg in messages]
-    return set(messages)
+        messages = [json.loads(msg.decode('utf-8')) for msg in messages]
+        # print('[inbox] messages \n%r' % messages)
+    return messages
 
 
 @query.field("loadChats")
@@ -41,7 +50,8 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
         cids = []
     chats = []
     for cid in cids:
-        c = await redis.execute("GET", "chats/" + cid.decode("utf-8"))
+        cid = cid.decode("utf-8")
+        c = await redis.execute("GET", "chats/" + cid)
         if c:
             c = dict(json.loads(c))
             c['messages'] = await load_messages(cid, 5, 0)
@@ -71,17 +81,21 @@ async def search_user_chats(by, messages, user_id: int, limit, offset):
     by_author = by.get('author')
     body_like = by.get('body')
     cids.union(set(await redis.execute("SMEMBERS", "chats_by_user/" + str(user_id))))
+    # messages_by_chat = []
     if by_author:
         # all author's messages
         cids.union(set(await redis.execute("SMEMBERS", f"chats_by_user/{by_author}")))
         # author's messages in filtered chat
         messages.union(set(filter(lambda m: m["author"] == by_author, list(messages))))
         for c in cids:
-            messages.union(set(await load_messages(c, limit, offset)))
+            c = c.decode('utf-8')
+            # messages_by_chat = await load_messages(c, limit, offset)
+
     if body_like:
         # search in all messages in all user's chats
         for c in cids:
             # FIXME: use redis scan here
+            c = c.decode('utf-8')
             mmm = set(await load_messages(c, limit, offset))
             for m in mmm:
                 if body_like in m["body"]:
@@ -96,36 +110,48 @@ async def search_user_chats(by, messages, user_id: int, limit, offset):
 @login_required
 async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
     ''' load :limit messages of :chat_id with :offset '''
-    messages = set([])
-    by_chat = by.get('chat')
-    if by_chat:
-        chat = await redis.execute("GET", f"chats/{by_chat}")
-        if not chat:
-            return {
-                "messages": [],
-                "error": "chat not exist"
-            }
-        # everyone's messages in filtered chat
-        messages.union(set(await load_messages(by_chat, limit, offset)))
 
     auth: AuthCredentials = info.context["request"].auth
+    userchats = await redis.execute("SMEMBERS", "chats_by_user/" + str(auth.user_id))
+    userchats = [c.decode('utf-8') for c in userchats]
+    # print('[inbox] userchats: %r' % userchats)
+    if userchats:
+        # print('[inbox] loading messages by...')
+        messages = []
+        by_chat = by.get('chat')
+        if by_chat in userchats:
+            chat = await redis.execute("GET", f"chats/{by_chat}")
+            # print(chat)
+            if not chat:
+                return {
+                    "messages": [],
+                    "error": "chat not exist"
+                }
+            # everyone's messages in filtered chat
+            messages = await load_messages(by_chat, limit, offset)
 
-    if len(messages) == 0:
-        messages.union(set(await search_user_chats(by, messages, auth.user_id, limit, offset)))
+        # if len(messages) == 0:
+        #     messages.union(set(await search_user_chats(by, messages, auth.user_id, limit, offset)))
 
-    days = by.get("days")
-    if days:
-        messages.union(set(filter(
-            lambda m: datetime.now(tz=timezone.utc) - int(m["createdAt"]) < timedelta(days=by.get("days")),
-            list(messages)
-        )))
-    return {
-        "messages": sorted(
-            list(messages),
-            key=lambda m: m.createdAt
-        ),
-        "error": None
-    }
+        # days = by.get("days")
+        # if days:
+        #    messages.union(set(filter(
+        #        list(messages),
+        #        key=lambda m: (
+        #               datetime.now(tz=timezone.utc) - int(m["createdAt"]) < timedelta(days=by["days"])
+        #           )
+        #    )))
+        return {
+            "messages": sorted(
+                list(messages),
+                key=lambda m: m['createdAt']
+            ),
+            "error": None
+        }
+    else:
+        return {
+            "error": "Cannot access messages of this chat"
+        }
 
 
 @query.field("loadRecipients")

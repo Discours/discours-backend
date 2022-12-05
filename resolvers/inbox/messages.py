@@ -33,6 +33,7 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
             "replyTo": replyTo,
             "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
         }
+        print(f"[inbox] creating message {new_message}")
         await redis.execute(
             "SET", f"chats/{chat['id']}/messages/{message_id}", json.dumps(new_message)
         )
