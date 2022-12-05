@@ -270,6 +270,7 @@ type Query {
   loadMessagesBy(by: MessagesBy!, limit: Int, offset: Int): Result!
   loadRecipients(limit: Int, offset: Int): Result!
   searchRecipients(query: String!, limit: Int, offset: Int): Result!
+  searchMessages(by: MessagesBy!, limit: Int, offset: Int): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!

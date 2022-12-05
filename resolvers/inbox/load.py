@@ -76,36 +76,6 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
     }
 
 
-async def search_user_chats(by, messages, user_id: int, limit, offset):
-    cids = set([])
-    by_author = by.get('author')
-    body_like = by.get('body')
-    cids.union(set(await redis.execute("SMEMBERS", "chats_by_user/" + str(user_id))))
-    # messages_by_chat = []
-    if by_author:
-        # all author's messages
-        cids.union(set(await redis.execute("SMEMBERS", f"chats_by_user/{by_author}")))
-        # author's messages in filtered chat
-        messages.union(set(filter(lambda m: m["author"] == by_author, list(messages))))
-        for c in cids:
-            c = c.decode('utf-8')
-            # messages_by_chat = await load_messages(c, limit, offset)
-
-    if body_like:
-        # search in all messages in all user's chats
-        for c in cids:
-            # FIXME: use redis scan here
-            c = c.decode('utf-8')
-            mmm = set(await load_messages(c, limit, offset))
-            for m in mmm:
-                if body_like in m["body"]:
-                    messages.add(m)
-        else:
-            # search in chat's messages
-            messages.union(set(filter(lambda m: body_like in m["body"], list(messages))))
-    return messages
-
-
 @query.field("loadMessagesBy")
 @login_required
 async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
@@ -129,18 +99,6 @@ async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
                 }
             # everyone's messages in filtered chat
             messages = await load_messages(by_chat, limit, offset)
-
-        # if len(messages) == 0:
-        #     messages.union(set(await search_user_chats(by, messages, auth.user_id, limit, offset)))
-
-        # days = by.get("days")
-        # if days:
-        #    messages.union(set(filter(
-        #        list(messages),
-        #        key=lambda m: (
-        #               datetime.now(tz=timezone.utc) - int(m["createdAt"]) < timedelta(days=by["days"])
-        #           )
-        #    )))
         return {
             "messages": sorted(
                 list(messages),
@@ -161,6 +119,7 @@ async def load_recipients(_, info, limit=50, offset=0):
 
     try:
         chat_users += await followed_authors(auth.user_id)
+        print("[resolvers.inbox] ")
         limit = limit - len(chat_users)
     except Exception:
         pass
