@@ -57,14 +57,25 @@ async def create_chat(_, info, title="", members=[]):
 
     # reuse chat craeted before if exists
     if len(members) == 2 and title == "":
-        chats1 = await redis.execute("SMEMBERS", f"chats_by_user/{members[0]}")
-        chats2 = await redis.execute("SMEMBERS", f"chats_by_user/{members[1]}")
         chat = None
-        for c in chats1.intersection(chats2):
+        print(members)
+        chatset1 = await redis.execute("SMEMBERS", f"chats_by_user/{members[0]}")
+        if not chatset1:
+            chatset1 = set([])
+        print(chatset1)
+        chatset2 = await redis.execute("SMEMBERS", f"chats_by_user/{members[1]}")
+        if not chatset2:
+            chatset2 = set([])
+        print(chatset2)
+        chatset = chatset1.intersection(chatset2)
+        print(chatset)
+        for c in chatset:
             chat = await redis.execute("GET", f"chats/{c.decode('utf-8')}")
             if chat:
                 chat = json.loads(chat)
                 if chat['title'] == "":
+                    print('[inbox] craeteChat found old chat')
+                    print(chat)
                     break
         if chat:
             return {
