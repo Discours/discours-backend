@@ -119,7 +119,6 @@ async def load_recipients(_, info, limit=50, offset=0):
 
     try:
         chat_users += await followed_authors(auth.user_id)
-        print("[resolvers.inbox] ")
         limit = limit - len(chat_users)
     except Exception:
         pass

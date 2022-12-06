@@ -143,10 +143,14 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
 @subscription.source("newMessage")
 @login_required
 async def message_generator(obj, info):
-    try:
-        auth: AuthCredentials = info.context["request"].auth
+    print(f"[resolvers.messages] generator {info}")
+    auth: AuthCredentials = info.context["request"].auth
+    return await messages_generator_by_user(auth.user_id)
 
-        user_following_chats = await redis.execute("GET", f"chats_by_user/{auth.user_id}")
+
+async def messages_generator_by_user(user_id):
+    try:
+        user_following_chats = await redis.execute("GET", f"chats_by_user/{user_id}")
         if user_following_chats:
             user_following_chats = list(json.loads(user_following_chats))  # chat ids
         else:
@@ -170,3 +174,4 @@ async def message_generator(obj, info):
             yield msg
     finally:
         await MessagesStorage.remove_chat(following_chat)
+
