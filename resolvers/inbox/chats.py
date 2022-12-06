@@ -80,7 +80,7 @@ async def create_chat(_, info, title="", members=[]):
         "createdBy": auth.user_id,
         "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
         "updatedAt": int(datetime.now(tz=timezone.utc).timestamp()),
-        "admins": []
+        "admins": members if (len(members) == 2 and title == "") else []
     }
 
     for m in members:

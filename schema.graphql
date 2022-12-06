@@ -512,13 +512,13 @@ type Message {
 type Chat {
   id: String!
   createdAt: Int!
-  createdBy: String!
+  createdBy: Int!
   updatedAt: Int!
   title: String
   description: String
-  users: [String]
+  users: [Int]
   members: [ChatMember]
-  admins: [String]
+  admins: [Int]
   messages: [Message]
   unread: Int
   private: Boolean
