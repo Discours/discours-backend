@@ -225,32 +225,32 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     :return: Reaction[]
     """
 
-    CreatedByUser = aliased(User)
-    ReactedShout = aliased(Shout)
     q = select(
-        Reaction, CreatedByUser, ReactedShout
+        Reaction, User, Shout
     ).join(
-        CreatedByUser, Reaction.createdBy == CreatedByUser.id
+        User, Reaction.createdBy == User.id
     ).join(
-        ReactedShout, Reaction.shout == ReactedShout.id
+        Shout, Reaction.shout == Shout.id
     )
 
     if by.get("shout"):
-        aliased_shout = aliased(Shout)
-        q = q.join(aliased_shout).filter(aliased_shout.slug == by["shout"])
+        q = q.filter(Shout.slug == by["shout"])
     elif by.get("shouts"):
-        aliased_shout = aliased(Shout)
-        q = q.join(aliased_shout).filter(aliased_shout.shout.in_(by["shouts"]))
+        q = q.filter(Shout.shout.in_(by["shouts"]))
+
     if by.get("createdBy"):
-        aliased_user = aliased(User)
-        q = q.join(aliased_user).filter(aliased_user.slug == by.get("createdBy"))
+        q = q.filter(User.slug == by.get("createdBy"))
+
     if by.get("topic"):
         # TODO: check
         q = q.filter(Shout.topics.contains(by["topic"]))
+
     if by.get("comment"):
         q = q.filter(func.length(Reaction.body) > 0)
+
     if len(by.get('search', '')) > 2:
         q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
+
     if by.get("days"):
         after = datetime.now(tz=timezone.utc) - timedelta(days=int(by["days"]) or 30)
         q = q.filter(Reaction.createdAt > after)
@@ -259,7 +259,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     order_field = by.get("sort", "").replace('-', '') or Reaction.createdAt
 
     q = q.group_by(
-        Reaction.id, CreatedByUser.id, ReactedShout.id
+        Reaction.id, User.id, Shout.id
     ).order_by(
         order_way(order_field)
     )
