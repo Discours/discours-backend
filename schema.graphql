@@ -50,6 +50,7 @@ type Author {
     userpic: String
     caption: String # only for full shout
     bio: String
+    about: String
     links: [String]
     stat: AuthorStat
     roles: [Role]  # in different communities

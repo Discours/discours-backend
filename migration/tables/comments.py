@@ -180,6 +180,7 @@ async def migrate(entry, storage):
 def migrate_2stage(old_comment, idmap):
     if old_comment.get('body'):
         new_id = idmap.get(old_comment.get('oid'))
+        new_id = idmap.get(old_comment.get('_id'))
         if new_id:
             new_replyto_id = None
             old_replyto_id = old_comment.get("replyTo")
