@@ -140,15 +140,12 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
     }
 
 
-@subscription.source("newMessages")
+@subscription.source("newMessage")
 @login_required
 async def message_generator(obj, info):
     print(f"[resolvers.messages] generator {info}")
     auth: AuthCredentials = info.context["request"].auth
-    return await messages_generator_by_user(auth.user_id)
-
-
-async def messages_generator_by_user(user_id):
+    user_id = auth.user_id
     try:
         user_following_chats = await redis.execute("GET", f"chats_by_user/{user_id}")
         if user_following_chats:

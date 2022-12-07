@@ -305,11 +305,9 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
-  newMessages: Message
-  onlineUpdated: [User!]!
-  shoutUpdated: Shout!
-  userUpdated: User!
-  reactionUpdated(shout: String!): ReactionUpdating!
+  newMessage: Message  # new messages in inbox
+  collabUpdate(collab: Int!): Reaction # new reactions in collaborative editor
+
 }
 
 ############################################ Entities
