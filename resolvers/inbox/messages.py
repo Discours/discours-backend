@@ -140,7 +140,7 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
     }
 
 
-@subscription.source("newMessage")
+@subscription.source("newMessages")
 @login_required
 async def message_generator(obj, info):
     print(f"[resolvers.messages] generator {info}")
@@ -174,4 +174,3 @@ async def messages_generator_by_user(user_id):
             yield msg
     finally:
         await MessagesStorage.remove_chat(following_chat)
-

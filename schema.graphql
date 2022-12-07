@@ -305,7 +305,7 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
-  newMessage(chats: [Int!]): Message!
+  newMessages: Message!
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!
@@ -507,6 +507,7 @@ type Message {
   id: Int!
   replyTo: String
   updatedAt: Int
+  seen: Boolean
 }
 
 type Chat {
