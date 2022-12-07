@@ -305,7 +305,7 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
-  newMessages: Message!
+  newMessages: Message
   onlineUpdated: [User!]!
   shoutUpdated: Shout!
   userUpdated: User!
