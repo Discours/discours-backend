@@ -51,6 +51,7 @@ type Author {
     userpic: String
     caption: String # only for full shout
     bio: String
+    about: String
     links: [String]
     stat: AuthorStat
     roles: [Role]  # in different communities
@@ -370,6 +371,7 @@ type User {
   updatedAt: DateTime
   ratings: [Rating]
   bio: String
+  about: String
   notifications: [Int]
   communities: [Int] # user participating communities
   oid: String
