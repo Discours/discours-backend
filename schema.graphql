@@ -505,7 +505,7 @@ type Message {
   body: String!
   createdAt: Int!
   id: Int!
-  replyTo: String
+  replyTo: Int
   updatedAt: Int
   seen: Boolean
 }
