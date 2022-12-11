@@ -29,6 +29,7 @@ type ChatMember {
     name: String!
     userpic: String
     lastSeen: DateTime
+    online: Boolean
     # invitedAt: DateTime
     # invitedBy: String # user slug
     # TODO: keep invite databit
@@ -270,6 +271,7 @@ type Query {
   loadMessagesBy(by: MessagesBy!, limit: Int, offset: Int): Result!
   loadRecipients(limit: Int, offset: Int): Result!
   searchRecipients(query: String!, limit: Int, offset: Int): Result!
+  searchMessages(by: MessagesBy!, limit: Int, offset: Int): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -304,11 +306,9 @@ type Query {
 ############################################ Subscription
 
 type Subscription {
-  newMessage(chats: [Int!]): Message!
-  onlineUpdated: [User!]!
-  shoutUpdated: Shout!
-  userUpdated: User!
-  reactionUpdated(shout: String!): ReactionUpdating!
+  newMessage: Message  # new messages in inbox
+  collabUpdate(collab: Int!): Reaction # new reactions in collaborative editor
+
 }
 
 ############################################ Entities
@@ -371,6 +371,7 @@ type User {
   updatedAt: DateTime
   ratings: [Rating]
   bio: String
+  about: String
   notifications: [Int]
   communities: [Int] # user participating communities
   oid: String
@@ -499,25 +500,26 @@ type Token {
 }
 
 type Message {
-  author: String!
+  author: Int!
   chatId: String!
   body: String!
   createdAt: Int!
   id: Int!
-  replyTo: String
+  replyTo: Int
   updatedAt: Int
+  seen: Boolean
 }
 
 type Chat {
   id: String!
   createdAt: Int!
-  createdBy: String!
+  createdBy: Int!
   updatedAt: Int!
   title: String
   description: String
-  users: [String]
+  users: [Int]
   members: [ChatMember]
-  admins: [String]
+  admins: [Int]
   messages: [Message]
   unread: Int
   private: Boolean

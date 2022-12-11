@@ -31,9 +31,11 @@ class RedisCache:
             pass
 
     async def lrange(self, key, start, stop):
+        print(f"[redis] LRANGE {key} {start} {stop}")
         return await self._instance.lrange(key, start, stop)
 
     async def mget(self, key, *keys):
+        print(f"[redis] MGET {key} {keys}")
         return await self._instance.mget(key, *keys)
 
 

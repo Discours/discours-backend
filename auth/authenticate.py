@@ -3,7 +3,6 @@ from typing import Optional, Tuple
 
 from graphql.type import GraphQLResolveInfo
 from sqlalchemy.orm import joinedload, exc
-from sqlalchemy import select, and_
 from starlette.authentication import AuthenticationBackend
 from starlette.requests import HTTPConnection
 

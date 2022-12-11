@@ -41,10 +41,10 @@ def add_author_stat_columns(q):
     #     func.sum(user_rating_aliased.value).label('rating_stat')
     # )
 
-    q = q.add_columns(literal(0).label('commented_stat'))
-    # q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
-    #     func.count(distinct(Reaction.id)).label('commented_stat')
-    # )
+    # q = q.add_columns(literal(0).label('commented_stat'))
+    q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
+        func.count(distinct(Reaction.id)).label('commented_stat')
+    )
 
     q = q.group_by(User.id)
 
@@ -152,7 +152,7 @@ async def get_user_roles(slug):
             .all()
         )
 
-    return []  # roles
+    return roles
 
 
 @mutation.field("updateProfile")
@@ -161,9 +161,18 @@ async def update_profile(_, info, profile):
     auth = info.context["request"].auth
     user_id = auth.user_id
     with local_session() as session:
-        session.query(User).filter(User.id == user_id).update(profile)
+        user = session.query(User).filter(User.id == user_id).one()
+        slugowner = session.query(User).where(User.slug == profile['slug']).one()
+        if slugowner:
+            if slugowner.id != user_id:
+                return {
+                    "error": "slug is used by another user"
+                }
+        user.update(profile)
         session.commit()
-    return {}
+    return {
+        "error": None
+    }
 
 
 @mutation.field("rateUser")

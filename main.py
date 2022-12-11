@@ -18,7 +18,11 @@ from resolvers.auth import confirm_email_handler
 from services.main import storages_init
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
-from settings import DEV_SERVER_STATUS_FILE_NAME, SENTRY_ID
+from settings import DEV_SERVER_STATUS_FILE_NAME, SENTRY_DSN
+from ariadne.asgi.handlers import GraphQLTransportWSHandler
+from services.inbox.presence import on_connect, on_disconnect
+# from services.inbox.sse import sse_messages
+
 
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
@@ -39,7 +43,7 @@ async def start_up():
     print(git_task)
     try:
         import sentry_sdk
-        sentry_sdk.init("https://%s@testsentry.discours.io/2" % SENTRY_ID)
+        sentry_sdk.init(SENTRY_DSN)
     except Exception as e:
         print('[sentry] init error')
         print(e)
@@ -63,7 +67,8 @@ async def shutdown():
 routes = [
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
-    Route("/confirm/{token}", endpoint=confirm_email_handler)
+    Route("/confirm/{token}", endpoint=confirm_email_handler),
+    # Route("/messages", endpoint=sse_messages)
 ]
 
 app = Starlette(
@@ -73,7 +78,14 @@ app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-app.mount("/", GraphQL(schema, debug=True))
+app.mount("/", GraphQL(
+    schema,
+    debug=True,
+    websocket_handler=GraphQLTransportWSHandler(
+        on_connect=on_connect,
+        on_disconnect=on_disconnect
+    )
+))
 
 dev_app = app = Starlette(
     debug=True,
@@ -82,4 +94,11 @@ dev_app = app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-dev_app.mount("/", GraphQL(schema, debug=True))
+dev_app.mount("/", GraphQL(
+    schema,
+    debug=True,
+    websocket_handler=GraphQLTransportWSHandler(
+        on_connect=on_connect,
+        on_disconnect=on_disconnect
+    )
+))
