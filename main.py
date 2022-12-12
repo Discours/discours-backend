@@ -65,10 +65,10 @@ async def shutdown():
 
 
 routes = [
+    Route("/messages", endpoint=sse_messages),
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
-    Route("/confirm/{token}", endpoint=confirm_email_handler),
-    Route("/messages", endpoint=sse_messages)
+    Route("/confirm/{token}", endpoint=confirm_email_handler)
 ]
 
 app = Starlette(
