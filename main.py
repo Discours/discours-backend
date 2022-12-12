@@ -78,7 +78,7 @@ app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-app.mount("/", GraphQL(
+app.mount("/graphql", GraphQL(
     schema,
     debug=True,
     # websocket_handler=GraphQLTransportWSHandler(
@@ -94,7 +94,7 @@ dev_app = app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-dev_app.mount("/", GraphQL(
+dev_app.mount("/graphql", GraphQL(
     schema,
     debug=True,
     # websocket_handler=GraphQLTransportWSHandler(
