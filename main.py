@@ -19,8 +19,8 @@ from services.main import storages_init
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
 from settings import DEV_SERVER_STATUS_FILE_NAME, SENTRY_DSN
-from ariadne.asgi.handlers import GraphQLTransportWSHandler
-from services.inbox.presence import on_connect, on_disconnect
+# from sse.transport import GraphQLSSEHandler
+# from services.inbox.presence import on_connect, on_disconnect
 # from services.inbox.sse import sse_messages
 
 
@@ -81,10 +81,10 @@ app = Starlette(
 app.mount("/", GraphQL(
     schema,
     debug=True,
-    websocket_handler=GraphQLTransportWSHandler(
-        on_connect=on_connect,
-        on_disconnect=on_disconnect
-    )
+    # websocket_handler=GraphQLTransportWSHandler(
+    #    on_connect=on_connect,
+    #    on_disconnect=on_disconnect
+    # )
 ))
 
 dev_app = app = Starlette(
@@ -97,8 +97,8 @@ dev_app = app = Starlette(
 dev_app.mount("/", GraphQL(
     schema,
     debug=True,
-    websocket_handler=GraphQLTransportWSHandler(
-        on_connect=on_connect,
-        on_disconnect=on_disconnect
-    )
+    # websocket_handler=GraphQLTransportWSHandler(
+    #    on_connect=on_connect,
+    #    on_disconnect=on_disconnect
+    # )
 ))

@@ -30,10 +30,10 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
             "id": message_id,
             "author": auth.user_id,
             "body": body,
-            "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
+            "createdAt": int(datetime.now(tz=timezone.utc).timestamp())
         }
         if replyTo:
-            new_message = int(replyTo)
+            new_message['replyTo'] = replyTo
         chat['updatedAt'] = new_message['createdAt']
         await redis.execute("SET", f"chats/{chat['id']}", json.dumps(chat))
         print(f"[inbox] creating message {new_message}")

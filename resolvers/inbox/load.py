@@ -11,27 +11,35 @@ from resolvers.zine.profile import followed_authors
 from .unread import get_unread_counter
 
 
-async def load_messages(chat_id: str, limit: int, offset: int):
+async def load_messages(chat_id: str, limit: int = 5, offset: int = 0, ids=[]):
     ''' load :limit messages for :chat_id with :offset '''
     messages = []
-    # print(f'[inbox] loading messages by chat: {chat_id}[{offset}:{offset + limit}]')
+    message_ids = []
+    if ids:
+        message_ids += ids
     try:
-        message_ids = await redis.lrange(f"chats/{chat_id}/message_ids",
-                                         offset,
-                                         offset + limit
-                                         )
-
-        # print(f'[inbox] message_ids: {message_ids}')
+        if limit:
+            message_ids = await redis.lrange(f"chats/{chat_id}/message_ids",
+                                             offset,
+                                             offset + limit
+                                             )
     except Exception as e:
         print(e)
     if message_ids:
         message_keys = [
             f"chats/{chat_id}/messages/{mid.decode('utf-8')}" for mid in message_ids
         ]
-        # print(message_keys)
         messages = await redis.mget(*message_keys)
         messages = [json.loads(msg.decode('utf-8')) for msg in messages]
-        # print('[inbox] messages \n%r' % messages)
+        replies = []
+        for m in messages:
+            rt = m.get('replyTo')
+            if rt:
+                rt = int(rt)
+                if rt not in message_ids:
+                    replies.append(rt)
+        if replies:
+            messages += await load_messages(chat_id, limit=0, ids=replies)
     return messages
 
 

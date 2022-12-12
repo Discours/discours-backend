@@ -11,9 +11,9 @@ async def set_online_status(user_id, status):
             await redis.execute("SREM", "users-online", user_id)
 
 
-async def on_connect(websocket, params):
+async def on_connect(req, params):
     if not isinstance(params, dict):
-        websocket.scope["connection_params"] = {}
+        req.scope["connection_params"] = {}
         return
     token = params.get('token')
     if not token:
@@ -21,12 +21,12 @@ async def on_connect(websocket, params):
     else:
         payload = await SessionToken.verify(token)
         if payload and payload.user_id:
-            websocket.scope["user_id"] = payload.user_id
+            req.scope["user_id"] = payload.user_id
             await set_online_status(payload.user_id, True)
 
 
-async def on_disconnect(websocket):
-    user_id = websocket.scope.get("user_id")
+async def on_disconnect(req):
+    user_id = req.scope.get("user_id")
     await set_online_status(user_id, False)
 
 

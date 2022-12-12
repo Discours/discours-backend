@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, asc, desc, select, text, func
-from sqlalchemy.orm import aliased
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
