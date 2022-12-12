@@ -21,7 +21,7 @@ from services.zine.gittask import GitTask
 from settings import DEV_SERVER_STATUS_FILE_NAME, SENTRY_DSN
 # from sse.transport import GraphQLSSEHandler
 # from services.inbox.presence import on_connect, on_disconnect
-# from services.inbox.sse import sse_messages
+from services.inbox.sse import sse_messages
 
 
 import_module("resolvers")
@@ -68,7 +68,7 @@ routes = [
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
     Route("/confirm/{token}", endpoint=confirm_email_handler),
-    # Route("/messages", endpoint=sse_messages)
+    Route("/messages", endpoint=sse_messages)
 ]
 
 app = Starlette(

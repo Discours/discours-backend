@@ -85,7 +85,7 @@ if __name__ == "__main__":
             headers=local_headers,
             # log_config=log_settings,
             log_level=None,
-            access_log=False,
+            access_log=True,
             reload=want_reload
         )  # , ssl_keyfile="discours.key", ssl_certfile="discours.crt")
     elif x == "migrate":
