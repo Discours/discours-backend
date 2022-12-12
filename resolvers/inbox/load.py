@@ -19,16 +19,16 @@ async def load_messages(chat_id: str, limit: int = 5, offset: int = 0, ids=[]):
         message_ids += ids
     try:
         if limit:
-            message_ids = await redis.lrange(f"chats/{chat_id}/message_ids",
-                                             offset,
-                                             offset + limit
-                                             )
+            mids = await redis.lrange(f"chats/{chat_id}/message_ids",
+                                      offset,
+                                      offset + limit
+                                      )
+            mids = [mid.decode("utf-8") for mid in mids]
+            message_ids += mids
     except Exception as e:
         print(e)
     if message_ids:
-        message_keys = [
-            f"chats/{chat_id}/messages/{mid.decode('utf-8')}" for mid in message_ids
-        ]
+        message_keys = [f"chats/{chat_id}/messages/{mid}" for mid in message_ids]
         messages = await redis.mget(*message_keys)
         messages = [json.loads(msg.decode('utf-8')) for msg in messages]
         replies = []
