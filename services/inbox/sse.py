@@ -1,5 +1,6 @@
 from sse_starlette.sse import EventSourceResponse
-from starlette.requests import Request, GraphQLResolveInfo
+from starlette.requests import Request
+from graphql.type import GraphQLResolveInfo
 from resolvers.inbox.messages import message_generator
 from base.exceptions import Unauthorized
 
