@@ -1,14 +1,18 @@
 from sse_starlette.sse import EventSourceResponse
-from starlette.requests import Request
+from starlette.requests import Request, GraphQLResolveInfo
 from resolvers.inbox.messages import message_generator
 from base.exceptions import Unauthorized
 
+# https://github.com/enisdenjo/graphql-sse/blob/master/PROTOCOL.md
+
 
 async def sse_messages(request: Request):
-    print(f'[SSE] {request.scope}')  # FIXME: DOES NOT HAPPEN TO BE CALLED
-    # https://github.com/enisdenjo/graphql-sse/blob/master/PROTOCOL.md
-    if request['user']:
-        event_generator = await message_generator(None, request.scope)
+    print(f'[SSE] request\n{request}\n')
+    info = GraphQLResolveInfo()
+    info.context['request'] = request.scope
+    user_id = request.scope['user'].user_id
+    if user_id:
+        event_generator = await message_generator(None, info)
         return EventSourceResponse(event_generator)
     else:
         raise Unauthorized("Please login")

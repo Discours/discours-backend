@@ -6,11 +6,12 @@ from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import mutation
+from validations.inbox import Chat
 
 
 @mutation.field("updateChat")
 @login_required
-async def update_chat(_, info, chat_new: dict):
+async def update_chat(_, info, chat_new: Chat):
     """
     updating chat
     requires info["request"].user.slug to be in chat["admins"]

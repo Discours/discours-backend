@@ -1,13 +1,15 @@
 import asyncio
 import json
+from typing import Any
 from datetime import datetime, timezone
-
+from graphql.type import GraphQLResolveInfo
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import mutation, subscription
 from services.inbox.helpers import ChatFollowing, MessageResult
 from services.inbox.storage import MessagesStorage
+from validations.inbox import Message
 
 
 @mutation.field("createMessage")
@@ -142,8 +144,7 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
 
 
 @subscription.source("newMessage")
-@login_required
-async def message_generator(obj, info):
+async def message_generator(_, info: GraphQLResolveInfo):
     print(f"[resolvers.messages] generator {info}")
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
@@ -172,3 +173,9 @@ async def message_generator(obj, info):
             yield msg
     finally:
         await MessagesStorage.remove_chat(following_chat)
+
+
+@subscription.field("newMessage")
+@login_required
+async def message_resolver(message: Message, info: Any):
+    return message
