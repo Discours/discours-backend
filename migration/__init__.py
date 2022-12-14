@@ -283,7 +283,7 @@ def mongo_download(url):
     print("[migration] mongodump " + url)
     for one in [
         "content_items",
-        "content_items_categories",
+        "content_item_categories",
         "users",
         "tags",
         "comments",
