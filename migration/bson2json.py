@@ -2,7 +2,7 @@ import json
 import os
 
 import bson
-
+import gc
 from .utils import DateTimeEncoder
 
 
@@ -17,6 +17,7 @@ def json_tables():
         "comments": [],
     }
     for table in data.keys():
+        gc.collect()
         lc = []
         with open("dump/discours/" + table + ".bson", "rb") as f:
             bs = f.read()

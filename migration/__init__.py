@@ -336,7 +336,7 @@ async def main():
         init_tables()
         if len(sys.argv) == 2:
             await handle_auto()
-        elif "comments" in sys.srgv:
+        elif "comments" in sys.argv:
             await handle_comments()
     else:
         print("[migration] usage: python server.py migrate")
