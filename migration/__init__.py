@@ -333,12 +333,12 @@ async def handle_comments():
 
 
 async def main():
-    if len(sys.argv) > 1:
+    if "migrate" in sys.argv:
         init_tables()
-        if len(sys.argv) == 2:
-            await handle_auto()
-        elif "comments" in sys.argv:
+        if "comments" in sys.argv:
             await handle_comments()
+        else:
+            await handle_auto()
     else:
         print("[migration] usage: python server.py migrate")
 
