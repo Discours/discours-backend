@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
-
+import gc
 import bs4
 from migration.tables.comments import migrate as migrateComment
 from migration.tables.comments import migrate_2stage as migrateComment_2stage
@@ -88,6 +88,7 @@ async def shouts_handle(storage, args):
     topics_dataset_bodies = []
     topics_dataset_tlist = []
     for entry in storage["shouts"]["data"]:
+        gc.collect()
         # slug
         slug = get_shout_slug(entry)
 
@@ -319,7 +320,9 @@ async def handle_auto():
         mongo_download(url)
     bson_handle()
     await all_handle(data_load(), sys.argv)
-    create_pgdump()
+    if "dump" in sys.argv:
+        print("[migration] creating pgdump")
+        create_pgdump()
 
 
 async def handle_comments():
