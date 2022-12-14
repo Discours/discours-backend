@@ -15,18 +15,18 @@ def json_tables():
         "email_subscriptions": [],
         "users": [],
         "comments": [],
+        "remarks": []
     }
     for table in data.keys():
+        print('[migration] bson2json for ' + table)
         gc.collect()
         lc = []
-        with open("dump/discours/" + table + ".bson", "rb") as f:
-            bs = f.read()
-            f.close()
-            base = 0
-            while base < len(bs):
-                base, d = bson.decode_document(bs, base)
-                lc.append(d)
-            data[table] = lc
-            open(os.getcwd() + "/migration/data/" + table + ".json", "w").write(
-                json.dumps(lc, cls=DateTimeEncoder)
-            )
+        bs = open("dump/discours/" + table + ".bson", "rb").read()
+        base = 0
+        while base < len(bs):
+            base, d = bson.decode_document(bs, base)
+            lc.append(d)
+        data[table] = lc
+        open(os.getcwd() + "/migration/data/" + table + ".json", "w").write(
+            json.dumps(lc, cls=DateTimeEncoder)
+        )
