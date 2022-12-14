@@ -287,7 +287,8 @@ def mongo_download(url):
         "users",
         "tags",
         "comments",
-        "remarks"
+        "remarks",
+        "email_subscriptions"
     ]:
         subprocess.call(
             [
