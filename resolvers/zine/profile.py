@@ -41,10 +41,10 @@ def add_author_stat_columns(q):
     #     func.sum(user_rating_aliased.value).label('rating_stat')
     # )
 
-    # q = q.add_columns(literal(0).label('commented_stat'))
-    q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
-        func.count(distinct(Reaction.id)).label('commented_stat')
-    )
+    q = q.add_columns(literal(0).label('commented_stat'))
+    # q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
+    #     func.count(distinct(Reaction.id)).label('commented_stat')
+    # )
 
     q = q.group_by(User.id)
 
