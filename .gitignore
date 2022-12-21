@@ -135,7 +135,7 @@ discours.crt
 discours.pem
 Pipfile.lock
 
-migration/data
+migration/data/**
 migration/content/**/*.md
 .obsidian
 
