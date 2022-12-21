@@ -1,8 +1,6 @@
 """ cmd managed migration """
 import asyncio
 import json
-import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 import gc
@@ -15,14 +13,11 @@ from migration.tables.topics import migrate as migrateTopic
 from migration.tables.users import migrate as migrateUser
 from migration.tables.users import migrate_2stage as migrateUser_2stage
 from orm.reaction import Reaction
-from settings import DB_URL
 from orm import init_tables
+from mgiration.export import export_mdx
 
-# from export import export_email_subscriptions
-from .export import export_mdx, export_slug
 
 TODAY = datetime.strftime(datetime.now(tz=timezone.utc), "%Y%m%d")
-
 OLD_DATE = "2016-03-05 22:22:00.350000"
 
 
@@ -169,20 +164,6 @@ async def comments_handle(storage):
     print("[migration] " + str(missed_counter) + " comments dropped")
 
 
-def bson_handle():
-    # decode bson # preparing data
-    from migration import bson2json
-
-    bson2json.json_tables()
-
-
-def export_one(slug, storage, args=None):
-    topics_handle(storage)
-    users_handle(storage)
-    shouts_handle(storage, args)
-    export_slug(slug, storage)
-
-
 async def all_handle(storage, args):
     print("[migration] handle everything")
     await users_handle(storage)
@@ -277,76 +258,17 @@ def data_load():
     return storage
 
 
-def mongo_download(url):
-    if not url:
-        raise Exception("\n\nYou should set MONGODB_URL enviroment variable\n")
-    print("[migration] mongodump " + url)
-    for one in [
-        "content_items",
-        "content_item_categories",
-        "users",
-        "tags",
-        "comments",
-        "remarks",
-        "email_subscriptions"
-    ]:
-        subprocess.call(
-            [
-                "mongodump",
-                "--uri",
-                url + "/?authSource=admin",
-                "--forceTableScan",
-                "--db=discours",
-                "--collection=" + one
-            ],
-            stderr=subprocess.STDOUT,
-        )
-
-
-def create_pgdump():
-    pgurl = DB_URL
-    if not pgurl:
-        raise Exception("\n\nYou should set DATABASE_URL enviroment variable\n")
-    subprocess.call(
-        ["pg_dump", pgurl, "-f", TODAY + "-pgdump.sql"], stderr=subprocess.STDOUT
-    )
-    subprocess.call(["scp", TODAY + "-pgdump.sql", "root@v2.discours.io:/root/."])  # manually then
-    subprocess.call(["scp", TODAY + "-pgdump.sql", "root@testapi.discours.io:/root/."])  # manually then
-
-
-async def handle_auto():
-    url = os.getenv("MONGODB_URL")
-    if url:
-        print("[migration] connecting mongo")
-        mongo_download(url)
-    bson_handle()
-    await all_handle(data_load(), sys.argv)
-    if "dump" in sys.argv:
-        print("[migration] creating pgdump")
-        create_pgdump()
-
-
-async def handle_comments():
-    # 1 load migrated users and shouts to storage
-    storage = None
-    await comments_handle(storage)
-
-
 async def main():
-    if "migrate" in sys.argv:
-        init_tables()
-        if "comments" in sys.argv:
-            await handle_comments()
-        else:
-            await handle_auto()
-    else:
-        print("[migration] usage: python server.py migrate")
-
-
-def migrate():
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    init_tables()
+    await all_handle(data_load(), sys.argv)
 
 
 if __name__ == "__main__":
-    migrate()
+    if "migrate" in sys.argv:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+    elif "bson" in sys.argv:
+        import bson2json
+        bson2json.json_tables()
+    else:
+        print("[migration] usage: python server.py migrate")
