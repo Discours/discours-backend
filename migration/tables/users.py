@@ -98,6 +98,8 @@ def migrate(entry):
                 session.query(User).filter(User.slug == user_dict["slug"]).first()
             )
             old_user.oid = oid
+            old_user.password = user_dict["password"]
+            session.commit()
             user = old_user
             if not user:
                 print("[migration] ERROR: cannot find user " + user_dict["slug"])
