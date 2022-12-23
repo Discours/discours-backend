@@ -88,21 +88,21 @@ def check_to_publish(session, user_id, reaction):
 def check_to_hide(session, user_id, reaction):
     ''' hides any shout if 20% of reactions are negative '''
     if not reaction.replyTo and reaction.kind in [
-        ReactionKind.DECLINE,
-        ReactionKind.UNLIKE,
-        ReactionKind.UNPROOF
+        ReactionKind.REJECT,
+        ReactionKind.DISLIKE,
+        ReactionKind.DISPROOF
     ]:
         # if is_published_author(user):
         approvers_reactions = session.query(Reaction).where(Reaction.shout == reaction.shout).all()
-        declines = 0
+        rejects = 0
         for r in approvers_reactions:
             if r.kind in [
-                ReactionKind.DECLINE,
-                ReactionKind.UNLIKE,
-                ReactionKind.UNPROOF
+                ReactionKind.REJECT,
+                ReactionKind.DISLIKE,
+                ReactionKind.DISPROOF
             ]:
-                declines += 1
-        if len(approvers_reactions) / declines < 5:
+                rejects += 1
+        if len(approvers_reactions) / rejects < 5:
             return True
     return False
 
@@ -134,6 +134,8 @@ async def create_reaction(_, info, reaction={}):
         r = Reaction.create(**reaction)
         session.add(r)
         session.commit()
+
+        print(r)
 
         # self-regulation mechanics
 
