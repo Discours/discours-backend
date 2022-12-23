@@ -127,81 +127,82 @@ def set_hidden(session, shout_id):
 
 @mutation.field("createReaction")
 @login_required
-async def create_reaction(_, info, inp):
+async def create_reaction(_, info, reaction={}):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        reaction = Reaction.create(**inp)
-        session.add(reaction)
+        r = Reaction.create(**reaction)
+        session.add(r)
         session.commit()
 
         # self-regulation mechanics
 
-        if check_to_hide(session, auth.user_id, reaction):
-            set_hidden(session, reaction.shout)
-        elif check_to_publish(session, auth.user_id, reaction):
-            set_published(session, reaction.shout, reaction.createdBy)
+        if check_to_hide(session, auth.user_id, r):
+            set_hidden(session, r.shout)
+        elif check_to_publish(session, auth.user_id, r):
+            set_published(session, r.shout, r.createdBy)
 
     try:
-        reactions_follow(auth.user_id, inp["shout"], True)
+        reactions_follow(auth.user_id, reaction["shout"], True)
     except Exception as e:
         print(f"[resolvers.reactions] error on reactions autofollowing: {e}")
 
-    reaction.stat = {
+    r.stat = {
         "commented": 0,
         "reacted": 0,
         "rating": 0
     }
-    return {"reaction": reaction}
+    return {"reaction": r}
 
 
 @mutation.field("updateReaction")
 @login_required
-async def update_reaction(_, info, inp):
+async def update_reaction(_, info, reaction={}):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
         user = session.query(User).where(User.id == auth.user_id).first()
-        q = select(Reaction).filter(Reaction.id == inp.id)
+        q = select(Reaction).filter(Reaction.id == reaction['id'])
         q = add_reaction_stat_columns(q)
 
-        [reaction, reacted_stat, commented_stat, rating_stat] = session.execute(q).unique().one()
+        [r, reacted_stat, commented_stat, rating_stat] = session.execute(q).unique().one()
 
-        if not reaction:
+        if not r:
             return {"error": "invalid reaction id"}
-        if reaction.createdBy != user.slug:
+        if r.createdBy != user.slug:
             return {"error": "access denied"}
 
-        reaction.body = inp["body"]
-        reaction.updatedAt = datetime.now(tz=timezone.utc)
-        if reaction.kind != inp["kind"]:
+        r.body = reaction["body"]
+        r.updatedAt = datetime.now(tz=timezone.utc)
+        if r.kind != reaction["kind"]:
             # NOTE: change mind detection can be here
             pass
-        if inp.get("range"):
-            reaction.range = inp.get("range")
+        if reaction.get("range"):
+            r.range = reaction.get("range")
         session.commit()
-        reaction.stat = {
+        r.stat = {
             "commented": commented_stat,
             "reacted": reacted_stat,
             "rating": rating_stat
         }
 
-    return {"reaction": reaction}
+    return {"reaction": r}
 
 
 @mutation.field("deleteReaction")
 @login_required
-async def delete_reaction(_, info, rid):
+async def delete_reaction(_, info, reaction=None):
+    # NOTE: reaction is id
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
         user = session.query(User).where(User.id == auth.user_id).first()
-        reaction = session.query(Reaction).filter(Reaction.id == rid).first()
-        if not reaction:
+        r = session.query(Reaction).filter(Reaction.id == reaction).first()
+        if not r:
             return {"error": "invalid reaction id"}
-        if reaction.createdBy != user.slug:
+        if r.createdBy != user.slug:
             return {"error": "access denied"}
-        reaction.deletedAt = datetime.now(tz=timezone.utc)
+        r.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
     return {}
 

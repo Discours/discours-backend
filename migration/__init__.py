@@ -14,7 +14,7 @@ from migration.tables.users import migrate as migrateUser
 from migration.tables.users import migrate_2stage as migrateUser_2stage
 from orm.reaction import Reaction
 from orm import init_tables
-from mgiration.export import export_mdx
+from migration.export import export_mdx
 
 
 TODAY = datetime.strftime(datetime.now(tz=timezone.utc), "%Y%m%d")
