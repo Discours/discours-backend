@@ -129,7 +129,7 @@ input TopicInput {
 }
 
 input ReactionInput {
-  kind: Int!
+  kind: ReactionKind!
   shout: Int!
   range: String
   body: String

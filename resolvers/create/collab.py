@@ -20,7 +20,7 @@ async def get_collabs(_, info):
 
 @mutation.field("inviteCoauthor")
 @login_required
-async def invite_coauthor(_, info, author: str, shout: int):
+async def invite_coauthor(_, info, author: int = 0, shout: int = 0):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
@@ -43,21 +43,19 @@ async def invite_coauthor(_, info, author: str, shout: int):
 
 @mutation.field("removeCoauthor")
 @login_required
-async def remove_coauthor(_, info, author: str, shout: int):
+async def remove_coauthor(_, info, author: int = 0, shout: int = 0):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        s = session.query(Shout).where(Shout.id == shout).one()
-        if not s:
-            raise ObjectNotExist("invalid shout id")
-        if auth.user_id != s.createdBy:
+        s = session.query(Shout).where(Shout.id == shout).one()  # raises Error when not found
+        if auth.user_id not in s.authors:
             raise BaseHttpException("only owner can remove coauthors")
         else:
             c = session.query(Collab).where(Collab.shout == shout).one()
-            ca = session.query(CollabAuthor).join(User).where(c.shout == shout, User.slug == author).one()
+            ca = session.query(CollabAuthor).join(User).where(c.shout == shout, User.id == author).one()
             session.remve(ca)
-            c.invites = filter(lambda x: x.slug == author, c.invites)
-            c.authors = filter(lambda x: x.slug == author, c.authors)
+            c.invites = filter(lambda x: x.id == author, c.invites)
+            c.authors = filter(lambda x: x.id == author, c.authors)
             session.add(c)
             session.commit()
 

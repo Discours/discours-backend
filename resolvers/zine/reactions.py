@@ -14,9 +14,9 @@ def add_reaction_stat_columns(q):
     return add_common_stat_columns(q)
 
 
-def reactions_follow(user_id, slug: str, auto=False):
+def reactions_follow(user_id, shout_id: int, auto=False):
     with local_session() as session:
-        shout = session.query(Shout).where(Shout.slug == slug).one()
+        shout = session.query(Shout).where(Shout.id == shout_id).one()
 
         following = (
             session.query(ShoutReactionsFollower).where(and_(
@@ -35,9 +35,9 @@ def reactions_follow(user_id, slug: str, auto=False):
             session.commit()
 
 
-def reactions_unfollow(user_id, slug):
+def reactions_unfollow(user_id: int, shout_id: int):
     with local_session() as session:
-        shout = session.query(Shout).where(Shout.slug == slug).one()
+        shout = session.query(Shout).where(Shout.id == shout_id).one()
 
         following = (
             session.query(ShoutReactionsFollower).where(and_(
@@ -129,7 +129,7 @@ def set_hidden(session, shout_id):
 @login_required
 async def create_reaction(_, info, reaction={}):
     auth: AuthCredentials = info.context["request"].auth
-
+    reaction['createdBy'] = auth.user_id
     with local_session() as session:
         r = Reaction.create(**reaction)
         session.add(r)
