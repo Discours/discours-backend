@@ -93,6 +93,11 @@ if __name__ == "__main__":
         print("MODE: MIGRATE")
 
         migrate()
+    elif x == "bson":
+        from migration.bson2json import json_tables
+        print("MODE: BSON")
+
+        json_tables()
     else:
         sys.excepthook = exception_handler
         uvicorn.run(
