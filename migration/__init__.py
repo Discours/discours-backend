@@ -264,14 +264,8 @@ async def handling_migration():
 
 
 def process():
-    if "migrate" in sys.argv:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(handling_migration())
-    elif "bson" in sys.argv:
-        import bson2json
-        bson2json.json_tables()
-    else:
-        print("[migration] usage: python server.py migrate")
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(handling_migration())
 
 
 if __name__ == "__main__":
