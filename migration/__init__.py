@@ -258,17 +258,21 @@ def data_load():
     return storage
 
 
-async def main():
+async def handling_migration():
     init_tables()
     await all_handle(data_load(), sys.argv)
 
 
-if __name__ == "__main__":
+def process():
     if "migrate" in sys.argv:
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
+        loop.run_until_complete(handling_migration())
     elif "bson" in sys.argv:
         import bson2json
         bson2json.json_tables()
     else:
         print("[migration] usage: python server.py migrate")
+
+
+if __name__ == "__main__":
+    process()

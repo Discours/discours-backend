@@ -89,10 +89,10 @@ if __name__ == "__main__":
             reload=want_reload
         )  # , ssl_keyfile="discours.key", ssl_certfile="discours.crt")
     elif x == "migrate":
-        from migration import migrate
+        from migration import process
         print("MODE: MIGRATE")
 
-        migrate()
+        process()
     elif x == "bson":
         from migration.bson2json import json_tables
         print("MODE: BSON")
