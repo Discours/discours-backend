@@ -1,4 +1,4 @@
-from base.exceptions import Unauthorized
+# from base.exceptions import Unauthorized
 from auth.tokenstorage import SessionToken
 from base.redis import redis
 
@@ -17,7 +17,10 @@ async def on_connect(req, params):
         return
     token = params.get('token')
     if not token:
-        raise Unauthorized("Please login")
+        # raise Unauthorized("Please login")
+        return {
+            "error": "Please login first"
+        }
     else:
         payload = await SessionToken.verify(token)
         if payload and payload.user_id:

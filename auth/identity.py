@@ -7,7 +7,7 @@ from sqlalchemy import or_
 
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-from base.exceptions import InvalidPassword, InvalidToken
+# from base.exceptions import InvalidPassword, InvalidToken
 from base.orm import local_session
 from orm import User
 from validations.auth import AuthInput
@@ -56,9 +56,15 @@ class Identity:
     def password(orm_user: User, password: str) -> User:
         user = User(**orm_user.dict())
         if not user.password:
-            raise InvalidPassword("User password is empty")
+            # raise InvalidPassword("User password is empty")
+            return {
+                "error": "User password is empty"
+            }
         if not Password.verify(password, user.password):
-            raise InvalidPassword("Wrong user password")
+            # raise InvalidPassword("Wrong user password")
+            return {
+                "error": "Wrong user password"
+            }
         return user
 
     @staticmethod
@@ -84,15 +90,27 @@ class Identity:
             print('[auth.identity] using one time token')
             payload = JWTCodec.decode(token)
             if not await TokenStorage.exist(f"{payload.user_id}-{token}"):
-                raise InvalidToken("Login token has expired, please login again")
+                # raise InvalidToken("Login token has expired, please login again")
+                return {
+                    "error": "Token has expired"
+                }
         except ExpiredSignatureError:
-            raise InvalidToken("Login token has expired, please try again")
-        except DecodeError as e:
-            raise InvalidToken("token format error") from e
+            # raise InvalidToken("Login token has expired, please try again")
+            return {
+                "error": "Token has expired"
+            }
+        except DecodeError:
+            # raise InvalidToken("token format error") from e
+            return {
+                "error": "Token format error"
+            }
         with local_session() as session:
             user = session.query(User).filter_by(id=payload.user_id).first()
             if not user:
-                raise Exception("user not exist")
+                # raise Exception("user not exist")
+                return {
+                    "error": "User does not exist"
+                }
             if not user.emailConfirmed:
                 user.emailConfirmed = True
                 session.commit()

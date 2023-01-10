@@ -12,7 +12,7 @@ from orm.user import User, Role
 
 from settings import SESSION_TOKEN_HEADER
 from auth.tokenstorage import SessionToken
-from base.exceptions import InvalidToken, Unauthorized, OperationNotAllowed
+from base.exceptions import InvalidToken, OperationNotAllowed
 
 
 class JWTAuthenticate(AuthenticationBackend):
@@ -77,7 +77,10 @@ def login_required(func):
         auth: AuthCredentials = info.context["request"].auth
         # print(auth)
         if not auth or not auth.logged_in:
-            raise Unauthorized(auth.error_message or "Please login")
+            # raise Unauthorized(auth.error_message or "Please login")
+            return {
+                "error": "Please login first"
+            }
         return await func(parent, info, *args, **kwargs)
 
     return wrap
