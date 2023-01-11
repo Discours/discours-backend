@@ -171,7 +171,7 @@ async def update_reaction(_, info, reaction={}):
 
         if not r:
             return {"error": "invalid reaction id"}
-        if r.createdBy != user.slug:
+        if r.createdBy != user.id:
             return {"error": "access denied"}
 
         r.body = reaction["body"]
@@ -202,7 +202,7 @@ async def delete_reaction(_, info, reaction=None):
         r = session.query(Reaction).filter(Reaction.id == reaction).first()
         if not r:
             return {"error": "invalid reaction id"}
-        if r.createdBy != user.slug:
+        if r.createdBy != user.id:
             return {"error": "access denied"}
         r.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
