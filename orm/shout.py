@@ -50,7 +50,7 @@ class Shout(Base):
     subtitle = Column(String, nullable=True)
     layout = Column(String, nullable=True)
     mainTopic = Column(ForeignKey("topic.slug"), nullable=True)
-    cover = Column(String, nullable=True)
+    cover = Column(String, nullable=True, comment="Cover")
     authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__)
     topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
     reactions = relationship(lambda: Reaction)
