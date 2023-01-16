@@ -8,7 +8,8 @@ from resolvers.auth import (
     get_current_user,
 )
 
-from resolvers.create.collab import remove_coauthor, invite_coauthor
+from resolvers.create.collab import load_drafts, create_draft, update_draft, delete_draft,\
+    accept_coauthor, invite_coauthor
 from resolvers.create.migrate import markdown_body
 from resolvers.create.editor import create_shout, delete_shout, update_shout
 
@@ -93,8 +94,12 @@ __all__ = [
     # create.migrate
     "markdown_body",
     # create.collab
+    "load_drafts",
+    "create_draft",
+    "update_draft",
+    "delete_draft",
     "invite_coauthor",
-    "remove_coauthor",
+    "accept_coauthor",
     # zine.topics
     "topics_all",
     "topics_by_community",

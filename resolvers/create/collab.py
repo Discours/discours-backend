@@ -3,33 +3,33 @@ from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import query, mutation
 from base.exceptions import ObjectNotExist, BaseHttpException
-from orm.draft import DraftCollab, CollabAuthor
+from orm.draft import DraftCollab, DraftAuthor, DraftTopic
 from orm.shout import Shout
 from orm.user import User
 
 
-# TODO: use updatedAt
-
-
 @query.field("loadDrafts")
 @login_required
-async def get_drafts(_, info):
+async def load_drafts(_, info):
     auth: AuthCredentials = info.context["request"].auth
     drafts = []
     with local_session() as session:
         drafts = session.query(DraftCollab).filter(auth.user_id in DraftCollab.authors)
-    return {
-        "drafts": drafts
-    }
+        return drafts
 
 
 @mutation.field("createDraft") # TODO
 @login_required
-async def create_draft(_, info):
+async def create_draft(_, info, draft_input):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-    pass
+        collab = DraftCollab.create(**draft_input)
+        session.add(collab)
+        session.commit()
+
+    # TODO: email notify to all authors
+    return {}
 
 
 @mutation.field("deleteDraft") # TODO
@@ -38,15 +38,29 @@ async def delete_draft(_, info, draft: int = 0):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-    pass
+        collab = session.query(DraftCollab).where(DraftCollab.id == draft_input.id).one()
+        if auth.user_id not in s.authors:
+            # raise BaseHttpException("only owner can remove coauthors")
+            return {
+                "error": "Only authors can update a draft"
+            }
+        elif not collab:
+            return {
+                "error": "There is no draft with this id"
+            }
+        else:
+            session.delete(collab)
+            session.commit()
+            return {}
 
-@mutation.field("updateDraft") # TODO
+
+@mutation.field("updateDraft") # TODO: draft input type
 @login_required
-async def update_draft(_, info, author: int = 0, draft: int = 0):
+async def update_draft(_, info, draft_input):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        s = session.query(DraftCollab).where(DraftCollab.id == draft).one()  # raises Error when not found
+        collab = session.query(DraftCollab).where(DraftCollab.id == draft_input.id).one()  # raises Error when not found
         if auth.user_id not in s.authors:
             # raise BaseHttpException("only owner can remove coauthors")
             return {
@@ -57,12 +71,8 @@ async def update_draft(_, info, author: int = 0, draft: int = 0):
                 "error": "There is no draft with this id"
             }
         else:
-            c = session.query(DraftCollab).where(DraftCollab.id == draft).one()
-            ca = session.query(CollabAuthor).join(User).where(c.id == draft).filter(User.id == author).one()
-            session.remve(ca)
-            c.invites = filter(lambda x: x.id == author, c.invites)
-            c.authors = filter(lambda x: x.id == author, c.authors)
-            session.add(c)
+            draft_input["updatedAt"] = datetime.now(tz=timezone.utc)
+            collab.update(**draft_input)
             session.commit()
 
     # TODO: email notify
@@ -80,11 +90,19 @@ async def invite_coauthor(_, info, author: int = 0, draft: int = 0):
             return {
                 "error": "You are not in authors list"
             }
-        else:
+        elif c.id:
             invited_user = session.query(User).where(User.id == author).one()
-            c.invites.append(invited_user)
-            session.add(c)
+            da = DraftAuthor.create({
+                "accepted": False,
+                "collab": c.id,
+                "author": invited_user.id
+            })
+            session.add(da)
             session.commit()
+        else:
+            return {
+                "error": "Draft is not found"
+            }
 
     # TODO: email notify
     return {}
@@ -96,13 +114,17 @@ async def accept_coauthor(_, info, draft: int):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        c = session.query(DraftCollab).where(DraftCollab.id == draft).one()
-        accepted = filter(lambda x: x.id == auth.user_id, c.invites).pop()
-        if accepted:
-            c.authors.append(accepted)
-            session.add(c)
+        # c = session.query(DraftCollab).where(DraftCollab.id == draft).one()
+        a = session.query(DraftAuthor).where(DraftAuthor.collab == draft).filter(DraftAuthor.author == auth.user_id).one()
+        if not a.accepted:
+            a.accepted = True
             session.commit()
+            # TODO: email notify
             return {}
+        elif a.accepted == True:
+            return {
+                "error": "You have accepted invite before"
+            }
         else:
             # raise BaseHttpException("only invited can accept")
             return {

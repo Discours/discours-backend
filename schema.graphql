@@ -69,6 +69,7 @@ type Result {
   members: [ChatMember]
   shout: Shout
   shouts: [Shout]
+  drafts: [DraftCollab]
   author: Author
   authors: [Author]
   reaction: Reaction
@@ -538,10 +539,16 @@ type Chat {
   private: Boolean
 }
 
-type Collab {
- authors: [String]!
- invites: [String]
- shout: Shout
+type DraftCollab {
+ slug: String
+ title: String
+ subtitle: String
+ body: String
+ cover: String
+ layout: String
+ authors: [Int]!
+ topics: [String]
  chat: Chat
  createdAt: Int!
+ updatedAt: Int
 }
