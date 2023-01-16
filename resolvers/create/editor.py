@@ -14,7 +14,7 @@ from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from services.zine.gittask import GitTask
 from resolvers.inbox.chats import create_chat
 from services.inbox.storage import MessagesStorage
-from orm.collab import Collab
+from orm.draft import DraftCollab
 
 
 @mutation.field("createShout")
