@@ -1,25 +1,48 @@
 from datetime import datetime, timedelta, timezone
+
 from sqlalchemy.orm import joinedload, aliased
-from sqlalchemy.sql.expression import desc, asc, select, func
+from sqlalchemy.sql.expression import desc, asc, select, func, case
 
 from auth.credentials import AuthCredentials
+from base.exceptions import ObjectNotExist
 from base.orm import local_session
 from base.resolvers import query
-from base.exceptions import ObjectNotExist
 from orm import ViewedEntry
+from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor
-from orm.reaction import Reaction
-from resolvers.zine._common import add_common_stat_columns
 
 
 def add_stat_columns(q):
-    q = q.outerjoin(ViewedEntry).add_columns(func.sum(ViewedEntry.amount).label('viewed_stat'))
+    aliased_reaction = aliased(Reaction)
 
-    return add_common_stat_columns(q)
+    q = q.outerjoin(aliased_reaction).add_columns(
+        func.sum(
+            aliased_reaction.id
+        ).label('reacted_stat'),
+        func.sum(
+            case(
+                (aliased_reaction.body.is_not(None), 1),
+                else_=0
+            )
+        ).label('commented_stat'),
+        func.sum(case(
+            # do not count comments' reactions
+            (aliased_reaction.replyTo.is_not(None), 0),
+            (aliased_reaction.kind == ReactionKind.AGREE, 1),
+            (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
+            (aliased_reaction.kind == ReactionKind.PROOF, 1),
+            (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
+            (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
+            (aliased_reaction.kind == ReactionKind.REJECT, -1),
+            (aliased_reaction.kind == ReactionKind.LIKE, 1),
+            (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
+            else_=0)
+        ).label('rating_stat'))
+
+    return q
 
 
 def apply_filters(q, filters, user_id=None):
-
     if filters.get("reacted") and user_id:
         q.join(Reaction, Reaction.createdBy == user_id)
 
@@ -59,8 +82,25 @@ async def load_shout(_, info, slug):
         ).filter(
             Shout.deletedAt.is_(None)
         ).group_by(Shout.id)
+
         try:
-            [shout, viewed_stat, reacted_stat, commented_stat, rating_stat] = session.execute(q).first()
+            [shout, reacted_stat, commented_stat, rating_stat] = session.execute(q).first()
+
+            viewed_stat_query = select().select_from(
+                Shout
+            ).where(
+                Shout.id == shout.id
+            ).join(
+                ViewedEntry
+            ).group_by(
+                Shout.id
+            ).add_columns(
+                func.sum(ViewedEntry.amount).label('viewed_stat')
+            )
+
+            # Debug tip:
+            # print(viewed_stat_query.compile(compile_kwargs={"literal_binds": True}))
+            viewed_stat = session.execute(viewed_stat_query).scalar()
 
             shout.stat = {
                 "viewed": viewed_stat,
@@ -125,15 +165,32 @@ async def load_shouts_by(_, info, options):
 
     with local_session() as session:
         shouts = []
+        shouts_map = {}
 
-        for [shout, viewed_stat, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
+        for [shout, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
             shouts.append(shout)
-
             shout.stat = {
-                "viewed": viewed_stat,
+                "viewed": 0,
                 "reacted": reacted_stat,
                 "commented": commented_stat,
                 "rating": rating_stat
             }
+            shouts_map[shout.id] = shout
+
+        viewed_stat_query = select(
+            Shout.id
+        ).where(
+            Shout.id.in_(shouts_map.keys())
+        ).join(
+            ViewedEntry
+        ).group_by(
+            Shout.id
+        ).add_columns(
+            func.sum(ViewedEntry.amount).label('viewed_stat')
+        )
+
+        for [shout_id, viewed_stat] in session.execute(viewed_stat_query).unique():
+            shouts.append(shout)
+            shouts_map[shout_id].stat['viewed'] = viewed_stat
 
     return shouts

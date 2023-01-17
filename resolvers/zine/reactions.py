@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import and_, asc, desc, select, text, func
+from sqlalchemy import and_, asc, desc, select, text, func, case
+from sqlalchemy.orm import aliased
+
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
@@ -7,11 +9,34 @@ from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
-from resolvers.zine._common import add_common_stat_columns
 
 
 def add_reaction_stat_columns(q):
-    return add_common_stat_columns(q)
+    aliased_reaction = aliased(Reaction)
+
+    q = q.outerjoin(aliased_reaction).add_columns(
+        func.sum(
+            aliased_reaction.id
+        ).label('reacted_stat'),
+        func.sum(
+            case(
+                (aliased_reaction.body.is_not(None), 1),
+                else_=0
+            )
+        ).label('commented_stat'),
+        func.sum(case(
+            (aliased_reaction.kind == ReactionKind.AGREE, 1),
+            (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
+            (aliased_reaction.kind == ReactionKind.PROOF, 1),
+            (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
+            (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
+            (aliased_reaction.kind == ReactionKind.REJECT, -1),
+            (aliased_reaction.kind == ReactionKind.LIKE, 1),
+            (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
+            else_=0)
+        ).label('rating_stat'))
+
+    return q
 
 
 def reactions_follow(user_id, shout_id: int, auto=False):

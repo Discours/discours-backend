@@ -1,4 +1,5 @@
 import asyncio
+import os
 from importlib import import_module
 from os.path import exists
 from ariadne import load_schema_from_path, make_executable_schema
@@ -18,7 +19,7 @@ from resolvers.auth import confirm_email_handler
 from services.main import storages_init
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
-from settings import DEV_SERVER_STATUS_FILE_NAME, SENTRY_DSN
+from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
 # from sse.transport import GraphQLSSEHandler
 # from services.inbox.presence import on_connect, on_disconnect
 from services.inbox.sse import sse_messages
@@ -50,12 +51,12 @@ async def start_up():
 
 
 async def dev_start_up():
-    if exists(DEV_SERVER_STATUS_FILE_NAME):
+    if exists(DEV_SERVER_PID_FILE_NAME):
         await redis.connect()
         return
     else:
-        with open(DEV_SERVER_STATUS_FILE_NAME, 'w', encoding='utf-8') as f:
-            f.write('running')
+        with open(DEV_SERVER_PID_FILE_NAME, 'w', encoding='utf-8') as f:
+            f.write(str(os.getpid()))
 
     await start_up()
 

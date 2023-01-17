@@ -148,5 +148,6 @@ dump
 .vscode
 *dump.sql
 *.csv
-dev-server-status.txt
+dev-server.pid
 /resetdb.sh
+backups/

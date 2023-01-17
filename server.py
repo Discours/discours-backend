@@ -2,7 +2,7 @@ import sys
 import os
 import uvicorn
 
-from settings import PORT, DEV_SERVER_STATUS_FILE_NAME
+from settings import PORT, DEV_SERVER_PID_FILE_NAME
 
 
 def exception_handler(exception_type, exception, traceback, debug_hook=sys.excepthook):
@@ -69,8 +69,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         x = sys.argv[1]
     if x == "dev":
-        if os.path.exists(DEV_SERVER_STATUS_FILE_NAME):
-            os.remove(DEV_SERVER_STATUS_FILE_NAME)
+        if os.path.exists(DEV_SERVER_PID_FILE_NAME):
+            os.remove(DEV_SERVER_PID_FILE_NAME)
         want_reload = False
         if "reload" in sys.argv:
             print("MODE: DEV + RELOAD")
