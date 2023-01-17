@@ -205,7 +205,9 @@ async def delete_reaction(_, info, reaction=None):
             return {"error": "access denied"}
         r.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
-    return {}
+    return {
+        "reaction": r
+    }
 
 
 @query.field("loadReactionsBy")
