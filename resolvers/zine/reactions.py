@@ -198,11 +198,10 @@ async def delete_reaction(_, info, reaction=None):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        user = session.query(User).where(User.id == auth.user_id).first()
         r = session.query(Reaction).filter(Reaction.id == reaction).first()
         if not r:
             return {"error": "invalid reaction id"}
-        if r.createdBy != user.id:
+        if r.createdBy != auth.user_id:
             return {"error": "access denied"}
         r.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()

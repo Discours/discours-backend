@@ -4,27 +4,28 @@ from migration.html2text import html2text
 from orm.remark import Remark
 
 
-def migrate(entry):
+def migrate(entry, storage):
+    post_oid = entry['contentItem']
+    print(post_oid)
+    shout_dict = storage['shouts']['by_oid'].get(post_oid)
     remark = {
-        "slug": entry["slug"],
-        "oid": entry["_id"],
-        "body": extract_md(html2text(
-            entry['body'] + entry['textAfter'] or '' + \
-            entry['textBefore'] or '' + \
-            entry['textSelected'] or ''
-        ), entry["_id"])
+        "shout": shout_dict['id'],
+        "body": extract_md(
+            html2text(entry['body']),
+            entry['_id']
+        ),
+        "desc": extract_md(
+            html2text(
+                entry['textAfter'] or '' + \
+                entry['textBefore'] or '' + \
+                entry['textSelected'] or ''
+            ),
+            entry["_id"]
+        )
     }
 
     with local_session() as session:
-        slug = remark["slug"]
-        rmrk = session.query(Remark).filter(Remark.slug == slug).first() or Remark.create(
-            **remark
-        )
-        if not rmrk:
-            raise Exception("no rmrk!")
-        if rmrk:
-            Remark.update(rmrk, remark)
-            session.commit()
-    rt = tt.__dict__.copy()
-    del rt["_sa_instance_state"]
-    return rt
+        rmrk = Remark.create(**remark)
+        session.commit()
+        del rmrk["_sa_instance_state"]
+        return rmrk

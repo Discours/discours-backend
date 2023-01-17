@@ -8,8 +8,8 @@ from base.orm import Base
 
 class Remark(Base):
 
-    tablename = "remark"
+    __tablename__ = "remark"
 
-    slug = Column(String, unique=True, nullable=False)
     body = Column(String, nullable=False)
+    desc = Column(String, default='')
     shout = Column(ForeignKey("shout.id"), nullable=True, index=True, comment="Shout")

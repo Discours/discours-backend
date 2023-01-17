@@ -140,7 +140,7 @@ async def remarks_handle(storage):
     print("[migration] comments")
     c = 0
     for entry_remark in storage["remarks"]["data"]:
-        remark = await migrateRemark(entry_remark)
+        remark = await migrateRemark(entry_remark, storage)
         c += 1
     print("[migration] " + str(c) + " remarks migrated")
 
@@ -179,9 +179,9 @@ async def all_handle(storage, args):
     await users_handle(storage)
     await topics_handle(storage)
     print("[migration] users and topics are migrated")
-    await remarks_handle(storage)
-    print("[migration] remarks are migrated")
     await shouts_handle(storage, args)
+    print("[migration] remarks...")
+    await remarks_handle(storage)
     print("[migration] migrating comments")
     await comments_handle(storage)
     # export_email_subscriptions()
@@ -202,6 +202,7 @@ def data_load():
             "cats": [],
             "tags": [],
         },
+        "remarks": {"data": []},
         "users": {"by_oid": {}, "by_slug": {}, "data": []},
         "replacements": json.loads(open("migration/tables/replacements.json").read()),
     }
