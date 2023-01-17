@@ -162,16 +162,15 @@ async def update_profile(_, info, profile):
     user_id = auth.user_id
     with local_session() as session:
         user = session.query(User).filter(User.id == user_id).one()
-        slugowner = session.query(User).where(User.slug == profile['slug']).one()
-        if slugowner:
-            if slugowner.id != user_id:
-                return {
-                    "error": "slug is used by another user"
-                }
+        if not user:
+            return {
+                "error": "canoot find user"
+            }
         user.update(profile)
         session.commit()
     return {
-        "error": None
+        "error": None,
+        "author": user
     }
 
 
