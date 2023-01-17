@@ -72,7 +72,7 @@ async def update_draft(_, info, draft_input):
             }
         else:
             draft_input["updatedAt"] = datetime.now(tz=timezone.utc)
-            collab.update(**draft_input)
+            collab.update(draft_input)
             session.commit()
 
     # TODO: email notify
