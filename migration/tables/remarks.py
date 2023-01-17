@@ -5,8 +5,6 @@ from orm.remark import Remark
 
 
 def migrate(entry):
-    print(entry)
-    break
     remark = {
         "slug": entry["slug"],
         "oid": entry["_id"],
@@ -20,7 +18,7 @@ def migrate(entry):
     with local_session() as session:
         slug = remark["slug"]
         rmrk = session.query(Remark).filter(Remark.slug == slug).first() or Remark.create(
-            **tooltip
+            **remark
         )
         if not rmrk:
             raise Exception("no rmrk!")
