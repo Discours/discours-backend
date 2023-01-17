@@ -407,6 +407,9 @@ enum ReactionKind {
   PROPOSE
   ASK
 
+  REMARK
+  FOOTNOTE
+
   ACCEPT
   REJECT
 }

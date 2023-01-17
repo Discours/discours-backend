@@ -10,7 +10,7 @@ def migrate(entry):
         "slug": entry["slug"],
         "oid": entry["_id"],
         "title": entry["title"].replace("&nbsp;", " "),
-        "body": extract_md(html2text(body_orig), entry["_id"])
+        "body": extract_md(html2text(body_orig))
     }
 
     with local_session() as session:
