@@ -11,6 +11,7 @@ from migration.tables.content_items import get_shout_slug
 from migration.tables.content_items import migrate as migrateShout
 from migration.tables.topics import migrate as migrateTopic
 from migration.tables.users import migrate as migrateUser
+from migration.tables.remarks import migrate as migrateRemark
 from migration.tables.users import migrate_2stage as migrateUser_2stage
 from orm.reaction import Reaction
 from orm import init_tables
@@ -135,6 +136,15 @@ async def shouts_handle(storage, args):
     print("[migration] " + str(anonymous_author) + " authored by @anonymous")
 
 
+async def remarks_handle(storage):
+    print("[migration] comments")
+    c = 0
+    for entry_remark in storage["remarks"]["data"]:
+        remark = await migrateRemark(entry_remark)
+        c += 1
+    print("[migration] " + str(c) + " remarks migrated")
+
+
 async def comments_handle(storage):
     print("[migration] comments")
     id_map = {}
@@ -169,6 +179,8 @@ async def all_handle(storage, args):
     await users_handle(storage)
     await topics_handle(storage)
     print("[migration] users and topics are migrated")
+    await remarks_handle(storage)
+    print("[migration] remarks are migrated")
     await shouts_handle(storage, args)
     print("[migration] migrating comments")
     await comments_handle(storage)
@@ -210,6 +222,11 @@ def data_load():
         content_data = json.loads(open("migration/data/content_items.json").read())
         storage["shouts"]["data"] = content_data
         print("[migration.load] " + str(len(content_data)) + " content items ")
+
+        remarks_data = json.loads(open("migration/data/remarks.json").read())
+        storage["remarks"]["data"] = remarks_data
+        print("[migration.load] " + str(len(remarks_data)) + " remarks data ")
+
         # fill out storage
         for x in users_data:
             storage["users"]["by_oid"][x["_id"]] = x
