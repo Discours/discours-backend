@@ -1,16 +1,17 @@
 import asyncio
 import time
 from datetime import timedelta, timezone, datetime
+from os import environ, path
+from ssl import create_default_context
+
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
-from base.orm import local_session
 from sqlalchemy import func
 
+from base.orm import local_session
 from orm import User, Topic
 from orm.shout import ShoutTopic, Shout
 from orm.viewed import ViewedEntry
-from ssl import create_default_context
-from os import environ, path
 
 load_facts = gql("""
 query getDomains {
@@ -64,7 +65,7 @@ class ViewedStorage:
     views = None
     pages = None
     domains = None
-    period = 24 * 60 * 60  # one time a day
+    period = 60 * 60  # every hour
     client = None
     auth_result = None
     disabled = False
@@ -98,8 +99,8 @@ class ViewedStorage:
                     p = page["value"].split("?")[0]
                     slug = p.split('discours.io/')[-1]
                     shouts[slug] = page["count"]
-                for slug, v in shouts:
-                    await ViewedStorage.increment(slug, v)
+                for slug in shouts.keys():
+                    await ViewedStorage.increment(slug, shouts[slug])
             except Exception:
                 pass
             print("[stat.viewed] ⎪ %d pages collected " % len(shouts.keys()))
@@ -164,15 +165,31 @@ class ViewedStorage:
         self = ViewedStorage
         async with self.lock:
             with local_session() as session:
-                shout = session.query(Shout).where(Shout.slug == shout_slug).one()
-                viewer = session.query(User).where(User.slug == viewer).one()
+                # TODO: user slug -> id
+                viewed = session.query(
+                    ViewedEntry
+                ).join(
+                    Shout
+                ).join(
+                    User
+                ).filter(
+                    User.slug == viewer,
+                    Shout.slug == shout_slug
+                ).first()
 
-                viewed = ViewedEntry.create(**{
-                    "viewer": viewer.id,
-                    "shout": shout.id,
-                    "amount": amount
-                })
-                session.add(viewed)
+                if viewed:
+                    viewed.amount = amount
+                    print("amount: %d" % amount)
+                else:
+                    shout = session.query(Shout).where(Shout.slug == shout_slug).one()
+                    viewer = session.query(User).where(User.slug == viewer).one()
+                    new_viewed = ViewedEntry.create(**{
+                        "viewer": viewer.id,
+                        "shout": shout.id,
+                        "amount": amount
+                    })
+                    session.add(new_viewed)
+
                 session.commit()
                 self.by_shouts[shout_slug] = self.by_shouts.get(shout_slug, 0) + amount
                 self.update_topics(session, shout_slug)
@@ -184,25 +201,25 @@ class ViewedStorage:
         self = ViewedStorage
         if self.disabled:
             return
-        async with self.lock:
-            while True:
-                try:
-                    print("[stat.viewed] - updating views...")
-                    await self.update_pages()
-                    failed = 0
-                except Exception:
-                    failed += 1
-                    print("[stat.viewed] - update failed #%d, wait 10 seconds" % failed)
-                    if failed > 3:
-                        print("[stat.viewed] - not trying to update anymore")
-                        break
-                if failed == 0:
-                    when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
-                    t = format(when.astimezone().isoformat())
-                    print("[stat.viewed] ⎩ next update: %s" % (
-                        t.split("T")[0] + " " + t.split("T")[1].split(".")[0]
-                    ))
-                    await asyncio.sleep(self.period)
-                else:
-                    await asyncio.sleep(10)
-                    print("[stat.viewed] - trying to update data again")
+
+        while True:
+            try:
+                print("[stat.viewed] - updating views...")
+                await self.update_pages()
+                failed = 0
+            except Exception:
+                failed += 1
+                print("[stat.viewed] - update failed #%d, wait 10 seconds" % failed)
+                if failed > 3:
+                    print("[stat.viewed] - not trying to update anymore")
+                    break
+            if failed == 0:
+                when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
+                t = format(when.astimezone().isoformat())
+                print("[stat.viewed] ⎩ next update: %s" % (
+                    t.split("T")[0] + " " + t.split("T")[1].split(".")[0]
+                ))
+                await asyncio.sleep(self.period)
+            else:
+                await asyncio.sleep(10)
+                print("[stat.viewed] - trying to update data again")
