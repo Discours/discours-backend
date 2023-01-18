@@ -1,7 +1,9 @@
+import re
+
+from bs4 import BeautifulSoup
 from dateutil.parser import parse
 from sqlalchemy.exc import IntegrityError
-from bs4 import BeautifulSoup
-import re
+
 from base.orm import local_session
 from orm.user import AuthorFollower, User, UserRating
 
@@ -106,6 +108,20 @@ def migrate(entry):
                 raise Exception
     user_dict["id"] = user.id
     return user_dict
+
+
+def post_migrate():
+    old_discours_dict = {
+        "slug": "old-discours",
+        "username": "old-discours",
+        "email": "old@discours.io",
+        "name": "Просмотры на старой версии сайта"
+    }
+
+    with local_session() as session:
+        old_discours_user = User.create(**old_discours_dict)
+        session.add(old_discours_user)
+        session.commit()
 
 
 def migrate_2stage(entry, id_map):
