@@ -1,22 +1,23 @@
 """ cmd managed migration """
 import asyncio
+import gc
 import json
 import sys
 from datetime import datetime, timezone
-import gc
+
 import bs4
+
+from migration.export import export_mdx
 from migration.tables.comments import migrate as migrateComment
 from migration.tables.comments import migrate_2stage as migrateComment_2stage
 from migration.tables.content_items import get_shout_slug
 from migration.tables.content_items import migrate as migrateShout
-from migration.tables.topics import migrate as migrateTopic
-from migration.tables.users import migrate as migrateUser
 from migration.tables.remarks import migrate as migrateRemark
+from migration.tables.topics import migrate as migrateTopic
+from migration.tables.users import migrate as migrateUser, post_migrate as users_post_migrate
 from migration.tables.users import migrate_2stage as migrateUser_2stage
-from orm.reaction import Reaction
 from orm import init_tables
-from migration.export import export_mdx
-
+from orm.reaction import Reaction
 
 TODAY = datetime.strftime(datetime.now(tz=timezone.utc), "%Y%m%d")
 OLD_DATE = "2016-03-05 22:22:00.350000"
@@ -42,6 +43,7 @@ async def users_handle(storage):
     ce = 0
     for entry in storage["users"]["data"]:
         ce += migrateUser_2stage(entry, id_map)
+    users_post_migrate()
 
 
 async def topics_handle(storage):
@@ -180,8 +182,8 @@ async def all_handle(storage, args):
     await topics_handle(storage)
     print("[migration] users and topics are migrated")
     await shouts_handle(storage, args)
-    print("[migration] remarks...")
-    await remarks_handle(storage)
+    # print("[migration] remarks...")
+    # await remarks_handle(storage)
     print("[migration] migrating comments")
     await comments_handle(storage)
     # export_email_subscriptions()
