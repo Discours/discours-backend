@@ -69,6 +69,7 @@ type Result {
   members: [ChatMember]
   shout: Shout
   shouts: [Shout]
+  drafts: [DraftCollab]
   author: Author
   authors: [Author]
   reaction: Reaction
@@ -126,6 +127,17 @@ input TopicInput {
   pic: String
   # children: [String]
   # parents: [String]
+}
+
+input DraftInput {
+    slug: String
+    topics: [Int]
+    authors: [Int]
+    title: String
+    subtitle: String
+    body: String
+    cover: String
+
 }
 
 input ReactionInput {
@@ -189,10 +201,12 @@ type Mutation {
   updateReaction(reaction: ReactionInput!): Result!
   deleteReaction(reaction: Int!): Result!
 
-  # collab
-  inviteCoauthor(author: String!, shout: Int!): Result!
-  removeCoauthor(author: String!, shout: Int!): Result!
-  acceptCoauthor(shout: Int!): Result!
+  # draft / collab
+  createDraft(draft: DraftInput!): Result!
+  updateDraft(draft: DraftInput!): Result!
+  deleteDraft(draft: Int!): Result!
+  inviteAccept(draft: Int!): Result!
+  inviteAuthor(draft: Int!, author: Int!): Result!
 
   # following
   follow(what: FollowingEntity!, slug: String!): Result!
@@ -289,8 +303,8 @@ type Query {
   authorsAll: [Author]!
   getAuthor(slug: String!): User
 
-  # collab
-  getCollabs: [Collab]!
+  # draft/collab
+  loadDrafts: [DraftCollab]!
 
   # migrate
   markdownBody(body: String!): String!
@@ -525,10 +539,16 @@ type Chat {
   private: Boolean
 }
 
-type Collab {
- authors: [String]!
- invites: [String]
- shout: Shout
+type DraftCollab {
+ slug: String
+ title: String
+ subtitle: String
+ body: String
+ cover: String
+ layout: String
+ authors: [Int]!
+ topics: [String]
  chat: Chat
  createdAt: Int!
+ updatedAt: Int
 }

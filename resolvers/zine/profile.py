@@ -218,10 +218,13 @@ def author_unfollow(user_id, slug):
             ).first()
         )
         if not flw:
-            raise Exception("[resolvers.profile] follower not exist, cant unfollow")
+            return {
+                "error": "Follower is not exist, cant unfollow"
+            }
         else:
             session.delete(flw)
             session.commit()
+            return {}
 
 
 @query.field("authorsAll")

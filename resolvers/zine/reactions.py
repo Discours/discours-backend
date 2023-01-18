@@ -196,7 +196,7 @@ async def update_reaction(_, info, reaction={}):
 
         if not r:
             return {"error": "invalid reaction id"}
-        if r.createdBy != user.slug:
+        if r.createdBy != user.id:
             return {"error": "access denied"}
 
         r.body = reaction["body"]
