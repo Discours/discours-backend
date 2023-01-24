@@ -22,45 +22,47 @@ from orm.draft import DraftCollab
 async def create_shout(_, info, inp):
     auth: AuthCredentials = info.context["request"].auth
 
-    topic_slugs = inp.get("topic_slugs", [])
-    if topic_slugs:
-        del inp["topic_slugs"]
     body = inp.get("body")
     with local_session() as session:
         if body:
             # now we should create a draft shout (can be viewed only by authors)
             authors = inp.get("authors", [])
-            new_shout = Shout.create({
+            new_shout = Shout.create(**{
                 "title": inp.get("title", body[:12] + '...'),
                 "body": body,
                 "authors": authors,
+                "slug": inp.get("slug"),
                 "topics": inp.get("topics", []),
                 "mainTopic": inp.get("topics", []).pop(),
                 "visibility": "authors"
             })
-            authors.remove(auth.user_id)
-            if authors:
-                chat = create_chat(None, info, new_shout.title, members=authors)
-                # create a cooperative chatroom
-                await MessagesStorage.register_chat(chat)
-                # now we should create a collab
-                new_collab = Collab.create({
-                    "shout": new_shout.id,
-                    "authors": [auth.user_id, ],
-                    "invites": authors
-                })
-                session.add(new_collab)
+            if auth.user_id in authors:
+                authors.remove(auth.user_id)
+            # Chat room code, uncomment it
+            # if authors:
+            #     chat = create_chat(None, info, new_shout.title, members=authors)
+            #     # create a cooperative chatroom
+            #     await MessagesStorage.register_chat(chat)
+            #     # now we should create a collab
+            #     new_collab = Collab.create({
+            #         "shout": new_shout.id,
+            #         "authors": [auth.user_id, ],
+            #         "invites": authors
+            #     })
+            #     session.add(new_collab)
 
         # NOTE: shout made by one first author
         sa = ShoutAuthor.create(shout=new_shout.id, user=auth.user_id)
         session.add(sa)
 
-        reactions_follow(auth.user_id, new_shout.slug, True)
-
         if "mainTopic" in inp:
-            topic_slugs.append(inp["mainTopic"])
+            new_shout.topics.append(inp["mainTopic"])
 
-        for slug in topic_slugs:
+        session.add(new_shout)
+
+        reactions_follow(auth.user_id, new_shout.id, True)
+
+        for slug in new_shout.topics:
             topic = session.query(Topic).where(Topic.slug == slug).one()
 
             st = ShoutTopic.create(shout=new_shout.id, topic=topic.id)
@@ -72,9 +74,6 @@ async def create_shout(_, info, inp):
             if not tf:
                 tf = TopicFollower.create(follower=auth.user_id, topic=topic.id, auto=True)
                 session.add(tf)
-
-        new_shout.topic_slugs = topic_slugs
-        session.add(new_shout)
 
         session.commit()
 
