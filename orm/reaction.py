@@ -11,7 +11,7 @@ class ReactionKind(Enumeration):
     DISAGREE = 2  # -1
     PROOF = 3  # +1
     DISPROOF = 4  # -1
-    ASK = 5  # +0 bookmark
+    ASK = 5  # +0
     PROPOSE = 6  # +0
     QUOTE = 7  # +0 bookmark
     COMMENT = 8  # +0
@@ -19,8 +19,8 @@ class ReactionKind(Enumeration):
     REJECT = 0  # -1
     LIKE = 11  # +1
     DISLIKE = 12  # -1
-    REMARK = 13
-    FOOTNOTE = 14
+    REMARK = 13 # 0
+    FOOTNOTE = 14 # 0
     # TYPE = <reaction index> # rating diff
 
 
