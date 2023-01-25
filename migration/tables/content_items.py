@@ -47,18 +47,27 @@ def create_author_from_app(app):
                 if not user:
                     print('[migration] creating user...')
                     name = app.get('name')
-                    slug = translit(name, "ru", reversed=True).lower()
-                    slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
-                    # check if nameslug is used
-                    user = session.query(User).where(User.slug == slug).first()
-                    # get slug from email
-                    if user:
-                        slug = app['email'].split('@')[0]
-                        user = session.query(User).where(User.slug == slug).first()
-                    # one more try
-                    if user:
-                        slug += '-author'
-                        user = session.query(User).where(User.slug == slug).first()
+                    if name:
+                        slug = translit(name, "ru", reversed=True).lower()
+                        slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+                        # check if slug is used
+                        if slug:
+                            user = session.query(User).where(User.slug == slug).first()
+
+                            # get slug from email
+                            if user:
+                                slug = app['email'].split('@')[0]
+                                user = session.query(User).where(User.slug == slug).first()
+                                # one more try
+                                if user:
+                                    slug += '-author'
+                                    user = session.query(User).where(User.slug == slug).first()
+                                else:
+                                    print(f'[migration] author @{slug} is found by email')
+
+                            else:
+                                print(f'[migration] author @{slug} is found')
+
 
                     # create user with application data
                     if not user:
@@ -84,7 +93,7 @@ def create_author_from_app(app):
 
 async def create_shout(shout_dict):
     s = Shout.create(**shout_dict)
-    author = shout_dict['authors'][0]
+    author = s.authors[0]
     with local_session() as session:
         srf = session.query(ShoutReactionsFollower).where(
             ShoutReactionsFollower.shout == s.id
@@ -109,8 +118,9 @@ async def get_user(entry, storage):
         userdata = anondict
     # cleanup slug
     slug = userdata.get("slug", "")
-    slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
-    userdata["slug"] = slug
+    if slug:
+        slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+        userdata["slug"] = slug
 
     user = await process_user(userdata, storage, user_oid)
     return user, user_oid

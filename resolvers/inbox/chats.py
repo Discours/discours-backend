@@ -75,7 +75,7 @@ async def create_chat(_, info, title="", members=[]):
             if chat:
                 chat = json.loads(chat)
                 if chat['title'] == "":
-                    print('[inbox] craeteChat found old chat')
+                    print('[inbox] createChat found old chat')
                     print(chat)
                     break
         if chat:

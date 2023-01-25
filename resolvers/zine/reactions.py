@@ -157,6 +157,23 @@ async def create_reaction(_, info, reaction={}):
     reaction['createdBy'] = auth.user_id
     with local_session() as session:
         r = Reaction.create(**reaction)
+        shout = session.query(Shout).where(Shout.id == r.shout).one()
+
+        # Proposal accepting logix
+        if r.replyTo is not None and \
+                r.kind == ReactionKind.ACCEPT and \
+                user_id in shout.dict()['authors']:
+            replied_reaction = session.query(Reaction).when(Reaction.id == r.replyTo).first()
+            if replied_reaction and replied_reaction.kind == ReactionKind.PROPOSE:
+                if replied_reaction.range:
+                    old_body = shout.body
+                    start, end = replied_reaction.range.split(':')
+                    start = int(start)
+                    end = int(end)
+                    new_body = old_body[:start] + replied_reaction.body + old_body[end:]
+                    shout.body = new_body
+                    # TODO: update git version control
+
         session.add(r)
         session.commit()
 
@@ -230,9 +247,9 @@ async def delete_reaction(_, info, reaction=None):
             return {"error": "access denied"}
         r.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
-    return {
-        "reaction": r
-    }
+        return {
+            "reaction": r
+        }
 
 
 @query.field("loadReactionsBy")

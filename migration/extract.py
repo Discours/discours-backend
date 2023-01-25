@@ -27,6 +27,39 @@ def replace_tooltips(body):
     return newbody
 
 
+
+def extract_footnotes(body, shout_dict):
+    parts = body.split("&&&")
+    lll = len(parts)
+    newparts = list(parts)
+    placed = False
+    if lll & 1:
+        if lll > 1:
+            i = 1
+            print("[extract] found %d footnotes in body" % (lll - 1))
+            for part in parts[1:]:
+                if i & 1:
+                    placed = True
+                    if 'a class="footnote-url" href=' in part:
+                        print("[extract] footnote: " + part)
+                        fn = 'a class="footnote-url" href="'
+                        exxtracted_link = part.split(fn, 1)[1].split('"', 1)[0]
+                        extracted_body = part.split(fn, 1)[1].split('>', 1)[1].split('</a>', 1)[0]
+                        print("[extract] footnote link: " + extracted_link)
+                        with local_session() as session:
+                            Reaction.create({
+                                "shout": shout_dict['id'],
+                                "kind": ReactionKind.FOOTNOTE,
+                                "body": extracted_body,
+                                "range": str(body.index(fn + link) - len('<')) + ':' + str(body.index(extracted_body) + len('</a>'))
+                            })
+                        newparts[i] = "<a href='#'>ℹ️</a>"
+                else:
+                    newparts[i] = part
+                i += 1
+    return ("".join(newparts), placed)
+
+
 def place_tooltips(body):
     parts = body.split("&&&")
     lll = len(parts)
@@ -203,7 +236,7 @@ def extract_dataimages(parts, prefix):
 di = "data:image"
 
 
-def extract_md_images(body, oid):
+def extract_md_images(body, prefix):
     newbody = ""
     body = (
         body.replace("\n! [](" + di, "\n ![](" + di)
@@ -212,7 +245,7 @@ def extract_md_images(body, oid):
     )
     parts = body.split(di)
     if len(parts) > 1:
-        newbody = extract_dataimages(parts, oid)
+        newbody = extract_dataimages(parts, prefix)
     else:
         newbody = body
     return newbody
@@ -238,24 +271,24 @@ def cleanup(body):
     return newbody
 
 
-def extract_md(body, oid=""):
+def extract_md(body, shout_dict = None):
     newbody = body
     if newbody:
-        uid = oid or uuid.uuid4()
-        newbody = extract_md_images(newbody, uid)
-        if not newbody:
-            raise Exception("extract_images error")
-
         newbody = cleanup(newbody)
         if not newbody:
             raise Exception("cleanup error")
 
-        newbody, placed = place_tooltips(newbody)
-        if not newbody:
-            raise Exception("place_tooltips error")
+        if shout_dict:
 
-        if placed:
-            newbody = "import Tooltip from '$/components/Article/Tooltip'\n\n" + newbody
+            uid = shout_dict['id'] or uuid.uuid4()
+            newbody = extract_md_images(newbody, uid)
+            if not newbody:
+                raise Exception("extract_images error")
+
+            newbody, placed = extract_footnotes(body, shout_dict)
+            if not newbody:
+                raise Exception("extract_footnotes error")
+
     return newbody
 
 
@@ -342,7 +375,9 @@ def prepare_html_body(entry):
     return body
 
 
-def extract_html(entry):
+def extract_html(entry, shout_id = None):
     body_orig = (entry.get("body") or "").replace('\(', '(').replace('\)', ')')
+    if shout_id:
+        extract_footnotes(body_orig, shout_id)
     body_html = str(BeautifulSoup(body_orig, features="html.parser"))
     return body_html

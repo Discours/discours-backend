@@ -124,15 +124,25 @@ async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
 async def load_recipients(_, info, limit=50, offset=0):
     chat_users = []
     auth: AuthCredentials = info.context["request"].auth
-
     try:
+        onliners = await redis.execute("SMEMBERS", "users-online")
         chat_users += await followed_authors(auth.user_id)
         limit = limit - len(chat_users)
     except Exception:
         pass
     with local_session() as session:
         chat_users += session.query(User).where(User.emailConfirmed).limit(limit).offset(offset)
+        members = []
+        for a in chat_users:
+            members.append({
+                "id": a.id,
+                "slug": a.slug,
+                "userpic": a.userpic,
+                "name": a.name,
+                "lastSeen": a.lastSeen,
+                "online": a.id in onliners
+            })
     return {
-        "members": chat_users,
+        "members": members,
         "error": None
     }
