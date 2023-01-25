@@ -86,6 +86,7 @@ def create_author_from_app(app):
                 user = User.create(**userdata)
                 session.add(user)
                 session.commit()
+                userdata['id'] = user.id
 
             if not userdata:
                 userdata = user.dict()
@@ -111,30 +112,34 @@ async def create_shout(shout_dict):
 async def get_user(entry, storage):
     app = entry.get("application")
     userdata = None
-
+    user_oid = None
     if app:
         userdata = create_author_from_app(app)
         # print("[migration] from app")
 
-    user_oid = entry.get("createdBy")
-    if user_oid == "0":
-        userdata = discours
-
     if not userdata:
-        userdata = storage["users"]["by_oid"].get(user_oid)
-        # print("[migration] user from user_oid")
-
-    if not userdata:
-        # print("[migration] no app, no user_oid")
-        userdata = anondict
+        user_oid = entry.get("createdBy")
+        if user_oid == "0":
+            userdata = discours
+        elif user_oid:
+            userdata = storage["users"]["by_oid"].get(user_oid)
+            # print("[migration] user from user_oid")
+        else:
+            # print("[migration] no app, no user_oid")
+            userdata = anondict
+            print(app)
     # cleanup slug
-    slug = userdata.get("slug", "")
-    if slug:
-        slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
-        userdata["slug"] = slug
+    if userdata:
+        slug = userdata.get("slug", "")
+        if slug:
+            slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+            userdata["slug"] = slug
+    else:
+        userdata = anondict
 
     user = await process_user(userdata, storage, user_oid)
     return user, user_oid
+
 
 
 async def migrate(entry, storage):
@@ -248,7 +253,12 @@ async def add_topics_follower(entry, storage, user):
 
 async def process_user(userdata, storage, oid):
     with local_session() as session:
-        uid = userdata.get("id", 1)  # anonymous as
+        uid = userdata.get("id")  # anonymous as
+        if not uid:
+            print(userdata)
+            print("has no id field, set it @anonymous")
+            userdata = anondict
+            uid = 1
         user = session.query(User).filter(User.id == uid).first()
         if not user:
             try:
