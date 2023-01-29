@@ -190,7 +190,6 @@ async def load_shouts_by(_, info, options):
         )
 
         for [shout_id, viewed_stat] in session.execute(viewed_stat_query).unique():
-            shouts.append(shout)
             shouts_map[shout_id].stat['viewed'] = viewed_stat
 
     return shouts
