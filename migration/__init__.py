@@ -135,6 +135,7 @@ async def shouts_handle(storage, args):
 
     print("[migration] " + str(counter) + " content items were migrated")
     print("[migration] " + str(pub_counter) + " have been published")
+    print("[migration] " + str(discours_author) + " authored by @discours")
     print("[migration] " + str(anonymous_author) + " authored by @anonymous")
 
 

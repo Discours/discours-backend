@@ -38,56 +38,58 @@ def get_shout_slug(entry):
 
 
 def create_author_from_app(app):
+    user = None
     userdata = None
-    if app:
-        try:
-            with local_session() as session:
-                # check if email is used
-                user = session.query(User).where(User.email == app['email']).first()
-                if not user:
-                    print('[migration] creating user...')
-                    name = app.get('name')
-                    if name:
-                        slug = translit(name, "ru", reversed=True).lower()
-                        slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
-                        # check if slug is used
-                        if slug:
+    with local_session() as session:
+        # check if email is used
+        user = session.query(User).where(User.email == app['email']).first()
+        if not user:
+            # print('[migration] app %r' % app)
+            name = app.get('name')
+            if name:
+                slug = translit(name, "ru", reversed=True).lower()
+                slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+                # check if slug is used
+                if slug:
+                    user = session.query(User).where(User.slug == slug).first()
+
+                    # get slug from email
+                    if user:
+                        slug = app['email'].split('@')[0]
+                        user = session.query(User).where(User.slug == slug).first()
+                        # one more try
+                        if user:
+                            slug += '-author'
                             user = session.query(User).where(User.slug == slug).first()
+                        else:
+                            # print(f'[migration] author @{slug} is found by email')
+                            pass
 
-                            # get slug from email
-                            if user:
-                                slug = app['email'].split('@')[0]
-                                user = session.query(User).where(User.slug == slug).first()
-                                # one more try
-                                if user:
-                                    slug += '-author'
-                                    user = session.query(User).where(User.slug == slug).first()
-                                else:
-                                    print(f'[migration] author @{slug} is found by email')
-
-                            else:
-                                print(f'[migration] author @{slug} is found')
+                    else:
+                        # print(f'[migration] author @{slug} is found')
+                        pass
 
 
-                    # create user with application data
-                    if not user:
-                        userdata = {
-                            "username": app["email"],
-                            "email": app["email"],
-                            "name": app.get("name", ""),
-                            "bio": app.get("bio", ""),
-                            "emailConfirmed": False,
-                            "slug": slug,
-                            "createdAt": ts,
-                            "lastSeen": ts,
-                        }
-                        user = User.create(**userdata)
-                        session.add(user)
-                        session.commit()
+            # create user with application data
+            if not user:
+                userdata = {
+                    "username": app["email"],
+                    "email": app["email"],
+                    "name": app.get("name", ""),
+                    "bio": app.get("bio", ""),
+                    "emailConfirmed": False,
+                    "slug": slug,
+                    "createdAt": ts,
+                    "lastSeen": ts,
+                }
+                # print('[migration] userdata %r' % userdata)
+                user = User.create(**userdata)
+                session.add(user)
+                session.commit()
+                userdata['id'] = user.id
+
+            if not userdata:
                 userdata = user.dict()
-        except Exception as e:
-            print(app)
-            raise e
         return userdata
 
 
@@ -108,22 +110,36 @@ async def create_shout(shout_dict):
 
 
 async def get_user(entry, storage):
-    user_oid = entry.get("createdBy")
-    userdata = storage["users"]["by_oid"].get(user_oid)
+    app = entry.get("application")
+    userdata = None
+    user_oid = None
+    if app:
+        userdata = create_author_from_app(app)
+        # print("[migration] from app")
+
     if not userdata:
-        userdata = create_author_from_app(entry.get("application"))
-        print("[migration] from user_oid")
-    if not userdata:
-        print("[migration] no app no user_oid")
-        userdata = anondict
+        user_oid = entry.get("createdBy")
+        if user_oid == "0":
+            userdata = discours
+        elif user_oid:
+            userdata = storage["users"]["by_oid"].get(user_oid)
+            # print("[migration] user from user_oid")
+        else:
+            # print("[migration] no app, no user_oid")
+            userdata = anondict
+            print(app)
     # cleanup slug
-    slug = userdata.get("slug", "")
-    if slug:
-        slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
-        userdata["slug"] = slug
+    if userdata:
+        slug = userdata.get("slug", "")
+        if slug:
+            slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+            userdata["slug"] = slug
+    else:
+        userdata = anondict
 
     user = await process_user(userdata, storage, user_oid)
     return user, user_oid
+
 
 
 async def migrate(entry, storage):
@@ -237,7 +253,12 @@ async def add_topics_follower(entry, storage, user):
 
 async def process_user(userdata, storage, oid):
     with local_session() as session:
-        uid = userdata.get("id", 1)  # anonymous as
+        uid = userdata.get("id")  # anonymous as
+        if not uid:
+            print(userdata)
+            print("has no id field, set it @anonymous")
+            userdata = anondict
+            uid = 1
         user = session.query(User).filter(User.id == uid).first()
         if not user:
             try:
