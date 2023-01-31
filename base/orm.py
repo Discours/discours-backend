@@ -11,7 +11,7 @@ if DB_URL.startswith("sqlite"):
     engine = create_engine(DB_URL)
 else:
     engine = create_engine(
-        DB_URL, convert_unicode=True, echo=False, pool_size=10, max_overflow=20
+        DB_URL, echo=False, pool_size=10, max_overflow=20
     )
 
 T = TypeVar("T")
