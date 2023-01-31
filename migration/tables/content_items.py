@@ -40,57 +40,52 @@ def get_shout_slug(entry):
 def create_author_from_app(app):
     user = None
     userdata = None
-    with local_session() as session:
-        # check if email is used
-        user = session.query(User).where(User.email == app['email']).first()
-        if not user:
-            # print('[migration] app %r' % app)
-            name = app.get('name')
-            if name:
-                slug = translit(name, "ru", reversed=True).lower()
-                slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
-                # check if slug is used
-                if slug:
-                    user = session.query(User).where(User.slug == slug).first()
-
-                    # get slug from email
-                    if user:
-                        slug = app['email'].split('@')[0]
-                        user = session.query(User).where(User.slug == slug).first()
-                        # one more try
-                        if user:
-                            slug += '-author'
-                            user = session.query(User).where(User.slug == slug).first()
-                        else:
-                            # print(f'[migration] author @{slug} is found by email')
-                            pass
-
-                    else:
-                        # print(f'[migration] author @{slug} is found')
-                        pass
-
-
-            # create user with application data
+    # check if email is used
+    if app['email']:
+        with local_session() as session:
+            user = session.query(User).where(User.email == app['email']).first()
             if not user:
-                userdata = {
-                    "username": app["email"],
-                    "email": app["email"],
-                    "name": app.get("name", ""),
-                    "bio": app.get("bio", ""),
-                    "emailConfirmed": False,
-                    "slug": slug,
-                    "createdAt": ts,
-                    "lastSeen": ts,
-                }
-                # print('[migration] userdata %r' % userdata)
-                user = User.create(**userdata)
-                session.add(user)
-                session.commit()
-                userdata['id'] = user.id
+                # print('[migration] app %r' % app)
+                name = app.get('name')
+                if name:
+                    slug = translit(name, "ru", reversed=True).lower()
+                    slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+                    print('[migration] created slug %s' % slug)
+                    # check if slug is used
+                    if slug:
+                        user = session.query(User).where(User.slug == slug).first()
 
-            if not userdata:
-                userdata = user.dict()
+                        # get slug from email
+                        if user:
+                            slug = app['email'].split('@')[0]
+                            user = session.query(User).where(User.slug == slug).first()
+                            # one more try
+                            if user:
+                                slug += '-author'
+                                user = session.query(User).where(User.slug == slug).first()
+
+                # create user with application data
+                if not user:
+                    userdata = {
+                        "username": app["email"],
+                        "email": app["email"],
+                        "name": app.get("name", ""),
+                        "bio": app.get("bio", ""),
+                        "emailConfirmed": False,
+                        "slug": slug,
+                        "createdAt": ts,
+                        "lastSeen": ts,
+                    }
+                    # print('[migration] userdata %r' % userdata)
+                    user = User.create(**userdata)
+                    session.add(user)
+                    session.commit()
+                    userdata['id'] = user.id
+
+            userdata = user.dict()
         return userdata
+    else:
+        raise Exception("app is not ok", app)
 
 
 async def create_shout(shout_dict):
@@ -115,17 +110,14 @@ async def get_user(entry, storage):
     user_oid = None
     if app:
         userdata = create_author_from_app(app)
-        # print("[migration] from app")
-
-    if not userdata:
+    else:
         user_oid = entry.get("createdBy")
         if user_oid == "0":
             userdata = discours
         elif user_oid:
             userdata = storage["users"]["by_oid"].get(user_oid)
-            # print("[migration] user from user_oid")
-        else:
-            # print("[migration] no app, no user_oid")
+        if not userdata:
+            print('no userdata by oid, anonymous')
             userdata = anondict
             print(app)
     # cleanup slug
@@ -139,7 +131,6 @@ async def get_user(entry, storage):
 
     user = await process_user(userdata, storage, user_oid)
     return user, user_oid
-
 
 
 async def migrate(entry, storage):
