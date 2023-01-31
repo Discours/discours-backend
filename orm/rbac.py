@@ -30,6 +30,7 @@ class ClassType(TypeDecorator):
 
 class Role(Base):
     __tablename__ = "role"
+    __allow_unmapped__ = True
 
     name = Column(String, nullable=False, comment="Role Name")
     desc = Column(String, nullable=True, comment="Role Description")
