@@ -19,7 +19,6 @@ class TopicFollower(Base):
 
 class Topic(Base):
     __tablename__ = "topic"
-    __allow_unmapped__ = True
 
     slug = Column(String, unique=True)
     title = Column(String, nullable=False, comment="Title")

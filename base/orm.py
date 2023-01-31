@@ -28,7 +28,9 @@ class Base(declarative_base()):
     __tablename__: str
     __new__: Callable
     __init__: Callable
-
+    # qualify the base with __allow_unmapped__.  Can also be
+    # applied to classes directly if preferred
+    __allow_unmapped__ = True
     __abstract__: bool = True
     __table_args__ = {"extend_existing": True}
     id: int = Column(Integer, primary_key=True)

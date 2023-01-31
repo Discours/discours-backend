@@ -41,7 +41,6 @@ class ShoutAuthor(Base):
 
 class Shout(Base):
     __tablename__ = "shout"
-    __allow_unmapped__ = True
 
     slug = Column(String, unique=True)
     community = Column(ForeignKey("community.id"), default=1)
