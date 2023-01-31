@@ -169,7 +169,6 @@ async def message_generator(_, info: GraphQLResolveInfo):
 
         while True:
             msg = await asyncio.gather(*tasks)
-            print('[inbox] %d new messages' % len(tasks))
             yield msg
     finally:
         await MessagesStorage.remove_chat(following_chat)

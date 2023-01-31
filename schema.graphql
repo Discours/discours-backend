@@ -321,8 +321,8 @@ type Query {
 
 type Subscription {
   newMessage: Message  # new messages in inbox
-  collabUpdate(collab: Int!): Reaction # new reactions in collaborative editor
-
+  newShout: Shout  # personal feed new shout
+  newReaction: Reaction # new reactions to notify
 }
 
 ############################################ Entities

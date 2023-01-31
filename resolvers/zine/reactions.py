@@ -162,7 +162,7 @@ async def create_reaction(_, info, reaction={}):
         # Proposal accepting logix
         if r.replyTo is not None and \
                 r.kind == ReactionKind.ACCEPT and \
-                user_id in shout.dict()['authors']:
+                auth.user_id in shout.dict()['authors']:
             replied_reaction = session.query(Reaction).when(Reaction.id == r.replyTo).first()
             if replied_reaction and replied_reaction.kind == ReactionKind.PROPOSE:
                 if replied_reaction.range:

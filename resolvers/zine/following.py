@@ -1,10 +1,12 @@
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from base.resolvers import mutation
+from base.resolvers import mutation, subscription
 # from resolvers.community import community_follow, community_unfollow
 from resolvers.zine.profile import author_follow, author_unfollow
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from resolvers.zine.topics import topic_follow, topic_unfollow
+import asyncio
+from graphql.type import GraphQLResolveInfo
 
 
 @mutation.field("follow")
@@ -47,3 +49,39 @@ async def unfollow(_, info, what, slug):
         return {"error": str(e)}
 
     return {}
+
+
+@subscription.source("newShout")
+@login_required
+async def shout_generator(_, info: GraphQLResolveInfo):
+    print(f"[resolvers.zine] shouts generator {info}")
+    auth: AuthCredentials = info.context["request"].auth
+    user_id = auth.user_id
+    try:
+        tasks = []
+
+        # TODO: implement when noticing new shout
+
+        while True:
+            shout = await asyncio.gather(*tasks)
+            yield shout
+    finally:
+        pass
+
+
+@subscription.source("newReaction")
+@login_required
+async def reaction_generator(_, info):
+    print(f"[resolvers.zine] reactions generator {info}")
+    auth: AuthCredentials = info.context["request"].auth
+    user_id = auth.user_id
+    try:
+        tasks = []
+
+        # TODO: implement when noticing new reaction
+
+        while True:
+            reaction = await asyncio.gather(*tasks)
+            yield reaction
+    finally:
+        pass
