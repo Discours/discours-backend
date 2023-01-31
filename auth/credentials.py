@@ -34,6 +34,7 @@ class AuthCredentials(BaseModel):
 
 class AuthUser(BaseModel):
     user_id: Optional[int]
+    username: Optional[str]
 
     @property
     def is_authenticated(self) -> bool:

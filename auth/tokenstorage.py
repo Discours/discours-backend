@@ -28,15 +28,15 @@ class SessionToken:
             raise e
 
     @classmethod
-    async def get(cls, uid, token):
-        return await TokenStorage.get(f"{uid}-{token}")
+    async def get(cls, payload, token):
+        return await TokenStorage.get(f"{payload.user_id}-{payload.username}-{token}")
 
 
 class TokenStorage:
     @staticmethod
     async def get(token_key):
         print('[tokenstorage.get] ' + token_key)
-        # 2041-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMDQxLCJ1c2VybmFtZSI6ImFudG9uLnJld2luK3Rlc3QtbG9hZGNoYXRAZ21haWwuY29tIiwiZXhwIjoxNjcxNzgwNjE2LCJpYXQiOjE2NjkxODg2MTYsImlzcyI6ImRpc2NvdXJzIn0.Nml4oV6iMjMmc6xwM7lTKEZJKBXvJFEIZ-Up1C1rITQ
+        # 2041-user@domain.zn-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMDQxLCJ1c2VybmFtZSI6ImFudG9uLnJld2luK3Rlc3QtbG9hZGNoYXRAZ21haWwuY29tIiwiZXhwIjoxNjcxNzgwNjE2LCJpYXQiOjE2NjkxODg2MTYsImlzcyI6ImRpc2NvdXJzIn0.Nml4oV6iMjMmc6xwM7lTKEZJKBXvJFEIZ-Up1C1rITQ
         return await redis.execute("GET", token_key)
 
     @staticmethod
@@ -44,7 +44,7 @@ class TokenStorage:
         life_span = ONETIME_TOKEN_LIFE_SPAN
         exp = datetime.now(tz=timezone.utc) + timedelta(seconds=life_span)
         one_time_token = JWTCodec.encode(user, exp)
-        await save(f"{user.id}-{one_time_token}", life_span)
+        await save(f"{user.id}-{user.username}-{one_time_token}", life_span)
         return one_time_token
 
     @staticmethod
@@ -52,7 +52,7 @@ class TokenStorage:
         life_span = SESSION_TOKEN_LIFE_SPAN
         exp = datetime.now(tz=timezone.utc) + timedelta(seconds=life_span)
         session_token = JWTCodec.encode(user, exp)
-        await save(f"{user.id}-{session_token}", life_span)
+        await save(f"{user.id}-{user.username}-{session_token}", life_span)
         return session_token
 
     @staticmethod
@@ -64,7 +64,7 @@ class TokenStorage:
         except:  # noqa
             pass
         else:
-            await redis.execute("DEL", f"{payload.user_id}-{token}")
+            await redis.execute("DEL", f"{payload.user_id}-{payload.username}-{token}")
         return True
 
     @staticmethod

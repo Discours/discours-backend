@@ -89,7 +89,7 @@ class Identity:
         try:
             print('[auth.identity] using one time token')
             payload = JWTCodec.decode(token)
-            if not await TokenStorage.exist(f"{payload.user_id}-{token}"):
+            if not await TokenStorage.exist(f"{payload.user_id}-{payload.username}-{token}"):
                 # raise InvalidToken("Login token has expired, please login again")
                 return {
                     "error": "Token has expired"

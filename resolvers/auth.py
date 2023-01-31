@@ -47,7 +47,7 @@ async def confirm_email(_, info, token):
         print('[resolvers.auth] confirm email by token')
         payload = JWTCodec.decode(token)
         user_id = payload.user_id
-        await TokenStorage.get(f"{user_id}-{token}")
+        await TokenStorage.get(f"{user_id}-{payload.username}-{token}")
         with local_session() as session:
             user = session.query(User).where(User.id == user_id).first()
             session_token = await TokenStorage.create_session(user)
