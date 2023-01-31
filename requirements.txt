@@ -1,10 +1,10 @@
 python-frontmatter~=1.0.0
 aioredis~=2.0.1
 aiohttp
-ariadne>=0.16.0
+ariadne>=0.17.0
 PyYAML>=5.4
 pyjwt>=2.6.0
-starlette~=0.20.4
+starlette~=0.23.1
 sqlalchemy>=1.4.41
 graphql-core>=3.0.3
 gql
@@ -27,5 +27,5 @@ python-dateutil~=2.8.2
 beautifulsoup4~=4.11.1
 lxml
 sentry-sdk>=0.10.2
-sse_starlette
+# sse_starlette
 graphql-ws
