@@ -4,10 +4,9 @@ from sqlalchemy import String, Column, ForeignKey, UniqueConstraint, TypeDecorat
 from sqlalchemy.orm import relationship
 
 from base.orm import Base, REGISTRY, engine, local_session
-from orm.community import Community
-
 
 # Role Based Access Control #
+
 
 class ClassType(TypeDecorator):
     impl = String

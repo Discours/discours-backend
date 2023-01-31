@@ -18,6 +18,7 @@ class CommunityFollower(Base):
 
 class Community(Base):
     __tablename__ = "community"
+    __allow_unmapped__ = True
 
     name = Column(String, nullable=False, comment="Name")
     slug = Column(String, nullable=False, unique=True, comment="Slug")
