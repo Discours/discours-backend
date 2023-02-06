@@ -1,12 +1,33 @@
+import asyncio
+from base.orm import local_session
+from base.resolvers import mutation, subscription, query
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from base.resolvers import mutation, subscription
 # from resolvers.community import community_follow, community_unfollow
+from orm.user import AuthorFollower
+from orm.topic import TopicFollower
+from orm.shout import Shout, ShoutReactionsFollower
 from resolvers.zine.profile import author_follow, author_unfollow
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from resolvers.zine.topics import topic_follow, topic_unfollow
-import asyncio
+from services.following import Following, FollowingManager, FollowingResult
 from graphql.type import GraphQLResolveInfo
+
+
+@query.field("myFeed")
+@login_required
+async def get_my_feed(_, info):
+    auth: AuthCredentials = info.context["request"].auth
+    user_id = auth.user_id
+    try:
+        with local_session() as session:
+            following_authors = session.query(AuthorFollower).where(AuthorFollower.follower == user_id).unique().all()
+            following_topics = session.query(TopicFollower).where(TopicFollower.follower == user_id).unique().all()
+            # TODO: my feed query
+            shouts = []
+            return shouts
+    except Exception:
+        pass
 
 
 @mutation.field("follow")
@@ -17,13 +38,21 @@ async def follow(_, info, what, slug):
     try:
         if what == "AUTHOR":
             author_follow(auth.user_id, slug)
+            result = FollowingResult("NEW", 'author', slug)
+            await FollowingManager.put('author', result)
         elif what == "TOPIC":
             topic_follow(auth.user_id, slug)
+            result = FollowingResult("NEW", 'topic', slug)
+            await FollowingManager.put('topic', result)
         elif what == "COMMUNITY":
             # community_follow(user, slug)
+            # result = FollowingResult("NEW", 'community', slug)
+            # await FollowingManager.put('community', result)
             pass
         elif what == "REACTIONS":
             reactions_follow(auth.user_id, slug)
+            result = FollowingResult("NEW", 'shout', slug)
+            await FollowingManager.put('shout', result)
     except Exception as e:
         return {"error": str(e)}
 
@@ -38,19 +67,28 @@ async def unfollow(_, info, what, slug):
     try:
         if what == "AUTHOR":
             author_unfollow(auth.user_id, slug)
+            result = FollowingResult("DELETED", 'author', slug)
+            await FollowingManager.put('author', result)
         elif what == "TOPIC":
             topic_unfollow(auth.user_id, slug)
+            result = FollowingResult("DELETED", 'topic', slug)
+            await FollowingManager.put('topic', result)
         elif what == "COMMUNITY":
             # community_unfollow(user, slug)
+            # result = FollowingResult("DELETED", 'community', slug)
+            # await FollowingManager.put('community', result)
             pass
         elif what == "REACTIONS":
             reactions_unfollow(auth.user_id, slug)
+            result = FollowingResult("DELETED", 'shout', slug)
+            await FollowingManager.put('shout', result)
     except Exception as e:
         return {"error": str(e)}
 
     return {}
 
 
+# by author and by topic
 @subscription.source("newShout")
 @login_required
 async def shout_generator(_, info: GraphQLResolveInfo):
@@ -60,7 +98,24 @@ async def shout_generator(_, info: GraphQLResolveInfo):
     try:
         tasks = []
 
-        # TODO: implement when noticing new shout
+        with local_session() as session:
+            following_authors = session.query(AuthorFollower).where(
+                AuthorFollower.follower == user_id).all()
+            following_topics = session.query(TopicFollower).where(TopicFollower.follower == user_id).all()
+
+            # notify new shout
+
+            for topic_id in following_topics:
+                following_topic = Following('topic', topic_id)
+                await FollowingManager.register('topic', following_topic)
+                following_topic_task = following_topic.queue.get()
+                tasks.append(following_topic_task)
+
+            for author_id in following_authors:
+                following_author = Following('author', author_id)
+                await FollowingManager.register('author', following_author)
+                following_author_task = following_author.queue.get()
+                tasks.append(following_author_task)
 
         while True:
             shout = await asyncio.gather(*tasks)
@@ -76,12 +131,21 @@ async def reaction_generator(_, info):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
     try:
-        tasks = []
+        with local_session() as session:
+            followings = session.query(ShoutReactionsFollower.shout).where(
+                ShoutReactionsFollower.follower == user_id).unique()
 
-        # TODO: implement when noticing new reaction
+            # notify new reaction
 
-        while True:
-            reaction = await asyncio.gather(*tasks)
-            yield reaction
+            tasks = []
+            for shout_id in followings:
+                following_shout = Following('shout', shout_id)
+                await FollowingManager.register('shout', following_shout)
+                following_author_task = following_shout.queue.get()
+                tasks.append(following_author_task)
+
+            while True:
+                reaction = await asyncio.gather(*tasks)
+                yield reaction
     finally:
         pass

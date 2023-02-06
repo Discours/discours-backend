@@ -7,8 +7,7 @@ from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import mutation, subscription
-from services.inbox.helpers import ChatFollowing, MessageResult
-from services.inbox.storage import MessagesStorage
+from services.following import FollowingManager, FollowingResult, Following
 from validations.inbox import Message
 
 
@@ -51,8 +50,8 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
                 "LPUSH", f"chats/{chat['id']}/unread/{user_slug}", str(message_id)
             )
 
-        result = MessageResult("NEW", new_message)
-        await MessagesStorage.put(result)
+        result = FollowingResult("NEW", 'chat', new_message)
+        await FollowingManager.put('chat', result)
 
         return {
             "message": new_message,
@@ -82,8 +81,8 @@ async def update_message(_, info, chat_id: str, message_id: int, body: str):
 
     await redis.execute("SET", f"chats/{chat_id}/messages/{message_id}", json.dumps(message))
 
-    result = MessageResult("UPDATED", message)
-    await MessagesStorage.put(result)
+    result = FollowingResult("UPDATED", 'chat', message)
+    await FollowingManager.put('chat', result)
 
     return {
         "message": message,
@@ -115,8 +114,8 @@ async def delete_message(_, info, chat_id: str, message_id: int):
     for user_id in users:
         await redis.execute("LREM", f"chats/{chat_id}/unread/{user_id}", 0, str(message_id))
 
-    result = MessageResult("DELETED", message)
-    await MessagesStorage.put(result)
+    result = FollowingResult("DELETED", 'chat', message)
+    await FollowingManager.put(result)
 
     return {}
 
@@ -162,8 +161,8 @@ async def message_generator(_, info: GraphQLResolveInfo):
         user_following_chats_sorted = sorted(user_following_chats, key=lambda x: updated[x], reverse=True)
 
         for chat_id in user_following_chats_sorted:
-            following_chat = ChatFollowing(chat_id)
-            await MessagesStorage.register_chat(following_chat)
+            following_chat = Following('chat', chat_id)
+            await FollowingManager.register('chat', following_chat)
             chat_task = following_chat.queue.get()
             tasks.append(chat_task)
 
@@ -171,7 +170,7 @@ async def message_generator(_, info: GraphQLResolveInfo):
             msg = await asyncio.gather(*tasks)
             yield msg
     finally:
-        await MessagesStorage.remove_chat(following_chat)
+        await FollowingManager.remove('chat', following_chat)
 
 
 @subscription.field("newMessage")
