@@ -14,7 +14,7 @@ from orm.user import User
 def add_reaction_stat_columns(q):
     aliased_reaction = aliased(Reaction)
 
-    q = q.outerjoin(aliased_reaction).add_columns(
+    q = q.outerjoin(aliased_reaction, Reaction.id == aliased_reaction.replyTo).add_columns(
         func.sum(
             aliased_reaction.id
         ).label('reacted_stat'),
