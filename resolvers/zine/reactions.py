@@ -257,7 +257,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     """
     :param by: {
         :shout - filter by slug
-        :shouts - filer by shouts  luglist
+        :shouts - filer by shout slug list
         :createdBy - to filter by author
         :topic - to filter by topic
         :search - to search by reactions' body
@@ -324,6 +324,9 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
                 "commented": commented_stat,
                 "reacted": reacted_stat
             }
+
+            reaction.kind = reaction.kind.name
+
             reactions.append(reaction)
 
     # ?
