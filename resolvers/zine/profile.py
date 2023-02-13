@@ -132,7 +132,7 @@ async def user_followers(_, _info, slug) -> List[User]:
     q = add_author_stat_columns(q)
 
     aliased_user = aliased(User)
-    q = q.join(AuthorFollower).join(
+    q = q.join(AuthorFollower, AuthorFollower.follower == User.id).join(
         aliased_user, aliased_user.id == AuthorFollower.author
     ).where(
         aliased_user.slug == slug
