@@ -14,7 +14,7 @@ from orm.user import User
 def add_reaction_stat_columns(q):
     aliased_reaction = aliased(Reaction)
 
-    q = q.outerjoin(aliased_reaction).add_columns(
+    q = q.outerjoin(aliased_reaction, Reaction.id == aliased_reaction.replyTo).add_columns(
         func.sum(
             aliased_reaction.id
         ).label('reacted_stat'),
@@ -258,7 +258,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     """
     :param by: {
         :shout - filter by slug
-        :shouts - filer by shouts  luglist
+        :shouts - filer by shout slug list
         :createdBy - to filter by author
         :topic - to filter by topic
         :search - to search by reactions' body
@@ -325,6 +325,9 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
                 "commented": commented_stat,
                 "reacted": reacted_stat
             }
+
+            reaction.kind = reaction.kind.name
+
             reactions.append(reaction)
 
     # ?
