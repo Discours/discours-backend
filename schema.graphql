@@ -198,8 +198,8 @@ type Mutation {
 
   # reactions
   createReaction(reaction: ReactionInput!): Result!
-  updateReaction(reaction: ReactionInput!): Result!
-  deleteReaction(reaction: Int!): Result!
+  updateReaction(id: Int!, reaction: ReactionInput!): Result!
+  deleteReaction(id: Int!): Result!
 
   # draft / collab
   createDraft(draft: DraftInput!): Result!
