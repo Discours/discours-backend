@@ -1,33 +1,17 @@
 import asyncio
 from base.orm import local_session
-from base.resolvers import mutation, subscription, query
+from base.resolvers import mutation, subscription
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 # from resolvers.community import community_follow, community_unfollow
 from orm.user import AuthorFollower
 from orm.topic import TopicFollower
-from orm.shout import Shout, ShoutReactionsFollower
+from orm.shout import ShoutReactionsFollower
 from resolvers.zine.profile import author_follow, author_unfollow
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from resolvers.zine.topics import topic_follow, topic_unfollow
 from services.following import Following, FollowingManager, FollowingResult
 from graphql.type import GraphQLResolveInfo
-
-
-@query.field("myFeed")
-@login_required
-async def get_my_feed(_, info):
-    auth: AuthCredentials = info.context["request"].auth
-    user_id = auth.user_id
-    try:
-        with local_session() as session:
-            following_authors = session.query(AuthorFollower).where(AuthorFollower.follower == user_id).unique().all()
-            following_topics = session.query(TopicFollower).where(TopicFollower.follower == user_id).unique().all()
-            # TODO: my feed query
-            shouts = []
-            return shouts
-    except Exception:
-        pass
 
 
 @mutation.field("follow")
@@ -99,11 +83,9 @@ async def shout_generator(_, info: GraphQLResolveInfo):
         tasks = []
 
         with local_session() as session:
-            following_authors = session.query(AuthorFollower).where(
-                AuthorFollower.follower == user_id).all()
-            following_topics = session.query(TopicFollower).where(TopicFollower.follower == user_id).all()
 
-            # notify new shout
+            # notify new shout by followed authors
+            following_topics = session.query(TopicFollower).where(TopicFollower.follower == user_id).all()
 
             for topic_id in following_topics:
                 following_topic = Following('topic', topic_id)
@@ -111,11 +93,26 @@ async def shout_generator(_, info: GraphQLResolveInfo):
                 following_topic_task = following_topic.queue.get()
                 tasks.append(following_topic_task)
 
+            # by followed topics
+            following_authors = session.query(AuthorFollower).where(
+                AuthorFollower.follower == user_id).all()
+
             for author_id in following_authors:
                 following_author = Following('author', author_id)
                 await FollowingManager.register('author', following_author)
                 following_author_task = following_author.queue.get()
                 tasks.append(following_author_task)
+
+            # TODO: use communities
+            # by followed communities
+            # following_communities = session.query(CommunityFollower).where(
+            #    CommunityFollower.follower == user_id).all()
+
+            # for community_id in following_communities:
+            #     following_community = Following('community', author_id)
+            #     await FollowingManager.register('community', following_community)
+            #     following_community_task = following_community.queue.get()
+            #     tasks.append(following_community_task)
 
         while True:
             shout = await asyncio.gather(*tasks)

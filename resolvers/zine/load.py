@@ -199,32 +199,45 @@ async def load_shouts_by(_, info, options):
 
 @query.field("myFeed")
 @login_required
-async def get_my_feed(_, info):
+async def get_my_feed(_, info, options):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
+
+    q = select(Shout).options(
+        joinedload(Shout.authors),
+        joinedload(Shout.topics),
+    ).where(
+        Shout.deletedAt.is_(None)
+    )
+
+    q = q.join(
+        ShoutAuthor
+    ).join(
+        AuthorFollower
+    ).where(
+        AuthorFollower.follower == user_id
+    ).join(
+        ShoutTopic
+    ).join(
+        TopicFollower
+    ).where(TopicFollower.follower == user_id)
+
+    q = add_stat_columns(q)
+    q = apply_filters(q, options.get("filters", {}), user_id)
+
+    order_by = options.get("order_by", Shout.createdAt)
+    if order_by == 'reacted':
+        aliased_reaction = aliased(Reaction)
+        q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
+
+    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
+    offset = options.get("offset", 0)
+    limit = options.get("limit", 10)
+
+    q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
+
+    shouts = []
     with local_session() as session:
-        q = select(Shout).options(
-            joinedload(Shout.authors),
-            joinedload(Shout.topics),
-        ).where(
-            Shout.deletedAt.is_(None)
-        )
-
-        q = q.join(
-            ShoutAuthor
-        ).join(
-            AuthorFollower
-        ).where(
-            AuthorFollower.follower == user_id
-        ).join(
-            ShoutTopic
-        ).join(
-            TopicFollower
-        ).where(TopicFollower.follower == user_id)
-
-        q = add_stat_columns(q)
-
-        shouts = []
         for [shout, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
@@ -234,4 +247,4 @@ async def get_my_feed(_, info):
                 "rating": rating_stat
             }
 
-        return shouts
+    return shouts

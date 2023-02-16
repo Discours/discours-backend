@@ -302,6 +302,7 @@ type Query {
   userFollowedTopics(slug: String!): [Topic]!
   authorsAll: [Author]!
   getAuthor(slug: String!): User
+  myFeed(options: LoadShoutsOptions): [Shout]
 
   # draft/collab
   loadDrafts: [DraftCollab]!
