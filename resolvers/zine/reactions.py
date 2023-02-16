@@ -201,13 +201,14 @@ async def create_reaction(_, info, reaction={}):
 
 @mutation.field("updateReaction")
 @login_required
-async def update_reaction(_, info, reaction={}):
+async def update_reaction(_, info, id, reaction={}):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
         user = session.query(User).where(User.id == auth.user_id).first()
-        q = select(Reaction).filter(Reaction.id == reaction['id'])
+        q = select(Reaction).filter(Reaction.id == id)
         q = add_reaction_stat_columns(q)
+        q = q.group_by(Reaction.id)
 
         [r, reacted_stat, commented_stat, rating_stat] = session.execute(q).unique().one()
 
@@ -235,12 +236,12 @@ async def update_reaction(_, info, reaction={}):
 
 @mutation.field("deleteReaction")
 @login_required
-async def delete_reaction(_, info, reaction=None):
+async def delete_reaction(_, info, id):
     # NOTE: reaction is id
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        r = session.query(Reaction).filter(Reaction.id == reaction).first()
+        r = session.query(Reaction).filter(Reaction.id == id).first()
         if not r:
             return {"error": "invalid reaction id"}
         if r.createdBy != auth.user_id:
