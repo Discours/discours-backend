@@ -13,6 +13,7 @@ class DraftTopic(Base):
     id = None  # type: ignore
     collab = Column(ForeignKey("draft_collab.id"), primary_key=True)
     topic = Column(ForeignKey("topic.id"), primary_key=True)
+    main = Column(Boolean, default=False)
 
 
 class DraftAuthor(Base):
