@@ -155,15 +155,17 @@ def set_hidden(session, shout_id):
 async def create_reaction(_, info, reaction={}):
     auth: AuthCredentials = info.context["request"].auth
     reaction['createdBy'] = auth.user_id
+    rdict = {}
     with local_session() as session:
         r = Reaction.create(**reaction)
         shout = session.query(Shout).where(Shout.id == r.shout).one()
+        author = session.query(User).where(User.id == auth.user_id).one()
 
         # Proposal accepting logix
         if r.replyTo is not None and \
                 r.kind == ReactionKind.ACCEPT and \
                 auth.user_id in shout.dict()['authors']:
-            replied_reaction = session.query(Reaction).when(Reaction.id == r.replyTo).first()
+            replied_reaction = session.query(Reaction).where(Reaction.id == r.replyTo).first()
             if replied_reaction and replied_reaction.kind == ReactionKind.PROPOSE:
                 if replied_reaction.range:
                     old_body = shout.body
@@ -176,8 +178,9 @@ async def create_reaction(_, info, reaction={}):
 
         session.add(r)
         session.commit()
-
-        print(r)
+        rdict = r.dict()
+        rdict['shout'] = shout.dict()
+        rdict['createdBy'] = author.dict()
 
         # self-regulation mechanics
 
@@ -191,12 +194,12 @@ async def create_reaction(_, info, reaction={}):
     except Exception as e:
         print(f"[resolvers.reactions] error on reactions autofollowing: {e}")
 
-    r.stat = {
+    rdict['stat'] = {
         "commented": 0,
         "reacted": 0,
         "rating": 0
     }
-    return {"reaction": r}
+    return {"reaction": rdict}
 
 
 @mutation.field("updateReaction")
