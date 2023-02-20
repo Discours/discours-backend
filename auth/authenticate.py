@@ -12,7 +12,7 @@ from orm.user import User, Role
 
 from settings import SESSION_TOKEN_HEADER
 from auth.tokenstorage import SessionToken
-from base.exceptions import InvalidToken, OperationNotAllowed
+from base.exceptions import OperationNotAllowed
 
 
 class JWTAuthenticate(AuthenticationBackend):
@@ -30,44 +30,34 @@ class JWTAuthenticate(AuthenticationBackend):
                 user_id=None
             )
 
-        try:
-            if len(token.split('.')) > 1:
-                payload = await SessionToken.verify(token)
-                if payload is None:
-                    return AuthCredentials(scopes=[]), AuthUser(user_id=None)
-                user = None
-                with local_session() as session:
-                    try:
-                        user = (
-                            session.query(User).options(
-                                joinedload(User.roles).options(joinedload(Role.permissions)),
-                                joinedload(User.ratings)
-                            ).filter(
-                                User.id == payload.user_id
-                            ).one()
-                        )
-                    except exc.NoResultFound:
-                        user = None
+        if len(token.split('.')) > 1:
+            payload = await SessionToken.verify(token)
+            user = None
+            with local_session() as session:
+                try:
+                    user = (
+                        session.query(User).options(
+                            joinedload(User.roles).options(joinedload(Role.permissions)),
+                            joinedload(User.ratings)
+                        ).filter(
+                            User.id == payload.user_id
+                        ).one()
+                    )
 
-                if not user:
-                    return AuthCredentials(scopes=[]), AuthUser(user_id=None)
+                    scopes = {}  # TODO: integrate await user.get_permission()
 
-                scopes = {}  # await user.get_permission()
+                    return (
+                        AuthCredentials(
+                            user_id=payload.user_id,
+                            scopes=scopes,
+                            logged_in=True
+                        ),
+                        AuthUser(user_id=user.id),
+                    )
+                except exc.NoResultFound:
+                    pass
 
-                return (
-                    AuthCredentials(
-                        user_id=payload.user_id,
-                        scopes=scopes,
-                        logged_in=True
-                    ),
-                    AuthUser(user_id=user.id),
-                )
-            else:
-                InvalidToken("please try again")
-        except Exception as e:
-            print("[auth.authenticate] session token verify error")
-            print(e)
-            return AuthCredentials(scopes=[], error_message=str(e)), AuthUser(user_id=None)
+        return AuthCredentials(scopes=[], error_message=str('Invalid token')), AuthUser(user_id=None)
 
 
 def login_required(func):
