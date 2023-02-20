@@ -23,6 +23,7 @@ class JWTCodec:
     @staticmethod
     def decode(token: str, verify_exp: bool = True) -> TokenPayload:
         r = None
+        payload = None
         try:
             payload = jwt.decode(
                 token,

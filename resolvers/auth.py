@@ -6,7 +6,7 @@ from urllib.parse import quote_plus
 from graphql.type import GraphQLResolveInfo
 from starlette.responses import RedirectResponse
 from transliterate import translit
-
+import re
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from auth.email import send_auth_email
@@ -92,6 +92,7 @@ def create_user(user_dict):
 def generate_unique_slug(src):
     print('[resolvers.auth] generating slug from: ' + src)
     slug = translit(src, "ru", reversed=True).replace(".", "-").lower()
+    slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
     if slug != src:
         print('[resolvers.auth] translited name: ' + slug)
     c = 1

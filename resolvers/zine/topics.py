@@ -117,29 +117,36 @@ async def update_topic(_, _info, inp):
 
 
 def topic_follow(user_id, slug):
-    with local_session() as session:
-        topic = session.query(Topic).where(Topic.slug == slug).one()
+    try:
+        with local_session() as session:
+            topic = session.query(Topic).where(Topic.slug == slug).one()
 
-        following = TopicFollower.create(topic=topic.id, follower=user_id)
-        session.add(following)
-        session.commit()
+            following = TopicFollower.create(topic=topic.id, follower=user_id)
+            session.add(following)
+            session.commit()
+            return True
+    except:
+        return False
 
 
 def topic_unfollow(user_id, slug):
-    with local_session() as session:
-        sub = (
-            session.query(TopicFollower).join(Topic).filter(
-                and_(
-                    TopicFollower.follower == user_id,
-                    Topic.slug == slug
-                )
-            ).first()
-        )
-        if not sub:
-            raise Exception("[resolvers.topics] follower not exist")
-        else:
-            session.delete(sub)
-        session.commit()
+    try:
+        with local_session() as session:
+            sub = (
+                session.query(TopicFollower).join(Topic).filter(
+                    and_(
+                        TopicFollower.follower == user_id,
+                        Topic.slug == slug
+                    )
+                ).first()
+            )
+            if sub:
+                session.delete(sub)
+                session.commit()
+                return True
+    except:
+        pass
+    return False
 
 
 @query.field("topicsRandom")

@@ -40,40 +40,49 @@ def add_reaction_stat_columns(q):
 
 
 def reactions_follow(user_id, shout_id: int, auto=False):
-    with local_session() as session:
-        shout = session.query(Shout).where(Shout.id == shout_id).one()
+    try:
+        with local_session() as session:
+            shout = session.query(Shout).where(Shout.id == shout_id).one()
 
-        following = (
-            session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower == user_id,
-                ShoutReactionsFollower.shout == shout.id,
-            )).first()
-        )
-
-        if not following:
-            following = ShoutReactionsFollower.create(
-                follower=user_id,
-                shout=shout.id,
-                auto=auto
+            following = (
+                session.query(ShoutReactionsFollower).where(and_(
+                    ShoutReactionsFollower.follower == user_id,
+                    ShoutReactionsFollower.shout == shout.id,
+                )).first()
             )
-            session.add(following)
-            session.commit()
+
+            if not following:
+                following = ShoutReactionsFollower.create(
+                    follower=user_id,
+                    shout=shout.id,
+                    auto=auto
+                )
+                session.add(following)
+                session.commit()
+                return True
+    except:
+        return False
 
 
 def reactions_unfollow(user_id: int, shout_id: int):
-    with local_session() as session:
-        shout = session.query(Shout).where(Shout.id == shout_id).one()
+    try:
+        with local_session() as session:
+            shout = session.query(Shout).where(Shout.id == shout_id).one()
 
-        following = (
-            session.query(ShoutReactionsFollower).where(and_(
-                ShoutReactionsFollower.follower == user_id,
-                ShoutReactionsFollower.shout == shout.id
-            )).first()
-        )
+            following = (
+                session.query(ShoutReactionsFollower).where(and_(
+                    ShoutReactionsFollower.follower == user_id,
+                    ShoutReactionsFollower.shout == shout.id
+                )).first()
+            )
 
-        if following:
-            session.delete(following)
-            session.commit()
+            if following:
+                session.delete(following)
+                session.commit()
+                return True
+    except:
+        pass
+    return False
 
 
 def is_published_author(session, user_id):

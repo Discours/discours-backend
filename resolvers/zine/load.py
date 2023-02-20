@@ -3,13 +3,15 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import joinedload, aliased
 from sqlalchemy.sql.expression import desc, asc, select, func, case
 
+from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.exceptions import ObjectNotExist
 from base.orm import local_session
 from base.resolvers import query
-from orm import ViewedEntry
+from orm import ViewedEntry, TopicFollower
 from orm.reaction import Reaction, ReactionKind
-from orm.shout import Shout, ShoutAuthor
+from orm.shout import Shout, ShoutAuthor, ShoutTopic
+from orm.user import AuthorFollower
 
 
 def add_stat_columns(q):
@@ -191,5 +193,58 @@ async def load_shouts_by(_, info, options):
 
         for [shout_id, viewed_stat] in session.execute(viewed_stat_query).unique():
             shouts_map[shout_id].stat['viewed'] = viewed_stat
+
+    return shouts
+
+
+@query.field("myFeed")
+@login_required
+async def get_my_feed(_, info, options):
+    auth: AuthCredentials = info.context["request"].auth
+    user_id = auth.user_id
+
+    q = select(Shout).options(
+        joinedload(Shout.authors),
+        joinedload(Shout.topics),
+    ).where(
+        Shout.deletedAt.is_(None)
+    )
+
+    q = q.join(
+        ShoutAuthor
+    ).join(
+        AuthorFollower
+    ).where(
+        AuthorFollower.follower == user_id
+    ).join(
+        ShoutTopic
+    ).join(
+        TopicFollower
+    ).where(TopicFollower.follower == user_id)
+
+    q = add_stat_columns(q)
+    q = apply_filters(q, options.get("filters", {}), user_id)
+
+    order_by = options.get("order_by", Shout.createdAt)
+    if order_by == 'reacted':
+        aliased_reaction = aliased(Reaction)
+        q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
+
+    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
+    offset = options.get("offset", 0)
+    limit = options.get("limit", 10)
+
+    q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
+
+    shouts = []
+    with local_session() as session:
+        for [shout, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
+            shouts.append(shout)
+            shout.stat = {
+                "viewed": 0,
+                "reacted": reacted_stat,
+                "commented": commented_stat,
+                "rating": rating_stat
+            }
 
     return shouts

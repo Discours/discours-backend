@@ -198,11 +198,15 @@ async def rate_user(_, info, rated_userslug, value):
 
 # for mutation.field("follow")
 def author_follow(user_id, slug):
-    with local_session() as session:
-        author = session.query(User).where(User.slug == slug).one()
-        af = AuthorFollower.create(follower=user_id, author=author.id)
-        session.add(af)
-        session.commit()
+    try:
+        with local_session() as session:
+            author = session.query(User).where(User.slug == slug).one()
+            af = AuthorFollower.create(follower=user_id, author=author.id)
+            session.add(af)
+            session.commit()
+        return True
+    except:
+        return False
 
 
 # for mutation.field("unfollow")
@@ -217,14 +221,11 @@ def author_unfollow(user_id, slug):
                 )
             ).first()
         )
-        if not flw:
-            return {
-                "error": "Follower is not exist, cant unfollow"
-            }
-        else:
+        if flw:
             session.delete(flw)
             session.commit()
-            return {}
+            return True
+    return False
 
 
 @query.field("authorsAll")

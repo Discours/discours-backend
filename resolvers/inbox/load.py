@@ -50,12 +50,14 @@ async def load_chats(_, info, limit: int = 50, offset: int = 0):
     auth: AuthCredentials = info.context["request"].auth
 
     cids = await redis.execute("SMEMBERS", "chats_by_user/" + str(auth.user_id))
-    onliners = await redis.execute("SMEMBERS", "users-online")
     if cids:
         cids = list(cids)[offset:offset + limit]
     if not cids:
         print('[inbox.load] no chats were found')
         cids = []
+    onliners = await redis.execute("SMEMBERS", "users-online")
+    if not onliners:
+        onliners = []
     chats = []
     for cid in cids:
         cid = cid.decode("utf-8")
@@ -124,8 +126,10 @@ async def load_messages_by(_, info, by, limit: int = 10, offset: int = 0):
 async def load_recipients(_, info, limit=50, offset=0):
     chat_users = []
     auth: AuthCredentials = info.context["request"].auth
+    onliners = await redis.execute("SMEMBERS", "users-online")
+    if not onliners:
+        onliners = []
     try:
-        onliners = await redis.execute("SMEMBERS", "users-online")
         chat_users += await followed_authors(auth.user_id)
         limit = limit - len(chat_users)
     except Exception:

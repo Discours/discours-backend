@@ -69,7 +69,6 @@ type Result {
   members: [ChatMember]
   shout: Shout
   shouts: [Shout]
-  drafts: [DraftCollab]
   author: Author
   authors: [Author]
   reaction: Reaction
@@ -78,6 +77,8 @@ type Result {
   topics: [Topic]
   community: Community
   communities: [Community]
+  draft: DraftCollab
+  drafts: [DraftCollab]
 }
 
 enum ReactionStatus {
@@ -207,6 +208,7 @@ type Mutation {
   deleteDraft(draft: Int!): Result!
   inviteAccept(draft: Int!): Result!
   inviteAuthor(draft: Int!, author: Int!): Result!
+  draftToShout(draft: Int!): Result!
 
   # following
   follow(what: FollowingEntity!, slug: String!): Result!
@@ -302,6 +304,7 @@ type Query {
   userFollowedTopics(slug: String!): [Topic]!
   authorsAll: [Author]!
   getAuthor(slug: String!): User
+  myFeed(options: LoadShoutsOptions): [Shout]
 
   # draft/collab
   loadDrafts: [DraftCollab]!
