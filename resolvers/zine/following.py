@@ -21,23 +21,23 @@ async def follow(_, info, what, slug):
 
     try:
         if what == "AUTHOR":
-            author_follow(auth.user_id, slug)
-            result = FollowingResult("NEW", 'author', slug)
-            await FollowingManager.put('author', result)
+            if author_follow(auth.user_id, slug):
+                result = FollowingResult("NEW", 'author', slug)
+                await FollowingManager.push('author', result)
         elif what == "TOPIC":
-            topic_follow(auth.user_id, slug)
-            result = FollowingResult("NEW", 'topic', slug)
-            await FollowingManager.put('topic', result)
+            if topic_follow(auth.user_id, slug):
+                result = FollowingResult("NEW", 'topic', slug)
+                await FollowingManager.push('topic', result)
         elif what == "COMMUNITY":
-            # community_follow(user, slug)
-            # result = FollowingResult("NEW", 'community', slug)
-            # await FollowingManager.put('community', result)
-            pass
+            if False:  # TODO: use community_follow(auth.user_id, slug):
+                result = FollowingResult("NEW", 'community', slug)
+                await FollowingManager.push('community', result)
         elif what == "REACTIONS":
-            reactions_follow(auth.user_id, slug)
-            result = FollowingResult("NEW", 'shout', slug)
-            await FollowingManager.put('shout', result)
+            if reactions_follow(auth.user_id, slug):
+                result = FollowingResult("NEW", 'shout', slug)
+                await FollowingManager.push('shout', result)
     except Exception as e:
+        print(Exception(e))
         return {"error": str(e)}
 
     return {}
@@ -50,22 +50,21 @@ async def unfollow(_, info, what, slug):
 
     try:
         if what == "AUTHOR":
-            author_unfollow(auth.user_id, slug)
-            result = FollowingResult("DELETED", 'author', slug)
-            await FollowingManager.put('author', result)
+            if author_unfollow(auth.user_id, slug):
+                result = FollowingResult("DELETED", 'author', slug)
+                await FollowingManager.push('author', result)
         elif what == "TOPIC":
-            topic_unfollow(auth.user_id, slug)
-            result = FollowingResult("DELETED", 'topic', slug)
-            await FollowingManager.put('topic', result)
+            if topic_unfollow(auth.user_id, slug):
+                result = FollowingResult("DELETED", 'topic', slug)
+                await FollowingManager.push('topic', result)
         elif what == "COMMUNITY":
-            # community_unfollow(user, slug)
-            # result = FollowingResult("DELETED", 'community', slug)
-            # await FollowingManager.put('community', result)
-            pass
+            if False:  # TODO: use community_unfollow(auth.user_id, slug):
+                result = FollowingResult("DELETED", 'community', slug)
+                await FollowingManager.push('community', result)
         elif what == "REACTIONS":
-            reactions_unfollow(auth.user_id, slug)
-            result = FollowingResult("DELETED", 'shout', slug)
-            await FollowingManager.put('shout', result)
+            if reactions_unfollow(auth.user_id, slug):
+                result = FollowingResult("DELETED", 'shout', slug)
+                await FollowingManager.push('shout', result)
     except Exception as e:
         return {"error": str(e)}
 

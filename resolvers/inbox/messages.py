@@ -51,7 +51,7 @@ async def create_message(_, info, chat: str, body: str, replyTo=None):
             )
 
         result = FollowingResult("NEW", 'chat', new_message)
-        await FollowingManager.put('chat', result)
+        await FollowingManager.push('chat', result)
 
         return {
             "message": new_message,
@@ -82,7 +82,7 @@ async def update_message(_, info, chat_id: str, message_id: int, body: str):
     await redis.execute("SET", f"chats/{chat_id}/messages/{message_id}", json.dumps(message))
 
     result = FollowingResult("UPDATED", 'chat', message)
-    await FollowingManager.put('chat', result)
+    await FollowingManager.push('chat', result)
 
     return {
         "message": message,
@@ -115,7 +115,7 @@ async def delete_message(_, info, chat_id: str, message_id: int):
         await redis.execute("LREM", f"chats/{chat_id}/unread/{user_id}", 0, str(message_id))
 
     result = FollowingResult("DELETED", 'chat', message)
-    await FollowingManager.put(result)
+    await FollowingManager.push(result)
 
     return {}
 
