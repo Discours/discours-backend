@@ -4,6 +4,7 @@ from sqlalchemy.orm import aliased
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
+from base.exceptions import OperationNotAllowed
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
@@ -161,14 +162,44 @@ def set_hidden(session, shout_id):
 
 @mutation.field("createReaction")
 @login_required
-async def create_reaction(_, info, reaction={}):
+async def create_reaction(_, info, reaction):
     auth: AuthCredentials = info.context["request"].auth
     reaction['createdBy'] = auth.user_id
     rdict = {}
     with local_session() as session:
-        r = Reaction.create(**reaction)
-        shout = session.query(Shout).where(Shout.id == r.shout).one()
+        shout = session.query(Shout).where(Shout.id == reaction["shout"]).one()
         author = session.query(User).where(User.id == auth.user_id).one()
+
+        if reaction["kind"] in [
+            ReactionKind.DISLIKE.name,
+            ReactionKind.LIKE.name
+        ]:
+            existing_reaction = session.query(Reaction).where(
+                and_(
+                    Reaction.shout == reaction["shout"],
+                    Reaction.createdBy == auth.user_id,
+                    Reaction.kind == reaction["kind"],
+                    Reaction.replyTo == reaction.get("replyTo")
+                )
+            ).first()
+
+            if existing_reaction is not None:
+                raise OperationNotAllowed("You can't vote twice")
+
+            opposite_reaction_kind = ReactionKind.DISLIKE if reaction["kind"] == ReactionKind.LIKE.name else ReactionKind.LIKE
+            opposite_reaction = session.query(Reaction).where(
+                    and_(
+                        Reaction.shout == reaction["shout"],
+                        Reaction.createdBy == auth.user_id,
+                        Reaction.kind == opposite_reaction_kind,
+                        Reaction.replyTo == reaction.get("replyTo")
+                    )
+                ).first()
+
+            if opposite_reaction is not None:
+                session.delete(opposite_reaction)
+
+        r = Reaction.create(**reaction)
 
         # Proposal accepting logix
         if r.replyTo is not None and \
@@ -249,7 +280,6 @@ async def update_reaction(_, info, id, reaction={}):
 @mutation.field("deleteReaction")
 @login_required
 async def delete_reaction(_, info, id):
-    # NOTE: reaction is id
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
@@ -258,7 +288,14 @@ async def delete_reaction(_, info, id):
             return {"error": "invalid reaction id"}
         if r.createdBy != auth.user_id:
             return {"error": "access denied"}
-        r.deletedAt = datetime.now(tz=timezone.utc)
+
+        if r.kind in [
+            ReactionKind.LIKE,
+            ReactionKind.DISLIKE
+        ]:
+            session.delete(r)
+        else:
+            r.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
         return {
             "reaction": r
@@ -294,7 +331,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     if by.get("shout"):
         q = q.filter(Shout.slug == by["shout"])
     elif by.get("shouts"):
-        q = q.filter(Shout.shout.in_(by["shouts"]))
+        q = q.filter(Shout.slug.in_(by["shouts"]))
 
     if by.get("createdBy"):
         q = q.filter(User.slug == by.get("createdBy"))
