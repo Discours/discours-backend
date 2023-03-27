@@ -455,7 +455,6 @@ type Shout {
   updatedBy: User
   deletedAt: DateTime
   deletedBy: User
-  publishedBy: User
   publishedAt: DateTime
   media: String # json [ { title pic url body }, .. ]
   stat: Stat
@@ -501,7 +500,8 @@ type TopicStat {
 }
 
 type Topic {
-  slug: String! # ID
+  id: Int!
+  slug: String!
   title: String
   body: String
   pic: String
