@@ -142,10 +142,9 @@ def check_to_hide(session, user_id, reaction):
     return False
 
 
-def set_published(session, shout_id, publisher):
+def set_published(session, shout_id):
     s = session.query(Shout).where(Shout.id == shout_id).first()
     s.publishedAt = datetime.now(tz=timezone.utc)
-    s.publishedBy = publisher
     s.visibility = text('public')
     session.add(s)
     session.commit()
@@ -153,9 +152,7 @@ def set_published(session, shout_id, publisher):
 
 def set_hidden(session, shout_id):
     s = session.query(Shout).where(Shout.id == shout_id).first()
-    s.visibility = text('authors')
-    s.publishedAt = None  # TODO: discuss
-    s.publishedBy = None  # TODO: store changes history in git
+    s.visibility = text('community')
     session.add(s)
     session.commit()
 
@@ -227,7 +224,7 @@ async def create_reaction(_, info, reaction):
         if check_to_hide(session, auth.user_id, r):
             set_hidden(session, r.shout)
         elif check_to_publish(session, auth.user_id, r):
-            set_published(session, r.shout, r.createdBy)
+            set_published(session, r.shout)
 
     try:
         reactions_follow(auth.user_id, reaction["shout"], True)
