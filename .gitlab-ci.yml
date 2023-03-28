@@ -22,4 +22,4 @@ deploy:
     - echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
     - chmod 0400 ~/.ssh/id_rsa
     - git remote add dokku dokku@$SERVER:$APP_NAME
-    - git push dokku
+    - git push dokku HEAD:main
