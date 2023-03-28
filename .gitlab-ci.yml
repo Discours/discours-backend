@@ -7,7 +7,7 @@ variables:
   SERVER: v2.discours.io
 
 deploy:
-  image: actions/ssh-keyscan
+  image: alpine
   stage: deploy
   environment:
     name: production
@@ -16,7 +16,7 @@ deploy:
     - main
   script:
     - mkdir -p ~/.ssh
-    - ssh-keyscan -t rsa $SERVER >> ~/.ssh/known_hosts
+    - ssh -o StrictHostKeyChecking=no dokku@$SERVER
     - echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
     - chmod 0400 ~/.ssh/id_rsa
     - git remote add dokku dokku@$SERVER:$APP_NAME
