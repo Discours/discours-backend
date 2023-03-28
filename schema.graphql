@@ -77,8 +77,6 @@ type Result {
   topics: [Topic]
   community: Community
   communities: [Community]
-  draft: DraftCollab
-  drafts: [DraftCollab]
 }
 
 enum ReactionStatus {
@@ -130,16 +128,6 @@ input TopicInput {
   # parents: [String]
 }
 
-input DraftInput {
-    slug: String
-    topics: [Int]
-    authors: [Int]
-    title: String
-    subtitle: String
-    body: String
-    cover: String
-
-}
 
 input ReactionInput {
   kind: ReactionKind!
@@ -201,14 +189,6 @@ type Mutation {
   createReaction(reaction: ReactionInput!): Result!
   updateReaction(id: Int!, reaction: ReactionInput!): Result!
   deleteReaction(id: Int!): Result!
-
-  # draft / collab
-  createDraft(draft: DraftInput!): Result!
-  updateDraft(draft: DraftInput!): Result!
-  deleteDraft(draft: Int!): Result!
-  inviteAccept(draft: Int!): Result!
-  inviteAuthor(draft: Int!, author: Int!): Result!
-  draftToShout(draft: Int!): Result!
 
   # following
   follow(what: FollowingEntity!, slug: String!): Result!
@@ -305,9 +285,6 @@ type Query {
   authorsAll: [Author]!
   getAuthor(slug: String!): User
   myFeed(options: LoadShoutsOptions): [Shout]
-
-  # draft/collab
-  loadDrafts: [DraftCollab]!
 
   # migrate
   markdownBody(body: String!): String!
@@ -543,18 +520,4 @@ type Chat {
   messages: [Message]
   unread: Int
   private: Boolean
-}
-
-type DraftCollab {
- slug: String
- title: String
- subtitle: String
- body: String
- cover: String
- layout: String
- authors: [Int]!
- topics: [String]
- chat: Chat
- createdAt: Int!
- updatedAt: Int
 }

@@ -14,7 +14,6 @@ from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from services.zine.gittask import GitTask
 # from resolvers.inbox.chats import create_chat
 # from services.inbox.storage import MessagesStorage
-# from orm.draft import DraftCollab
 
 
 @mutation.field("createShout")
@@ -33,7 +32,7 @@ async def create_shout(_, info, inp):
             "slug": inp.get("slug"),
             "mainTopic": inp.get("mainTopic"),
             "visibility": "community",
-            # "createdBy": auth.user_id
+            "createdBy": auth.user_id
         })
 
         for topic in topics:
