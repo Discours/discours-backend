@@ -4,9 +4,10 @@ stages:
 
 variables:
   APP_NAME: discoursio-api
+  SERVER: v2.discours.io
 
 deploy:
-  image: ilyasemenov/gitlab-ci-git-push
+  image: alpine
   stage: deploy
   environment:
     name: production
@@ -15,6 +16,8 @@ deploy:
     - main
   script:
     - mkdir -p ~/.ssh
-    - touch ~/.ssh/known_hosts
-    - ssh-keyscan -t rsa v2.discours.io >> ~/.ssh/known_hosts
-    - git-push ssh://dokku@v2.discours.io:22/$APP_NAME
+    - ssh-keyscan -t rsa $SERVER >> ~/.ssh/known_hosts
+    - echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+    - chmod 0400 ~/.ssh/id_rsa
+    - git remote add dokku dokku@$SERVER:$APP_NAME
+    - git push dokku
