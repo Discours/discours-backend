@@ -9,7 +9,7 @@ variables:
 deploy:
   image:
     name: alpine/git
-    entrypoint: ["/bin/sh"]
+    entrypoint: [""]
   stage: deploy
   environment:
     name: production
