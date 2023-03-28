@@ -14,4 +14,5 @@ deploy:
   only:
     - main
   script:
+    - ssh-keyscan -t rsa v2.discours.io >> ~/.ssh/known_hosts
     - git-push ssh://dokku@v2.discours.io:22/$APP_NAME
