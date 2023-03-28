@@ -17,8 +17,8 @@ deploy:
   only:
     - main
   script:
-    - mkdir -p ~/.ssh
-    - ssh -o StrictHostKeyChecking=no dokku@$SERVER
+    - mkdir ~/.ssh
+    - echo "${HOST_KEY}" > ~/.ssh/known_hosts
     - echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
     - chmod 0400 ~/.ssh/id_rsa
     - git remote add dokku dokku@$SERVER:$APP_NAME
