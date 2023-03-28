@@ -7,7 +7,9 @@ variables:
   SERVER: v2.discours.io
 
 deploy:
-  image: alpine/git
+  image:
+    name: alpine/git
+    entrypoint: ["/bin/sh"]
   stage: deploy
   environment:
     name: production
