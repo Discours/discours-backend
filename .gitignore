@@ -144,10 +144,9 @@ migration/content/**/*.md
 *.sqlite3
 *.rdb
 .DS_Store
-dump
+/dump
 .vscode
 *dump.sql
 *.csv
 dev-server.pid
-/resetdb.sh
 backups/
