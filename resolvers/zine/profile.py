@@ -101,28 +101,43 @@ async def followed_reactions(user_id):
             Reaction.createdAt > user.lastSeen
         ).all()
 
-
+# dufok mod (^*^') :
 @query.field("userFollowedTopics")
-@login_required
-async def get_followed_topics(_, info, user_id) -> List[Topic]:
+async def get_followed_topics(_, info, slug) -> List[Topic]:
+    user_id_query = select(User.id).where(User.slug == slug)
+    with local_session() as session:
+        user_id = session.execute(user_id_query).scalar()
+
+    if user_id is None:
+        raise ValueError("User not found")
+
     return await followed_topics(user_id)
 
 
 async def followed_topics(user_id):
     return followed_by_user(user_id)
 
-
+# dufok mod (^*^') :
 @query.field("userFollowedAuthors")
-async def get_followed_authors(_, _info, user_id: int) -> List[User]:
+async def get_followed_authors(_, _info, slug) -> List[User]:
+    # 1. First, we need to get the user_id for the given slug
+    user_id_query = select(User.id).where(User.slug == slug)
+    with local_session() as session:
+        user_id = session.execute(user_id_query).scalar()
+
+    if user_id is None:
+        raise ValueError("User not found")
+
     return await followed_authors(user_id)
 
-
+# 2. Now, we can use the user_id to get the followed authors
 async def followed_authors(user_id):
     q = select(User)
     q = add_author_stat_columns(q)
     q = q.join(AuthorFollower, AuthorFollower.author == User.id).where(
         AuthorFollower.follower == user_id
     )
+    # 3. Pass the query to the get_authors_from_query function and return the results
     return get_authors_from_query(q)
 
 
