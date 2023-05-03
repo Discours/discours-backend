@@ -60,7 +60,6 @@ type Author {
 
 type Result {
   error: String
-  uids: [String]
   slugs: [String]
   chat: Chat
   chats: [Chat]
@@ -98,7 +97,7 @@ type ReactionUpdating {
 input ShoutInput {
   slug: String
   title: String
-  body: String!
+  body: String
   authors: [String]
   topics: [String]
   community: Int
@@ -171,8 +170,9 @@ type Mutation {
 
   # shout
   createShout(inp: ShoutInput!): Result!
-  updateShout(inp: ShoutInput!): Result!
+  updateShout(slug: String!, inp: ShoutInput!): Result!
   deleteShout(slug: String!): Result!
+  publishShout(slug: String!, inp: ShoutInput!): Result!
 
   # user profile
   rateUser(slug: String!, value: Int!): Result!
@@ -278,6 +278,7 @@ type Query {
   loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
   loadShout(slug: String!): Shout
   loadShouts(options: LoadShoutsOptions): [Shout]!
+  loadDrafts(options: LoadShoutsOptions): [Shout]!
   loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!

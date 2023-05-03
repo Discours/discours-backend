@@ -169,9 +169,9 @@ class ViewedStorage:
                 viewed = session.query(
                     ViewedEntry
                 ).join(
-                    Shout
+                    Shout, Shout.id == ViewedEntry.shout
                 ).join(
-                    User
+                    User, User.id == ViewedEntry.viewer
                 ).filter(
                     User.slug == viewer,
                     Shout.slug == shout_slug

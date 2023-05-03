@@ -27,11 +27,11 @@ async def create_shout(_, info, inp):
         new_shout = Shout.create(**{
             "title": inp.get("title"),
             "subtitle": inp.get('subtitle'),
-            "body": inp.get("body"),
+            "body": inp.get("body", ''),
             "authors": inp.get("authors", []),
             "slug": inp.get("slug"),
             "mainTopic": inp.get("mainTopic"),
-            "visibility": "community",
+            "visibility": "owner",
             "createdBy": auth.user_id
         })
 
@@ -81,21 +81,24 @@ async def create_shout(_, info, inp):
 
         session.commit()
 
-    # TODO
-    # GitTask(inp, user.username, user.email, "new shout %s" % new_shout.slug)
+        # TODO
+        # GitTask(inp, user.username, user.email, "new shout %s" % new_shout.slug)
+
+        if new_shout.slug is None:
+            new_shout.slug = f"draft-{new_shout.id}"
+            session.commit()
 
     return {"shout": new_shout}
 
 
 @mutation.field("updateShout")
 @login_required
-async def update_shout(_, info, inp):
+async def update_shout(_, info, slug, inp):
     auth: AuthCredentials = info.context["request"].auth
-    slug = inp["slug"]
 
     with local_session() as session:
-        user = session.query(User).filter(User.id == auth.user_id).first()
         shout = session.query(Shout).filter(Shout.slug == slug).first()
+
         if not shout:
             return {"error": "shout not found"}
 
@@ -108,18 +111,38 @@ async def update_shout(_, info, inp):
         else:
             shout.update(inp)
             shout.updatedAt = datetime.now(tz=timezone.utc)
-            session.add(shout)
+
             if inp.get("topics"):
                 # remove old links
                 links = session.query(ShoutTopic).where(ShoutTopic.shout == shout.id).all()
                 for topiclink in links:
                     session.delete(topiclink)
                 # add new topic links
-                for topic in inp.get("topics", []):
-                    ShoutTopic.create(shout=slug, topic=topic)
+                # for topic_slug in inp.get("topics", []):
+                #     topic = session.query(Topic).filter(Topic.slug == topic_slug).first()
+                #     shout_topic = ShoutTopic.create(shout=shout.id, topic=topic.id)
+                #     session.add(shout_topic)
             session.commit()
+    # GitTask(inp, user.username, user.email, "update shout %s" % slug)
 
-    GitTask(inp, user.username, user.email, "update shout %s" % slug)
+    return {"shout": shout}
+
+
+@mutation.field("publishShout")
+@login_required
+async def publish_shout(_, info, slug, inp):
+    auth: AuthCredentials = info.context["request"].auth
+
+    with local_session() as session:
+        shout = session.query(Shout).filter(Shout.slug == slug).first()
+        if not shout:
+            return {"error": "shout not found"}
+
+        else:
+            shout.update(inp)
+            shout.visibility = "community"
+            shout.updatedAt = datetime.now(tz=timezone.utc)
+            session.commit()
 
     return {"shout": shout}
 
