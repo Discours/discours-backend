@@ -48,9 +48,11 @@ class Shout(Base):
     publishedAt = Column(DateTime, nullable=True)
     deletedAt = Column(DateTime, nullable=True)
 
-    # same with Draft
+    createdBy = Column(ForeignKey("user.id"), comment="Created By")
+    deletedBy = Column(ForeignKey("user.id"), nullable=True)
+
     slug = Column(String, unique=True)
-    cover = Column(String, nullable=True, comment="Cover")
+    cover = Column(String, nullable=True, comment="Cover image url")
     body = Column(String, nullable=False, comment="Body")
     title = Column(String, nullable=True)
     subtitle = Column(String, nullable=True)

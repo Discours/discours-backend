@@ -8,8 +8,6 @@ from resolvers.auth import (
     get_current_user,
 )
 
-from resolvers.create.drafts import load_drafts, create_draft, update_draft, delete_draft,\
-    accept_coauthor, invite_coauthor, draft_to_shout
 from resolvers.create.migrate import markdown_body
 from resolvers.create.editor import create_shout, delete_shout, update_shout
 

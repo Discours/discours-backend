@@ -60,7 +60,6 @@ type Author {
 
 type Result {
   error: String
-  uids: [String]
   slugs: [String]
   chat: Chat
   chats: [Chat]
@@ -77,8 +76,6 @@ type Result {
   topics: [Topic]
   community: Community
   communities: [Community]
-  draft: DraftCollab
-  drafts: [DraftCollab]
 }
 
 enum ReactionStatus {
@@ -100,7 +97,7 @@ type ReactionUpdating {
 input ShoutInput {
   slug: String
   title: String
-  body: String!
+  body: String
   authors: [String]
   topics: [String]
   community: Int
@@ -130,16 +127,6 @@ input TopicInput {
   # parents: [String]
 }
 
-input DraftInput {
-    slug: String
-    topics: [Int]
-    authors: [Int]
-    title: String
-    subtitle: String
-    body: String
-    cover: String
-
-}
 
 input ReactionInput {
   kind: ReactionKind!
@@ -183,8 +170,9 @@ type Mutation {
 
   # shout
   createShout(inp: ShoutInput!): Result!
-  updateShout(inp: ShoutInput!): Result!
+  updateShout(slug: String!, inp: ShoutInput!): Result!
   deleteShout(slug: String!): Result!
+  publishShout(slug: String!, inp: ShoutInput!): Result!
 
   # user profile
   rateUser(slug: String!, value: Int!): Result!
@@ -201,14 +189,6 @@ type Mutation {
   createReaction(reaction: ReactionInput!): Result!
   updateReaction(id: Int!, reaction: ReactionInput!): Result!
   deleteReaction(id: Int!): Result!
-
-  # draft / collab
-  createDraft(draft: DraftInput!): Result!
-  updateDraft(draft: DraftInput!): Result!
-  deleteDraft(draft: Int!): Result!
-  inviteAccept(draft: Int!): Result!
-  inviteAuthor(draft: Int!, author: Int!): Result!
-  draftToShout(draft: Int!): Result!
 
   # following
   follow(what: FollowingEntity!, slug: String!): Result!
@@ -298,6 +278,7 @@ type Query {
   loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
   loadShout(slug: String!): Shout
   loadShouts(options: LoadShoutsOptions): [Shout]!
+  loadDrafts(options: LoadShoutsOptions): [Shout]!
   loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
@@ -305,9 +286,6 @@ type Query {
   authorsAll: [Author]!
   getAuthor(slug: String!): User
   myFeed(options: LoadShoutsOptions): [Shout]
-
-  # draft/collab
-  loadDrafts: [DraftCollab]!
 
   # migrate
   markdownBody(body: String!): String!
@@ -543,18 +521,4 @@ type Chat {
   messages: [Message]
   unread: Int
   private: Boolean
-}
-
-type DraftCollab {
- slug: String
- title: String
- subtitle: String
- body: String
- cover: String
- layout: String
- authors: [Int]!
- topics: [String]
- chat: Chat
- createdAt: Int!
- updatedAt: Int
 }

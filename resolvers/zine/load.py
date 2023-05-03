@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import joinedload, aliased
-from sqlalchemy.sql.expression import desc, asc, select, func, case
+from sqlalchemy.sql.expression import desc, asc, select, func, case, and_
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from base.exceptions import ObjectNotExist
+from base.exceptions import ObjectNotExist, OperationNotAllowed
 from base.orm import local_session
 from base.resolvers import query
 from orm import ViewedEntry, TopicFollower
@@ -69,7 +69,6 @@ def apply_filters(q, filters, user_id=None):
         q = q.filter(Shout.createdAt > before)
 
     return q
-
 
 @query.field("loadShout")
 async def load_shout(_, info, slug):
@@ -195,6 +194,38 @@ async def load_shouts_by(_, info, options):
             shouts_map[shout_id].stat['viewed'] = viewed_stat
 
     return shouts
+
+@query.field("loadDrafts")
+async def get_drafts(_, info, options):
+    auth: AuthCredentials = info.context["request"].auth
+    user_id = auth.user_id
+
+    q = select(Shout).options(
+        joinedload(Shout.authors),
+        joinedload(Shout.topics),
+    ).where(
+        and_(Shout.deletedAt.is_(None), Shout.createdBy == user_id)
+    )
+
+    q = apply_filters(q, options.get("filters", {}), user_id)
+    order_by = options.get("order_by", Shout.createdAt)
+    if order_by == 'reacted':
+        aliased_reaction = aliased(Reaction)
+        q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
+
+    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
+    offset = options.get("offset", 0)
+    limit = options.get("limit", 10)
+
+    q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
+
+    shouts = []
+    with local_session() as session:
+        for [shout] in session.execute(q).unique():
+            shouts.append(shout)
+
+    return shouts
+
 
 
 @query.field("myFeed")
