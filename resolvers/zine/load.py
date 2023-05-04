@@ -196,7 +196,7 @@ async def load_shouts_by(_, info, options):
     return shouts
 
 @query.field("loadDrafts")
-async def get_drafts(_, info, options):
+async def get_drafts(_, info):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
@@ -207,17 +207,7 @@ async def get_drafts(_, info, options):
         and_(Shout.deletedAt.is_(None), Shout.createdBy == user_id)
     )
 
-    q = apply_filters(q, options.get("filters", {}), user_id)
-    order_by = options.get("order_by", Shout.createdAt)
-    if order_by == 'reacted':
-        aliased_reaction = aliased(Reaction)
-        q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
-
-    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
-    offset = options.get("offset", 0)
-    limit = options.get("limit", 10)
-
-    q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
+    q = q.group_by(Shout.id)
 
     shouts = []
     with local_session() as session:

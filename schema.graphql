@@ -278,7 +278,7 @@ type Query {
   loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
   loadShout(slug: String!): Shout
   loadShouts(options: LoadShoutsOptions): [Shout]!
-  loadDrafts(options: LoadShoutsOptions): [Shout]!
+  loadDrafts: [Shout]!
   loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
