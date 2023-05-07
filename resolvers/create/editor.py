@@ -93,11 +93,11 @@ async def create_shout(_, info, inp):
 
 @mutation.field("updateShout")
 @login_required
-async def update_shout(_, info, slug, inp):
+async def update_shout(_, info, shout_id, shout_input):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        shout = session.query(Shout).filter(Shout.slug == slug).first()
+        shout = session.query(Shout).filter(Shout.id == shout_id).first()
 
         if not shout:
             return {"error": "shout not found"}
@@ -109,10 +109,10 @@ async def update_shout(_, info, slug, inp):
             if Resource.shout not in scopes:
                 return {"error": "access denied"}
         else:
-            shout.update(inp)
+            shout.update(shout_input)
             shout.updatedAt = datetime.now(tz=timezone.utc)
 
-            if inp.get("topics"):
+            if shout_input.get("topics"):
                 # remove old links
                 links = session.query(ShoutTopic).where(ShoutTopic.shout == shout.id).all()
                 for topiclink in links:
