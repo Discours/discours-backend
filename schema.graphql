@@ -103,9 +103,7 @@ input ShoutInput {
   community: Int
   mainTopic: String
   subtitle: String
-  versionOf: String
-  visibleForRoles: [String] # role ids are strings
-  visibleForUsers: [String]
+  cover: String
 }
 
 input ProfileInput {
@@ -170,9 +168,9 @@ type Mutation {
 
   # shout
   createShout(inp: ShoutInput!): Result!
-  updateShout(slug: String!, inp: ShoutInput!): Result!
-  deleteShout(slug: String!): Result!
-  publishShout(slug: String!, inp: ShoutInput!): Result!
+  updateShout(shout_id: Int!, shout_input: ShoutInput!): Result!
+  deleteShout(shout_id: Int!): Result!
+  publishShout(shout_id: Int!, shout_input: ShoutInput): Result!
 
   # user profile
   rateUser(slug: String!, value: Int!): Result!
