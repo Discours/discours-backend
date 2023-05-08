@@ -168,9 +168,8 @@ type Mutation {
 
   # shout
   createShout(inp: ShoutInput!): Result!
-  updateShout(shout_id: Int!, shout_input: ShoutInput!): Result!
+  updateShout(shout_id: Int!, shout_input: ShoutInput, publish: Boolean): Result!
   deleteShout(shout_id: Int!): Result!
-  publishShout(shout_id: Int!, shout_input: ShoutInput): Result!
 
   # user profile
   rateUser(slug: String!, value: Int!): Result!
@@ -274,7 +273,7 @@ type Query {
 
   # zine
   loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
-  loadShout(slug: String!): Shout
+  loadShout(slug: String, shout_id: Int): Shout
   loadShouts(options: LoadShoutsOptions): [Shout]!
   loadDrafts: [Shout]!
   loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!

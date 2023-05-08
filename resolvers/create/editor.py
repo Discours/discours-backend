@@ -93,63 +93,34 @@ async def create_shout(_, info, inp):
 
 @mutation.field("updateShout")
 @login_required
-async def update_shout(_, info, shout_id, shout_input):
+async def update_shout(_, info, shout_id, shout_input=None, publish=False):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
         shout = session.query(Shout).filter(Shout.id == shout_id).first()
 
-        if not shout:
-            return {"error": "shout not found"}
-
-        authors = [author.id for author in shout.authors]
-        if auth.user_id not in authors:
-            scopes = auth.scopes
-            print(scopes)
-            if Resource.shout not in scopes:
-                return {"error": "access denied"}
-        else:
-            shout.update(shout_input)
-            shout.updatedAt = datetime.now(tz=timezone.utc)
-
-            if shout_input.get("topics"):
-                # remove old links
-                links = session.query(ShoutTopic).where(ShoutTopic.shout == shout.id).all()
-                for topiclink in links:
-                    session.delete(topiclink)
-                # add new topic links
-                # for topic_slug in inp.get("topics", []):
-                #     topic = session.query(Topic).filter(Topic.slug == topic_slug).first()
-                #     shout_topic = ShoutTopic.create(shout=shout.id, topic=topic.id)
-                #     session.add(shout_topic)
-            session.commit()
-    # GitTask(inp, user.username, user.email, "update shout %s" % slug)
-
-    return {"shout": shout}
-
-
-@mutation.field("publishShout")
-@login_required
-async def publish_shout(_, info, shout_id, shout_input=None):
-    if shout_input is None:
-        shout_input = {}
-    auth: AuthCredentials = info.context["request"].auth
-
-    with local_session() as session:
-        shout = session.query(Shout).filter(Shout.id == shout_id).first()
         if not shout:
             return {"error": "shout not found"}
 
         if shout.createdBy != auth.user_id:
             return {"error": "access denied"}
 
+        updated = False
+
         if shout_input is not None:
             shout.update(shout_input)
+            updated = True
 
-        shout.visibility = "community"
-        shout.updatedAt = datetime.now(tz=timezone.utc)
-        shout.publishedAt = datetime.now(tz=timezone.utc)
+        if publish and shout.visibility == 'owner':
+            shout.visibility = "community"
+            shout.publishedAt = datetime.now(tz=timezone.utc)
+            updated = True
+
+        if updated:
+            shout.updatedAt = datetime.now(tz=timezone.utc)
+
         session.commit()
+    # GitTask(inp, user.username, user.email, "update shout %s" % slug)
 
     return {"shout": shout}
 
@@ -161,12 +132,16 @@ async def delete_shout(_, info, shout_id):
 
     with local_session() as session:
         shout = session.query(Shout).filter(Shout.id == shout_id).first()
+
         if not shout:
             return {"error": "invalid shout id"}
+
         if auth.user_id != shout.createdBy:
             return {"error": "access denied"}
+
         for author_id in shout.authors:
             reactions_unfollow(author_id, shout_id)
+
         shout.deletedAt = datetime.now(tz=timezone.utc)
         session.commit()
 

@@ -70,17 +70,27 @@ def apply_filters(q, filters, user_id=None):
 
     return q
 
+
 @query.field("loadShout")
-async def load_shout(_, info, slug):
+async def load_shout(_, info, slug=None, shout_id=None):
     with local_session() as session:
         q = select(Shout).options(
             joinedload(Shout.authors),
             joinedload(Shout.topics),
         )
         q = add_stat_columns(q)
+
+        if slug is not None:
+            q = q.filter(
+                Shout.slug == slug
+            )
+
+        if shout_id is not None:
+            q = q.filter(
+                Shout.id == shout_id
+            )
+
         q = q.filter(
-            Shout.slug == slug
-        ).filter(
             Shout.deletedAt.is_(None)
         ).group_by(Shout.id)
 
@@ -195,6 +205,7 @@ async def load_shouts_by(_, info, options):
 
     return shouts
 
+
 @query.field("loadDrafts")
 async def get_drafts(_, info):
     auth: AuthCredentials = info.context["request"].auth
@@ -215,7 +226,6 @@ async def get_drafts(_, info):
             shouts.append(shout)
 
     return shouts
-
 
 
 @query.field("myFeed")
