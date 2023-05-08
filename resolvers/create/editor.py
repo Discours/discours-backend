@@ -130,39 +130,44 @@ async def update_shout(_, info, shout_id, shout_input):
 
 @mutation.field("publishShout")
 @login_required
-async def publish_shout(_, info, slug, inp):
+async def publish_shout(_, info, shout_id, shout_input=None):
+    if shout_input is None:
+        shout_input = {}
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        shout = session.query(Shout).filter(Shout.slug == slug).first()
+        shout = session.query(Shout).filter(Shout.id == shout_id).first()
         if not shout:
             return {"error": "shout not found"}
 
-        else:
-            shout.update(inp)
-            shout.visibility = "community"
-            shout.updatedAt = datetime.now(tz=timezone.utc)
-            session.commit()
+        if shout.createdBy != auth.user_id:
+            return {"error": "access denied"}
+
+        if shout_input is not None:
+            shout.update(shout_input)
+
+        shout.visibility = "community"
+        shout.updatedAt = datetime.now(tz=timezone.utc)
+        shout.publishedAt = datetime.now(tz=timezone.utc)
+        session.commit()
 
     return {"shout": shout}
 
 
 @mutation.field("deleteShout")
 @login_required
-async def delete_shout(_, info, slug):
+async def delete_shout(_, info, shout_id):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        shout = session.query(Shout).filter(Shout.slug == slug).first()
-        authors = [a.id for a in shout.authors]
+        shout = session.query(Shout).filter(Shout.id == shout_id).first()
         if not shout:
-            return {"error": "invalid shout slug"}
-        if auth.user_id not in authors:
+            return {"error": "invalid shout id"}
+        if auth.user_id != shout.createdBy:
             return {"error": "access denied"}
-        for a in authors:
-            reactions_unfollow(a.id, slug)
+        for author_id in shout.authors:
+            reactions_unfollow(author_id, shout_id)
         shout.deletedAt = datetime.now(tz=timezone.utc)
-        session.add(shout)
         session.commit()
 
     return {}
