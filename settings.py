@@ -4,7 +4,7 @@ PORT = 8080
 
 DB_URL = (
     environ.get("DATABASE_URL") or environ.get("DB_URL") or
-    "postgresql://postgres@localhost:5432/discoursio" or "sqlite:///db.sqlite3"
+    "postgresql://postgres@localhost:5432/discoursio"
 )
 JWT_ALGORITHM = "HS256"
 JWT_SECRET_KEY = environ.get("JWT_SECRET_KEY") or "8f1bd7696ffb482d8486dfbc6e7d16dd-secret-key"

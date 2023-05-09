@@ -7,7 +7,7 @@ pyjwt>=2.6.0
 starlette~=0.23.1
 sqlalchemy>=1.4.41
 graphql-core>=3.0.3
-gql
+gql~=3.4.0
 uvicorn>=0.18.3
 pydantic>=1.10.2
 passlib~=1.7.4
@@ -29,3 +29,6 @@ lxml
 sentry-sdk>=1.14.0
 # sse_starlette
 graphql-ws
+nltk~=3.8.1
+pymystem3~=0.2.0
+transformers~=4.28.1

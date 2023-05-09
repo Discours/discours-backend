@@ -5,5 +5,5 @@ ADD nginx.conf.sigil ./
 RUN /usr/local/bin/python -m pip install --upgrade pip
 WORKDIR /usr/src/app
 COPY requirements.txt ./
-RUN set -ex && pip install -r requirements.txt
+RUN pip install -r requirements.txt
 COPY . .
