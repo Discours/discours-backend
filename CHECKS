@@ -2,4 +2,4 @@ WAIT=10
 TIMEOUT=10
 ATTEMPTS=30 # 10 * 30 = 5 min
 
-/graphql           Playground
+/              GraphQL Playground
