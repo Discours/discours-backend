@@ -99,9 +99,9 @@ input ShoutInput {
   title: String
   body: String
   authors: [String]
-  topics: [String]
+  topics: [TopicInput]
   community: Int
-  mainTopic: String
+  mainTopic: TopicInput
   subtitle: String
   cover: String
 }
@@ -116,8 +116,9 @@ input ProfileInput {
 }
 
 input TopicInput {
+  id: Int,
   slug: String!
-  community: String!
+  # community: String!
   title: String
   body: String
   pic: String
@@ -480,7 +481,7 @@ type Topic {
   title: String
   body: String
   pic: String
-  community: Community!
+  # community: Community!
   stat: TopicStat
   oid: String
 }

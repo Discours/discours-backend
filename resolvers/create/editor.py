@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import and_
+from sqlalchemy.orm import joinedload
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
@@ -97,7 +98,10 @@ async def update_shout(_, info, shout_id, shout_input=None, publish=False):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        shout = session.query(Shout).filter(Shout.id == shout_id).first()
+        shout = session.query(Shout).options(
+            joinedload(Shout.authors),
+            joinedload(Shout.topics),
+        ).filter(Shout.id == shout_id).first()
 
         if not shout:
             return {"error": "shout not found"}
@@ -108,6 +112,51 @@ async def update_shout(_, info, shout_id, shout_input=None, publish=False):
         updated = False
 
         if shout_input is not None:
+            topics_input = shout_input["topics"]
+            del shout_input["topics"]
+
+            new_topics_to_link = []
+            new_topics = [topic_input for topic_input in topics_input if topic_input["id"] < 0]
+
+            for new_topic in new_topics:
+                del new_topic["id"]
+                created_new_topic = Topic.create(**new_topic)
+                session.add(created_new_topic)
+                new_topics_to_link.append(created_new_topic)
+
+            if len(new_topics) > 0:
+                session.commit()
+
+            for new_topic_to_link in new_topics_to_link:
+                created_unlinked_topic = ShoutTopic.create(shout=shout.id, topic=new_topic_to_link.id)
+                session.add(created_unlinked_topic)
+
+            existing_topics_input = [topic_input for topic_input in topics_input if topic_input.get("id", 0) > 0]
+            existing_topic_to_link_ids = [existing_topic_input["id"] for existing_topic_input in existing_topics_input
+                                          if existing_topic_input["id"] not in [topic.id for topic in shout.topics]]
+
+            for existing_topic_to_link_id in existing_topic_to_link_ids:
+                created_unlinked_topic = ShoutTopic.create(shout=shout.id, topic=existing_topic_to_link_id)
+                session.add(created_unlinked_topic)
+
+            topic_to_unlink_ids = [topic.id for topic in shout.topics
+                                   if topic.id not in [topic_input["id"] for topic_input in existing_topics_input]]
+
+            shout_topics_to_remove = session.query(ShoutTopic).filter(
+                and_(
+                    ShoutTopic.shout == shout.id,
+                    ShoutTopic.topic.in_(topic_to_unlink_ids)
+                )
+            )
+
+            for shout_topic_to_remove in shout_topics_to_remove:
+                session.delete(shout_topic_to_remove)
+
+            shout_input["mainTopic"] = shout_input["mainTopic"]["slug"]
+
+            if shout_input["mainTopic"] == '':
+                del shout_input["mainTopic"]
+
             shout.update(shout_input)
             updated = True
 
