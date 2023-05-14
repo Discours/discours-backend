@@ -40,45 +40,13 @@ async def create_shout(_, info, inp):
             t = ShoutTopic.create(topic=topic.id, shout=new_shout.id)
             session.add(t)
 
-        # if auth.user_id in authors:
-        #     authors.remove(auth.user_id)
-        # Chat room code, uncomment it
-        # if authors:
-        #     chat = create_chat(None, info, new_shout.title, members=authors)
-        #     # create a cooperative chatroom
-        #     await MessagesStorage.register_chat(chat)
-        #     # now we should create a collab
-        #     new_collab = Collab.create({
-        #         "shout": new_shout.id,
-        #         "authors": [auth.user_id, ],
-        #         "invites": authors
-        #     })
-        #     session.add(new_collab)
-
         # NOTE: shout made by one first author
         sa = ShoutAuthor.create(shout=new_shout.id, user=auth.user_id)
         session.add(sa)
 
-        # if "mainTopic" in inp:
-        #     new_shout.topics.append(inp["mainTopic"])
-
         session.add(new_shout)
 
         reactions_follow(auth.user_id, new_shout.id, True)
-
-        # for slug in new_shout.topics:
-        #     topic = session.query(Topic).where(Topic.slug == slug).one()
-        #
-        #     st = ShoutTopic.create(shout=new_shout.id, topic=topic.id)
-        #     session.add(st)
-        #
-        #     tf = session.query(TopicFollower).where(
-        #         and_(TopicFollower.follower == auth.user_id, TopicFollower.topic == topic.id)
-        #     )
-        #
-        #     if not tf:
-        #         tf = TopicFollower.create(follower=auth.user_id, topic=topic.id, auto=True)
-        #         session.add(tf)
 
         session.commit()
 
