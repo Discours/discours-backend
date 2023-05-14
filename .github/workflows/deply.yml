@@ -23,4 +23,4 @@ jobs:
         run: |
             echo $HOST_KEY > ~/.ssh/known_hosts
             git remote add dokku dokku@v2.discours.io:discoursio-api
-            git push dokku HEAD:main
+            git push dokku HEAD:main -f
