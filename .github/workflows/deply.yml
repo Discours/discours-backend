@@ -11,18 +11,21 @@ jobs:
 
     steps:
       - name: Checkout source repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
+      - uses: webfactory/ssh-agent@v0.8.0
+            with:
+                ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Push to dokku
         env:
             HOST_KEY: ${{ secrets.HOST_KEY }}
-            SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
-            mkdir ~/.ssh
+            # mkdir ~/.ssh
             echo $HOST_KEY > ~/.ssh/known_hosts
-            echo $SSH_PRIVATE_KEY > ~/.ssh/id_rsa
-            openssl rsa -in ~/.ssh/id_rsa -check
-            chmod 600 ~/.ssh/id_rsa
+            # echo $SSH_PRIVATE_KEY > ~/.ssh/id_rsa
+            # openssl rsa -in ~/.ssh/id_rsa -check
+            # chmod 600 ~/.ssh/id_rsa
             git config --global core.sshCommand "ssh -vvv"
             git remote add dokku dokku@v2.discours.io:discoursio-api
             git push dokku HEAD:main
