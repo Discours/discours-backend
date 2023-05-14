@@ -1,0 +1,23 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  push_to_target_repository:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v2
+
+      - name: Push to dokku
+        run: |
+            mkdir ~/.ssh
+            echo "$HOST_KEY" > ~/.ssh/known_hosts
+            echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+            chmod 0400 ~/.ssh/id_rsa
+            git remote add dokku dokku@v2.discours.io:discoursio-api
+            git push dokku HEAD:main
