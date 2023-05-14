@@ -7,14 +7,9 @@ from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation
-from orm.rbac import Resource
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
-from orm.topic import TopicFollower, Topic
-from orm.user import User
+from orm.topic import Topic
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
-from services.zine.gittask import GitTask
-# from resolvers.inbox.chats import create_chat
-# from services.inbox.storage import MessagesStorage
 
 
 @mutation.field("createShout")
