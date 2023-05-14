@@ -21,8 +21,8 @@ jobs:
             mkdir ~/.ssh
             echo $HOST_KEY > ~/.ssh/known_hosts
             echo $SSH_PRIVATE_KEY > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
             openssl rsa -in ~/.ssh/id_rsa -check
+            chmod 600 ~/.ssh/id_rsa
             git config --global core.sshCommand "ssh -vvv"
             git remote add dokku dokku@v2.discours.io:discoursio-api
             git push dokku HEAD:main
