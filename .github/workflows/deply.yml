@@ -18,6 +18,7 @@ jobs:
             mkdir ~/.ssh
             echo "$HOST_KEY" > ~/.ssh/known_hosts
             echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+            cat ~/.ssh/known_hosts
             chmod 0400 ~/.ssh/id_rsa
             git remote add dokku dokku@v2.discours.io:discoursio-api
             git push dokku HEAD:main
