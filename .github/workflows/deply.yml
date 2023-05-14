@@ -21,6 +21,6 @@ jobs:
         env:
             HOST_KEY: ${{ secrets.HOST_KEY }}
         run: |
-            # echo $HOST_KEY > ~/.ssh/known_hosts
+            echo $HOST_KEY > ~/.ssh/known_hosts
             git remote add dokku dokku@v2.discours.io:discoursio-api
             git push dokku HEAD:main
