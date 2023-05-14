@@ -16,9 +16,10 @@ jobs:
       - name: Push to dokku
         run: |
             mkdir ~/.ssh
-            echo "$HOST_KEY" > ~/.ssh/known_hosts
-            echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+            echo $HOST_KEY > ~/.ssh/known_hosts
+            echo $SSH_PRIVATE_KEY > ~/.ssh/id_rsa
             echo "TEST 1"
+            echo $HOST_KEY
             cat ~/.ssh/known_hosts
             echo "TEST 2"
             chmod 0400 ~/.ssh/id_rsa
