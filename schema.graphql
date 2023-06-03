@@ -98,6 +98,8 @@ input ShoutInput {
   slug: String
   title: String
   body: String
+  layout: String
+  media: String
   authors: [String]
   topics: [TopicInput]
   community: Int

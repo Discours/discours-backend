@@ -24,6 +24,7 @@ async def create_shout(_, info, inp):
             "title": inp.get("title"),
             "subtitle": inp.get('subtitle'),
             "body": inp.get("body", ''),
+            "layout": inp.get("layout"),
             "authors": inp.get("authors", []),
             "slug": inp.get("slug"),
             "mainTopic": inp.get("mainTopic"),
