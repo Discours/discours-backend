@@ -20,9 +20,8 @@ from services.main import storages_init
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
-# from sse.transport import GraphQLSSEHandler
 from services.inbox.presence import on_connect, on_disconnect
-# from services.inbox.sse import sse_messages
+from services.notifications.sse import NotificationEndpoint, SubscribeEndpoint, broadcast_message
 from ariadne.asgi.handlers import GraphQLTransportWSHandler
 
 import_module("resolvers")
@@ -42,6 +41,7 @@ async def start_up():
     print(views_stat_task)
     git_task = asyncio.create_task(GitTask.git_task_worker())
     print(git_task)
+    print('[start_up] start')
     try:
         import sentry_sdk
         sentry_sdk.init(SENTRY_DSN)
@@ -62,6 +62,7 @@ async def dev_start_up():
 
 
 async def shutdown():
+    print('[shutdown] down')
     await redis.disconnect()
 
 
@@ -69,12 +70,13 @@ routes = [
     # Route("/messages", endpoint=sse_messages),
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
-    Route("/confirm/{token}", endpoint=confirm_email_handler)
+    Route("/confirm/{token}", endpoint=confirm_email_handler),
+    Route("/ssemessages", endpoint=NotificationEndpoint),
 ]
 
 app = Starlette(
     debug=True,
-    on_startup=[start_up],
+    on_startup=[start_up, broadcast_message],
     on_shutdown=[shutdown],
     middleware=middleware,
     routes=routes,

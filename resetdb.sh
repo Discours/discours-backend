@@ -46,11 +46,11 @@ if [ $? -ne 0 ]; then { echo "Failed to create database, aborting." ; exit 1; } 
 echo "Database $database_name successfully created"
 
 echo "BSON -> JSON"
-python3 server.py bson
+python3.10 server.py bson
 if [ $? -ne 0 ]; then { echo "BSON -> JSON failed, aborting." ; exit 1; } fi
 
 echo "Start migration"
-python3 server.py migrate
+python3.10 server.py migrate
 if [ $? -ne 0 ]; then { echo "Migration failed, aborting." ; exit 1; } fi
 echo 'Done!'
 

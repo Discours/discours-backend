@@ -36,6 +36,7 @@ class RedisCache:
 
     async def mget(self, key, *keys):
         print(f"[redis] MGET {key} {keys}")
+        print(f"[redis] HERE")  # fas
         return await self._instance.mget(key, *keys)
 
 

@@ -500,7 +500,7 @@ type Message {
   chatId: String!
   body: String!
   createdAt: Int!
-  id: Int!
+  id: Int
   replyTo: Int
   updatedAt: Int
   seen: Boolean
