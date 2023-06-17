@@ -54,11 +54,3 @@ async def broadcast_message():
         await asyncio.sleep(1)
         await connection_manager.broadcast("Hello, World!")
 
-
-app = Starlette(
-    on_startup=[broadcast_message],
-    routes=[
-        Route("/notify", NotificationEndpoint),
-        Route("/subscribe", SubscribeEndpoint),
-    ],
-)

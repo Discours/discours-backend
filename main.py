@@ -72,6 +72,7 @@ routes = [
     Route("/oauth-authorize", endpoint=oauth_authorize),
     Route("/confirm/{token}", endpoint=confirm_email_handler),
     Route("/ssemessages", endpoint=NotificationEndpoint),
+    Route("/subscribe", endpoint=SubscribeEndpoint),
 ]
 
 app = Starlette(
