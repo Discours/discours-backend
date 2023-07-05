@@ -129,6 +129,23 @@ async def load_shout(_, info, slug=None, shout_id=None):
             raise ObjectNotExist("Slug was not found: %s" % slug)
 
 
+def add_viewed_stat(session, shouts_map):
+    viewed_stat_query = select(
+        Shout.id
+    ).where(
+        Shout.id.in_(shouts_map.keys())
+    ).join(
+        ViewedEntry
+    ).group_by(
+        Shout.id
+    ).add_columns(
+        func.sum(ViewedEntry.amount).label('viewed_stat')
+    )
+
+    for [shout_id, viewed_stat] in session.execute(viewed_stat_query).unique():
+        shouts_map[shout_id].stat['viewed'] = viewed_stat
+
+
 @query.field("loadShouts")
 async def load_shouts_by(_, info, options):
     """
@@ -174,8 +191,8 @@ async def load_shouts_by(_, info, options):
 
     q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
 
+    shouts = []
     with local_session() as session:
-        shouts = []
         shouts_map = {}
 
         for [shout, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
@@ -188,20 +205,7 @@ async def load_shouts_by(_, info, options):
             }
             shouts_map[shout.id] = shout
 
-        viewed_stat_query = select(
-            Shout.id
-        ).where(
-            Shout.id.in_(shouts_map.keys())
-        ).join(
-            ViewedEntry
-        ).group_by(
-            Shout.id
-        ).add_columns(
-            func.sum(ViewedEntry.amount).label('viewed_stat')
-        )
-
-        for [shout_id, viewed_stat] in session.execute(viewed_stat_query).unique():
-            shouts_map[shout_id].stat['viewed'] = viewed_stat
+        add_viewed_stat(session, shouts_map)
 
     return shouts
 
@@ -234,29 +238,32 @@ async def get_my_feed(_, info, options):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
+    subquery = select(Shout.id)
+    subquery = subquery.join(
+        ShoutAuthor
+    ).join(
+        AuthorFollower, AuthorFollower.follower == user_id
+    ).join(
+        ShoutTopic
+    ).join(
+        TopicFollower, TopicFollower.follower == user_id
+    )
+
     q = select(Shout).options(
         joinedload(Shout.authors),
         joinedload(Shout.topics),
     ).where(
-        Shout.deletedAt.is_(None)
+        and_(
+            Shout.publishedAt.is_not(None),
+            Shout.deletedAt.is_(None),
+            Shout.id.in_(subquery)
+        )
     )
-
-    q = q.join(
-        ShoutAuthor
-    ).join(
-        AuthorFollower
-    ).where(
-        AuthorFollower.follower == user_id
-    ).join(
-        ShoutTopic
-    ).join(
-        TopicFollower
-    ).where(TopicFollower.follower == user_id)
 
     q = add_stat_columns(q)
     q = apply_filters(q, options.get("filters", {}), user_id)
 
-    order_by = options.get("order_by", Shout.createdAt)
+    order_by = options.get("order_by", Shout.publishedAt)
     if order_by == 'reacted':
         aliased_reaction = aliased(Reaction)
         q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
@@ -269,6 +276,7 @@ async def get_my_feed(_, info, options):
 
     shouts = []
     with local_session() as session:
+        shouts_map = {}
         for [shout, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
@@ -277,5 +285,8 @@ async def get_my_feed(_, info, options):
                 "commented": commented_stat,
                 "rating": rating_stat
             }
+            shouts_map[shout.id] = shout
+
+        add_viewed_stat(session, shouts_map)
 
     return shouts
