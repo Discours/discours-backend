@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import joinedload, aliased
-from sqlalchemy.sql.expression import desc, asc, select, func, case, and_
+from sqlalchemy.sql.expression import desc, asc, select, func, case, and_, text, nulls_last
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
@@ -23,7 +23,7 @@ def add_stat_columns(q):
         ).label('reacted_stat'),
         func.sum(
             case(
-                (aliased_reaction.body.is_not(None), 1),
+                (aliased_reaction.kind == ReactionKind.COMMENT, 1),
                 else_=0
             )
         ).label('commented_stat'),
@@ -39,7 +39,11 @@ def add_stat_columns(q):
             (aliased_reaction.kind == ReactionKind.LIKE, 1),
             (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
             else_=0)
-        ).label('rating_stat'))
+        ).label('rating_stat'),
+        func.max(case(
+            (aliased_reaction.kind != ReactionKind.COMMENT, None),
+            else_=aliased_reaction.createdAt
+        )).label('last_comment'))
 
     return q
 
@@ -95,7 +99,7 @@ async def load_shout(_, info, slug=None, shout_id=None):
         ).group_by(Shout.id)
 
         try:
-            [shout, reacted_stat, commented_stat, rating_stat] = session.execute(q).first()
+            [shout, reacted_stat, commented_stat, rating_stat, last_comment] = session.execute(q).first()
 
             viewed_stat_query = select().select_from(
                 Shout
@@ -180,22 +184,19 @@ async def load_shouts_by(_, info, options):
     auth: AuthCredentials = info.context["request"].auth
     q = apply_filters(q, options.get("filters", {}), auth.user_id)
 
-    order_by = options.get("order_by", Shout.createdAt)
-    if order_by == 'reacted':
-        aliased_reaction = aliased(Reaction)
-        q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
+    order_by = options.get("order_by", Shout.publishedAt)
 
     query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
 
-    q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
+    q = q.group_by(Shout.id).order_by(nulls_last(query_order_by)).limit(limit).offset(offset)
 
     shouts = []
     with local_session() as session:
         shouts_map = {}
 
-        for [shout, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
+        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
                 "viewed": 0,
@@ -238,8 +239,7 @@ async def get_my_feed(_, info, options):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
-    subquery = select(Shout.id)
-    subquery = subquery.join(
+    subquery = select(Shout.id).join(
         ShoutAuthor
     ).join(
         AuthorFollower, AuthorFollower.follower == user_id
@@ -264,20 +264,17 @@ async def get_my_feed(_, info, options):
     q = apply_filters(q, options.get("filters", {}), user_id)
 
     order_by = options.get("order_by", Shout.publishedAt)
-    if order_by == 'reacted':
-        aliased_reaction = aliased(Reaction)
-        q.outerjoin(aliased_reaction).add_columns(func.max(aliased_reaction.createdAt).label('reacted'))
 
     query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
 
-    q = q.group_by(Shout.id).order_by(query_order_by).limit(limit).offset(offset)
+    q = q.group_by(Shout.id).order_by(nulls_last(query_order_by)).limit(limit).offset(offset)
 
     shouts = []
     with local_session() as session:
         shouts_map = {}
-        for [shout, reacted_stat, commented_stat, rating_stat] in session.execute(q).unique():
+        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
                 "viewed": 0,
