@@ -21,7 +21,7 @@ class JWTAuthenticate(AuthenticationBackend):
     ) -> Optional[Tuple[AuthCredentials, AuthUser]]:
 
         if SESSION_TOKEN_HEADER not in request.headers:
-            return AuthCredentials(scopes={}), AuthUser(user_id=None)
+            return AuthCredentials(scopes={}), AuthUser(user_id=None, username='')
 
         token = request.headers.get(SESSION_TOKEN_HEADER)
         if not token:
