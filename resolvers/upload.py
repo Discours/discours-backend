@@ -35,13 +35,6 @@ async def upload_handler(request):
         with tempfile.NamedTemporaryFile() as tmp_file:
             shutil.copyfileobj(file.file, tmp_file)
 
-            file_stats = os.stat(tmp_file.name)
-            file_size = file_stats.st_size
-
-            # 25MB
-            if file_size > 26214400:
-                return JSONResponse({'error': 'File is too large'}, status_code=400)
-
             s3.upload_file(
                 Filename=tmp_file.name,
                 Bucket=STORJ_BUCKET_NAME,
@@ -53,7 +46,7 @@ async def upload_handler(request):
 
         url = 'http://' + CDN_DOMAIN + '/' + key
 
-        return JSONResponse({'url': url, 'originalFilename': file.filename, 'size': file_size})
+        return JSONResponse({'url': url, 'originalFilename': file.filename})
 
     except (BotoCoreError, ClientError) as e:
         print(e)
