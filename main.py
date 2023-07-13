@@ -16,6 +16,7 @@ from auth.oauth import oauth_login, oauth_authorize
 from base.redis import redis
 from base.resolvers import resolvers
 from resolvers.auth import confirm_email_handler
+from resolvers.upload import upload_handler
 from services.main import storages_init
 from services.stat.viewed import ViewedStorage
 from services.zine.gittask import GitTask
@@ -69,7 +70,8 @@ routes = [
     # Route("/messages", endpoint=sse_messages),
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
-    Route("/confirm/{token}", endpoint=confirm_email_handler)
+    Route("/confirm/{token}", endpoint=confirm_email_handler),
+    Route("/upload", endpoint=upload_handler, methods=['POST'])
 ]
 
 app = Starlette(
