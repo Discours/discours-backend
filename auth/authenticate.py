@@ -27,12 +27,12 @@ class JWTAuthenticate(AuthenticationBackend):
         if not token:
             print("[auth.authenticate] no token in header %s" % SESSION_TOKEN_HEADER)
             return AuthCredentials(scopes={}, error_message=str("no token")), AuthUser(
-                user_id=None
+                user_id=None, username=''
             )
 
         if len(token.split('.')) > 1:
             payload = await SessionToken.verify(token)
-            user = None
+
             with local_session() as session:
                 try:
                     user = (
@@ -52,12 +52,12 @@ class JWTAuthenticate(AuthenticationBackend):
                             scopes=scopes,
                             logged_in=True
                         ),
-                        AuthUser(user_id=user.id),
+                        AuthUser(user_id=user.id, username=''),
                     )
                 except exc.NoResultFound:
                     pass
 
-        return AuthCredentials(scopes={}, error_message=str('Invalid token')), AuthUser(user_id=None)
+        return AuthCredentials(scopes={}, error_message=str('Invalid token')), AuthUser(user_id=None, username='')
 
 
 def login_required(func):
