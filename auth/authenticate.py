@@ -21,12 +21,12 @@ class JWTAuthenticate(AuthenticationBackend):
     ) -> Optional[Tuple[AuthCredentials, AuthUser]]:
 
         if SESSION_TOKEN_HEADER not in request.headers:
-            return AuthCredentials(scopes=[]), AuthUser(user_id=None)
+            return AuthCredentials(scopes={}), AuthUser(user_id=None)
 
         token = request.headers.get(SESSION_TOKEN_HEADER)
         if not token:
             print("[auth.authenticate] no token in header %s" % SESSION_TOKEN_HEADER)
-            return AuthCredentials(scopes=[], error_message=str("no token")), AuthUser(
+            return AuthCredentials(scopes={}, error_message=str("no token")), AuthUser(
                 user_id=None
             )
 
@@ -57,7 +57,7 @@ class JWTAuthenticate(AuthenticationBackend):
                 except exc.NoResultFound:
                     pass
 
-        return AuthCredentials(scopes=[], error_message=str('Invalid token')), AuthUser(user_id=None)
+        return AuthCredentials(scopes={}, error_message=str('Invalid token')), AuthUser(user_id=None)
 
 
 def login_required(func):
