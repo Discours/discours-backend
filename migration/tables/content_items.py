@@ -193,7 +193,7 @@ async def migrate(entry, storage):
     await content_ratings_to_reactions(entry, shout_dict["slug"])
 
     # shout views
-    await ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1), viewer='old-discours')
+    await ViewedStorage.increment(shout_dict["slug"], amount=entry.get("views", 1))
     # del shout_dict['ratings']
 
     storage["shouts"]["by_oid"][entry["_id"]] = shout_dict
