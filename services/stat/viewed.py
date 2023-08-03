@@ -164,16 +164,17 @@ class ViewedStorage:
             with local_session() as session:
                 shout = session.query(Shout).where(Shout.slug == shout_slug).one()
                 if viewer == 'old-discours':
+                    # this is needed for old db migration
                     if shout.viewsOld == amount:
-                        print(f"amount: {amount}")
+                        print(f"viewsOld amount: {amount}")
                     else:
-                        print(f"amount changed: {shout.viewsOld} --> {amount}")
+                        print(f"viewsOld amount changed: {shout.viewsOld} --> {amount}")
                         shout.viewsOld = amount
                 else:
                     if shout.viewsAckee == amount:
-                        print(f"amount: {amount}")
+                        print(f"viewsAckee amount: {amount}")
                     else:
-                        print(f"amount changed: {shout.viewsAckee} --> {amount}")
+                        print(f"viewsAckee amount changed: {shout.viewsAckee} --> {amount}")
                         shout.viewsAckee = amount
 
                 session.commit()
