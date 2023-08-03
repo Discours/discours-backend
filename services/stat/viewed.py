@@ -156,14 +156,26 @@ class ViewedStorage:
             self.by_topics[topic.slug][shout_slug] = self.by_shouts[shout_slug]
 
     @staticmethod
-    async def increment(shout_slug, amount=1):
+    async def increment(shout_slug, amount=1, viewer='ackee'):
         """ the only way to change views counter """
         self = ViewedStorage
         async with self.lock:
             # TODO optimize, currenty we execute 1 DB transaction per shout
             with local_session() as session:
                 shout = session.query(Shout).where(Shout.slug == shout_slug).one()
-                shout.views += amount
+                if viewer == 'old-discours':
+                    if shout.viewsOld == amount:
+                        print(f"amount: {amount}")
+                    else:
+                        print(f"amount changed: {shout.viewsOld} --> {amount}")
+                        shout.viewsOld = amount
+                else:
+                    if shout.viewsAckee == amount:
+                        print(f"amount: {amount}")
+                    else:
+                        print(f"amount changed: {shout.viewsAckee} --> {amount}")
+                        shout.viewsAckee = amount
+
                 session.commit()
 
                 # this part is currently unused
