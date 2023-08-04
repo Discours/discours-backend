@@ -8,7 +8,7 @@ from auth.credentials import AuthCredentials
 from base.exceptions import ObjectNotExist, OperationNotAllowed
 from base.orm import local_session
 from base.resolvers import query
-from orm import TopicFollower
+from orm import ViewedEntry, TopicFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.user import AuthorFollower
@@ -101,8 +101,24 @@ async def load_shout(_, info, slug=None, shout_id=None):
         try:
             [shout, reacted_stat, commented_stat, rating_stat, last_comment] = session.execute(q).first()
 
+            viewed_stat_query = select().select_from(
+                Shout
+            ).where(
+                Shout.id == shout.id
+            ).join(
+                ViewedEntry
+            ).group_by(
+                Shout.id
+            ).add_columns(
+                func.sum(ViewedEntry.amount).label('viewed_stat')
+            )
+
+            # Debug tip:
+            # print(viewed_stat_query.compile(compile_kwargs={"literal_binds": True}))
+            viewed_stat = session.execute(viewed_stat_query).scalar()
+
             shout.stat = {
-                "viewed": shout.views,
+                "viewed": viewed_stat,
                 "reacted": reacted_stat,
                 "commented": commented_stat,
                 "rating": rating_stat
@@ -115,6 +131,23 @@ async def load_shout(_, info, slug=None, shout_id=None):
             return shout
         except Exception:
             raise ObjectNotExist("Slug was not found: %s" % slug)
+
+
+def add_viewed_stat(session, shouts_map):
+    viewed_stat_query = select(
+        Shout.id
+    ).where(
+        Shout.id.in_(shouts_map.keys())
+    ).join(
+        ViewedEntry
+    ).group_by(
+        Shout.id
+    ).add_columns(
+        func.sum(ViewedEntry.amount).label('viewed_stat')
+    )
+
+    for [shout_id, viewed_stat] in session.execute(viewed_stat_query).unique():
+        shouts_map[shout_id].stat['viewed'] = viewed_stat
 
 
 @query.field("loadShouts")
@@ -166,12 +199,14 @@ async def load_shouts_by(_, info, options):
         for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
-                "viewed": shout.views,
+                "viewed": 0,
                 "reacted": reacted_stat,
                 "commented": commented_stat,
                 "rating": rating_stat
             }
             shouts_map[shout.id] = shout
+
+        add_viewed_stat(session, shouts_map)
 
     return shouts
 
@@ -242,11 +277,13 @@ async def get_my_feed(_, info, options):
         for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
-                "viewed": shout.views,
+                "viewed": 0,
                 "reacted": reacted_stat,
                 "commented": commented_stat,
                 "rating": rating_stat
             }
             shouts_map[shout.id] = shout
+
+        add_viewed_stat(session, shouts_map)
 
     return shouts

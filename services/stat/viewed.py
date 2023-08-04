@@ -11,6 +11,7 @@ from sqlalchemy import func
 from base.orm import local_session
 from orm import User, Topic
 from orm.shout import ShoutTopic, Shout
+from orm.viewed import ViewedEntry
 
 load_facts = gql("""
 query getDomains {
@@ -127,7 +128,10 @@ class ViewedStorage:
                 with local_session() as session:
                     try:
                         shout = session.query(Shout).where(Shout.slug == shout_slug).one()
-                        self.by_shouts[shout_slug] = shout.views
+                        shout_views = session.query(func.sum(ViewedEntry.amount)).where(
+                            ViewedEntry.shout == shout.id
+                        ).all()[0][0]
+                        self.by_shouts[shout_slug] = shout_views
                         self.update_topics(session, shout_slug)
                     except Exception as e:
                         raise e
@@ -156,30 +160,37 @@ class ViewedStorage:
             self.by_topics[topic.slug][shout_slug] = self.by_shouts[shout_slug]
 
     @staticmethod
-    async def increment(shout_slug, amount=1, viewer='ackee'):
+    async def increment(shout_slug, amount=1, viewer='anonymous'):
         """ the only way to change views counter """
         self = ViewedStorage
         async with self.lock:
-            # TODO optimize, currenty we execute 1 DB transaction per shout
             with local_session() as session:
-                shout = session.query(Shout).where(Shout.slug == shout_slug).one()
-                if viewer == 'old-discours':
-                    # this is needed for old db migration
-                    if shout.viewsOld == amount:
-                        print(f"viewsOld amount: {amount}")
-                    else:
-                        print(f"viewsOld amount changed: {shout.viewsOld} --> {amount}")
-                        shout.viewsOld = amount
+                # TODO: user slug -> id
+                viewed = session.query(
+                    ViewedEntry
+                ).join(
+                    Shout, Shout.id == ViewedEntry.shout
+                ).join(
+                    User, User.id == ViewedEntry.viewer
+                ).filter(
+                    User.slug == viewer,
+                    Shout.slug == shout_slug
+                ).first()
+
+                if viewed:
+                    viewed.amount = amount
+                    print("amount: %d" % amount)
                 else:
-                    if shout.viewsAckee == amount:
-                        print(f"viewsAckee amount: {amount}")
-                    else:
-                        print(f"viewsAckee amount changed: {shout.viewsAckee} --> {amount}")
-                        shout.viewsAckee = amount
+                    shout = session.query(Shout).where(Shout.slug == shout_slug).one()
+                    viewer = session.query(User).where(User.slug == viewer).one()
+                    new_viewed = ViewedEntry.create(**{
+                        "viewer": viewer.id,
+                        "shout": shout.id,
+                        "amount": amount
+                    })
+                    session.add(new_viewed)
 
                 session.commit()
-
-                # this part is currently unused
                 self.by_shouts[shout_slug] = self.by_shouts.get(shout_slug, 0) + amount
                 self.update_topics(session, shout_slug)
 
