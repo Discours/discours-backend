@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, JSON
+from sqlalchemy.orm import column_property, relationship
 
 from base.orm import Base, local_session
 from orm.reaction import Reaction
@@ -61,6 +61,11 @@ class Shout(Base):
     authors = relationship(lambda: User, secondary=ShoutAuthor.__tablename__)
     topics = relationship(lambda: Topic, secondary=ShoutTopic.__tablename__)
 
+    # views from the old Discours website
+    viewsOld = Column(Integer, default=0)
+    # views from Ackee tracker on the new Discours website
+    viewsAckee = Column(Integer, default=0)
+    views = column_property(viewsOld + viewsAckee)
     reactions = relationship(lambda: Reaction)
 
     # TODO: these field should be used or modified
