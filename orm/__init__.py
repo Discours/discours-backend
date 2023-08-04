@@ -6,7 +6,6 @@ from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRating
-from orm.viewed import ViewedEntry
 
 # NOTE: keep orm module isolated
 
@@ -22,7 +21,6 @@ __all__ = [
     "Notification",
     "Reaction",
     "UserRating",
-    "ViewedEntry"
 ]
 
 
@@ -35,5 +33,4 @@ def init_tables():
     Role.init_table()
     UserRating.init_table()
     Shout.init_table()
-    ViewedEntry.init_table()
     print("[orm] tables initialized")
