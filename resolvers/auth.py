@@ -110,6 +110,7 @@ def generate_unique_slug(src):
 
 @mutation.field("registerUser")
 async def register_by_email(_, _info, email: str, password: str = "", name: str = ""):
+    email = email.lower()
     """creates new user account"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
@@ -135,6 +136,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
 
 @mutation.field("sendLink")
 async def auth_send_link(_, _info, email, lang="ru", template="email_confirmation"):
+    email = email.lower()
     """send link with confirm code to email"""
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
@@ -148,6 +150,7 @@ async def auth_send_link(_, _info, email, lang="ru", template="email_confirmatio
 
 @query.field("signIn")
 async def login(_, info, email: str, password: str = "", lang: str = "ru"):
+    email = email.lower()
     with local_session() as session:
         orm_user = session.query(User).filter(User.email == email).first()
         if orm_user is None:
@@ -193,6 +196,7 @@ async def sign_out(_, info: GraphQLResolveInfo):
 
 @query.field("isEmailUsed")
 async def is_email_used(_, _info, email):
+    email = email.lower()
     with local_session() as session:
         user = session.query(User).filter(User.email == email).first()
     return user is not None

@@ -1,6 +1,7 @@
 from base.orm import Base, engine
 from orm.community import Community
 from orm.notification import Notification
+from orm.event import Event
 from orm.rbac import Operation, Resource, Permission, Role
 from orm.reaction import Reaction
 from orm.shout import Shout
@@ -19,6 +20,7 @@ __all__ = [
     "Topic",
     "TopicFollower",
     "Notification",
+    "Event",
     "Reaction",
     "UserRating",
 ]
