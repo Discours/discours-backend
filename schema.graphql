@@ -336,19 +336,6 @@ type Rating {
   value: Int!
 }
 
-type Notification {
-  kind: String! # unique primary key
-  template: String!
-  variables: [String]
-}
-
-type UserNotification {
-  id: Int! # primary key
-  user: Int!
-  kind: String! # NotificationTemplate.name
-  values: [String]
-}
-
 type User {
   id: Int!
   username: String! # to login, ex. email, phone
@@ -367,7 +354,6 @@ type User {
   ratings: [Rating]
   bio: String
   about: String
-  notifications: [Int]
   communities: [Int] # user participating communities
   oid: String
 }
