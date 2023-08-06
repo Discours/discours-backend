@@ -3,17 +3,8 @@ from datetime import datetime
 from sqlalchemy import JSON as JSONType
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
-
 from base.orm import Base, local_session
 from orm.rbac import Role
-
-
-class UserNotifications(Base):
-    __tablename__ = "user_notifications"
-    # id auto
-    user = Column(Integer, ForeignKey("user.id"))
-    kind = Column(String, ForeignKey("notification.kind"))
-    values = Column(JSONType, nullable=True)  # [ <var1>, .. ]
 
 
 class UserRating(Base):
@@ -72,7 +63,6 @@ class User(Base):
     deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
     links = Column(JSONType, nullable=True, comment="Links")
     oauth = Column(String, nullable=True)
-    notifications = relationship(lambda: UserNotifications)
     ratings = relationship(UserRating, foreign_keys=UserRating.user)
     roles = relationship(lambda: Role, secondary=UserRole.__tablename__)
     oid = Column(String, nullable=True)

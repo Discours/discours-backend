@@ -90,13 +90,6 @@ __all__ = [
     "update_shout",
     "delete_shout",
     "markdown_body",
-    "load_drafts",
-    "create_draft",
-    "update_draft",
-    "delete_draft",
-    "invite_coauthor",
-    "accept_coauthor",
-    "draft_to_shout",
     # zine.topics
     "topics_all",
     "topics_by_community",

@@ -33,7 +33,6 @@ async def users_handle(storage):
         user = migrateUser(entry)
         storage["users"]["by_oid"][oid] = user  # full
         del user["password"]
-        del user["notifications"]
         del user["emailConfirmed"]
         del user["username"]
         del user["email"]

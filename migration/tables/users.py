@@ -22,7 +22,6 @@ def migrate(entry):
         "emailConfirmed": ("@discours.io" in email) or bool(entry["emails"][0]["verified"]),
         "muted": False,  # amnesty
         "bio": entry["profile"].get("bio", ""),
-        "notifications": [],
         "links": [],
         "name": "anonymous",
         "password": entry["services"]["password"].get("bcrypt")
