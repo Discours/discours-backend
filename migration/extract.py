@@ -414,6 +414,7 @@ def extract_html(entry, shout_id = None, cleanup=False):
         body_clean = cleanup_html(body_orig)
         if body_clean != body_orig:
             print(f"[migration] html cleaned for slug {entry.get('slug', None)}")
+        body_orig = body_clean
     if shout_id:
         extract_footnotes(body_orig, shout_id)
     body_html = str(BeautifulSoup(body_orig, features="html.parser"))
