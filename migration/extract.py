@@ -251,7 +251,7 @@ def extract_md_images(body, prefix):
     return newbody
 
 
-def cleanup(body):
+def cleanup_md(body):
     newbody = (
         body.replace("<", "")
         .replace(">", "")
@@ -274,7 +274,7 @@ def cleanup(body):
 def extract_md(body, shout_dict = None):
     newbody = body
     if newbody:
-        newbody = cleanup(newbody)
+        newbody = cleanup_md(newbody)
         if not newbody:
             raise Exception("cleanup error")
 
@@ -375,8 +375,46 @@ def prepare_html_body(entry):
     return body
 
 
-def extract_html(entry, shout_id = None):
+def cleanup_html(body: str) -> str:
+    new_body = body
+    regex_remove = [
+        r"style=\"width:\s*\d+px;height:\s*\d+px;\"",
+        r"style=\"width:\s*\d+px;\"",
+        r"style=\"color: #000000;\"",
+        r"style=\"float: none;\"",
+        r"style=\"background: white;\"",
+        r"class=\"Apple-interchange-newline\"",
+        r"class=\"MsoNormalCxSpMiddle\"",
+        r"class=\"MsoNormal\"",
+        r"lang=\"EN-US\"",
+        r"id=\"docs-internal-guid-[\w-]+\"",
+        r"<p></p>",
+        r"<span></span>",
+        r"<i></i>",
+        r"<b></b>",
+        r"<h1></h1>",
+        r"<h2></h2>",
+        r"<h3></h3>",
+        r"<h4></h4>",
+        r"<div></div>",
+    ]
+    regex_replace = {
+        r"<br></p>": "</p>"
+    }
+    for regex in regex_remove:
+        new_body = re.sub(regex, "", new_body)
+    for regex, replace in regex_replace.items():
+        new_body = re.sub(regex, replace, new_body)
+    return new_body
+
+def extract_html(entry, shout_id = None, cleanup=False):
     body_orig = (entry.get("body") or "").replace('\(', '(').replace('\)', ')')
+    if cleanup:
+        # we do that before bs parsing to catch the invalid html
+        body_clean = cleanup_html(body_orig)
+        if body_clean != body_orig:
+            print(f"[migration] html cleaned for slug {entry.get('slug', None)}")
+        body_orig = body_clean
     if shout_id:
         extract_footnotes(body_orig, shout_id)
     body_html = str(BeautifulSoup(body_orig, features="html.parser"))

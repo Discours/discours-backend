@@ -150,7 +150,7 @@ async def migrate(entry, storage):
         "createdAt": date_parse(entry.get("createdAt", OLD_DATE)),
         "updatedAt": date_parse(entry["updatedAt"]) if "updatedAt" in entry else ts,
         "topics": await add_topics_follower(entry, storage, author),
-        "body": extract_html(entry)
+        "body": extract_html(entry, cleanup=True)
     }
 
     # main topic patch
