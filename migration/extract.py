@@ -388,23 +388,30 @@ def cleanup_html(body: str) -> str:
         r"class=\"MsoNormal\"",
         r"lang=\"EN-US\"",
         r"id=\"docs-internal-guid-[\w-]+\"",
-        r"<p></p>",
+        r"<p>\s*</p>",
         r"<span></span>",
-        r"<i></i>",
-        r"<b></b>",
-        r"<h1></h1>",
-        r"<h2></h2>",
-        r"<h3></h3>",
-        r"<h4></h4>",
-        r"<div></div>",
+        r"<i>\s*</i>",
+        r"<b>\s*</b>",
+        r"<h1>\s*</h1>",
+        r"<h2>\s*</h2>",
+        r"<h3>\s*</h3>",
+        r"<h4>\s*</h4>",
+        r"<div>\s*</div>",
     ]
     regex_replace = {
-        r"<br></p>": "</p>"
+        r"<br>\s*</p>": "</p>"
     }
-    for regex in regex_remove:
-        new_body = re.sub(regex, "", new_body)
-    for regex, replace in regex_replace.items():
-        new_body = re.sub(regex, replace, new_body)
+    changed = True
+    while changed:
+        # we need several iterations to clean nested tags this way
+        changed = False
+        new_body_iteration = new_body
+        for regex in regex_remove:
+            new_body = re.sub(regex, "", new_body)
+        for regex, replace in regex_replace.items():
+            new_body = re.sub(regex, replace, new_body)
+        if new_body_iteration != new_body:
+            changed = True
     return new_body
 
 def extract_html(entry, shout_id = None, cleanup=False):
@@ -418,4 +425,10 @@ def extract_html(entry, shout_id = None, cleanup=False):
     if shout_id:
         extract_footnotes(body_orig, shout_id)
     body_html = str(BeautifulSoup(body_orig, features="html.parser"))
+    if cleanup:
+        # we do that after bs parsing because it can add dummy tags
+        body_clean_html = cleanup_html(body_html)
+        if body_clean_html != body_html:
+            print(f"[migration] html cleaned after bs4 for slug {entry.get('slug', None)}")
+        body_html = body_clean_html
     return body_html
