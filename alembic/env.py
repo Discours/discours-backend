@@ -12,8 +12,7 @@ from settings import DB_URL
 config = context.config
 
 # override DB_URL
-section = config.config_ini_section
-config.set_section_option(section, "DB_URL", DB_URL)
+config.set_section_option(config.config_ini_section, "DB_URL", DB_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -41,8 +40,9 @@ def run_migrations_offline() -> None:
     script output.
 
     """
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=DB_URL,
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
