@@ -98,6 +98,8 @@ input ShoutInput {
   slug: String
   title: String
   body: String
+  lead: String
+  description: String
   layout: String
   media: String
   authors: [String]
