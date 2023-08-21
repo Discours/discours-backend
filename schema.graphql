@@ -404,6 +404,7 @@ type Shout {
   slug: String!
   body: String!
   lead: String
+  description: String
   createdAt: DateTime!
   topics: [Topic]
   mainTopic: String
