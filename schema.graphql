@@ -288,14 +288,6 @@ type Query {
     topicsByAuthor(author: String!): [Topic]!
 }
 
-############################################ Subscription
-
-type Subscription {
-    newMessage: Message  # new messages in inbox
-    newShout: Shout  # personal feed new shout
-    newReaction: Reaction # new reactions to notify
-}
-
 ############################################ Entities
 
 type Resource {

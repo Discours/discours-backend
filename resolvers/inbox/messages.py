@@ -6,7 +6,7 @@ from graphql.type import GraphQLResolveInfo
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.redis import redis
-from base.resolvers import mutation, subscription
+from base.resolvers import mutation
 from services.following import FollowingManager, FollowingResult, Following
 from validations.inbox import Message
 
@@ -140,40 +140,3 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
     return {
         "error": None
     }
-
-
-@subscription.source("newMessage")
-async def message_generator(_, info: GraphQLResolveInfo):
-    print(f"[resolvers.messages] generator {info}")
-    auth: AuthCredentials = info.context["request"].auth
-    user_id = auth.user_id
-    try:
-        user_following_chats = await redis.execute("GET", f"chats_by_user/{user_id}")
-        if user_following_chats:
-            user_following_chats = list(json.loads(user_following_chats))  # chat ids
-        else:
-            user_following_chats = []
-        tasks = []
-        updated = {}
-        for chat_id in user_following_chats:
-            chat = await redis.execute("GET", f"chats/{chat_id}")
-            updated[chat_id] = chat['updatedAt']
-        user_following_chats_sorted = sorted(user_following_chats, key=lambda x: updated[x], reverse=True)
-
-        for chat_id in user_following_chats_sorted:
-            following_chat = Following('chat', chat_id)
-            await FollowingManager.register('chat', following_chat)
-            chat_task = following_chat.queue.get()
-            tasks.append(chat_task)
-
-        while True:
-            msg = await asyncio.gather(*tasks)
-            yield msg
-    finally:
-        await FollowingManager.remove('chat', following_chat)
-
-
-@subscription.field("newMessage")
-@login_required
-async def message_resolver(message: Message, info: Any):
-    return message

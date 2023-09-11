@@ -55,7 +55,6 @@ from resolvers.inbox.messages import (
     create_message,
     delete_message,
     update_message,
-    message_generator,
     mark_as_read
 )
 from resolvers.inbox.load import (
@@ -113,7 +112,6 @@ __all__ = [
     "create_message",
     "delete_message",
     "update_message",
-    "message_generator",
     "mark_as_read",
     "load_recipients",
     "search_recipients"

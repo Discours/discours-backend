@@ -24,6 +24,7 @@ from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
 # from sse.transport import GraphQLSSEHandler
 from services.inbox.presence import on_connect, on_disconnect
 # from services.inbox.sse import sse_messages
+from services.notifications.sse import SubscribeEndpoint, broadcast_message
 from ariadne.asgi.handlers import GraphQLTransportWSHandler
 
 import_module("resolvers")
@@ -41,8 +42,11 @@ async def start_up():
     await storages_init()
     views_stat_task = asyncio.create_task(ViewedStorage().worker())
     print(views_stat_task)
-    git_task = asyncio.create_task(GitTask.git_task_worker())
-    print(git_task)
+    # git_task = asyncio.create_task(GitTask.git_task_worker())
+    # print(git_task)
+    broadcast_message_task = asyncio.create_task(broadcast_message())
+    print(broadcast_message_task)
+
     try:
         import sentry_sdk
         sentry_sdk.init(SENTRY_DSN)
@@ -72,8 +76,7 @@ routes = [
     Route("/oauth-authorize", endpoint=oauth_authorize),
     Route("/confirm/{token}", endpoint=confirm_email_handler),
     Route("/upload", endpoint=upload_handler, methods=['POST']),
-    Route("/ssemessages", endpoint=NotificationEndpoint),
-    Route("/subscribe", endpoint=SubscribeEndpoint),
+    Route("/subscribe/{user_id}", endpoint=SubscribeEndpoint),
 ]
 
 app = Starlette(
