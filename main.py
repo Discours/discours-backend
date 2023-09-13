@@ -19,13 +19,9 @@ from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
 from services.main import storages_init
 from services.stat.viewed import ViewedStorage
-from services.zine.gittask import GitTask
+# from services.zine.gittask import GitTask
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
-# from sse.transport import GraphQLSSEHandler
-from services.inbox.presence import on_connect, on_disconnect
-# from services.inbox.sse import sse_messages
-from services.notifications.sse import SubscribeEndpoint, broadcast_message
-from ariadne.asgi.handlers import GraphQLTransportWSHandler
+from services.notifications.sse import sse_subscribe_handler
 
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
@@ -44,8 +40,6 @@ async def start_up():
     print(views_stat_task)
     # git_task = asyncio.create_task(GitTask.git_task_worker())
     # print(git_task)
-    broadcast_message_task = asyncio.create_task(broadcast_message())
-    print(broadcast_message_task)
 
     try:
         import sentry_sdk
@@ -76,7 +70,7 @@ routes = [
     Route("/oauth-authorize", endpoint=oauth_authorize),
     Route("/confirm/{token}", endpoint=confirm_email_handler),
     Route("/upload", endpoint=upload_handler, methods=['POST']),
-    Route("/subscribe/{user_id}", endpoint=SubscribeEndpoint),
+    Route("/subscribe/{user_id}", endpoint=sse_subscribe_handler),
 ]
 
 app = Starlette(
@@ -88,14 +82,10 @@ app = Starlette(
 )
 app.mount("/", GraphQL(
     schema,
-    debug=True,
-    websocket_handler=GraphQLTransportWSHandler(
-        on_connect=on_connect,
-        on_disconnect=on_disconnect
-    )
+    debug=True
 ))
 
-dev_app = app = Starlette(
+dev_app = Starlette(
     debug=True,
     on_startup=[dev_start_up],
     on_shutdown=[shutdown],
@@ -104,9 +94,5 @@ dev_app = app = Starlette(
 )
 dev_app.mount("/", GraphQL(
     schema,
-    debug=True,
-    websocket_handler=GraphQLTransportWSHandler(
-        on_connect=on_connect,
-        on_disconnect=on_disconnect
-    )
+    debug=True
 ))
