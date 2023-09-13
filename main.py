@@ -20,7 +20,7 @@ from resolvers.upload import upload_handler
 from services.main import storages_init
 from services.stat.viewed import ViewedStorage
 # from services.zine.gittask import GitTask
-from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
+from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN, SESSION_SECRET_KEY
 from services.notifications.sse import sse_subscribe_handler
 
 import_module("resolvers")
@@ -28,7 +28,7 @@ schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolve
 
 middleware = [
     Middleware(AuthenticationMiddleware, backend=JWTAuthenticate()),
-    Middleware(SessionMiddleware, secret_key="!secret"),
+    Middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY),
 ]
 
 
