@@ -249,7 +249,17 @@ input ReactionBy {
     days: Int # before
     sort: String # how to sort, default createdAt
 }
-################################### Query
+
+input NotificationsQueryParams {
+    limit: Int
+    offset: Int
+}
+
+type NotificationsQueryResult {
+    notifications: [Notification]!
+    totalCount: Int!
+    totalUnreadCount: Int!
+}
 
 type Query {
     # inbox
@@ -286,6 +296,8 @@ type Query {
     topicsRandom(amount: Int): [Topic]!
     topicsByCommunity(community: String!): [Topic]!
     topicsByAuthor(author: String!): [Topic]!
+
+    loadNotifications(params: NotificationsQueryParams!): NotificationsQueryResult!
 }
 
 ############################################ Entities
