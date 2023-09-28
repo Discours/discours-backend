@@ -130,6 +130,7 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
 
     return await followed_authors(user_id)
 
+
 # 2. Now, we can use the user_id to get the followed authors
 async def followed_authors(user_id):
     q = select(User)
