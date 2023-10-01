@@ -60,6 +60,8 @@ def apply_filters(q, filters, user_id=None):
 
     if filters.get("layout"):
         q = q.filter(Shout.layout == filters.get("layout"))
+    if filters.get('excludeLayout'):
+        q = q.filter(Shout.layout != filters.get("excludeLayout"))
     if filters.get("author"):
         q = q.filter(Shout.authors.any(slug=filters.get("author")))
     if filters.get("topic"):
@@ -123,6 +125,7 @@ async def load_shouts_by(_, info, options):
     :param options: {
         filters: {
             layout: 'audio',
+            excludeLayout: 'article',
             visibility: "public",
             author: 'discours',
             topic: 'culture',
@@ -143,7 +146,10 @@ async def load_shouts_by(_, info, options):
         joinedload(Shout.authors),
         joinedload(Shout.topics),
     ).where(
-        Shout.deletedAt.is_(None)
+        and_(
+            Shout.deletedAt.is_(None),
+            Shout.layout.is_not(None)
+        )
     )
 
     q = add_stat_columns(q)
