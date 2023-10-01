@@ -217,26 +217,13 @@ input AuthorsBy {
     stat: String
 }
 
-input ShoutsFilterBy {
-  slug: String
-  title: String
-  body: String
-  topic: String
-  topics: [String]
-  author: String
-  authors: [String]
-  layout: String
-  visibility: String
-  days: Int
-  stat: String
-}
-
 input LoadShoutsFilters {
   title: String
   body: String
   topic: String
   author: String
   layout: String
+  excludeLayout: String
   visibility: String
   days: Int
   reacted: Boolean
