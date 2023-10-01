@@ -37,11 +37,7 @@ def migrate(entry):
         slug = re.sub('[^0-9a-zA-Z]+', '-', slug).strip()
         user_dict["slug"] = slug
         bio = (entry.get("profile", {"bio": ""}).get("bio") or "").replace('\(', '(').replace('\)', ')')
-        bio_html = BeautifulSoup(bio, features="lxml").text
-        if bio == bio_html:
-            user_dict["bio"] = bio
-        else:
-            user_dict["about"] = bio
+        user_dict["about"] = bio
 
         # userpic
         try:
