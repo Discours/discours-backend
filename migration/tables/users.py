@@ -37,7 +37,10 @@ def migrate(entry):
         slug = re.sub('[^0-9a-zA-Z]+', '-', slug).strip()
         user_dict["slug"] = slug
         bio = (entry.get("profile", {"bio": ""}).get("bio") or "").replace('\(', '(').replace('\)', ')')
-        user_dict["about"] = bio
+        if len(bio) > 120:
+            user_dict["bio"] = bio
+        else:
+            user_dict["about"] = bio
 
         # userpic
         try:
