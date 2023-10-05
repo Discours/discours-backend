@@ -224,7 +224,7 @@ type Query {
   userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
   authorsAll: [Author]!
-  getAuthor(slug: String!): User
+  getAuthor(slug: String!): Author
   myFeed(options: LoadShoutsOptions): [Shout]
 
   # migrate
