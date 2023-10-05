@@ -2,18 +2,16 @@ import asyncio
 import time
 from datetime import timedelta, timezone, datetime
 from os import environ, path
-from ssl import create_default_context
 
 from gql import Client, gql
-from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.httpx import HTTPXAsyncTransport
 
 from services.db import local_session
 from orm import Topic
 from orm.shout import ShoutTopic, Shout
 
 load_facts = gql(
-    """
-query getDomains {
+    """ query getDomains {
     domains {
         id
         title
@@ -23,14 +21,11 @@ query getDomains {
             viewsMonth
             viewsYear
         }
-    }
-}
-"""
+    } } """
 )
 
 load_pages = gql(
-    """
-query getDomains {
+    """ query getDomains {
     domains {
     title
     statistics {
@@ -41,10 +36,9 @@ query getDomains {
                 value
             }
         }
-    }
-}
-"""
+    } } """
 )
+
 schema_str = open(path.dirname(__file__) + "/ackee.graphql").read()
 token = environ.get("ACKEE_TOKEN", "")
 
@@ -52,9 +46,8 @@ token = environ.get("ACKEE_TOKEN", "")
 def create_client(headers=None, schema=None):
     return Client(
         schema=schema,
-        transport=AIOHTTPTransport(
+        transport=HTTPXAsyncTransport(
             url="https://ackee.discours.io/api",
-            ssl=create_default_context(),
             headers=headers,
         ),
     )

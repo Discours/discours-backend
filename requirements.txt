@@ -6,7 +6,7 @@ pyjwt>=2.6.0
 git+https://github.com/encode/starlette.git#main
 sqlalchemy>=1.4.41
 graphql-core>=3.0.3
-gql~=3.4.0
+gql[httpx]
 uvicorn>=0.18.3
 pydantic>=1.10.2
 passlib~=1.7.4
@@ -14,14 +14,11 @@ itsdangerous
 authlib>=1.1.0
 httpx>=0.23.0
 psycopg2-binary
-transliterate~=1.10.2
 bcrypt>=4.0.0
 websockets
-bson~=0.5.10
 flake8
 DateTime~=4.7
 python-dateutil~=2.8.2
-beautifulsoup4~=4.11.1
 lxml
 sentry-sdk>=1.14.0
 boto3~=1.28.2
