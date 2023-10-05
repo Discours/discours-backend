@@ -1,6 +1,6 @@
 aredis>=1.1.8
 httpx>=0.23.0
-git+https://github.com/graphql-python/gql#master
+gql[requests] # TODO: replace with httpx when stable
 git+https://github.com/encode/starlette.git#main
 sqlalchemy>=1.4.41
 ariadne>=0.17.0
