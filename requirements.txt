@@ -6,7 +6,7 @@ pyjwt>=2.6.0
 git+https://github.com/encode/starlette.git#main
 sqlalchemy>=1.4.41
 graphql-core>=3.0.3
-gql[httpx]>=3.4.1
+git+https://github.com/graphql-python/gql.git#master
 uvicorn>=0.18.3
 pydantic>=1.10.2
 passlib~=1.7.4
