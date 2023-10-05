@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import jwt
 from services.exceptions import ExpiredToken, InvalidToken
-from validations.auth import TokenPayload, AuthInput
+from auth.validators import TokenPayload, AuthInput
 from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 
 

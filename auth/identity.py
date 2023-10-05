@@ -11,7 +11,7 @@ from auth.tokenstorage import TokenStorage
 # from base.exceptions import InvalidPassword, InvalidToken
 from services.db import local_session
 from orm import User
-from validations.auth import AuthInput
+from auth.validators import AuthInput
 
 
 class Password:

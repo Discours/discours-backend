@@ -1,6 +1,5 @@
 python-frontmatter~=1.0.0
-aredis
-aiohttp
+aredis~=1.1.8
 ariadne>=0.17.0
 PyYAML>=5.4
 pyjwt>=2.6.0
@@ -16,22 +15,18 @@ authlib>=1.1.0
 httpx>=0.23.0
 psycopg2-binary
 transliterate~=1.10.2
-requests
 bcrypt>=4.0.0
 websockets
 bson~=0.5.10
 flake8
 DateTime~=4.7
-asyncio~=3.4.3
 python-dateutil~=2.8.2
 beautifulsoup4~=4.11.1
 lxml
 sentry-sdk>=1.14.0
-# sse_starlette
-graphql-ws
 nltk~=3.8.1
 pymystem3~=0.2.0
-transformers~=4.28.1
+transformers
 boto3~=1.28.2
 botocore~=1.31.2
 python-multipart~=0.0.6
