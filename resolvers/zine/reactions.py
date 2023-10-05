@@ -215,12 +215,14 @@ async def create_reaction(_, info, reaction):
 
         session.add(r)
         session.commit()
+
+
+
         rdict = r.dict()
         rdict['shout'] = shout.dict()
         rdict['createdBy'] = author.dict()
 
         # self-regulation mechanics
-
         if check_to_hide(session, auth.user_id, r):
             set_hidden(session, r.shout)
         elif check_to_publish(session, auth.user_id, r):
