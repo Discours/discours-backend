@@ -1,4 +1,4 @@
-from httpx import AsyncClient
+import requests
 
 from settings import MAILGUN_API_KEY, MAILGUN_DOMAIN
 
@@ -24,13 +24,7 @@ async def send_auth_email(user, token, lang="ru", template="email_confirmation")
         print("[auth.email] payload: %r" % payload)
         # debug
         # print('http://localhost:3000/?modal=auth&mode=confirm-email&token=%s' % token)
-        async with AsyncClient() as client:
-            response = await client.post(api_url, headers=headers, data=gql)
-            if response.status_code != 200:
-                return False, None
-            r = response.json()
-                api_url, auth=("api", MAILGUN_API_KEY), data=payload
-            )
-            response.raise_for_status()
+        response = requests.post(api_url, auth=("api", MAILGUN_API_KEY), data=payload)
+        response.raise_for_status()
     except Exception as e:
         print(e)
