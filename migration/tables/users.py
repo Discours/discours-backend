@@ -40,9 +40,9 @@ def migrate(entry):
         bio_text = BeautifulSoup(bio, features="lxml").text
 
         if len(bio_text) > 120:
-            user_dict["bio"] = bio_text
-        else:
             user_dict["about"] = bio_text
+        else:
+            user_dict["bio"] = bio_text
 
         # userpic
         try:
