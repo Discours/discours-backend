@@ -3,7 +3,7 @@ aredis~=1.1.8
 ariadne>=0.17.0
 PyYAML>=5.4
 pyjwt>=2.6.0
-https://github.com/encode/starlette
+git+https://github.com/encode/starlette.git#main
 sqlalchemy>=1.4.41
 graphql-core>=3.0.3
 gql~=3.4.0
