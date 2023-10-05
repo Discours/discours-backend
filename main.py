@@ -35,11 +35,11 @@ async def start_up():
     await redis.connect()
     await storages_init()
     views_stat_task = asyncio.create_task(ViewedStorage().worker())
-    print(views_stat_task)
     try:
         import sentry_sdk
 
         sentry_sdk.init(SENTRY_DSN)
+        print("[sentry] started")
     except Exception as e:
         print("[sentry] init error")
         print(e)

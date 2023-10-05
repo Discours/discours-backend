@@ -75,17 +75,16 @@ class ViewedStorage:
                     {"Authorization": "Bearer %s" % str(token)}, schema=schema_str
                 )
                 print(
-                    "[stat.viewed] * authorized permanentely by ackee.discours.io: %s"
-                    % token
+                    "[stat] * authorized permanentely by ackee.discours.io: %s" % token
                 )
             else:
-                print("[stat.viewed] * please set ACKEE_TOKEN")
+                print("[stat] * please set ACKEE_TOKEN")
                 self.disabled = True
 
     @staticmethod
     async def update_pages():
         """query all the pages from ackee sorted by views count"""
-        print("[stat.viewed] ⎧ updating ackee pages data ---")
+        print("[stat] ⎧ updating ackee pages data ---")
         start = time.time()
         self = ViewedStorage
         try:
@@ -101,12 +100,12 @@ class ViewedStorage:
                     await ViewedStorage.increment(slug, shouts[slug])
             except Exception:
                 pass
-            print("[stat.viewed] ⎪ %d pages collected " % len(shouts.keys()))
+            print("[stat] ⎪ %d pages collected " % len(shouts.keys()))
         except Exception as e:
             raise e
 
         end = time.time()
-        print("[stat.viewed] ⎪ update_pages took %fs " % (end - start))
+        print("[stat] ⎪ update_pages took %fs " % (end - start))
 
     @staticmethod
     async def get_facts():
@@ -197,26 +196,26 @@ class ViewedStorage:
         self = ViewedStorage
         if self.disabled:
             return
-
+        print("[stat] worker started")
         while True:
             try:
-                print("[stat.viewed] - updating views...")
+                print("[stat] - updating views...")
                 await self.update_pages()
                 failed = 0
             except Exception:
                 failed += 1
-                print("[stat.viewed] - update failed #%d, wait 10 seconds" % failed)
+                print("[stat] - update failed #%d, wait 10 seconds" % failed)
                 if failed > 3:
-                    print("[stat.viewed] - not trying to update anymore")
+                    print("[stat] - not trying to update anymore")
                     break
             if failed == 0:
                 when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
                 t = format(when.astimezone().isoformat())
                 print(
-                    "[stat.viewed] ⎩ next update: %s"
+                    "[stat] ⎩ next update: %s"
                     % (t.split("T")[0] + " " + t.split("T")[1].split(".")[0])
                 )
                 await asyncio.sleep(self.period)
             else:
                 await asyncio.sleep(10)
-                print("[stat.viewed] - trying to update data again")
+                print("[stat] - trying to update data again")
