@@ -1,5 +1,5 @@
 from services.search import SearchService
-from stat.viewed import ViewedStorage
+from services.viewed import ViewedStorage
 from services.db import local_session
 
 
