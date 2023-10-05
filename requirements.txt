@@ -1,10 +1,10 @@
 python-frontmatter~=1.0.0
-aioredis~=2.0.1
+aredis
 aiohttp
 ariadne>=0.17.0
 PyYAML>=5.4
 pyjwt>=2.6.0
-starlette~=0.23.1
+starlette
 sqlalchemy>=1.4.41
 graphql-core>=3.0.3
 gql~=3.4.0
@@ -16,7 +16,7 @@ authlib>=1.1.0
 httpx>=0.23.0
 psycopg2-binary
 transliterate~=1.10.2
-requests~=2.28.1
+requests
 bcrypt>=4.0.0
 websockets
 bson~=0.5.10
