@@ -3,7 +3,7 @@ httpx>=0.23.0
 git+https://github.com/graphql-python/gql.git#master
 git+https://github.com/encode/starlette.git#main
 sqlalchemy>=1.4.41
-git+ssh://dev.discours.io/discours.io/ariadne.git#master
+git+https://github.com/tonyrewin/ariadne.git#master
 uvicorn>=0.18.3
 python-frontmatter~=1.0.0
 PyYAML>=5.4
