@@ -8,7 +8,6 @@ from resolvers.auth import (
     get_current_user,
 )
 
-from resolvers.migrate import markdown_body
 from resolvers.editor import create_shout, delete_shout, update_shout
 from resolvers.profile import (
     load_authors_by,
@@ -63,7 +62,6 @@ __all__ = [
     "create_shout",
     "update_shout",
     "delete_shout",
-    "markdown_body",
     # topics
     "topics_all",
     "topics_by_community",
