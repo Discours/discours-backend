@@ -1,13 +1,13 @@
 from services.search import SearchService
-from services.stat.viewed import ViewedStorage
-from base.orm import local_session
+from stat.viewed import ViewedStorage
+from services.db import local_session
 
 
 async def storages_init():
     with local_session() as session:
-        print('[main] initialize SearchService')
+        print("[main] initialize SearchService")
         await SearchService.init(session)
-        print('[main] SearchService initialized')
-        print('[main] initialize storages')
+        print("[main] SearchService initialized")
+        print("[main] initialize storages")
         await ViewedStorage.init()
-        print('[main] storages initialized')
+        print("[main] storages initialized")

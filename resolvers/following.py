@@ -1,8 +1,9 @@
 import asyncio
-from base.orm import local_session
-from base.resolvers import mutation, subscription
+from services.db import local_session
+from services.schema import mutation, subscription
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
+
 # from resolvers.community import community_follow, community_unfollow
 from orm.user import AuthorFollower
 from orm.topic import TopicFollower
@@ -22,20 +23,20 @@ async def follow(_, info, what, slug):
     try:
         if what == "AUTHOR":
             if author_follow(auth.user_id, slug):
-                result = FollowingResult("NEW", 'author', slug)
-                await FollowingManager.push('author', result)
+                result = FollowingResult("NEW", "author", slug)
+                await FollowingManager.push("author", result)
         elif what == "TOPIC":
             if topic_follow(auth.user_id, slug):
-                result = FollowingResult("NEW", 'topic', slug)
-                await FollowingManager.push('topic', result)
+                result = FollowingResult("NEW", "topic", slug)
+                await FollowingManager.push("topic", result)
         elif what == "COMMUNITY":
             if False:  # TODO: use community_follow(auth.user_id, slug):
-                result = FollowingResult("NEW", 'community', slug)
-                await FollowingManager.push('community', result)
+                result = FollowingResult("NEW", "community", slug)
+                await FollowingManager.push("community", result)
         elif what == "REACTIONS":
             if reactions_follow(auth.user_id, slug):
-                result = FollowingResult("NEW", 'shout', slug)
-                await FollowingManager.push('shout', result)
+                result = FollowingResult("NEW", "shout", slug)
+                await FollowingManager.push("shout", result)
     except Exception as e:
         print(Exception(e))
         return {"error": str(e)}
@@ -51,20 +52,20 @@ async def unfollow(_, info, what, slug):
     try:
         if what == "AUTHOR":
             if author_unfollow(auth.user_id, slug):
-                result = FollowingResult("DELETED", 'author', slug)
-                await FollowingManager.push('author', result)
+                result = FollowingResult("DELETED", "author", slug)
+                await FollowingManager.push("author", result)
         elif what == "TOPIC":
             if topic_unfollow(auth.user_id, slug):
-                result = FollowingResult("DELETED", 'topic', slug)
-                await FollowingManager.push('topic', result)
+                result = FollowingResult("DELETED", "topic", slug)
+                await FollowingManager.push("topic", result)
         elif what == "COMMUNITY":
             if False:  # TODO: use community_unfollow(auth.user_id, slug):
-                result = FollowingResult("DELETED", 'community', slug)
-                await FollowingManager.push('community', result)
+                result = FollowingResult("DELETED", "community", slug)
+                await FollowingManager.push("community", result)
         elif what == "REACTIONS":
             if reactions_unfollow(auth.user_id, slug):
-                result = FollowingResult("DELETED", 'shout', slug)
-                await FollowingManager.push('shout', result)
+                result = FollowingResult("DELETED", "shout", slug)
+                await FollowingManager.push("shout", result)
     except Exception as e:
         return {"error": str(e)}
 
@@ -82,23 +83,29 @@ async def shout_generator(_, info: GraphQLResolveInfo):
         tasks = []
 
         with local_session() as session:
-
             # notify new shout by followed authors
-            following_topics = session.query(TopicFollower).where(TopicFollower.follower == user_id).all()
+            following_topics = (
+                session.query(TopicFollower)
+                .where(TopicFollower.follower == user_id)
+                .all()
+            )
 
             for topic_id in following_topics:
-                following_topic = Following('topic', topic_id)
-                await FollowingManager.register('topic', following_topic)
+                following_topic = Following("topic", topic_id)
+                await FollowingManager.register("topic", following_topic)
                 following_topic_task = following_topic.queue.get()
                 tasks.append(following_topic_task)
 
             # by followed topics
-            following_authors = session.query(AuthorFollower).where(
-                AuthorFollower.follower == user_id).all()
+            following_authors = (
+                session.query(AuthorFollower)
+                .where(AuthorFollower.follower == user_id)
+                .all()
+            )
 
             for author_id in following_authors:
-                following_author = Following('author', author_id)
-                await FollowingManager.register('author', following_author)
+                following_author = Following("author", author_id)
+                await FollowingManager.register("author", following_author)
                 following_author_task = following_author.queue.get()
                 tasks.append(following_author_task)
 
@@ -128,15 +135,18 @@ async def reaction_generator(_, info):
     user_id = auth.user_id
     try:
         with local_session() as session:
-            followings = session.query(ShoutReactionsFollower.shout).where(
-                ShoutReactionsFollower.follower == user_id).unique()
+            followings = (
+                session.query(ShoutReactionsFollower.shout)
+                .where(ShoutReactionsFollower.follower == user_id)
+                .unique()
+            )
 
             # notify new reaction
 
             tasks = []
             for shout_id in followings:
-                following_shout = Following('shout', shout_id)
-                await FollowingManager.register('shout', following_shout)
+                following_shout = Following("shout", shout_id)
+                await FollowingManager.register("shout", following_shout)
                 following_author_task = following_shout.queue.get()
                 tasks.append(following_author_task)
 

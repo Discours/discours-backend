@@ -2,12 +2,6 @@ scalar DateTime
 
 ################################### Payload ###################################
 
-enum MessageStatus {
-  NEW
-  UPDATED
-  DELETED
-}
-
 type UserFollowings {
   unread: Int
   topics: [String]
@@ -21,18 +15,6 @@ type AuthResult {
   token: String
   user: User
   news: UserFollowings
-}
-
-type ChatMember {
-    id: Int!
-    slug: String!
-    name: String!
-    userpic: String
-    lastSeen: DateTime
-    online: Boolean
-    # invitedAt: DateTime
-    # invitedBy: String # user slug
-    # TODO: keep invite databit
 }
 
 type AuthorStat {
@@ -62,11 +44,6 @@ type Author {
 type Result {
   error: String
   slugs: [String]
-  chat: Chat
-  chats: [Chat]
-  message: Message
-  messages: [Message]
-  members: [ChatMember]
   shout: Shout
   shouts: [Shout]
   author: Author
@@ -140,12 +117,6 @@ input ReactionInput {
   replyTo: Int
 }
 
-input ChatInput {
-    id: String!
-    title: String
-    description: String
-}
-
 enum FollowingEntity {
   TOPIC
   AUTHOR
@@ -156,15 +127,6 @@ enum FollowingEntity {
 ################################### Mutation
 
 type Mutation {
-  # inbox
-  createChat(title: String, members: [Int]!): Result!
-  updateChat(chat: ChatInput!): Result!
-  deleteChat(chatId: String!): Result!
-
-  createMessage(chat: String!, body: String!, replyTo: Int): Result!
-  updateMessage(chatId: String!, id: Int!, body: String!): Result!
-  deleteMessage(chatId: String!, id: Int!): Result!
-  markAsRead(chatId: String!, ids: [Int]!): Result!
 
   # auth
   getSession: AuthResult!
@@ -196,15 +158,6 @@ type Mutation {
   # following
   follow(what: FollowingEntity!, slug: String!): Result!
   unfollow(what: FollowingEntity!, slug: String!): Result!
-}
-
-input MessagesBy {
-    author: String
-    body: String
-    chat: String
-    order: String
-    days: Int
-    stat: String
 }
 
 input AuthorsBy {
@@ -252,12 +205,6 @@ input ReactionBy {
 ################################### Query
 
 type Query {
-  # inbox
-  loadChats( limit: Int, offset: Int): Result!  # your chats
-  loadMessagesBy(by: MessagesBy!, limit: Int, offset: Int): Result!
-  loadRecipients(limit: Int, offset: Int): Result!
-  searchRecipients(query: String!, limit: Int, offset: Int): Result!
-  searchMessages(by: MessagesBy!, limit: Int, offset: Int): Result!
 
   # auth
   isEmailUsed(email: String!): Boolean!
@@ -286,14 +233,6 @@ type Query {
   topicsRandom(amount: Int): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
-}
-
-############################################ Subscription
-
-type Subscription {
-  newMessage: Message  # new messages in inbox
-  newShout: Shout  # personal feed new shout
-  newReaction: Reaction # new reactions to notify
 }
 
 ############################################ Entities
@@ -473,30 +412,4 @@ type Token {
   ownerId: Int!
   usedAt: DateTime
   value: String!
-}
-
-type Message {
-  author: Int!
-  chatId: String!
-  body: String!
-  createdAt: Int!
-  id: Int!
-  replyTo: Int
-  updatedAt: Int
-  seen: Boolean
-}
-
-type Chat {
-  id: String!
-  createdAt: Int!
-  createdBy: Int!
-  updatedAt: Int!
-  title: String
-  description: String
-  users: [Int]
-  members: [ChatMember]
-  admins: [Int]
-  messages: [Message]
-  unread: Int
-  private: Boolean
 }

@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from dateutil.parser import parse
 from sqlalchemy.exc import IntegrityError
 
-from base.orm import local_session
+from services.db import local_session
 from orm.user import AuthorFollower, User, UserRating
 
 
@@ -19,12 +19,13 @@ def migrate(entry):
         "username": email,
         "email": email,
         "createdAt": parse(entry["createdAt"]),
-        "emailConfirmed": ("@discours.io" in email) or bool(entry["emails"][0]["verified"]),
+        "emailConfirmed": ("@discours.io" in email)
+        or bool(entry["emails"][0]["verified"]),
         "muted": False,  # amnesty
         "bio": entry["profile"].get("bio", ""),
         "links": [],
         "name": "anonymous",
-        "password": entry["services"]["password"].get("bcrypt")
+        "password": entry["services"]["password"].get("bcrypt"),
     }
 
     if "updatedAt" in entry:
@@ -34,9 +35,13 @@ def migrate(entry):
     if entry.get("profile"):
         # slug
         slug = entry["profile"].get("path").lower()
-        slug = re.sub('[^0-9a-zA-Z]+', '-', slug).strip()
+        slug = re.sub("[^0-9a-zA-Z]+", "-", slug).strip()
         user_dict["slug"] = slug
-        bio = (entry.get("profile", {"bio": ""}).get("bio") or "").replace('\(', '(').replace('\)', ')')
+        bio = (
+            (entry.get("profile", {"bio": ""}).get("bio") or "")
+            .replace("\(", "(")
+            .replace("\)", ")")
+        )
         bio_text = BeautifulSoup(bio, features="lxml").text
 
         if len(bio_text) > 120:
@@ -115,7 +120,7 @@ def post_migrate():
         "slug": "old-discours",
         "username": "old-discours",
         "email": "old@discours.io",
-        "name": "Просмотры на старой версии сайта"
+        "name": "Просмотры на старой версии сайта",
     }
 
     with local_session() as session:
@@ -148,11 +153,9 @@ def migrate_2stage(entry, id_map):
                 }
 
                 user_rating = UserRating.create(**user_rating_dict)
-                if user_rating_dict['value'] > 0:
+                if user_rating_dict["value"] > 0:
                     af = AuthorFollower.create(
-                        author=user.id,
-                        follower=rater.id,
-                        auto=True
+                        author=user.id, follower=rater.id, auto=True
                     )
                     session.add(af)
                 session.add(user_rating)

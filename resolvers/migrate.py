@@ -1,5 +1,4 @@
-
-from base.resolvers import query
+from services.schema import query
 from resolvers.auth import login_required
 from migration.extract import extract_md
 

@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, JSON
 from sqlalchemy.orm import column_property, relationship
 
-from base.orm import Base, local_session
+from services.db import Base, local_session
 from orm.reaction import Reaction
 from orm.topic import Topic
 from orm.user import User
@@ -43,7 +43,9 @@ class Shout(Base):
     __tablename__ = "shout"
 
     # timestamps
-    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
+    createdAt = Column(
+        DateTime, nullable=False, default=datetime.now, comment="Created at"
+    )
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
     publishedAt = Column(DateTime, nullable=True)
     deletedAt = Column(DateTime, nullable=True)
@@ -72,7 +74,7 @@ class Shout(Base):
 
     # TODO: these field should be used or modified
     community = Column(ForeignKey("community.id"), default=1)
-    lang = Column(String, nullable=False, default='ru', comment="Language")
+    lang = Column(String, nullable=False, default="ru", comment="Language")
     mainTopic = Column(ForeignKey("topic.slug"), nullable=True)
     visibility = Column(String, nullable=True)  # owner authors community public
     versionOf = Column(ForeignKey("shout.id"), nullable=True)
@@ -87,7 +89,7 @@ class Shout(Base):
                     "slug": "genesis-block",
                     "body": "",
                     "title": "Ничего",
-                    "lang": "ru"
+                    "lang": "ru",
                 }
                 s = Shout.create(**entry)
                 session.add(s)

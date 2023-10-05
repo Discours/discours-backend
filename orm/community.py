@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Column, String, ForeignKey, DateTime
-from base.orm import Base, local_session
+from services.db import Base, local_session
 
 
 class CommunityFollower(Base):
@@ -30,12 +30,10 @@ class Community(Base):
     @staticmethod
     def init_table():
         with local_session() as session:
-            d = (
-                session.query(Community).filter(Community.slug == "discours").first()
-            )
+            d = session.query(Community).filter(Community.slug == "discours").first()
             if not d:
                 d = Community.create(name="Дискурс", slug="discours")
                 session.add(d)
                 session.commit()
             Community.default_community = d
-            print('[orm] default community id: %s' % d.id)
+            print("[orm] default community id: %s" % d.id)

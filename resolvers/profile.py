@@ -5,8 +5,8 @@ from sqlalchemy.orm import aliased, joinedload
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from base.orm import local_session
-from base.resolvers import mutation, query
+from services.orm import local_session
+from services.schema import mutation, query
 from orm.reaction import Reaction
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.topic import Topic
@@ -23,36 +23,31 @@ def add_author_stat_columns(q, include_heavy_stat=False):
     shout_author_aliased = aliased(ShoutAuthor)
 
     q = q.outerjoin(shout_author_aliased).add_columns(
-        func.count(distinct(shout_author_aliased.shout)).label('shouts_stat')
+        func.count(distinct(shout_author_aliased.shout)).label("shouts_stat")
     )
     q = q.outerjoin(author_followers, author_followers.author == User.id).add_columns(
-        func.count(distinct(author_followers.follower)).label('followers_stat')
+        func.count(distinct(author_followers.follower)).label("followers_stat")
     )
 
     q = q.outerjoin(author_following, author_following.follower == User.id).add_columns(
-        func.count(distinct(author_following.author)).label('followings_stat')
+        func.count(distinct(author_following.author)).label("followings_stat")
     )
 
     if include_heavy_stat:
         user_rating_aliased = aliased(UserRating)
-        q = q.outerjoin(user_rating_aliased, user_rating_aliased.user == User.id).add_columns(
-            func.sum(user_rating_aliased.value).label('rating_stat')
-        )
+        q = q.outerjoin(
+            user_rating_aliased, user_rating_aliased.user == User.id
+        ).add_columns(func.sum(user_rating_aliased.value).label("rating_stat"))
 
     else:
-        q = q.add_columns(literal(-1).label('rating_stat'))
+        q = q.add_columns(literal(-1).label("rating_stat"))
 
     if include_heavy_stat:
         q = q.outerjoin(
-            Reaction,
-            and_(
-                Reaction.createdBy == User.id,
-                Reaction.body.is_not(None)
-            )).add_columns(
-            func.count(distinct(Reaction.id)).label('commented_stat')
-        )
+            Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))
+        ).add_columns(func.count(distinct(Reaction.id)).label("commented_stat"))
     else:
-        q = q.add_columns(literal(-1).label('commented_stat'))
+        q = q.add_columns(literal(-1).label("commented_stat"))
 
     q = q.group_by(User.id)
 
@@ -60,13 +55,19 @@ def add_author_stat_columns(q, include_heavy_stat=False):
 
 
 def add_stat(author, stat_columns):
-    [shouts_stat, followers_stat, followings_stat, rating_stat, commented_stat] = stat_columns
+    [
+        shouts_stat,
+        followers_stat,
+        followings_stat,
+        rating_stat,
+        commented_stat,
+    ] = stat_columns
     author.stat = {
         "shouts": shouts_stat,
         "followers": followers_stat,
         "followings": followings_stat,
         "rating": rating_stat,
-        "commented": commented_stat
+        "commented": commented_stat,
     }
 
     return author
@@ -84,9 +85,15 @@ def get_authors_from_query(q):
 
 async def user_subscriptions(user_id: int):
     return {
-        "unread": await get_total_unread_counter(user_id),  # unread inbox messages counter
-        "topics": [t.slug for t in await followed_topics(user_id)],  # followed topics slugs
-        "authors": [a.slug for a in await followed_authors(user_id)],  # followed authors slugs
+        "unread": await get_total_unread_counter(
+            user_id
+        ),  # unread inbox messages counter
+        "topics": [
+            t.slug for t in await followed_topics(user_id)
+        ],  # followed topics slugs
+        "authors": [
+            a.slug for a in await followed_authors(user_id)
+        ],  # followed authors slugs
         "reactions": await followed_reactions(user_id)
         # "communities": [c.slug for c in followed_communities(slug)],  # communities
     }
@@ -101,13 +108,12 @@ async def followed_discussions(_, info, user_id) -> List[Topic]:
 async def followed_reactions(user_id):
     with local_session() as session:
         user = session.query(User).where(User.id == user_id).first()
-        return session.query(
-            Reaction.shout
-        ).where(
-            Reaction.createdBy == user.id
-        ).filter(
-            Reaction.createdAt > user.lastSeen
-        ).all()
+        return (
+            session.query(Reaction.shout)
+            .where(Reaction.createdBy == user.id)
+            .filter(Reaction.createdAt > user.lastSeen)
+            .all()
+        )
 
 
 # dufok mod (^*^') :
@@ -158,10 +164,10 @@ async def user_followers(_, _info, slug) -> List[User]:
     q = add_author_stat_columns(q)
 
     aliased_user = aliased(User)
-    q = q.join(AuthorFollower, AuthorFollower.follower == User.id).join(
-        aliased_user, aliased_user.id == AuthorFollower.author
-    ).where(
-        aliased_user.slug == slug
+    q = (
+        q.join(AuthorFollower, AuthorFollower.follower == User.id)
+        .join(aliased_user, aliased_user.id == AuthorFollower.author)
+        .where(aliased_user.slug == slug)
     )
 
     return get_authors_from_query(q)
@@ -189,15 +195,10 @@ async def update_profile(_, info, profile):
     with local_session() as session:
         user = session.query(User).filter(User.id == user_id).one()
         if not user:
-            return {
-                "error": "canoot find user"
-            }
+            return {"error": "canoot find user"}
         user.update(profile)
         session.commit()
-    return {
-        "error": None,
-        "author": user
-    }
+    return {"error": None, "author": user}
 
 
 @mutation.field("rateUser")
@@ -208,7 +209,11 @@ async def rate_user(_, info, rated_userslug, value):
     with local_session() as session:
         rating = (
             session.query(UserRating)
-            .filter(and_(UserRating.rater == auth.user_id, UserRating.user == rated_userslug))
+            .filter(
+                and_(
+                    UserRating.rater == auth.user_id, UserRating.user == rated_userslug
+                )
+            )
             .first()
         )
         if rating:
@@ -239,13 +244,10 @@ def author_follow(user_id, slug):
 def author_unfollow(user_id, slug):
     with local_session() as session:
         flw = (
-            session.query(
-                AuthorFollower
-            ).join(User, User.id == AuthorFollower.author).filter(
-                and_(
-                    AuthorFollower.follower == user_id, User.slug == slug
-                )
-            ).first()
+            session.query(AuthorFollower)
+            .join(User, User.id == AuthorFollower.author)
+            .filter(and_(AuthorFollower.follower == user_id, User.slug == slug))
+            .first()
         )
         if flw:
             session.delete(flw)
@@ -281,7 +283,12 @@ async def load_authors_by(_, info, by, limit, offset):
     elif by.get("name"):
         q = q.filter(User.name.ilike(f"%{by['name']}%"))
     elif by.get("topic"):
-        q = q.join(ShoutAuthor).join(ShoutTopic).join(Topic).where(Topic.slug == by["topic"])
+        q = (
+            q.join(ShoutAuthor)
+            .join(ShoutTopic)
+            .join(Topic)
+            .where(Topic.slug == by["topic"])
+        )
     if by.get("lastSeen"):  # in days
         days_before = datetime.now(tz=timezone.utc) - timedelta(days=by["lastSeen"])
         q = q.filter(User.lastSeen > days_before)
@@ -289,8 +296,6 @@ async def load_authors_by(_, info, by, limit, offset):
         days_before = datetime.now(tz=timezone.utc) - timedelta(days=by["createdAt"])
         q = q.filter(User.createdAt > days_before)
 
-    q = q.order_by(
-        by.get("order", User.createdAt)
-    ).limit(limit).offset(offset)
+    q = q.order_by(by.get("order", User.createdAt)).limit(limit).offset(offset)
 
     return get_authors_from_query(q)

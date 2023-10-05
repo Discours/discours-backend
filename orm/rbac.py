@@ -3,7 +3,7 @@ import warnings
 from sqlalchemy import String, Column, ForeignKey, UniqueConstraint, TypeDecorator
 from sqlalchemy.orm import relationship
 
-from base.orm import Base, REGISTRY, engine, local_session
+from services.db import Base, REGISTRY, engine, local_session
 
 # Role Based Access Control #
 
@@ -130,7 +130,16 @@ class Resource(Base):
     @staticmethod
     def init_table():
         with local_session() as session:
-            for res in ["shout", "topic", "reaction", "chat", "message", "invite", "community", "user"]:
+            for res in [
+                "shout",
+                "topic",
+                "reaction",
+                "chat",
+                "message",
+                "invite",
+                "community",
+                "user",
+            ]:
                 r = session.query(Resource).filter(Resource.name == res).first()
                 if not r:
                     r = Resource.create(name=res, resourceClass=res)

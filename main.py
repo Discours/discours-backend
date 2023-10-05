@@ -13,21 +13,16 @@ from orm import init_tables
 
 from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
-from base.redis import redis
-from base.resolvers import resolvers
+from services.redis import redis
+from services.schema import resolvers
 from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
 from services.main import storages_init
-from services.stat.viewed import ViewedStorage
-from services.zine.gittask import GitTask
+from services.viewed import ViewedStorage
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
-# from sse.transport import GraphQLSSEHandler
-from services.inbox.presence import on_connect, on_disconnect
-# from services.inbox.sse import sse_messages
-from ariadne.asgi.handlers import GraphQLTransportWSHandler
 
 import_module("resolvers")
-schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
+schema = make_executable_schema(load_schema_from_path("schemas/core.graphql"), resolvers)  # type: ignore
 
 middleware = [
     Middleware(AuthenticationMiddleware, backend=JWTAuthenticate()),
@@ -41,13 +36,12 @@ async def start_up():
     await storages_init()
     views_stat_task = asyncio.create_task(ViewedStorage().worker())
     print(views_stat_task)
-    git_task = asyncio.create_task(GitTask.git_task_worker())
-    print(git_task)
     try:
         import sentry_sdk
+
         sentry_sdk.init(SENTRY_DSN)
     except Exception as e:
-        print('[sentry] init error')
+        print("[sentry] init error")
         print(e)
 
 
@@ -56,7 +50,7 @@ async def dev_start_up():
         await redis.connect()
         return
     else:
-        with open(DEV_SERVER_PID_FILE_NAME, 'w', encoding='utf-8') as f:
+        with open(DEV_SERVER_PID_FILE_NAME, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
 
     await start_up()
@@ -67,11 +61,10 @@ async def shutdown():
 
 
 routes = [
-    # Route("/messages", endpoint=sse_messages),
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
     Route("/confirm/{token}", endpoint=confirm_email_handler),
-    Route("/upload", endpoint=upload_handler, methods=['POST'])
+    Route("/upload", endpoint=upload_handler, methods=["POST"]),
 ]
 
 app = Starlette(
@@ -81,14 +74,10 @@ app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-app.mount("/", GraphQL(
-    schema,
-    debug=True,
-    websocket_handler=GraphQLTransportWSHandler(
-        on_connect=on_connect,
-        on_disconnect=on_disconnect
-    )
-))
+app.mount(
+    "/",
+    GraphQL(schema, debug=True),
+)
 
 dev_app = app = Starlette(
     debug=True,
@@ -97,11 +86,7 @@ dev_app = app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-dev_app.mount("/", GraphQL(
-    schema,
-    debug=True,
-    websocket_handler=GraphQLTransportWSHandler(
-        on_connect=on_connect,
-        on_disconnect=on_disconnect
-    )
-))
+dev_app.mount(
+    "/",
+    GraphQL(schema, debug=True),
+)

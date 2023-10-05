@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import Column, String, JSON, ForeignKey, DateTime, Boolean
-from base.orm import Base
+from services.db import Base
 
 
 class Notification(Base):

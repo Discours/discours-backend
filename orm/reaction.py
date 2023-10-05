@@ -3,7 +3,7 @@ from enum import Enum as Enumeration
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, String
 
-from base.orm import Base
+from services.db import Base
 
 
 class ReactionKind(Enumeration):
@@ -30,11 +30,17 @@ class Reaction(Base):
     createdAt = Column(
         DateTime, nullable=False, default=datetime.now, comment="Created at"
     )
-    createdBy = Column(ForeignKey("user.id"), nullable=False, index=True, comment="Sender")
+    createdBy = Column(
+        ForeignKey("user.id"), nullable=False, index=True, comment="Sender"
+    )
     updatedAt = Column(DateTime, nullable=True, comment="Updated at")
-    updatedBy = Column(ForeignKey("user.id"), nullable=True, index=True, comment="Last Editor")
+    updatedBy = Column(
+        ForeignKey("user.id"), nullable=True, index=True, comment="Last Editor"
+    )
     deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
-    deletedBy = Column(ForeignKey("user.id"), nullable=True, index=True, comment="Deleted by")
+    deletedBy = Column(
+        ForeignKey("user.id"), nullable=True, index=True, comment="Deleted by"
+    )
     shout = Column(ForeignKey("shout.id"), nullable=False, index=True)
     replyTo = Column(
         ForeignKey("reaction.id"), nullable=True, comment="Reply to reaction ID"

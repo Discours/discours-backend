@@ -1,4 +1,4 @@
-from base.orm import Base, engine
+from services.db import Base, engine
 from orm.community import Community
 from orm.notification import Notification
 from orm.rbac import Operation, Resource, Permission, Role

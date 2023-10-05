@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 
-from base.orm import Base
+from services.db import Base
 
 
 class TopicFollower(Base):
@@ -24,7 +24,5 @@ class Topic(Base):
     title = Column(String, nullable=False, comment="Title")
     body = Column(String, nullable=True, comment="Body")
     pic = Column(String, nullable=True, comment="Picture")
-    community = Column(
-        ForeignKey("community.id"), default=1, comment="Community"
-    )
+    community = Column(ForeignKey("community.id"), default=1, comment="Community")
     oid = Column(String, nullable=True, comment="Old ID")
