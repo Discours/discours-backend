@@ -39,7 +39,7 @@ load_pages = gql(
     } } """
 )
 
-schema_str = open(path.dirname(__file__) + "/ackee.graphql").read()
+schema_str = open("schemas/ackee.graphql").read()
 token = environ.get("ACKEE_TOKEN", "")
 
 
