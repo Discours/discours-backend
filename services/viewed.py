@@ -4,7 +4,7 @@ from datetime import timedelta, timezone, datetime
 from os import environ, path
 
 from gql import Client, gql
-from gql.transport.httpx import HTTPXAsyncTransport
+from gql.transport.requests import RequestsHTTPTransport
 
 from services.db import local_session
 from orm import Topic
@@ -46,7 +46,7 @@ token = environ.get("ACKEE_TOKEN", "")
 def create_client(headers=None, schema=None):
     return Client(
         schema=schema,
-        transport=HTTPXAsyncTransport(
+        transport=RequestsHTTPTransport(
             url="https://ackee.discours.io/api",
             headers=headers,
         ),
