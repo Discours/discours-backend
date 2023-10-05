@@ -203,6 +203,9 @@ class ViewedStorage:
                 await self.update_pages()
                 failed = 0
             except Exception:
+                import traceback
+
+                traceback.print_exc()
                 failed += 1
                 print("[stat] - update failed #%d, wait 10 seconds" % failed)
                 if failed > 3:
