@@ -8,9 +8,9 @@ from auth.credentials import AuthCredentials
 from orm.user import AuthorFollower
 from orm.topic import TopicFollower
 from orm.shout import ShoutReactionsFollower
-from resolvers.zine.profile import author_follow, author_unfollow
-from resolvers.zine.reactions import reactions_follow, reactions_unfollow
-from resolvers.zine.topics import topic_follow, topic_unfollow
+from resolvers.profile import author_follow, author_unfollow
+from resolvers.reactions import reactions_follow, reactions_unfollow
+from resolvers.topics import topic_follow, topic_unfollow
 from services.following import Following, FollowingManager, FollowingResult
 from graphql.type import GraphQLResolveInfo
 
@@ -30,7 +30,8 @@ async def follow(_, info, what, slug):
                 result = FollowingResult("NEW", "topic", slug)
                 await FollowingManager.push("topic", result)
         elif what == "COMMUNITY":
-            if False:  # TODO: use community_follow(auth.user_id, slug):
+            if False:
+                # TODO: use community_follow(auth.user_id, slug):
                 result = FollowingResult("NEW", "community", slug)
                 await FollowingManager.push("community", result)
         elif what == "REACTIONS":

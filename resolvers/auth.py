@@ -23,7 +23,7 @@ from services.exceptions import (
 from services.db import local_session
 from services.schema import mutation, query
 from orm import Role, User
-from resolvers.zine.profile import user_subscriptions
+from resolvers.profile import user_subscriptions
 from settings import SESSION_TOKEN_HEADER, FRONTEND_URL
 
 

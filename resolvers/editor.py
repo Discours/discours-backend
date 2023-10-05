@@ -9,7 +9,7 @@ from services.db import local_session
 from services.schema import mutation
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
-from resolvers.zine.reactions import reactions_follow, reactions_unfollow
+from resolvers.reactions import reactions_follow, reactions_unfollow
 
 
 @mutation.field("createShout")

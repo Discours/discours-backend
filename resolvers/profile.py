@@ -5,7 +5,7 @@ from sqlalchemy.orm import aliased, joinedload
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from services.orm import local_session
+from services.db import local_session
 from services.schema import mutation, query
 from orm.reaction import Reaction
 from orm.shout import ShoutAuthor, ShoutTopic
@@ -13,8 +13,8 @@ from orm.topic import Topic
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
 
 # from .community import followed_communities
-from resolvers.inbox.unread import get_total_unread_counter
-from resolvers.zine.topics import followed_by_user
+from services.unread import get_total_unread_counter
+from resolvers.topics import followed_by_user
 
 
 def add_author_stat_columns(q, include_heavy_stat=False):
