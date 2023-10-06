@@ -1,4 +1,7 @@
 scalar DateTime
+type _Service {
+    sdl: String
+}
 
 ################################### Payload ###################################
 
