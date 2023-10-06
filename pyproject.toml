@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "discoursio-core"
+version = "0.2.5"
+description = ""
+authors = ["Tony Rewin <anton.rewin@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+gql = {extras = ["httpx"], version = "^3.4.1"}
+ariadne = "^0.20.1"
+SQLAlchemy = "^2.0.21"
+uvicorn = "^0.23.2"
+aredis = "^1.1.8"
+starlette = "^0.31.1"
+itsdangerous = "^2.1.2"
+Authlib = "^1.2.1"
+PyJWT = "^2.8.0"
+PyYAML = "^6.0.1"
+httpx = "^0.25.0"
+psycopg2-binary = "^2.9.9"
+bcrypt = "^4.0.1"
+sentry-sdk = "^1.31.0"
+boto3 = "^1.28.61"
+botocore = "^1.31.61"
+transliterate = "^1.10.2"
+passlib = "^1.7.4"
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^6.1.0"
+isort = "^5.12.0"
+brunette = "^0.2.8"
+mypy = "^1.5.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

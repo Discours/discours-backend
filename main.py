@@ -17,13 +17,13 @@ from services.redis import redis
 from services.schema import resolvers
 from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
-from services.main import storages_init
-from services.viewed import ViewedStorage
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
+from services.search import SearchService
+from services.viewed import ViewedStorage
+from services.db import local_session
 
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schemas/core.graphql"), resolvers)  # type: ignore
-
 middleware = [
     Middleware(AuthenticationMiddleware, backend=JWTAuthenticate()),
     Middleware(SessionMiddleware, secret_key="!secret"),
@@ -33,8 +33,10 @@ middleware = [
 async def start_up():
     init_tables()
     await redis.connect()
-    await storages_init()
-    views_stat_task = asyncio.create_task(ViewedStorage().worker())
+    with local_session() as session:
+        await SearchService.init(session)
+    await ViewedStorage.init()
+    _views_stat_task = asyncio.create_task(ViewedStorage().worker())
     try:
         import sentry_sdk
 
