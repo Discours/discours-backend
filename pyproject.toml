@@ -25,6 +25,7 @@ boto3 = "^1.28.61"
 botocore = "^1.31.61"
 transliterate = "^1.10.2"
 passlib = "^1.7.4"
+pydantic = "^2.4.2"
 
 [tool.poetry.group.dev.dependencies]
 flake8 = "^6.1.0"
