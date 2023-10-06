@@ -236,6 +236,7 @@ type Query {
   topicsRandom(amount: Int): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
+  _service: _Service!
 }
 
 ############################################ Entities
