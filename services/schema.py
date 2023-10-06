@@ -1,5 +1,6 @@
 from ariadne import ScalarType, QueryType, MutationType
 
+
 datetime_scalar = ScalarType("DateTime")
 query = QueryType()
 mutation = MutationType()
