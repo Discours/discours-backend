@@ -14,7 +14,7 @@ def serialize_datetime(value):
 @query.field("_service")
 def resolve_service(*_):
     # Load the full SDL from your SDL file
-    with open("schemas/core .graphql", "r") as file:
+    with open("schemas/core.graphql", "r") as file:
         full_sdl = file.read()
 
     return {"sdl": full_sdl}
