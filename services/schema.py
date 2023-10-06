@@ -13,10 +13,11 @@ query = QueryType()
 
 @query.field("_service")
 def resolve_service(*_):
-    print("Inside the _service resolver")
-    # For now, return a placeholder SDL.
-    sdl = "type Query { _service: _Service } type _Service { sdl: String }"
-    return {"sdl": sdl}
+    # Load the full SDL from your SDL file
+    with open("inbox.graphql", "r") as file:
+        full_sdl = file.read()
+    
+    return {"sdl": full_sdl}
     
 mutation = MutationType()
 resolvers = [query, mutation, datetime_scalar]
