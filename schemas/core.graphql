@@ -1,4 +1,5 @@
 scalar DateTime
+
 type _Service {
     sdl: String
 }
@@ -236,6 +237,8 @@ type Query {
   topicsRandom(amount: Int): [Topic]!
   topicsByCommunity(community: String!): [Topic]!
   topicsByAuthor(author: String!): [Topic]!
+
+  # Apollo SDL
   _service: _Service!
 }
 
