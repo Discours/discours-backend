@@ -130,10 +130,8 @@ class NotificationService:
             notificator = await self._queue.get()
             try:
                 await notificator.run()
-            except Exception as ex:
-                print('[NotificationService.worker] error:')
-                print(ex)
-                print()
+            except Exception as e:
+                print(f'[NotificationService.worker] error: {str(e)}')
 
 
 notification_service = NotificationService()

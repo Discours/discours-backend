@@ -179,7 +179,6 @@ type Mutation {
 
     # user profile
     rateUser(slug: String!, value: Int!): Result!
-    updateOnlineStatus: Result!
     updateProfile(profile: ProfileInput!): Result!
 
     # topics
@@ -196,6 +195,9 @@ type Mutation {
     # following
     follow(what: FollowingEntity!, slug: String!): Result!
     unfollow(what: FollowingEntity!, slug: String!): Result!
+
+    markNotificationAsRead(notification_id: Int!): Result!
+    markAllNotificationsAsRead: Result!
 }
 
 input MessagesBy {
