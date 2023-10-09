@@ -7,7 +7,7 @@ from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation, query
-from orm.reaction import Reaction
+from orm.reaction import Reaction, ReactionKind
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
@@ -101,6 +101,7 @@ async def followed_reactions(user_id):
             Reaction.createdAt > user.lastSeen
         ).all()
 
+
 # dufok mod (^*^') :
 @query.field("userFollowedTopics")
 async def get_followed_topics(_, info, slug) -> List[Topic]:
@@ -117,6 +118,7 @@ async def get_followed_topics(_, info, slug) -> List[Topic]:
 async def followed_topics(user_id):
     return followed_by_user(user_id)
 
+
 # dufok mod (^*^') :
 @query.field("userFollowedAuthors")
 async def get_followed_authors(_, _info, slug) -> List[User]:
@@ -129,6 +131,7 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
         raise ValueError("User not found")
 
     return await followed_authors(user_id)
+
 
 # 2. Now, we can use the user_id to get the followed authors
 async def followed_authors(user_id):
@@ -257,8 +260,18 @@ async def get_author(_, _info, slug):
     q = select(User).where(User.slug == slug)
     q = add_author_stat_columns(q)
 
-    authors = get_authors_from_query(q)
-    return authors[0]
+    [author] = get_authors_from_query(q)
+
+    with local_session() as session:
+        comments_count = session.query(Reaction).where(
+            and_(
+                Reaction.createdBy == author.id,
+                Reaction.kind == ReactionKind.COMMENT
+            )
+        ).count()
+        author.stat["commented"] = comments_count
+
+    return author
 
 
 @query.field("loadAuthorsBy")
