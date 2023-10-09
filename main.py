@@ -83,6 +83,8 @@ app.mount(
     GraphQL(schema, debug=True),
 )
 
+print("[main] app mounted")
+
 dev_app = app = Starlette(
     debug=True,
     on_startup=[dev_start_up],

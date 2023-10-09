@@ -75,8 +75,7 @@ class ViewedStorage:
                     {"Authorization": "Bearer %s" % str(token)}, schema=schema_str
                 )
                 print(
-                    "[stat] * authorized permanentely by ackee.discours.io: %s"
-                    % token
+                    "[stat] * authorized permanentely by ackee.discours.io: %s" % token
                 )
             else:
                 print("[stat] * please set ACKEE_TOKEN")
@@ -171,16 +170,18 @@ class ViewedStorage:
                 if viewer == "old-discours":
                     # this is needed for old db migration
                     if shout.viewsOld == amount:
-                        print(f"[stat] viewsOld amount: {amount}")
+                        print(f"[stat] ⎪ viewsOld amount: {amount}")
                     else:
-                        print(f"[stat] viewsOld amount changed: {shout.viewsOld} --> {amount}")
+                        print(
+                            f"[stat] ⎪ viewsOld amount changed: {shout.viewsOld} --> {amount}"
+                        )
                         shout.viewsOld = amount
                 else:
                     if shout.viewsAckee == amount:
-                        print(f"[stat] viewsAckee amount: {amount}")
+                        print(f"[stat] ⎪ viewsAckee amount: {amount}")
                     else:
                         print(
-                            f"[stat] viewsAckee amount changed: {shout.viewsAckee} --> {amount}"
+                            f"[stat] ⎪ viewsAckee amount changed: {shout.viewsAckee} --> {amount}"
                         )
                         shout.viewsAckee = amount
 

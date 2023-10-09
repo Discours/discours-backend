@@ -1,13 +1,23 @@
 from datetime import datetime, timedelta, timezone
+from sqlalchemy.engine import ObjectKind
 
 from sqlalchemy.orm import joinedload, aliased
-from sqlalchemy.sql.expression import desc, asc, select, func, case, and_, nulls_last
+from sqlalchemy.sql.expression import (
+    desc,
+    asc,
+    select,
+    func,
+    case,
+    and_,
+    # text,
+    nulls_last,
+)
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from services.exceptions import ObjectNotExist
-from services.db import local_session
-from services.schema import query
+from base.exceptions import ObjectNotExist  # , OperationNotAllowed
+from base.orm import local_session
+from base.resolvers import query
 from orm import TopicFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
@@ -96,14 +106,15 @@ async def load_shout(_, info, slug=None, shout_id=None):
 
         q = q.filter(Shout.deletedAt.is_(None)).group_by(Shout.id)
 
-        try:
+        resp = session.execute(q).first()
+        if resp:
             [
                 shout,
                 reacted_stat,
                 commented_stat,
                 rating_stat,
                 last_comment,
-            ] = session.execute(q).first()
+            ] = resp
 
             shout.stat = {
                 "viewed": shout.views,
@@ -119,8 +130,9 @@ async def load_shout(_, info, slug=None, shout_id=None):
                     if author.id == author_caption.user:
                         author.caption = author_caption.caption
             return shout
-        except Exception:
-            raise ObjectNotExist("Slug was not found: %s" % slug)
+        else:
+            print("Slug was not found: %s" % slug)
+            return
 
 
 @query.field("loadShouts")
