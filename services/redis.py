@@ -13,8 +13,9 @@ class RedisCache:
         self._instance = aredis.StrictRedis.from_url(self._uri, decode_responses=True)
 
     async def disconnect(self):
-        self._instance.connection_pool.disconnect()
-        self._instance = None
+        if self._instance:
+            self._instance.connection_pool.disconnect()
+            self._instance = None
 
     async def execute(self, command, *args, **kwargs):
         while not self._instance:

@@ -46,6 +46,8 @@ async def start_up():
         print("[sentry] init error")
         print(e)
 
+    print("[main] started")
+
 
 async def dev_start_up():
     if exists(DEV_SERVER_PID_FILE_NAME):
