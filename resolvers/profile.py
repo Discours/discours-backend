@@ -17,10 +17,11 @@ from services.unread import get_total_unread_counter
 from resolvers.topics import followed_by_user
 
 
-def add_author_stat_columns(q, include_heavy_stat=False):
+def add_author_stat_columns(q):
     author_followers = aliased(AuthorFollower)
     author_following = aliased(AuthorFollower)
     shout_author_aliased = aliased(ShoutAuthor)
+    # user_rating_aliased = aliased(UserRating)
 
     q = q.outerjoin(shout_author_aliased).add_columns(
         func.count(distinct(shout_author_aliased.shout)).label("shouts_stat")
@@ -115,7 +116,6 @@ async def followed_reactions(user_id):
             .all()
         )
 
-
 # dufok mod (^*^') :
 @query.field("userFollowedTopics")
 async def get_followed_topics(_, info, slug) -> List[Topic]:
@@ -132,7 +132,6 @@ async def get_followed_topics(_, info, slug) -> List[Topic]:
 async def followed_topics(user_id):
     return followed_by_user(user_id)
 
-
 # dufok mod (^*^') :
 @query.field("userFollowedAuthors")
 async def get_followed_authors(_, _info, slug) -> List[User]:
@@ -145,7 +144,6 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
         raise ValueError("User not found")
 
     return await followed_authors(user_id)
-
 
 # 2. Now, we can use the user_id to get the followed authors
 async def followed_authors(user_id):
@@ -268,7 +266,7 @@ async def get_authors_all(_, _info):
 @query.field("getAuthor")
 async def get_author(_, _info, slug):
     q = select(User).where(User.slug == slug)
-    q = add_author_stat_columns(q, True)
+    q = add_author_stat_columns(q)
 
     authors = get_authors_from_query(q)
     return authors[0]
