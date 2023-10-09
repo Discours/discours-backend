@@ -70,7 +70,6 @@ def create_author_from_app(app):
                         "username": app["email"],
                         "email": app["email"],
                         "name": app.get("name", ""),
-                        "bio": app.get("bio", ""),
                         "emailConfirmed": False,
                         "slug": slug,
                         "createdAt": ts,
@@ -149,6 +148,7 @@ async def migrate(entry, storage):
         "deletedAt": date_parse(entry.get("deletedAt")) if entry.get("deletedAt") else None,
         "createdAt": date_parse(entry.get("createdAt", OLD_DATE)),
         "updatedAt": date_parse(entry["updatedAt"]) if "updatedAt" in entry else ts,
+        "createdBy": author.id,
         "topics": await add_topics_follower(entry, storage, author),
         "body": extract_html(entry, cleanup=True)
     }
