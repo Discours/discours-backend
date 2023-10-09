@@ -11,6 +11,23 @@ from orm.reaction import ReactionKind
 from services.notifications.sse import connection_manager
 
 
+def update_prev_notification(notification, user):
+    notification_data = json.loads(notification.data)
+
+    notification_data["users"] = [
+        user for user in notification_data["users"] if user['id'] != user.id
+    ]
+    notification_data["users"].append({
+        "id": user.id,
+        "name": user.name
+    })
+
+    notification.data = json.dumps(notification_data, ensure_ascii=False)
+    notification.seen = False
+    notification.occurrences = notification.occurrences + 1
+    notification.createdAt = datetime.now(tz=timezone.utc)
+
+
 class NewReactionNotificator:
     def __init__(self, reaction_id):
         self.reaction_id = reaction_id
@@ -37,12 +54,7 @@ class NewReactionNotificator:
                         ).first()
 
                         if prev_new_reply_notification:
-                            notification_data = json.loads(prev_new_reply_notification.data)
-
-                            prev_new_reply_notification.data = json.dumps(notification_data, ensure_ascii=False)
-                            prev_new_reply_notification.seen = False
-                            prev_new_reply_notification.occurrences = prev_new_reply_notification.occurrences + 1
-                            prev_new_reply_notification.createdAt = datetime.now(tz=timezone.utc)
+                            update_prev_notification(prev_new_reply_notification, user)
                         else:
                             reply_notification_data = json.dumps({
                                 "shout": {
@@ -77,12 +89,7 @@ class NewReactionNotificator:
                     ).first()
 
                     if prev_new_comment_notification:
-                        notification_data = json.loads(prev_new_comment_notification.data)
-
-                        prev_new_comment_notification.data = json.dumps(notification_data, ensure_ascii=False)
-                        prev_new_comment_notification.seen = False
-                        prev_new_comment_notification.occurrences = prev_new_comment_notification.occurrences + 1
-                        prev_new_comment_notification.createdAt = datetime.now(tz=timezone.utc)
+                        update_prev_notification(prev_new_comment_notification, user)
                     else:
                         notification_data_string = json.dumps({
                             "shout": {
