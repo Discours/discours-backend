@@ -17,10 +17,11 @@ from resolvers.inbox.unread import get_total_unread_counter
 from resolvers.zine.topics import followed_by_user
 
 
-def add_author_stat_columns(q, include_heavy_stat=False):
+def add_author_stat_columns(q):
     author_followers = aliased(AuthorFollower)
     author_following = aliased(AuthorFollower)
     shout_author_aliased = aliased(ShoutAuthor)
+    # user_rating_aliased = aliased(UserRating)
 
     q = q.outerjoin(shout_author_aliased).add_columns(
         func.count(distinct(shout_author_aliased.shout)).label('shouts_stat')
@@ -33,26 +34,17 @@ def add_author_stat_columns(q, include_heavy_stat=False):
         func.count(distinct(author_following.author)).label('followings_stat')
     )
 
-    if include_heavy_stat:
-        user_rating_aliased = aliased(UserRating)
-        q = q.outerjoin(user_rating_aliased, user_rating_aliased.user == User.id).add_columns(
-            func.sum(user_rating_aliased.value).label('rating_stat')
-        )
+    q = q.add_columns(literal(0).label('rating_stat'))
+    # FIXME
+    # q = q.outerjoin(user_rating_aliased, user_rating_aliased.user == User.id).add_columns(
+    #     # TODO: check
+    #     func.sum(user_rating_aliased.value).label('rating_stat')
+    # )
 
-    else:
-        q = q.add_columns(literal(-1).label('rating_stat'))
-
-    if include_heavy_stat:
-        q = q.outerjoin(
-            Reaction,
-            and_(
-                Reaction.createdBy == User.id,
-                Reaction.body.is_not(None)
-            )).add_columns(
-            func.count(distinct(Reaction.id)).label('commented_stat')
-        )
-    else:
-        q = q.add_columns(literal(-1).label('commented_stat'))
+    q = q.add_columns(literal(0).label('commented_stat'))
+    # q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
+    #     func.count(distinct(Reaction.id)).label('commented_stat')
+    # )
 
     q = q.group_by(User.id)
 
@@ -109,7 +101,6 @@ async def followed_reactions(user_id):
             Reaction.createdAt > user.lastSeen
         ).all()
 
-
 # dufok mod (^*^') :
 @query.field("userFollowedTopics")
 async def get_followed_topics(_, info, slug) -> List[Topic]:
@@ -126,7 +117,6 @@ async def get_followed_topics(_, info, slug) -> List[Topic]:
 async def followed_topics(user_id):
     return followed_by_user(user_id)
 
-
 # dufok mod (^*^') :
 @query.field("userFollowedAuthors")
 async def get_followed_authors(_, _info, slug) -> List[User]:
@@ -139,7 +129,6 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
         raise ValueError("User not found")
 
     return await followed_authors(user_id)
-
 
 # 2. Now, we can use the user_id to get the followed authors
 async def followed_authors(user_id):
@@ -266,7 +255,7 @@ async def get_authors_all(_, _info):
 @query.field("getAuthor")
 async def get_author(_, _info, slug):
     q = select(User).where(User.slug == slug)
-    q = add_author_stat_columns(q, True)
+    q = add_author_stat_columns(q)
 
     authors = get_authors_from_query(q)
     return authors[0]
