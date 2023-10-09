@@ -18,6 +18,7 @@ from base.resolvers import resolvers
 from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
 from services.main import storages_init
+from services.notifications.notification_service import notification_service
 from services.stat.viewed import ViewedStorage
 # from services.zine.gittask import GitTask
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN, SESSION_SECRET_KEY
@@ -40,6 +41,8 @@ async def start_up():
     print(views_stat_task)
     # git_task = asyncio.create_task(GitTask.git_task_worker())
     # print(git_task)
+    notification_service_task = asyncio.create_task(notification_service.worker())
+    print(notification_service_task)
 
     try:
         import sentry_sdk

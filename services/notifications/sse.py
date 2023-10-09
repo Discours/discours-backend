@@ -1,3 +1,5 @@
+import json
+
 from sse_starlette.sse import EventSourceResponse
 from starlette.requests import Request
 import asyncio
@@ -21,12 +23,16 @@ class ConnectionManager:
         if len(self.connections_by_user_id[user_id]) == 0:
             del self.connections_by_user_id[user_id]
 
-    async def notify_user(self, user_id, data: str):
+    async def notify_user(self, user_id):
         if user_id not in self.connections_by_user_id:
             return
 
         for connection in self.connections_by_user_id:
-            await connection.put(data)
+            data = {
+                "type": "newNotifications"
+            }
+            data_string = json.dumps(data)
+            await connection.put(data_string)
 
     async def broadcast(self, data: str):
         for user_id in self.connections_by_user_id:
