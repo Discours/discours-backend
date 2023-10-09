@@ -27,11 +27,11 @@ class ConnectionManager:
         if user_id not in self.connections_by_user_id:
             return
 
-        for connection in self.connections_by_user_id:
+        for connection in self.connections_by_user_id[user_id]:
             data = {
                 "type": "newNotifications"
             }
-            data_string = json.dumps(data)
+            data_string = json.dumps(data, ensure_ascii=False)
             await connection.put(data_string)
 
     async def broadcast(self, data: str):
@@ -56,7 +56,7 @@ connection_manager = ConnectionManager()
 
 
 async def sse_subscribe_handler(request: Request):
-    user_id = request.path_params["user_id"]
+    user_id = int(request.path_params["user_id"])
     connection = Connection()
     connection_manager.add_connection(user_id, connection)
 

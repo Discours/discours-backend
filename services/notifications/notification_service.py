@@ -28,7 +28,7 @@ class NewReactionNotificator:
                         "users": [
                             {"id": user.id, "name": user.name}
                         ]
-                    })
+                    }, ensure_ascii=False)
                     author_notification = Notification.create(**{
                         "user": shout.createdBy,
                         "type": NotificationType.NEW_COMMENT.name,
@@ -49,7 +49,7 @@ class NewReactionNotificator:
                             "users": [
                                 {"id": user.id, "name": user.name}
                             ]
-                        })
+                        }, ensure_ascii=False)
                         reply_notification = Notification.create(**{
                             "user": parent_reaction.createdBy,
                             "type": NotificationType.NEW_REPLY.name,
