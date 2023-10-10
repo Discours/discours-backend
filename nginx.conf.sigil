@@ -1,10 +1,15 @@
-    map $http_origin $allow_origin {
-    ~^https?:\/\/((.*\.)?localhost(:\d+)?|discoursio-webapp(-.*)?\.vercel\.app|(.*\.)?discours\.io)$ $http_origin;
+{{ $proxy_settings := "proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $http_connection; proxy_set_header Host $http_host; proxy_set_header X-Request-Start $msec;" }}
+{{ $gzip_settings := "gzip on; gzip_min_length  1100; gzip_buffers  4 32k; gzip_types text/css text/javascript text/xml text/plain text/x-component application/javascript application/x-javascript application/json application/xml application/rss+xml font/truetype application/x-font-ttf font/opentype application/vnd.ms-fontobject image/svg+xml; gzip_vary on; gzip_comp_level  6;" }}
+
+{{ $cors_headers_options := "if ($request_method = 'OPTIONS') { add_header 'Access-Control-Allow-Origin' '$allow_origin' always; add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS'; add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization'; add_header 'Access-Control-Allow-Credentials' 'true'; add_header 'Access-Control-Max-Age' 1728000; add_header 'Content-Type' 'text/plain; charset=utf-8'; add_header 'Content-Length' 0; return 204; }" }}
+{{ $cors_headers_post := "if ($request_method = 'POST') { add_header 'Access-Control-Allow-Origin' '$allow_origin' always; add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always; add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always; add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always; add_header 'Access-Control-Allow-Credentials' 'true' always; }" }}
+{{ $cors_headers_get := "if ($request_method = 'GET') { add_header 'Access-Control-Allow-Origin' '$allow_origin' always; add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always; add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always; add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always; add_header 'Access-Control-Allow-Credentials' 'true' always; }" }}
+
+map $http_origin $allow_origin {
+    ~^https?:\/\/((.*\.)?localhost(:\d+)?|discoursio-webapp(-(.*))?\.vercel\.app|(.*\.)?discours\.io)$ $http_origin;
     default "";
 }
 
-{{ $proxy_settings := "proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $http_connection; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-For $remote_addr; proxy_set_header X-Forwarded-Port $server_port; proxy_set_header X-Forwarded-Proto $scheme; proxy_set_header X-Request-Start $msec; proxy_read_timeout 60s; proxy_buffer_size 4096; proxy_buffering on; proxy_buffers 8 4096; proxy_busy_buffers_size 8192;" }}
-{{ $gzip_settings := "gzip on; gzip_min_length  1100; gzip_buffers  4 32k; gzip_types text/css text/javascript text/xml text/plain text/x-component application/javascript application/x-javascript application/json application/xml application/rss+xml font/truetype application/x-font-ttf font/opentype application/vnd.ms-fontobject image/svg+xml; gzip_vary on; gzip_comp_level  6;" }}
 {{ range $port_map := .PROXY_PORT_MAP | split " " }}
 {{ $port_map_list := $port_map | split ":" }}
 {{ $scheme := index $port_map_list 0 }}
@@ -13,69 +18,78 @@
 
 server {
     {{ if eq $scheme "http" }}
+        listen [::]:{{ $listen_port }};
         listen {{ $listen_port }};
         server_name {{ $.NOSSL_SERVER_NAME }};
+        access_log  /var/log/nginx/{{ $.APP }}-access.log;
+        error_log   /var/log/nginx/{{ $.APP }}-error.log;
+
     {{ else if eq $scheme "https" }}
+        listen [::]:{{ $listen_port }} ssl http2;
         listen {{ $listen_port }} ssl http2;
         server_name {{ $.NOSSL_SERVER_NAME }};
+        access_log  /var/log/nginx/{{ $.APP }}-access.log;
+        error_log   /var/log/nginx/{{ $.APP }}-error.log;
         ssl_certificate {{ $.APP_SSL_PATH }}/server.crt;
         ssl_certificate_key {{ $.APP_SSL_PATH }}/server.key;
+        ssl_protocols             TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers off;
+
+        keepalive_timeout   70;
     {{ end }}
 
+    
     location / {
         proxy_pass  http://{{ $.APP }}-{{ $upstream_port }};
         {{ $proxy_settings }}
         {{ $gzip_settings }}
-
-        add_header 'Access-Control-Allow-Origin' '$allow_origin' always;
-        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
-        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
-        add_header 'Access-Control-Allow-Credentials' 'true' always;
-        if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Max-Age' 1728000;
-            add_header 'Content-Type' 'text/plain; charset=utf-8';
-            add_header 'Content-Length' 0;
-            return 204;
-        }
+        {{ $cors_headers_options }}
+        {{ $cors_headers_post }}
+        {{ $cors_headers_get }}
     }
 
-    client_max_body_size 100m;
-    include /home/dokku/{{ $.APP }}/nginx.conf.d/*.conf;
+    # Custom location block for /connect
+    location /connect {
+      proxy_pass http://presence-8080;
+    }
 
     error_page 400 401 402 403 405 406 407 408 409 410 411 412 413 414 415 416 417 418 420 422 423 424 426 428 429 431 444 449 450 451 /400-error.html;
-    location /400-error.html {
-        root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
-        internal;
-    }
+  location /400-error.html {
+    root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
+    internal;
+  }
 
-    error_page 404 /404-error.html;
-    location /404-error.html {
-        root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
-        internal;
-    }
+  error_page 404 /404-error.html;
+  location /404-error.html {
+    root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
+    internal;
+  }
 
-    error_page 500 501 503 504 505 506 507 508 509 510 511 /500-error.html;
-    location /500-error.html {
-        root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
-        internal;
-    }
+  error_page 500 501 503 504 505 506 507 508 509 510 511 /500-error.html;
+  location /500-error.html {
+    root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
+    internal;
+  }
 
-    error_page 502 /502-error.html;
-    location /502-error.html {
-        root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
-        internal;
-    }
+  error_page 502 /502-error.html;
+  location /502-error.html {
+    root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
+    internal;
+  }
+
+  include /home/dokku/gateway/nginx.conf.d/*.conf;
+
 }
 {{ end }}
 
+
 {{ range $upstream_port := $.PROXY_UPSTREAM_PORTS | split " " }}
 upstream {{ $.APP }}-{{ $upstream_port }} {
-    {{ range $listeners := $.DOKKU_APP_WEB_LISTENERS | split " " }}
-    {{ $listener_list := $listeners | split ":" }}
-    {{ $listener_ip := index $listener_list 0 }}
-    {{ $listener_port := index $listener_list 1 }}
-    server {{ $listener_ip }}:{{ $upstream_port }};
-    {{ end }}
+{{ range $listeners := $.DOKKU_APP_WEB_LISTENERS | split " " }}
+{{ $listener_list := $listeners | split ":" }}
+{{ $listener_ip := index $listener_list 0 }}
+{{ $listener_port := index $listener_list 1 }}
+  server {{ $listener_ip }}:{{ $upstream_port }};
+{{ end }}
 }
 {{ end }}
