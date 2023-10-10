@@ -17,7 +17,7 @@ ts = datetime.now(tz=timezone.utc)
 type2layout = {
     "Article": "article",
     "Literature": "literature",
-    "Music": "audio",
+    "Music": "music",
     "Video": "video",
     "Image": "image",
 }
