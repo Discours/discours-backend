@@ -410,7 +410,7 @@ type Shout {
     lang: String
     community: String
     cover: String
-    layout: String # audio video literature image
+    layout: String # music video literature image
     versionOf: String # for translations and re-telling the same story
     visibility: String # owner authors community public
     updatedAt: DateTime

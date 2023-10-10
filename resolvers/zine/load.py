@@ -124,7 +124,7 @@ async def load_shouts_by(_, info, options):
     """
     :param options: {
         filters: {
-            layout: 'audio',
+            layout: 'music',
             excludeLayout: 'article',
             visibility: "public",
             author: 'discours',
