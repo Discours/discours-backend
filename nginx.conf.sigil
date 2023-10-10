@@ -53,6 +53,12 @@ server {
       proxy_pass http://presence-8080;
     }
 
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+    expires 30d;  # This means that the client can cache these resources for 30 days.
+    add_header Cache-Control "public, no-transform";
+    }
+
+
     error_page 400 401 402 403 405 406 407 408 409 410 411 412 413 414 415 416 417 418 420 422 423 424 426 428 429 431 444 449 450 451 /400-error.html;
   location /400-error.html {
     root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
