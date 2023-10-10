@@ -1,5 +1,7 @@
 from datetime import datetime
-from sqlalchemy import Column, Enum, JSON, ForeignKey, DateTime, Boolean, Integer
+from sqlalchemy import Column, Enum, ForeignKey, DateTime, Boolean, Integer
+from sqlalchemy.dialects.postgresql import JSONB
+
 from base.orm import Base
 from enum import Enum as Enumeration
 
@@ -18,5 +20,5 @@ class Notification(Base):
     createdAt = Column(DateTime, nullable=False, default=datetime.now, index=True)
     seen = Column(Boolean, nullable=False, default=False, index=True)
     type = Column(Enum(NotificationType), nullable=False)
-    data = Column(JSON, nullable=True)
+    data = Column(JSONB, nullable=True)
     occurrences = Column(Integer, default=1)

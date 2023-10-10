@@ -27,6 +27,7 @@ SHOUTS_REPO = "content"
 SESSION_TOKEN_HEADER = "Authorization"
 
 SENTRY_DSN = environ.get("SENTRY_DSN")
+SESSION_SECRET_KEY = environ.get("SESSION_SECRET_KEY") or "!secret"
 
 # for local development
 DEV_SERVER_PID_FILE_NAME = 'dev-server.pid'

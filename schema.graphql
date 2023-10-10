@@ -179,7 +179,6 @@ type Mutation {
 
     # user profile
     rateUser(slug: String!, value: Int!): Result!
-    updateOnlineStatus: Result!
     updateProfile(profile: ProfileInput!): Result!
 
     # topics
@@ -196,6 +195,9 @@ type Mutation {
     # following
     follow(what: FollowingEntity!, slug: String!): Result!
     unfollow(what: FollowingEntity!, slug: String!): Result!
+
+    markNotificationAsRead(notification_id: Int!): Result!
+    markAllNotificationsAsRead: Result!
 }
 
 input MessagesBy {
@@ -249,7 +251,17 @@ input ReactionBy {
     days: Int # before
     sort: String # how to sort, default createdAt
 }
-################################### Query
+
+input NotificationsQueryParams {
+    limit: Int
+    offset: Int
+}
+
+type NotificationsQueryResult {
+    notifications: [Notification]!
+    totalCount: Int!
+    totalUnreadCount: Int!
+}
 
 type Query {
     # inbox
@@ -286,14 +298,8 @@ type Query {
     topicsRandom(amount: Int): [Topic]!
     topicsByCommunity(community: String!): [Topic]!
     topicsByAuthor(author: String!): [Topic]!
-}
 
-############################################ Subscription
-
-type Subscription {
-    newMessage: Message  # new messages in inbox
-    newShout: Shout  # personal feed new shout
-    newReaction: Reaction # new reactions to notify
+    loadNotifications(params: NotificationsQueryParams!): NotificationsQueryResult!
 }
 
 ############################################ Entities
