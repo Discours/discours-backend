@@ -15,6 +15,7 @@ from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
 from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
+from services.redis import redis
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN, SESSION_SECRET_KEY
 from services.search import SearchService
 from services.viewed import ViewedStorage

@@ -7,7 +7,7 @@ from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from services.db import local_session
 from services.schema import mutation, query
-from orm.reaction import Reaction
+from orm.reaction import Reaction, ReactionKind
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
@@ -21,7 +21,6 @@ def add_author_stat_columns(q, full=False):
     author_followers = aliased(AuthorFollower)
     author_following = aliased(AuthorFollower)
     shout_author_aliased = aliased(ShoutAuthor)
-    # user_rating_aliased = aliased(UserRating)
 
     q = q.outerjoin(shout_author_aliased).add_columns(
         func.count(distinct(shout_author_aliased.shout)).label("shouts_stat")
