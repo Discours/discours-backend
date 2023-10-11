@@ -131,15 +131,6 @@ enum FollowingEntity {
 ################################### Mutation
 
 type Mutation {
-    # inbox
-    createChat(title: String, members: [Int]!): Result!
-    updateChat(chat: ChatInput!): Result!
-    deleteChat(chatId: String!): Result!
-
-    createMessage(chat: String!, body: String!, replyTo: Int): Result!
-    updateMessage(chatId: String!, id: Int!, body: String!): Result!
-    deleteMessage(chatId: String!, id: Int!): Result!
-    markAsRead(chatId: String!, ids: [Int]!): Result!
 
     # auth
     getSession: AuthResult!
