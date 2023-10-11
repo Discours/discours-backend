@@ -19,6 +19,8 @@ from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
 from services.search import SearchService
 from services.viewed import ViewedStorage
 from services.db import local_session
+from services.schema import resolvers
+
 
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schemas/core.graphql"), resolvers)  # type: ignore
