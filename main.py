@@ -15,7 +15,7 @@ from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
 from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
-from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
+from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN, SESSION_SECRET_KEY
 from services.search import SearchService
 from services.viewed import ViewedStorage
 from services.db import local_session
@@ -26,7 +26,7 @@ import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schemas/core.graphql"), resolvers)  # type: ignore
 middleware = [
     Middleware(AuthenticationMiddleware, backend=JWTAuthenticate()),
-    Middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY),
+    Middleware(SessionMiddleware, secret_key= SESSION_SECRET_KEY),
 ]
 
 
