@@ -1,6 +1,6 @@
 from os import environ
 
-PORT = 80
+PORT = 8080
 
 DB_URL = (
     environ.get("DATABASE_URL") or environ.get("DB_URL") or

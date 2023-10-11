@@ -1,6 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from sqlalchemy.engine import ObjectKind
-
 from sqlalchemy.orm import joinedload, aliased
 from sqlalchemy.sql.expression import (
     desc,
@@ -15,9 +13,8 @@ from sqlalchemy.sql.expression import (
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from base.exceptions import ObjectNotExist  # , OperationNotAllowed
-from base.orm import local_session
-from base.resolvers import query
+from services.db import local_session
+from services.schema import query
 from orm import TopicFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic

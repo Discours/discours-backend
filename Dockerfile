@@ -1,7 +1,7 @@
 FROM python:slim
 WORKDIR /app
 
-EXPOSE 80
+EXPOSE 8080
 # ADD nginx.conf.sigil ./
 COPY requirements.txt .
 RUN apt-get update && apt-get install -y build-essential git
