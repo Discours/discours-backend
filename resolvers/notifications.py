@@ -1,9 +1,9 @@
 from sqlalchemy import select, desc, and_, update
 
 from auth.credentials import AuthCredentials
-from base.resolvers import query, mutation
+from services.schema import query, mutation
 from auth.authenticate import login_required
-from base.orm import local_session
+from services.db import local_session
 from orm import Notification
 
 

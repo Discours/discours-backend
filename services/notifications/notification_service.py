@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import and_
 
-from base.orm import local_session
+from services.db import local_session
 from orm import Reaction, Shout, Notification, User
 from orm.notification import NotificationType
 from orm.reaction import ReactionKind
