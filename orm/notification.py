@@ -2,7 +2,7 @@ from datetime import datetime
 from sqlalchemy import Column, Enum, ForeignKey, DateTime, Boolean, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 
-from base.orm import Base
+from services.db import Base
 from enum import Enum as Enumeration
 
 
