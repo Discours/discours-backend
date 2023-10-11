@@ -44,7 +44,7 @@ log_settings = {
 
 local_headers = [
     ("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD"),
-    ("Access-Control-Allow-Origin", "http://localhost:3000"),
+    ("Access-Control-Allow-Origin", "https://localhost:3000"),
     (
         "Access-Control-Allow-Headers",
         "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization",

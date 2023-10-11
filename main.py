@@ -13,8 +13,6 @@ from orm import init_tables
 
 from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_login, oauth_authorize
-from services.redis import redis
-from services.schema import resolvers
 from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN
@@ -26,7 +24,7 @@ import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schemas/core.graphql"), resolvers)  # type: ignore
 middleware = [
     Middleware(AuthenticationMiddleware, backend=JWTAuthenticate()),
-    Middleware(SessionMiddleware, secret_key="!secret"),
+    Middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY),
 ]
 
 
@@ -39,7 +37,6 @@ async def start_up():
     _views_stat_task = asyncio.create_task(ViewedStorage().worker())
     try:
         import sentry_sdk
-
         sentry_sdk.init(SENTRY_DSN)
         print("[sentry] started")
     except Exception as e:
@@ -78,14 +75,12 @@ app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-app.mount(
-    "/",
-    GraphQL(schema, debug=True),
-)
+app.mount("/", GraphQL(
+    schema,
+    debug=True
+))
 
-print("[main] app mounted")
-
-dev_app = app = Starlette(
+dev_app = Starlette(
     debug=True,
     on_startup=[dev_start_up],
     on_shutdown=[shutdown],

@@ -10,6 +10,7 @@ from services.schema import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
+from services.notifications.notification_service import notification_service
 
 
 def add_reaction_stat_columns(q):
@@ -217,6 +218,8 @@ async def create_reaction(_, info, reaction):
         r = Reaction.create(**reaction)
 
         # Proposal accepting logix
+        # FIXME: will break if there will be 2 proposals
+        # FIXME: will break if shout will be changed
         if (
             r.replyTo is not None
             and r.kind == ReactionKind.ACCEPT
@@ -237,12 +240,14 @@ async def create_reaction(_, info, reaction):
 
         session.add(r)
         session.commit()
+
+        await notification_service.handle_new_reaction(r.id)
+
         rdict = r.dict()
         rdict["shout"] = shout.dict()
         rdict["createdBy"] = author.dict()
 
         # self-regulation mechanics
-
         if check_to_hide(session, auth.user_id, r):
             set_hidden(session, r.shout)
         elif check_to_publish(session, auth.user_id, r):

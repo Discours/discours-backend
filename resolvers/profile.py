@@ -266,10 +266,20 @@ async def get_authors_all(_, _info):
 @query.field("getAuthor")
 async def get_author(_, _info, slug):
     q = select(User).where(User.slug == slug)
-    q = add_author_stat_columns(q, True)
+    q = add_author_stat_columns(q)
 
-    authors = get_authors_from_query(q)
-    return authors[0]
+    [author] = get_authors_from_query(q)
+
+    with local_session() as session:
+        comments_count = session.query(Reaction).where(
+            and_(
+                Reaction.createdBy == author.id,
+                Reaction.kind == ReactionKind.COMMENT
+            )
+        ).count()
+        author.stat["commented"] = comments_count
+
+    return author
 
 
 @query.field("loadAuthorsBy")

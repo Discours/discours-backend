@@ -36,7 +36,7 @@ class JWTCodec:
                 issuer="discours",
             )
             r = TokenPayload(**payload)
-            print("[auth.jwtcodec] debug token %r" % r)
+            # print('[auth.jwtcodec] debug token %r' % r)
             return r
         except jwt.InvalidIssuedAtError:
             print("[auth.jwtcodec] invalid issued at: %r" % payload)
