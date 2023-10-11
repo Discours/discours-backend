@@ -17,7 +17,7 @@ from services.unread import get_total_unread_counter
 from resolvers.topics import followed_by_user
 
 
-def add_author_stat_columns(q):
+def add_author_stat_columns(q, full=False):
     author_followers = aliased(AuthorFollower)
     author_following = aliased(AuthorFollower)
     shout_author_aliased = aliased(ShoutAuthor)
@@ -34,7 +34,7 @@ def add_author_stat_columns(q):
         func.count(distinct(author_following.author)).label("followings_stat")
     )
 
-    if include_heavy_stat:
+    if full:
         user_rating_aliased = aliased(UserRating)
         q = q.outerjoin(
             user_rating_aliased, user_rating_aliased.user == User.id
@@ -43,7 +43,7 @@ def add_author_stat_columns(q):
     else:
         q = q.add_columns(literal(-1).label("rating_stat"))
 
-    if include_heavy_stat:
+    if full:
         q = q.outerjoin(
             Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))
         ).add_columns(func.count(distinct(Reaction.id)).label("commented_stat"))
@@ -266,7 +266,7 @@ async def get_authors_all(_, _info):
 @query.field("getAuthor")
 async def get_author(_, _info, slug):
     q = select(User).where(User.slug == slug)
-    q = add_author_stat_columns(q)
+    q = add_author_stat_columns(q, True)
 
     authors = get_authors_from_query(q)
     return authors[0]
