@@ -5,7 +5,7 @@ import json
 async def get_unread_counter(chat_id: str, author_id: int):
     try:
         unread = await redis.execute(
-            "LLEN", f"chats/{chat_id.decode('utf-8')}/unread/{author_id}"
+            "LLEN", f"chats/{chat_id}/unread/{author_id}"
         )
         if unread:
             return unread
