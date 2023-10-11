@@ -14,6 +14,7 @@ async def get_unread_counter(chat_id: str, author_id: int):
 
 
 async def get_total_unread_counter(author_id: int):
+    print(f"[services.unread] get_total_unread_counter({author_id})")
     chats = await redis.execute("GET", f"chats_by_author/{author_id}")
     unread = 0
     if chats:
