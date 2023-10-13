@@ -20,7 +20,7 @@ class RedisCache:
             print("[redis] " + command + " " + " ".join(args))
             return await self._client.execute_command(command, *args, **kwargs)
         except Exception as e:
-            print(f"[redis] error: {e}")
+            print(f"[redis] error: {e}"  + command + " " + " ".join(args))
             import traceback
 
             traceback.print_exc()
