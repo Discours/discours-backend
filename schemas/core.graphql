@@ -236,6 +236,7 @@ type Query {
   userFollowers(slug: String!): [Author]!
   authorFollowers(author_id: Int!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
+  authorFollowedAuthors(author_id: Int!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
   authorsAll: [Author]!
   getAuthorById(author_id: Int!): Author
