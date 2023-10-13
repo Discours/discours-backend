@@ -140,12 +140,12 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
     if user_id is None:
         raise ValueError("User not found")
 
-    return await followed_authors(user_id)
+    return followed_authors(user_id)
 
 
 @query.field("authorFollowings")
 async def author_followings(_, info, author_id: int, limit: int = 20, offset: int = 0) -> List[User]:
-    return await followed_authors(author_id)[offset:(limit+offset)]
+    return followed_authors(author_id)[offset:(limit+offset)]
 
 
 @query.field("authorFollowers")
@@ -166,7 +166,7 @@ async def author_followers(_, info, author_id: int, limit: int = 20, offset: int
     return get_authors_from_query(q)
 
 # 2. Now, we can use the user_id to get the followed authors
-async def followed_authors(user_id):
+def followed_authors(user_id):
     q = select(User)
     q = add_author_stat_columns(q)
     q = q.join(AuthorFollower, AuthorFollower.author == User.id).where(
