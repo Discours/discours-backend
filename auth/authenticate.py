@@ -28,6 +28,9 @@ class JWTAuthenticate(AuthenticationBackend):
             return AuthCredentials(scopes={}, error_message=str("no token")), AuthUser(
                 user_id=None, username=""
             )
+        
+        if token.startswith("Bearer"):
+            token = token[len("Bearer "):]
 
         if len(token.split(".")) > 1:
             payload = await SessionToken.verify(token)

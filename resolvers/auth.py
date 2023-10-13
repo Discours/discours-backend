@@ -33,6 +33,9 @@ async def get_current_user(_, info):
     auth: AuthCredentials = info.context["request"].auth
     token = info.context["request"].headers.get(SESSION_TOKEN_HEADER)
 
+    if token.startswith("Bearer"):
+        token = token[len("Bearer "):]
+
     with local_session() as session:
         user = session.query(User).where(User.id == auth.user_id).one()
         user.lastSeen = datetime.now(tz=timezone.utc)

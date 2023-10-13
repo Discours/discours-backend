@@ -21,6 +21,9 @@ class RedisCache:
             return await self._client.execute_command(command, *args, **kwargs)
         except Exception as e:
             print(f"[redis] error: {e}")
+            import traceback
+
+            traceback.print_exc()
             return None
 
     async def subscribe(self, *channels):
