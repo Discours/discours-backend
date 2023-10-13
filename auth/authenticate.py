@@ -29,8 +29,7 @@ class JWTAuthenticate(AuthenticationBackend):
                 user_id=None, username=""
             )
         
-        if token.startswith("Bearer"):
-            token = token[len("Bearer "):]
+        token = token.split(" ")[-1]
 
         if len(token.split(".")) > 1:
             payload = await SessionToken.verify(token)
