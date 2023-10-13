@@ -92,7 +92,7 @@ async def user_subscriptions(user_id: int):
             t.slug for t in followed_topics(user_id)
         ],  # followed topics slugs
         "authors": [
-            a.slug for a in await followed_authors(user_id)
+            a.slug for a in followed_authors(user_id)
         ],  # followed authors slugs
         "reactions": await followed_reactions(user_id)
         # "communities": [c.slug for c in followed_communities(slug)],  # communities
