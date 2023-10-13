@@ -142,6 +142,7 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
 
     return await followed_authors(user_id)
 
+
 @query.field("authorFollowedAuthors")
 async def get_followed_authors2(_, info, author_id) -> List[User]:
     return await followed_authors(author_id)
@@ -266,7 +267,7 @@ async def get_authors_all(_, _info):
 
 
 @query.field("getAuthorById")
-async def get_author(_, _info, author_id):
+async def get_author_by_id(_, _info, author_id):
     q = select(User).where(User.id == author_id)
     q = add_author_stat_columns(q)
 

@@ -14,6 +14,10 @@ from resolvers.profile import (
     rate_user,
     update_profile,
     get_authors_all,
+    get_followed_authors2,
+    get_followed_authors,
+    get_author,
+    get_author_by_id
 )
 
 from resolvers.topics import (
@@ -52,6 +56,10 @@ __all__ = [
     "rate_user",
     "update_profile",
     "get_authors_all",
+    "get_followed_authors2",
+    "get_followed_authors",
+    "get_author",
+    "get_author_by_id",
     # load
     "load_shout",
     "load_shouts_by",
