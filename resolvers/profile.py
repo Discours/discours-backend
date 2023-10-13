@@ -89,7 +89,7 @@ async def user_subscriptions(user_id: int):
             user_id
         ),  # unread inbox messages counter
         "topics": [
-            t.slug for t in await followed_topics(user_id)
+            t.slug for t in followed_topics(user_id)
         ],  # followed topics slugs
         "authors": [
             a.slug for a in await followed_authors(user_id)
@@ -126,7 +126,7 @@ async def get_followed_topics(_, info, slug) -> List[Topic]:
     if user_id is None:
         raise ValueError("User not found")
 
-    return await followed_topics(user_id)
+    return followed_topics(user_id)
 
 
 # dufok mod (^*^') :
@@ -159,6 +159,8 @@ async def author_followers(_, info, author_id: int, limit: int = 20, offset: int
         q.join(AuthorFollower, AuthorFollower.follower == User.id)
         .join(aliased_user, aliased_user.id == AuthorFollower.author)
         .where(aliased_user.id == author_id)
+        .limit(limit)
+        .offset(offset)
     )
 
     return get_authors_from_query(q)
