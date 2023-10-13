@@ -11,16 +11,29 @@ from orm.reaction import ReactionKind
 from services.notifications.sse import connection_manager
 
 
+def shout_to_shout_data(shout):
+    return {
+        "title": shout.title,
+        "slug": shout.slug
+    }
+
+
+def user_to_user_data(user):
+    return {
+        "id": user.id,
+        "name": user.name,
+        "slug": user.slug,
+        "userpic": user.userpic
+    }
+
+
 def update_prev_notification(notification, user):
     notification_data = json.loads(notification.data)
 
     notification_data["users"] = [
         user for user in notification_data["users"] if user['id'] != user.id
     ]
-    notification_data["users"].append({
-        "id": user.id,
-        "name": user.name
-    })
+    notification_data["users"].append(user_to_user_data(user))
 
     notification.data = json.dumps(notification_data, ensure_ascii=False)
     notification.seen = False
@@ -57,17 +70,13 @@ class NewReactionNotificator:
                             update_prev_notification(prev_new_reply_notification, user)
                         else:
                             reply_notification_data = json.dumps({
-                                "shout": {
-                                    "title": shout.title
-                                },
-                                "users": [
-                                    {"id": user.id, "name": user.name}
-                                ]
+                                "shout": shout_to_shout_data(shout),
+                                "users": [user_to_user_data(user)]
                             }, ensure_ascii=False)
 
                             reply_notification = Notification.create(**{
                                 "user": parent_reaction.createdBy,
-                                "type": NotificationType.NEW_REPLY.name,
+                                "type": NotificationType.NEW_REPLY,
                                 "shout": shout.id,
                                 "reaction": parent_reaction.id,
                                 "data": reply_notification_data
@@ -92,17 +101,13 @@ class NewReactionNotificator:
                         update_prev_notification(prev_new_comment_notification, user)
                     else:
                         notification_data_string = json.dumps({
-                            "shout": {
-                                "title": shout.title
-                            },
-                            "users": [
-                                {"id": user.id, "name": user.name}
-                            ]
+                            "shout": shout_to_shout_data(shout),
+                            "users": [user_to_user_data(user)]
                         }, ensure_ascii=False)
 
                         author_notification = Notification.create(**{
                             "user": shout.createdBy,
-                            "type": NotificationType.NEW_COMMENT.name,
+                            "type": NotificationType.NEW_COMMENT,
                             "shout": shout.id,
                             "data": notification_data_string
                         })
