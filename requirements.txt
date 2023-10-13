@@ -3,7 +3,7 @@ git+https://github.com/encode/starlette.git#master
 git+https://github.com/graphql-python/gql.git#master
 SQLAlchemy
 uvicorn
-aredis
+redis[hiredis]
 itsdangerous
 Authlib
 PyJWT
