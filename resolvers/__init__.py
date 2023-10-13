@@ -14,7 +14,8 @@ from resolvers.profile import (
     rate_user,
     update_profile,
     get_authors_all,
-    get_followed_authors2,
+    author_followers,
+    author_followings,
     get_followed_authors,
     get_author,
     get_author_by_id
