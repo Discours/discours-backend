@@ -14,7 +14,7 @@ from orm.user import AuthorFollower, Role, User, UserRating, UserRole
 
 # from .community import followed_communities
 from services.unread import get_total_unread_counter
-from resolvers.topics import followed_by_user
+from resolvers.topics import followed_by_user as followed_topics
 
 
 def add_author_stat_columns(q, full=False):
@@ -115,6 +115,7 @@ async def followed_reactions(user_id):
             .all()
         )
 
+
 # dufok mod (^*^') :
 @query.field("userFollowedTopics")
 async def get_followed_topics(_, info, slug) -> List[Topic]:
@@ -128,9 +129,6 @@ async def get_followed_topics(_, info, slug) -> List[Topic]:
     return await followed_topics(user_id)
 
 
-async def followed_topics(user_id):
-    return followed_by_user(user_id)
-
 # dufok mod (^*^') :
 @query.field("userFollowedAuthors")
 async def get_followed_authors(_, _info, slug) -> List[User]:
@@ -143,6 +141,11 @@ async def get_followed_authors(_, _info, slug) -> List[User]:
         raise ValueError("User not found")
 
     return await followed_authors(user_id)
+
+@query.field("authorFollowedAuthors")
+async def get_followed_authors2(_, info, author_id) -> List[User]:
+    return await followed_authors(author_id)
+
 
 # 2. Now, we can use the user_id to get the followed authors
 async def followed_authors(user_id):
@@ -260,6 +263,25 @@ async def get_authors_all(_, _info):
     q = q.join(ShoutAuthor, User.id == ShoutAuthor.user)
 
     return get_authors_from_query(q)
+
+
+@query.field("getAuthorById")
+async def get_author(_, _info, author_id):
+    q = select(User).where(User.id == author_id)
+    q = add_author_stat_columns(q)
+
+    [author] = get_authors_from_query(q)
+
+    with local_session() as session:
+        comments_count = session.query(Reaction).where(
+            and_(
+                Reaction.createdBy == author.id,
+                Reaction.kind == ReactionKind.COMMENT
+            )
+        ).count()
+        author.stat["commented"] = comments_count
+
+    return author
 
 
 @query.field("getAuthor")

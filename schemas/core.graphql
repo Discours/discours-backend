@@ -234,9 +234,11 @@ type Query {
   loadDrafts: [Shout]!
   loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
   userFollowers(slug: String!): [Author]!
+  authorFollowers(author_id: Int!): [Author]!
   userFollowedAuthors(slug: String!): [Author]!
   userFollowedTopics(slug: String!): [Topic]!
   authorsAll: [Author]!
+  getAuthorById(author_id: Int!): Author
   getAuthor(slug: String!): Author
   myFeed(options: LoadShoutsOptions): [Shout]
 
