@@ -23,6 +23,7 @@ async def load_notifications(_, info, params=None):
         Notification.user == user_id
     ).order_by(desc(Notification.createdAt)).limit(limit).offset(offset)
 
+    notifications = []
     with local_session() as session:
         total_count = session.query(Notification).where(
             Notification.user == user_id
@@ -31,11 +32,13 @@ async def load_notifications(_, info, params=None):
         total_unread_count = session.query(Notification).where(
             and_(
                 Notification.user == user_id,
-                Notification.seen is False
+                Notification.seen == False
             )
         ).count()
 
-        notifications = session.execute(q).fetchall()
+        for [notification] in session.execute(q):
+            notification.type = notification.type.name
+            notifications.append(notification)
 
     return {
         "notifications": notifications,

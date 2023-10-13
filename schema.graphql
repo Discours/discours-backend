@@ -516,7 +516,7 @@ type Notification {
     id: Int!
     shout: Int
     reaction: Int
-    type: NotificationType
+    type: NotificationType!
     createdAt: DateTime!
     seen: Boolean!
     data: String # JSON
