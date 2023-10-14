@@ -30,9 +30,7 @@ def user_to_user_data(user):
 def update_prev_notification(notification, user):
     notification_data = json.loads(notification.data)
 
-    notification_data["users"] = [
-        user for user in notification_data["users"] if user['id'] != user.id
-    ]
+    notification_data["users"] = [u for u in notification_data["users"] if u['id'] != user.id]
     notification_data["users"].append(user_to_user_data(user))
 
     notification.data = json.dumps(notification_data, ensure_ascii=False)
