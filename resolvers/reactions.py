@@ -10,8 +10,7 @@ from services.schema import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
-# TODO: use presense interface
-#  from services.notifications.notification_service import notification_service
+from services.presence import notify_reaction
 
 
 def add_reaction_stat_columns(q):
@@ -65,7 +64,7 @@ def reactions_follow(user_id, shout_id: int, auto=False):
                 session.add(following)
                 session.commit()
                 return True
-    except:
+    except Exception:
         return False
 
 
@@ -89,7 +88,7 @@ def reactions_unfollow(user_id: int, shout_id: int):
                 session.delete(following)
                 session.commit()
                 return True
-    except:
+    except Exception:
         pass
     return False
 
@@ -242,8 +241,7 @@ async def create_reaction(_, info, reaction):
         session.add(r)
         session.commit()
 
-        # FIXME: use presence service interface here
-        #  await notification_service.handle_new_reaction(r.id)
+        notify_reaction(r.dict())
 
         rdict = r.dict()
         rdict["shout"] = shout.dict()

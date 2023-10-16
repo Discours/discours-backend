@@ -10,6 +10,7 @@ from services.schema import mutation
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from resolvers.reactions import reactions_follow, reactions_unfollow
+from services.presence import notify_shout
 
 
 @mutation.field("createShout")
@@ -157,6 +158,7 @@ async def update_shout(_, info, shout_id, shout_input=None, publish=False):
             shout.visibility = "community"
             shout.publishedAt = datetime.now(tz=timezone.utc)
             updated = True
+            notify_shout(shout.dict())
 
         if updated:
             shout.updatedAt = datetime.now(tz=timezone.utc)
