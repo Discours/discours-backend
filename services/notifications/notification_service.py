@@ -32,6 +32,9 @@ def update_prev_notification(notification, user, reaction):
 
     notification_data["users"] = [u for u in notification_data["users"] if u['id'] != user.id]
     notification_data["users"].append(user_to_user_data(user))
+
+    if notification_data["reactionIds"] is None:
+        notification_data["reactionIds"] = []
     notification_data["reactionIds"].append(reaction.id)
 
     notification.data = json.dumps(notification_data, ensure_ascii=False)
