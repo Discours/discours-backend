@@ -161,9 +161,6 @@ type Mutation {
     # following
     follow(what: FollowingEntity!, slug: String!): Result!
     unfollow(what: FollowingEntity!, slug: String!): Result!
-
-    markNotificationAsRead(notification_id: Int!): Result!
-    markAllNotificationsAsRead: Result!
 }
 
 input AuthorsBy {
@@ -207,17 +204,6 @@ input ReactionBy {
     createdBy: String # user.slug
     days: Int # before
     sort: String # how to sort, default createdAt
-}
-
-input NotificationsQueryParams {
-    limit: Int
-    offset: Int
-}
-
-type NotificationsQueryResult {
-    notifications: [Notification]!
-    totalCount: Int!
-    totalUnreadCount: Int!
 }
 
 type Query {
