@@ -22,9 +22,9 @@ async def follow(_, info, what, slug):
                 result = FollowingResult("NEW", "author", slug)
                 await FollowingManager.push("author", result)
                 with local_session() as session:
-                    author_id = session.query(User.id).where(User.slug == slug).one()
-                    follower = session.query()
-                    notify_follower(follower.dict(), author_id)
+                    author = session.query(User.id).where(User.slug == slug).one()
+                    follower = session.query(User.id).where(User.id == auth.user_id).one()
+                    notify_follower(follower.dict(), author.id)
         elif what == "TOPIC":
             if topic_follow(auth.user_id, slug):
                 result = FollowingResult("NEW", "topic", slug)
