@@ -10,6 +10,7 @@ from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
+from services.notifications.notification_service import notification_service
 
 
 def add_reaction_stat_columns(q):
@@ -198,29 +199,32 @@ async def create_reaction(_, info, reaction):
 
         r = Reaction.create(**reaction)
 
-        # Proposal accepting logix
-        if r.replyTo is not None and \
-                r.kind == ReactionKind.ACCEPT and \
-                auth.user_id in shout.dict()['authors']:
-            replied_reaction = session.query(Reaction).where(Reaction.id == r.replyTo).first()
-            if replied_reaction and replied_reaction.kind == ReactionKind.PROPOSE:
-                if replied_reaction.range:
-                    old_body = shout.body
-                    start, end = replied_reaction.range.split(':')
-                    start = int(start)
-                    end = int(end)
-                    new_body = old_body[:start] + replied_reaction.body + old_body[end:]
-                    shout.body = new_body
-                    # TODO: update git version control
+        # # Proposal accepting logix
+        # FIXME: will break if there will be 2 proposals, will break if shout will be changed
+        # if r.replyTo is not None and \
+        #         r.kind == ReactionKind.ACCEPT and \
+        #         auth.user_id in shout.dict()['authors']:
+        #     replied_reaction = session.query(Reaction).where(Reaction.id == r.replyTo).first()
+        #     if replied_reaction and replied_reaction.kind == ReactionKind.PROPOSE:
+        #         if replied_reaction.range:
+        #             old_body = shout.body
+        #             start, end = replied_reaction.range.split(':')
+        #             start = int(start)
+        #             end = int(end)
+        #             new_body = old_body[:start] + replied_reaction.body + old_body[end:]
+        #             shout.body = new_body
+        #             # TODO: update git version control
 
         session.add(r)
         session.commit()
+
+        await notification_service.handle_new_reaction(r.id)
+
         rdict = r.dict()
         rdict['shout'] = shout.dict()
         rdict['createdBy'] = author.dict()
 
         # self-regulation mechanics
-
         if check_to_hide(session, auth.user_id, r):
             set_hidden(session, r.shout)
         elif check_to_publish(session, auth.user_id, r):

@@ -21,7 +21,6 @@ def migrate(entry):
         "createdAt": parse(entry["createdAt"]),
         "emailConfirmed": ("@discours.io" in email) or bool(entry["emails"][0]["verified"]),
         "muted": False,  # amnesty
-        "bio": entry["profile"].get("bio", ""),
         "links": [],
         "name": "anonymous",
         "password": entry["services"]["password"].get("bcrypt")
@@ -29,7 +28,7 @@ def migrate(entry):
 
     if "updatedAt" in entry:
         user_dict["updatedAt"] = parse(entry["updatedAt"])
-    if "wasOnineAt" in entry:
+    if "wasOnlineAt" in entry:
         user_dict["lastSeen"] = parse(entry["wasOnlineAt"])
     if entry.get("profile"):
         # slug

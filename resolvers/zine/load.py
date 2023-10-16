@@ -124,7 +124,7 @@ async def load_shouts_by(_, info, options):
     """
     :param options: {
         filters: {
-            layout: 'audio',
+            layout: 'music',
             excludeLayout: 'article',
             visibility: "public",
             author: 'discours',
@@ -183,6 +183,7 @@ async def load_shouts_by(_, info, options):
 
 
 @query.field("loadDrafts")
+@login_required
 async def get_drafts(_, info):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
