@@ -77,9 +77,7 @@ app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-app.mount("/", GraphQL(
-    schema
-))
+app.mount("/", GraphQL( schema ))
 
 dev_app = Starlette(
     debug=True,
@@ -88,7 +86,4 @@ dev_app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-dev_app.mount(
-    "/",
-    GraphQL(schema, debug=True),
-)
+dev_app.mount("/", GraphQL(schema, debug=True))

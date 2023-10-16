@@ -435,19 +435,3 @@ type Token {
     usedAt: DateTime
     value: String!
 }
-
-enum NotificationType {
-    NEW_COMMENT,
-    NEW_REPLY
-}
-
-type Notification {
-    id: Int!
-    shout: Int
-    reaction: Int
-    type: NotificationType!
-    createdAt: DateTime!
-    seen: Boolean!
-    data: String # JSON
-    occurrences: Int!
-}
