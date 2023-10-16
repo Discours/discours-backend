@@ -72,15 +72,13 @@ routes = [
 ]
 
 app = Starlette(
-    debug=True,
     on_startup=[start_up],
     on_shutdown=[shutdown],
     middleware=middleware,
     routes=routes,
 )
 app.mount("/", GraphQL(
-    schema,
-    debug=True
+    schema
 ))
 
 dev_app = Starlette(
