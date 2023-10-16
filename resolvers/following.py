@@ -7,7 +7,7 @@ from resolvers.topics import topic_follow, topic_unfollow
 from services.following import FollowingManager, FollowingResult
 from resolvers.community import community_follow, community_unfollow
 from services.presence import notify_follower
-from orm.user import Author
+from orm.user import User
 from services.db import local_session
 
 
@@ -22,7 +22,7 @@ async def follow(_, info, what, slug):
                 result = FollowingResult("NEW", "author", slug)
                 await FollowingManager.push("author", result)
                 with local_session() as session:
-                    author_id = session.query(Author.id).where(Author.slug == slug).one()
+                    author_id = session.query(User.id).where(User.slug == slug).one()
                     follower = session.query()
                     notify_follower(follower.dict(), author_id)
         elif what == "TOPIC":

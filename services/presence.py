@@ -1,11 +1,8 @@
 import json
-from orm.reaction import Reaction
-from orm.shout import Shout
-from orm.user import Author
 from services.redis import redis
 
 
-async def notify_reaction(reaction: Reaction):
+async def notify_reaction(reaction):
     channel_name = "new_reaction"
     data = {
         "payload": reaction, 
@@ -17,7 +14,7 @@ async def notify_reaction(reaction: Reaction):
         print(f"Failed to publish to channel {channel_name}: {e}")
 
 
-async def notify_shout(shout: Shout):
+async def notify_shout(shout):
     channel_name = "new_shout"
     data = {
         "payload": shout, 
@@ -29,7 +26,11 @@ async def notify_shout(shout: Shout):
         print(f"Failed to publish to channel {channel_name}: {e}")
 
 
-async def notify_follower(follower: Author, author_id: int):
+async def notify_follower(follower: dict, author_id: int):
+    fields = follower.keys()
+    for k in fields:
+        if k not in ["id", "name", "slug", "userpic"]:
+            del follower[k]
     channel_name = f"followers:{author_id}"
     data = {
         "payload": follower,
