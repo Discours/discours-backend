@@ -22,7 +22,7 @@ class FollowingManager:
         'author': [],
         'topic': [],
         'shout': [],
-        'chat': []
+        'community': []
     }
 
     @staticmethod
@@ -39,13 +39,8 @@ class FollowingManager:
     async def push(kind, payload):
         try:
             async with FollowingManager.lock:
-                if kind == 'chat':
-                    for chat in FollowingManager['chat']:
-                        if payload.message["chatId"] == chat.uid:
-                            chat.queue.put_nowait(payload)
-                else:
-                    for entity in FollowingManager[kind]:
-                        if payload.shout['createdBy'] == entity.uid:
-                            entity.queue.put_nowait(payload)
+                for entity in FollowingManager[kind]:
+                    if payload.shout['createdBy'] == entity.uid:
+                        entity.queue.put_nowait(payload)
         except Exception as e:
             print(Exception(e))
