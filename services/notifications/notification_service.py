@@ -27,11 +27,12 @@ def user_to_user_data(user):
     }
 
 
-def update_prev_notification(notification, user):
+def update_prev_notification(notification, user, reaction):
     notification_data = json.loads(notification.data)
 
     notification_data["users"] = [u for u in notification_data["users"] if u['id'] != user.id]
     notification_data["users"].append(user_to_user_data(user))
+    notification_data["reactionIds"].append(reaction.id)
 
     notification.data = json.dumps(notification_data, ensure_ascii=False)
     notification.seen = False
@@ -60,16 +61,18 @@ class NewReactionNotificator:
                                 Notification.user == shout.createdBy,
                                 Notification.type == NotificationType.NEW_REPLY,
                                 Notification.shout == shout.id,
-                                Notification.reaction == parent_reaction.id
+                                Notification.reaction == parent_reaction.id,
+                                Notification.seen == False
                             )
                         ).first()
 
                         if prev_new_reply_notification:
-                            update_prev_notification(prev_new_reply_notification, user)
+                            update_prev_notification(prev_new_reply_notification, user, reaction)
                         else:
                             reply_notification_data = json.dumps({
                                 "shout": shout_to_shout_data(shout),
-                                "users": [user_to_user_data(user)]
+                                "users": [user_to_user_data(user)],
+                                "reactionIds": [reaction.id]
                             }, ensure_ascii=False)
 
                             reply_notification = Notification.create(**{
@@ -91,16 +94,18 @@ class NewReactionNotificator:
                         and_(
                             Notification.user == shout.createdBy,
                             Notification.type == NotificationType.NEW_COMMENT,
-                            Notification.shout == shout.id
+                            Notification.shout == shout.id,
+                            Notification.seen == False
                         )
                     ).first()
 
                     if prev_new_comment_notification:
-                        update_prev_notification(prev_new_comment_notification, user)
+                        update_prev_notification(prev_new_comment_notification, user, reaction)
                     else:
                         notification_data_string = json.dumps({
                             "shout": shout_to_shout_data(shout),
-                            "users": [user_to_user_data(user)]
+                            "users": [user_to_user_data(user)],
+                            "reactionIds": [reaction.id]
                         }, ensure_ascii=False)
 
                         author_notification = Notification.create(**{
