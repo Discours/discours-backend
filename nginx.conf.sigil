@@ -49,7 +49,7 @@ server {
     }
 
     # Custom location block for /connect
-    location /connect/?token= {
+    location /connect/ {
       proxy_pass http://presence-8080/;
         {{ $proxy_settings }}
         {{ $gzip_settings }}
