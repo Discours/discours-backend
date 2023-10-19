@@ -3,10 +3,10 @@ from services.redis import redis
 
 
 async def notify_reaction(reaction):
-    channel_name = "new_reaction"
+    channel_name = "reaction"
     data = {
         "payload": reaction, 
-        "kind": f"new_reaction{reaction.kind}"
+        "action": "create"
     }
     try:
         await redis.publish(channel_name, json.dumps(data))
@@ -15,10 +15,10 @@ async def notify_reaction(reaction):
 
 
 async def notify_shout(shout):
-    channel_name = "new_shout"
+    channel_name = "shout"
     data = {
-        "payload": shout, 
-        "kind": "new_shout"
+        "payload": shout,
+        "action": "create"
     }
     try:
         await redis.publish(channel_name, json.dumps(data))
@@ -31,10 +31,10 @@ async def notify_follower(follower: dict, author_id: int):
     for k in fields:
         if k not in ["id", "name", "slug", "userpic"]:
             del follower[k]
-    channel_name = f"followers:{author_id}"
+    channel_name = f"follower:{author_id}"
     data = {
         "payload": follower,
-        "kind": "new_follower",
+        "action": "follow",
     }
     try:
         await redis.publish(channel_name, json.dumps(data))
