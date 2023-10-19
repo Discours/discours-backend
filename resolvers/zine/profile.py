@@ -9,11 +9,8 @@ from base.orm import local_session
 from base.resolvers import mutation, query
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import ShoutAuthor, ShoutTopic
-from orm.topic import Topic
+from orm.topic import Topic, TopicFollower
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
-
-# from .community import followed_communities
-from resolvers.inbox.unread import get_total_unread_counter
 from resolvers.zine.topics import followed_by_user
 
 
@@ -72,34 +69,6 @@ def get_authors_from_query(q):
             authors.append(author)
 
     return authors
-
-
-async def user_subscriptions(user_id: int):
-    return {
-        "unread": await get_total_unread_counter(user_id),  # unread inbox messages counter
-        "topics": [t.slug for t in await followed_topics(user_id)],  # followed topics slugs
-        "authors": [a.slug for a in await followed_authors(user_id)],  # followed authors slugs
-        "reactions": await followed_reactions(user_id)
-        # "communities": [c.slug for c in followed_communities(slug)],  # communities
-    }
-
-
-# @query.field("userFollowedDiscussions")
-# @login_required
-async def followed_discussions(_, info, user_id) -> List[Topic]:
-    return await followed_reactions(user_id)
-
-
-async def followed_reactions(user_id):
-    with local_session() as session:
-        user = session.query(User).where(User.id == user_id).first()
-        return session.query(
-            Reaction.shout
-        ).where(
-            Reaction.createdBy == user.id
-        ).filter(
-            Reaction.createdAt > user.lastSeen
-        ).all()
 
 
 # dufok mod (^*^') :
@@ -296,3 +265,33 @@ async def load_authors_by(_, info, by, limit, offset):
     ).limit(limit).offset(offset)
 
     return get_authors_from_query(q)
+
+
+@query.field("loadMySubscriptions")
+@login_required
+async def load_my_subscriptions(_, info):
+    auth = info.context["request"].auth
+    user_id = auth.user_id
+
+    authors_query = select(User).join(AuthorFollower, AuthorFollower.author == User.id).where(
+        AuthorFollower.follower == user_id
+    )
+
+    topics_query = select(Topic).join(TopicFollower).where(
+        TopicFollower.follower == user_id
+    )
+
+    topics = []
+    authors = []
+
+    with local_session() as session:
+        for [author] in session.execute(authors_query):
+            authors.append(author)
+
+        for [topic] in session.execute(topics_query):
+            topics.append(topic)
+
+    return {
+        "topics": topics,
+        "authors": authors
+    }
