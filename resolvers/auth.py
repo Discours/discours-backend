@@ -18,7 +18,6 @@ from base.exceptions import (BaseHttpException, InvalidPassword, InvalidToken,
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
-from resolvers.zine.profile import user_subscriptions
 from settings import SESSION_TOKEN_HEADER, FRONTEND_URL
 
 
@@ -35,8 +34,7 @@ async def get_current_user(_, info):
 
         return {
             "token": token,
-            "user": user,
-            "news": await user_subscriptions(user.id),
+            "user": user
         }
 
 
@@ -57,8 +55,7 @@ async def confirm_email(_, info, token):
             session.commit()
             return {
                 "token": session_token,
-                "user": user,
-                "news": await user_subscriptions(user.id)
+                "user": user
             }
     except InvalidToken as e:
         raise InvalidToken(e.message)
@@ -177,8 +174,7 @@ async def login(_, info, email: str, password: str = "", lang: str = "ru"):
                     print(f"[auth] user {email} authorized")
                     return {
                         "token": session_token,
-                        "user": user,
-                        "news": await user_subscriptions(user.id),
+                        "user": user
                     }
                 except InvalidPassword:
                     print(f"[auth] {email}: invalid password")

@@ -8,19 +8,10 @@ enum MessageStatus {
     DELETED
 }
 
-type UserFollowings {
-    unread: Int
-    topics: [String]
-    authors: [String]
-    reactions: [Int]
-    communities: [String]
-}
-
 type AuthResult {
     error: String
     token: String
     user: User
-    news: UserFollowings
 }
 
 type ChatMember {
@@ -263,6 +254,11 @@ type NotificationsQueryResult {
     totalUnreadCount: Int!
 }
 
+type MySubscriptionsQueryResult {
+    topics: [Topic]!
+    authors: [Author]!
+}
+
 type Query {
     # inbox
     loadChats( limit: Int, offset: Int): Result!  # your chats
@@ -300,6 +296,8 @@ type Query {
     topicsByAuthor(author: String!): [Topic]!
 
     loadNotifications(params: NotificationsQueryParams!): NotificationsQueryResult!
+
+    loadMySubscriptions: MySubscriptionsQueryResult
 }
 
 ############################################ Entities
