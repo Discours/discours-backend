@@ -22,7 +22,7 @@ async def upload_handler(request):
 
     file_name, file_extension = os.path.splitext(file.filename)
 
-    key = str(uuid.uuid4()) + file_extension
+    key = 'files/' + str(uuid.uuid4()) + file_extension
 
     # Create an S3 client with Storj configuration
     s3 = boto3.client('s3',
@@ -44,7 +44,7 @@ async def upload_handler(request):
                 }
             )
 
-        url = 'http://' + CDN_DOMAIN + '/' + key
+        url = 'https://' + CDN_DOMAIN + '/' + key
 
         return JSONResponse({'url': url, 'originalFilename': file.filename})
 
