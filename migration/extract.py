@@ -10,8 +10,8 @@ TOOLTIP_REGEX = r"(\/\/\/(.+)\/\/\/)"
 contentDir = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "..", "..", "discoursio-web", "content"
 )
-s3 = "https://discours-io.s3.amazonaws.com/"
-cdn = "https://assets.discours.io"
+
+cdn = "https://images.discours.io"
 
 
 def replace_tooltips(body):
@@ -311,7 +311,7 @@ def extract_media(entry):
         url = m.get("fileUrl") or m.get("url", "")
         pic = ""
         if m.get("thumborId"):
-            pic = cdn + "/unsafe/1600x/" + m["thumborId"]
+            pic = cdn + "/unsafe/" + m["thumborId"]
 
         # url
         if not url:

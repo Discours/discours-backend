@@ -140,10 +140,10 @@ async def migrate(entry, storage):
         "authors": [author, ],
         "slug": get_shout_slug(entry),
         "cover": (
-            "https://assets.discours.io/unsafe/1600x/" +
+            "https://images.discours.io/unsafe/" +
             entry["thumborId"] if entry.get("thumborId") else entry.get("image", {}).get("url")
         ),
-        "visibility": "public" if entry.get("published") else "authors",
+        "visibility": "public" if entry.get("published") else "community",
         "publishedAt": date_parse(entry.get("publishedAt")) if entry.get("published") else None,
         "deletedAt": date_parse(entry.get("deletedAt")) if entry.get("deletedAt") else None,
         "createdAt": date_parse(entry.get("createdAt", OLD_DATE)),

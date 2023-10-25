@@ -46,7 +46,7 @@ def migrate(entry):
         # userpic
         try:
             user_dict["userpic"] = (
-                "https://assets.discours.io/unsafe/100x/"
+                "https://images.discours.io/unsafe/"
                 + entry["profile"]["thumborId"]
             )
         except KeyError:
