@@ -7,7 +7,6 @@ from sqlalchemy import or_
 
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-
 # from base.exceptions import InvalidPassword, InvalidToken
 from base.orm import local_session
 from orm import User

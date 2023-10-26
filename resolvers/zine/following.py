@@ -8,7 +8,6 @@ from base.orm import local_session
 from base.resolvers import mutation
 from orm.shout import ShoutReactionsFollower
 from orm.topic import TopicFollower
-
 # from resolvers.community import community_follow, community_unfollow
 from orm.user import AuthorFollower
 from resolvers.zine.profile import author_follow, author_unfollow

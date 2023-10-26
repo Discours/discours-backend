@@ -22,7 +22,6 @@ from services.main import storages_init
 from services.notifications.notification_service import notification_service
 from services.notifications.sse import sse_subscribe_handler
 from services.stat.viewed import ViewedStorage
-
 # from services.zine.gittask import GitTask
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN, SESSION_SECRET_KEY
 
