@@ -1,50 +1,65 @@
-from base.orm import local_session
 from datetime import datetime, timezone
+
 from dateutil.parser import parse as date_parse
+
+from base.orm import local_session
 from migration.html2text import html2text
 from orm.reaction import Reaction, ReactionKind
-from orm.shout import Shout, ShoutReactionsFollower
+from orm.shout import ShoutReactionsFollower
 from orm.topic import TopicFollower
 from orm.user import User
+from orm.shout import Shout
 
 ts = datetime.now(tz=timezone.utc)
 
 
 def auto_followers(session, topics, reaction_dict):
     # creating shout's reactions following for reaction author
-    following1 = (
-        session.query(ShoutReactionsFollower)
-        .where(ShoutReactionsFollower.follower == reaction_dict["createdBy"])
-        .filter(ShoutReactionsFollower.shout == reaction_dict["shout"])
-        .first()
-    )
+    following1 = session.query(
+        ShoutReactionsFollower
+    ).where(
+        ShoutReactionsFollower.follower == reaction_dict["createdBy"]
+    ).filter(
+        ShoutReactionsFollower.shout == reaction_dict["shout"]
+    ).first()
     if not following1:
         following1 = ShoutReactionsFollower.create(
-            follower=reaction_dict["createdBy"], shout=reaction_dict["shout"], auto=True
+            follower=reaction_dict["createdBy"],
+            shout=reaction_dict["shout"],
+            auto=True
         )
         session.add(following1)
     # creating topics followings for reaction author
     for t in topics:
-        tf = (
-            session.query(TopicFollower)
-            .where(TopicFollower.follower == reaction_dict["createdBy"])
-            .filter(TopicFollower.topic == t["id"])
-            .first()
-        )
+        tf = session.query(
+            TopicFollower
+        ).where(
+            TopicFollower.follower == reaction_dict["createdBy"]
+        ).filter(
+            TopicFollower.topic == t['id']
+        ).first()
         if not tf:
             topic_following = TopicFollower.create(
-                follower=reaction_dict["createdBy"], topic=t["id"], auto=True
+                follower=reaction_dict["createdBy"],
+                topic=t['id'],
+                auto=True
             )
             session.add(topic_following)
 
 
 def migrate_ratings(session, entry, reaction_dict):
     for comment_rating_old in entry.get("ratings", []):
-        rater = session.query(User).filter(User.oid == comment_rating_old["createdBy"]).first()
+        rater = (
+            session.query(User)
+            .filter(User.oid == comment_rating_old["createdBy"])
+            .first()
+        )
         re_reaction_dict = {
             "shout": reaction_dict["shout"],
             "replyTo": reaction_dict["id"],
-            "kind": ReactionKind.LIKE if comment_rating_old["value"] > 0 else ReactionKind.DISLIKE,
+            "kind": ReactionKind.LIKE
+            if comment_rating_old["value"] > 0
+            else ReactionKind.DISLIKE,
             "createdBy": rater.id if rater else 1,
         }
         cts = comment_rating_old.get("createdAt")
@@ -53,15 +68,18 @@ def migrate_ratings(session, entry, reaction_dict):
         try:
             # creating reaction from old rating
             rr = Reaction.create(**re_reaction_dict)
-            following2 = (
-                session.query(ShoutReactionsFollower)
-                .where(ShoutReactionsFollower.follower == re_reaction_dict["createdBy"])
-                .filter(ShoutReactionsFollower.shout == rr.shout)
-                .first()
-            )
+            following2 = session.query(
+                ShoutReactionsFollower
+            ).where(
+                ShoutReactionsFollower.follower == re_reaction_dict['createdBy']
+            ).filter(
+                ShoutReactionsFollower.shout == rr.shout
+            ).first()
             if not following2:
                 following2 = ShoutReactionsFollower.create(
-                    follower=re_reaction_dict["createdBy"], shout=rr.shout, auto=True
+                    follower=re_reaction_dict['createdBy'],
+                    shout=rr.shout,
+                    auto=True
                 )
                 session.add(following2)
             session.add(rr)
@@ -132,7 +150,9 @@ async def migrate(entry, storage):
             else:
                 stage = "author and old id found"
                 try:
-                    shout = session.query(Shout).where(Shout.slug == old_shout["slug"]).one()
+                    shout = session.query(
+                        Shout
+                    ).where(Shout.slug == old_shout["slug"]).one()
                     if shout:
                         reaction_dict["shout"] = shout.id
                         reaction_dict["createdBy"] = author.id if author else 1
@@ -158,9 +178,9 @@ async def migrate(entry, storage):
 
 
 def migrate_2stage(old_comment, idmap):
-    if old_comment.get("body"):
-        new_id = idmap.get(old_comment.get("oid"))
-        new_id = idmap.get(old_comment.get("_id"))
+    if old_comment.get('body'):
+        new_id = idmap.get(old_comment.get('oid'))
+        new_id = idmap.get(old_comment.get('_id'))
         if new_id:
             new_replyto_id = None
             old_replyto_id = old_comment.get("replyTo")
@@ -170,20 +190,17 @@ def migrate_2stage(old_comment, idmap):
                 comment = session.query(Reaction).where(Reaction.id == new_id).first()
                 try:
                     if new_replyto_id:
-                        new_reply = (
-                            session.query(Reaction).where(Reaction.id == new_replyto_id).first()
-                        )
+                        new_reply = session.query(Reaction).where(Reaction.id == new_replyto_id).first()
                         if not new_reply:
                             print(new_replyto_id)
                             raise Exception("cannot find reply by id!")
                         comment.replyTo = new_reply.id
                         session.add(comment)
-                    srf = (
-                        session.query(ShoutReactionsFollower)
-                        .where(ShoutReactionsFollower.shout == comment.shout)
-                        .filter(ShoutReactionsFollower.follower == comment.createdBy)
-                        .first()
-                    )
+                    srf = session.query(ShoutReactionsFollower).where(
+                        ShoutReactionsFollower.shout == comment.shout
+                    ).filter(
+                        ShoutReactionsFollower.follower == comment.createdBy
+                    ).first()
                     if not srf:
                         srf = ShoutReactionsFollower.create(
                             shout=comment.shout, follower=comment.createdBy, auto=True

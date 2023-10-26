@@ -1,8 +1,9 @@
-from auth.jwtcodec import JWTCodec
-from base.redis import redis
 from datetime import datetime, timedelta, timezone
-from settings import ONETIME_TOKEN_LIFE_SPAN, SESSION_TOKEN_LIFE_SPAN
+
+from auth.jwtcodec import JWTCodec
 from validations.auth import AuthInput
+from base.redis import redis
+from settings import SESSION_TOKEN_LIFE_SPAN, ONETIME_TOKEN_LIFE_SPAN
 
 
 async def save(token_key, life_span, auto_delete=True):
@@ -34,7 +35,7 @@ class SessionToken:
 class TokenStorage:
     @staticmethod
     async def get(token_key):
-        print("[tokenstorage.get] " + token_key)
+        print('[tokenstorage.get] ' + token_key)
         # 2041-user@domain.zn-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyMDQxLCJ1c2VybmFtZSI6ImFudG9uLnJld2luK3Rlc3QtbG9hZGNoYXRAZ21haWwuY29tIiwiZXhwIjoxNjcxNzgwNjE2LCJpYXQiOjE2NjkxODg2MTYsImlzcyI6ImRpc2NvdXJzIn0.Nml4oV6iMjMmc6xwM7lTKEZJKBXvJFEIZ-Up1C1rITQ
         return await redis.execute("GET", token_key)
 

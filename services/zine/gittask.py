@@ -1,8 +1,8 @@
-from pathlib import Path
-from settings import SHOUTS_REPO
-
 import asyncio
 import subprocess
+from pathlib import Path
+
+from settings import SHOUTS_REPO
 
 
 class GitTask:
