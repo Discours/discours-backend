@@ -2,6 +2,7 @@ import asyncio
 import os
 from importlib import import_module
 from os.path import exists
+
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
 from starlette.applications import Starlette
@@ -9,20 +10,21 @@ from starlette.middleware import Middleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.routing import Route
-from orm import init_tables
 
 from auth.authenticate import JWTAuthenticate
-from auth.oauth import oauth_login, oauth_authorize
+from auth.oauth import oauth_authorize, oauth_login
 from base.redis import redis
 from base.resolvers import resolvers
+from orm import init_tables
 from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
 from services.main import storages_init
 from services.notifications.notification_service import notification_service
+from services.notifications.sse import sse_subscribe_handler
 from services.stat.viewed import ViewedStorage
+
 # from services.zine.gittask import GitTask
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN, SESSION_SECRET_KEY
-from services.notifications.sse import sse_subscribe_handler
 
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
@@ -46,6 +48,7 @@ async def start_up():
 
     try:
         import sentry_sdk
+
         sentry_sdk.init(SENTRY_DSN)
     except Exception as e:
         print('[sentry] init error')
@@ -82,9 +85,7 @@ app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-app.mount("/", GraphQL(
-    schema
-))
+app.mount("/", GraphQL(schema))
 
 dev_app = Starlette(
     debug=True,
@@ -93,7 +94,4 @@ dev_app = Starlette(
     middleware=middleware,
     routes=routes,
 )
-dev_app.mount("/", GraphQL(
-    schema,
-    debug=True
-))
+dev_app.mount("/", GraphQL(schema, debug=True))

@@ -5,7 +5,6 @@ import uuid
 
 from bs4 import BeautifulSoup
 
-
 TOOLTIP_REGEX = r"(\/\/\/(.+)\/\/\/)"
 contentDir = os.path.join(
     os.path.dirname(os.path.realpath(__file__)), "..", "..", "discoursio-web", "content"
@@ -27,7 +26,6 @@ def replace_tooltips(body):
     return newbody
 
 
-
 def extract_footnotes(body, shout_dict):
     parts = body.split("&&&")
     lll = len(parts)
@@ -47,12 +45,16 @@ def extract_footnotes(body, shout_dict):
                         extracted_body = part.split(fn, 1)[1].split('>', 1)[1].split('</a>', 1)[0]
                         print("[extract] footnote link: " + extracted_link)
                         with local_session() as session:
-                            Reaction.create({
-                                "shout": shout_dict['id'],
-                                "kind": ReactionKind.FOOTNOTE,
-                                "body": extracted_body,
-                                "range": str(body.index(fn + link) - len('<')) + ':' + str(body.index(extracted_body) + len('</a>'))
-                            })
+                            Reaction.create(
+                                {
+                                    "shout": shout_dict['id'],
+                                    "kind": ReactionKind.FOOTNOTE,
+                                    "body": extracted_body,
+                                    "range": str(body.index(fn + link) - len('<'))
+                                    + ':'
+                                    + str(body.index(extracted_body) + len('</a>')),
+                                }
+                            )
                         newparts[i] = "<a href='#'>ℹ️</a>"
                 else:
                     newparts[i] = part
@@ -76,9 +78,7 @@ def place_tooltips(body):
                         print("[extract] footnote: " + part)
                         fn = 'a class="footnote-url" href="'
                         link = part.split(fn, 1)[1].split('"', 1)[0]
-                        extracted_part = (
-                            part.split(fn, 1)[0] + " " + part.split("/", 1)[-1]
-                        )
+                        extracted_part = part.split(fn, 1)[0] + " " + part.split("/", 1)[-1]
                         newparts[i] = (
                             "<Tooltip"
                             + (' link="' + link + '" ' if link else "")
@@ -96,7 +96,9 @@ def place_tooltips(body):
     return ("".join(newparts), placed)
 
 
-IMG_REGEX = r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,((?:[A-Za-z\d+\/]{4})*(?:[A-Za-z\d+\/]{3}="
+IMG_REGEX = (
+    r"\!\[(.*?)\]\((data\:image\/(png|jpeg|jpg);base64\,((?:[A-Za-z\d+\/]{4})*(?:[A-Za-z\d+\/]{3}="
+)
 IMG_REGEX += r"|[A-Za-z\d+\/]{2}==)))\)"
 
 parentDir = "/".join(os.getcwd().split("/")[:-1])
@@ -159,11 +161,7 @@ def extract_imageparts(bodyparts, prefix):
                     try:
                         content = base64.b64decode(b64encoded + "==")
                         open(public + link, "wb").write(content)
-                        print(
-                            "[extract] "
-                            + str(len(content))
-                            + " image bytes been written"
-                        )
+                        print("[extract] " + str(len(content)) + " image bytes been written")
                         cache[b64encoded] = name
                     except Exception:
                         raise Exception
@@ -172,18 +170,11 @@ def extract_imageparts(bodyparts, prefix):
                     print("[extract] cached link " + cache[b64encoded])
                     name = cache[b64encoded]
                     link = cdn + "/upload/image-" + name + "." + ext
-                newparts[i] = (
-                    current[: -len(mime)]
-                    + current[-len(mime) :]
-                    + link
-                    + next[-b64end:]
-                )
+                newparts[i] = current[: -len(mime)] + current[-len(mime) :] + link + next[-b64end:]
                 newparts[i + 1] = next[:-b64end]
                 break
     return (
-        extract_imageparts(
-            newparts[i] + newparts[i + 1] + b64.join(bodyparts[(i + 2) :]), prefix
-        )
+        extract_imageparts(newparts[i] + newparts[i + 1] + b64.join(bodyparts[(i + 2) :]), prefix)
         if len(bodyparts) > (i + 1)
         else "".join(newparts)
     )
@@ -271,7 +262,7 @@ def cleanup_md(body):
     return newbody
 
 
-def extract_md(body, shout_dict = None):
+def extract_md(body, shout_dict=None):
     newbody = body
     if newbody:
         newbody = cleanup_md(newbody)
@@ -279,7 +270,6 @@ def extract_md(body, shout_dict = None):
             raise Exception("cleanup error")
 
         if shout_dict:
-
             uid = shout_dict['id'] or uuid.uuid4()
             newbody = extract_md_images(newbody, uid)
             if not newbody:
@@ -293,7 +283,7 @@ def extract_md(body, shout_dict = None):
 
 
 def extract_media(entry):
-    ''' normalized media extraction method '''
+    '''normalized media extraction method'''
     # media [ { title pic url body } ]}
     kind = entry.get("type")
     if not kind:
@@ -323,12 +313,7 @@ def extract_media(entry):
                 url = "https://vimeo.com/" + m["vimeoId"]
         # body
         body = m.get("body") or m.get("literatureBody") or ""
-        media.append({
-            "url": url,
-            "pic": pic,
-            "title": title,
-            "body": body
-        })
+        media.append({"url": url, "pic": pic, "title": title, "body": body})
     return media
 
 
@@ -398,9 +383,7 @@ def cleanup_html(body: str) -> str:
         r"<h4>\s*</h4>",
         r"<div>\s*</div>",
     ]
-    regex_replace = {
-        r"<br>\s*</p>": "</p>"
-    }
+    regex_replace = {r"<br>\s*</p>": "</p>"}
     changed = True
     while changed:
         # we need several iterations to clean nested tags this way
@@ -414,7 +397,8 @@ def cleanup_html(body: str) -> str:
             changed = True
     return new_body
 
-def extract_html(entry, shout_id = None, cleanup=False):
+
+def extract_html(entry, shout_id=None, cleanup=False):
     body_orig = (entry.get("body") or "").replace('\(', '(').replace('\)', ')')
     if cleanup:
         # we do that before bs parsing to catch the invalid html

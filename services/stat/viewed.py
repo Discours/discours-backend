@@ -1,6 +1,6 @@
 import asyncio
 import time
-from datetime import timedelta, timezone, datetime
+from datetime import datetime, timedelta, timezone
 from os import environ, path
 from ssl import create_default_context
 
@@ -9,10 +9,11 @@ from gql.transport.aiohttp import AIOHTTPTransport
 from sqlalchemy import func
 
 from base.orm import local_session
-from orm import User, Topic
-from orm.shout import ShoutTopic, Shout
+from orm import Topic, User
+from orm.shout import Shout, ShoutTopic
 
-load_facts = gql("""
+load_facts = gql(
+    """
 query getDomains {
     domains {
         id
@@ -25,9 +26,11 @@ query getDomains {
         }
     }
 }
-""")
+"""
+)
 
-load_pages = gql("""
+load_pages = gql(
+    """
 query getDomains {
     domains {
     title
@@ -41,7 +44,8 @@ query getDomains {
         }
     }
 }
-""")
+"""
+)
 schema_str = open(path.dirname(__file__) + '/ackee.graphql').read()
 token = environ.get("ACKEE_TOKEN", "")
 
@@ -50,10 +54,8 @@ def create_client(headers=None, schema=None):
     return Client(
         schema=schema,
         transport=AIOHTTPTransport(
-            url="https://ackee.discours.io/api",
-            ssl=create_default_context(),
-            headers=headers
-        )
+            url="https://ackee.discours.io/api", ssl=create_default_context(), headers=headers
+        ),
     )
 
 
@@ -71,13 +73,13 @@ class ViewedStorage:
 
     @staticmethod
     async def init():
-        """ graphql client connection using permanent token """
+        """graphql client connection using permanent token"""
         self = ViewedStorage
         async with self.lock:
             if token:
-                self.client = create_client({
-                    "Authorization": "Bearer %s" % str(token)
-                }, schema=schema_str)
+                self.client = create_client(
+                    {"Authorization": "Bearer %s" % str(token)}, schema=schema_str
+                )
                 print("[stat.viewed] * authorized permanentely by ackee.discours.io: %s" % token)
             else:
                 print("[stat.viewed] * please set ACKEE_TOKEN")
@@ -85,7 +87,7 @@ class ViewedStorage:
 
     @staticmethod
     async def update_pages():
-        """ query all the pages from ackee sorted by views count """
+        """query all the pages from ackee sorted by views count"""
         print("[stat.viewed] ⎧ updating ackee pages data ---")
         start = time.time()
         self = ViewedStorage
@@ -118,7 +120,7 @@ class ViewedStorage:
     # unused yet
     @staticmethod
     async def get_shout(shout_slug):
-        """ getting shout views metric by slug """
+        """getting shout views metric by slug"""
         self = ViewedStorage
         async with self.lock:
             shout_views = self.by_shouts.get(shout_slug)
@@ -136,7 +138,7 @@ class ViewedStorage:
 
     @staticmethod
     async def get_topic(topic_slug):
-        """ getting topic views value summed """
+        """getting topic views value summed"""
         self = ViewedStorage
         topic_views = 0
         async with self.lock:
@@ -146,18 +148,22 @@ class ViewedStorage:
 
     @staticmethod
     def update_topics(session, shout_slug):
-        """ updates topics counters by shout slug """
+        """updates topics counters by shout slug"""
         self = ViewedStorage
-        for [shout_topic, topic] in session.query(ShoutTopic, Topic).join(Topic).join(Shout).where(
-            Shout.slug == shout_slug
-        ).all():
+        for [shout_topic, topic] in (
+            session.query(ShoutTopic, Topic)
+            .join(Topic)
+            .join(Shout)
+            .where(Shout.slug == shout_slug)
+            .all()
+        ):
             if not self.by_topics.get(topic.slug):
                 self.by_topics[topic.slug] = {}
             self.by_topics[topic.slug][shout_slug] = self.by_shouts[shout_slug]
 
     @staticmethod
     async def increment(shout_slug, amount=1, viewer='ackee'):
-        """ the only way to change views counter """
+        """the only way to change views counter"""
         self = ViewedStorage
         async with self.lock:
             # TODO optimize, currenty we execute 1 DB transaction per shout
@@ -185,7 +191,7 @@ class ViewedStorage:
 
     @staticmethod
     async def worker():
-        """ async task worker """
+        """async task worker"""
         failed = 0
         self = ViewedStorage
         if self.disabled:
@@ -205,9 +211,10 @@ class ViewedStorage:
             if failed == 0:
                 when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
                 t = format(when.astimezone().isoformat())
-                print("[stat.viewed] ⎩ next update: %s" % (
-                    t.split("T")[0] + " " + t.split("T")[1].split(".")[0]
-                ))
+                print(
+                    "[stat.viewed] ⎩ next update: %s"
+                    % (t.split("T")[0] + " " + t.split("T")[1].split(".")[0])
+                )
                 await asyncio.sleep(self.period)
             else:
                 await asyncio.sleep(10)

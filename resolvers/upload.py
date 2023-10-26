@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import uuid
+
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from starlette.responses import JSONResponse
@@ -25,10 +26,12 @@ async def upload_handler(request):
     key = 'files/' + str(uuid.uuid4()) + file_extension
 
     # Create an S3 client with Storj configuration
-    s3 = boto3.client('s3',
-                      aws_access_key_id=STORJ_ACCESS_KEY,
-                      aws_secret_access_key=STORJ_SECRET_KEY,
-                      endpoint_url=STORJ_END_POINT)
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=STORJ_ACCESS_KEY,
+        aws_secret_access_key=STORJ_SECRET_KEY,
+        endpoint_url=STORJ_END_POINT,
+    )
 
     try:
         # Save the uploaded file to a temporary file
@@ -39,9 +42,7 @@ async def upload_handler(request):
                 Filename=tmp_file.name,
                 Bucket=STORJ_BUCKET_NAME,
                 Key=key,
-                ExtraArgs={
-                    "ContentType": file.content_type
-                }
+                ExtraArgs={"ContentType": file.content_type},
             )
 
         url = 'https://' + CDN_DOMAIN + '/' + key
@@ -51,6 +52,3 @@ async def upload_handler(request):
     except (BotoCoreError, ClientError) as e:
         print(e)
         return JSONResponse({'error': 'Failed to upload file'}, status_code=500)
-
-
-

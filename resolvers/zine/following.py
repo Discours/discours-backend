@@ -1,17 +1,20 @@
 import asyncio
-from base.orm import local_session
-from base.resolvers import mutation
+
+from graphql.type import GraphQLResolveInfo
+
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
+from base.orm import local_session
+from base.resolvers import mutation
+from orm.shout import ShoutReactionsFollower
+from orm.topic import TopicFollower
+
 # from resolvers.community import community_follow, community_unfollow
 from orm.user import AuthorFollower
-from orm.topic import TopicFollower
-from orm.shout import ShoutReactionsFollower
 from resolvers.zine.profile import author_follow, author_unfollow
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
 from resolvers.zine.topics import topic_follow, topic_unfollow
 from services.following import Following, FollowingManager, FollowingResult
-from graphql.type import GraphQLResolveInfo
 
 
 @mutation.field("follow")

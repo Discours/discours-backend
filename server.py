@@ -1,8 +1,9 @@
-import sys
 import os
+import sys
+
 import uvicorn
 
-from settings import PORT, DEV_SERVER_PID_FILE_NAME
+from settings import DEV_SERVER_PID_FILE_NAME, PORT
 
 
 def exception_handler(exception_type, exception, traceback, debug_hook=sys.excepthook):
@@ -16,41 +17,30 @@ log_settings = {
         'default': {
             '()': 'uvicorn.logging.DefaultFormatter',
             'fmt': '%(levelprefix)s %(message)s',
-            'use_colors': None
+            'use_colors': None,
         },
         'access': {
             '()': 'uvicorn.logging.AccessFormatter',
-            'fmt': '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
-        }
+            'fmt': '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+        },
     },
     'handlers': {
         'default': {
             'formatter': 'default',
             'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stderr'
+            'stream': 'ext://sys.stderr',
         },
         'access': {
             'formatter': 'access',
             'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stdout'
-        }
+            'stream': 'ext://sys.stdout',
+        },
     },
     'loggers': {
-        'uvicorn': {
-            'handlers': ['default'],
-            'level': 'INFO'
-        },
-        'uvicorn.error': {
-            'level': 'INFO',
-            'handlers': ['default'],
-            'propagate': True
-        },
-        'uvicorn.access': {
-            'handlers': ['access'],
-            'level': 'INFO',
-            'propagate': False
-        }
-    }
+        'uvicorn': {'handlers': ['default'], 'level': 'INFO'},
+        'uvicorn.error': {'level': 'INFO', 'handlers': ['default'], 'propagate': True},
+        'uvicorn.access': {'handlers': ['access'], 'level': 'INFO', 'propagate': False},
+    },
 }
 
 local_headers = [
@@ -86,24 +76,20 @@ if __name__ == "__main__":
             # log_config=log_settings,
             log_level=None,
             access_log=True,
-            reload=want_reload
+            reload=want_reload,
         )  # , ssl_keyfile="discours.key", ssl_certfile="discours.crt")
     elif x == "migrate":
         from migration import process
+
         print("MODE: MIGRATE")
 
         process()
     elif x == "bson":
         from migration.bson2json import json_tables
+
         print("MODE: BSON")
 
         json_tables()
     else:
         sys.excepthook = exception_handler
-        uvicorn.run(
-            "main:app",
-            host="0.0.0.0",
-            port=PORT,
-            proxy_headers=True,
-            server_header=True
-        )
+        uvicorn.run("main:app", host="0.0.0.0", port=PORT, proxy_headers=True, server_header=True)

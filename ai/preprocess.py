@@ -1,9 +1,10 @@
 import re
+from string import punctuation
+
 import nltk
 from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 from pymystem3 import Mystem
-from string import punctuation
 from transformers import BertTokenizer
 
 nltk.download("stopwords")
@@ -30,9 +31,11 @@ def get_clear_text(text):
     russian_stopwords = stopwords.words("russian")
 
     tokens = mystem.lemmatize(clear_text)
-    tokens = [token for token in tokens if token not in russian_stopwords \
-              and token != " " \
-              and token.strip() not in punctuation]
+    tokens = [
+        token
+        for token in tokens
+        if token not in russian_stopwords and token != " " and token.strip() not in punctuation
+    ]
 
     clear_text = " ".join(tokens)
 

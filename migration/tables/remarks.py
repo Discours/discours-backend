@@ -12,27 +12,19 @@ def migrate(entry, storage):
         print(shout_dict['body'])
         remark = {
             "shout": shout_dict['id'],
-            "body": extract_md(
-                html2text(entry['body']),
-                shout_dict
-            ),
-            "kind": ReactionKind.REMARK
+            "body": extract_md(html2text(entry['body']), shout_dict),
+            "kind": ReactionKind.REMARK,
         }
 
         if entry.get('textBefore'):
-            remark['range'] = str(
-                    shout_dict['body']
-                        .index(
-                            entry['textBefore'] or ''
-                        )
-                ) + ':' + str(
-                    shout_dict['body']
-                        .index(
-                            entry['textAfter'] or ''
-                        ) + len(
-                            entry['textAfter'] or ''
-                        )
+            remark['range'] = (
+                str(shout_dict['body'].index(entry['textBefore'] or ''))
+                + ':'
+                + str(
+                    shout_dict['body'].index(entry['textAfter'] or '')
+                    + len(entry['textAfter'] or '')
                 )
+            )
 
         with local_session() as session:
             rmrk = Reaction.create(**remark)

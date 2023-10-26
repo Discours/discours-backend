@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
 from auth.jwtcodec import JWTCodec
-from validations.auth import AuthInput
 from base.redis import redis
-from settings import SESSION_TOKEN_LIFE_SPAN, ONETIME_TOKEN_LIFE_SPAN
+from settings import ONETIME_TOKEN_LIFE_SPAN, SESSION_TOKEN_LIFE_SPAN
+from validations.auth import AuthInput
 
 
 async def save(token_key, life_span, auto_delete=True):

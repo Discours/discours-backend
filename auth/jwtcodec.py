@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
+
 import jwt
+
 from base.exceptions import ExpiredToken, InvalidToken
-from validations.auth import TokenPayload, AuthInput
 from settings import JWT_ALGORITHM, JWT_SECRET_KEY
+from validations.auth import AuthInput, TokenPayload
 
 
 class JWTCodec:
@@ -13,7 +15,7 @@ class JWTCodec:
             "username": user.email or user.phone,
             "exp": exp,
             "iat": datetime.now(tz=timezone.utc),
-            "iss": "discours"
+            "iss": "discours",
         }
         try:
             return jwt.encode(payload, JWT_SECRET_KEY, JWT_ALGORITHM)
@@ -33,7 +35,7 @@ class JWTCodec:
                     # "verify_signature": False
                 },
                 algorithms=[JWT_ALGORITHM],
-                issuer="discours"
+                issuer="discours",
             )
             r = TokenPayload(**payload)
             # print('[auth.jwtcodec] debug token %r' % r)

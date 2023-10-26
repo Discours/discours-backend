@@ -1,4 +1,5 @@
-from typing import Optional, Text, List
+from typing import List, Optional, Text
+
 from pydantic import BaseModel
 
 

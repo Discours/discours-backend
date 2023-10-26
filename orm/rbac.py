@@ -1,9 +1,9 @@
 import warnings
 
-from sqlalchemy import String, Column, ForeignKey, UniqueConstraint, TypeDecorator
+from sqlalchemy import Column, ForeignKey, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from base.orm import Base, REGISTRY, engine, local_session
+from base.orm import REGISTRY, Base, engine, local_session
 
 # Role Based Access Control #
 
@@ -121,16 +121,23 @@ class Operation(Base):
 
 class Resource(Base):
     __tablename__ = "resource"
-    resourceClass = Column(
-        String, nullable=False, unique=True, comment="Resource class"
-    )
+    resourceClass = Column(String, nullable=False, unique=True, comment="Resource class")
     name = Column(String, nullable=False, unique=True, comment="Resource name")
     # TODO: community = Column(ForeignKey())
 
     @staticmethod
     def init_table():
         with local_session() as session:
-            for res in ["shout", "topic", "reaction", "chat", "message", "invite", "community", "user"]:
+            for res in [
+                "shout",
+                "topic",
+                "reaction",
+                "chat",
+                "message",
+                "invite",
+                "community",
+                "user",
+            ]:
                 r = session.query(Resource).filter(Resource.name == res).first()
                 if not r:
                     r = Resource.create(name=res, resourceClass=res)
@@ -145,9 +152,7 @@ class Permission(Base):
         {"extend_existing": True},
     )
 
-    role = Column(
-        ForeignKey("role.id", ondelete="CASCADE"), nullable=False, comment="Role"
-    )
+    role = Column(ForeignKey("role.id", ondelete="CASCADE"), nullable=False, comment="Role")
     operation = Column(
         ForeignKey("operation.id", ondelete="CASCADE"),
         nullable=False,

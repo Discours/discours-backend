@@ -18,12 +18,7 @@ class Following:
 
 class FollowingManager:
     lock = asyncio.Lock()
-    data = {
-        'author': [],
-        'topic': [],
-        'shout': [],
-        'chat': []
-    }
+    data = {'author': [], 'topic': [], 'shout': [], 'chat': []}
 
     @staticmethod
     async def register(kind, uid):

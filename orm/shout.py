@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, JSON
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import column_property, relationship
 
 from base.orm import Base, local_session
@@ -24,9 +24,7 @@ class ShoutReactionsFollower(Base):
     follower = Column(ForeignKey("user.id"), primary_key=True, index=True)
     shout = Column(ForeignKey("shout.id"), primary_key=True, index=True)
     auto = Column(Boolean, nullable=False, default=False)
-    createdAt = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Created at"
-    )
+    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
     deletedAt = Column(DateTime, nullable=True)
 
 
@@ -83,12 +81,7 @@ class Shout(Base):
         with local_session() as session:
             s = session.query(Shout).first()
             if not s:
-                entry = {
-                    "slug": "genesis-block",
-                    "body": "",
-                    "title": "Ничего",
-                    "lang": "ru"
-                }
+                entry = {"slug": "genesis-block", "body": "", "title": "Ничего", "lang": "ru"}
                 s = Shout.create(**entry)
                 session.add(s)
                 session.commit()

@@ -1,5 +1,6 @@
 import asyncio
 import json
+
 from base.redis import redis
 from orm.shout import Shout
 from resolvers.zine.load import load_shouts_by
@@ -20,12 +21,7 @@ class SearchService:
         cached = await redis.execute("GET", text)
         if not cached:
             async with SearchService.lock:
-                options = {
-                    "title": text,
-                    "body": text,
-                    "limit": limit,
-                    "offset": offset
-                }
+                options = {"title": text, "body": text, "limit": limit, "offset": offset}
                 payload = await load_shouts_by(None, None, options)
                 await redis.execute("SET", text, json.dumps(payload))
                 return payload

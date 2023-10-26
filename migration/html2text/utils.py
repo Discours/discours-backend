@@ -4,9 +4,7 @@ from typing import Dict, List, Optional
 from . import config
 
 unifiable_n = {
-    html.entities.name2codepoint[k]: v
-    for k, v in config.UNIFIABLE.items()
-    if k != "nbsp"
+    html.entities.name2codepoint[k]: v for k, v in config.UNIFIABLE.items() if k != "nbsp"
 }
 
 
@@ -156,9 +154,7 @@ def list_numbering_start(attrs: Dict[str, Optional[str]]) -> int:
     return 0
 
 
-def skipwrap(
-    para: str, wrap_links: bool, wrap_list_items: bool, wrap_tables: bool
-) -> bool:
+def skipwrap(para: str, wrap_links: bool, wrap_list_items: bool, wrap_tables: bool) -> bool:
     # If it appears to contain a link
     # don't wrap
     if not wrap_links and config.RE_LINK.search(para):
@@ -236,9 +232,7 @@ def reformat_table(lines: List[str], right_margin: int) -> List[str]:
             max_width += [len(x) + right_margin for x in cols[-(num_cols - max_cols) :]]
             max_cols = num_cols
 
-        max_width = [
-            max(len(x) + right_margin, old_len) for x, old_len in zip(cols, max_width)
-        ]
+        max_width = [max(len(x) + right_margin, old_len) for x, old_len in zip(cols, max_width)]
 
     # reformat
     new_lines = []
@@ -247,15 +241,13 @@ def reformat_table(lines: List[str], right_margin: int) -> List[str]:
         if set(line.strip()) == set("-|"):
             filler = "-"
             new_cols = [
-                x.rstrip() + (filler * (M - len(x.rstrip())))
-                for x, M in zip(cols, max_width)
+                x.rstrip() + (filler * (M - len(x.rstrip()))) for x, M in zip(cols, max_width)
             ]
             new_lines.append("|-" + "|".join(new_cols) + "|")
         else:
             filler = " "
             new_cols = [
-                x.rstrip() + (filler * (M - len(x.rstrip())))
-                for x, M in zip(cols, max_width)
+                x.rstrip() + (filler * (M - len(x.rstrip()))) for x, M in zip(cols, max_width)
             ]
             new_lines.append("| " + "|".join(new_cols) + "|")
     return new_lines

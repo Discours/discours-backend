@@ -1,5 +1,7 @@
-from aioredis import from_url
 from asyncio import sleep
+
+from aioredis import from_url
+
 from settings import REDIS_URL
 
 

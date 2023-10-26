@@ -1,7 +1,7 @@
 from base.orm import Base, engine
 from orm.community import Community
 from orm.notification import Notification
-from orm.rbac import Operation, Resource, Permission, Role
+from orm.rbac import Operation, Permission, Resource, Role
 from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
@@ -32,5 +32,5 @@ __all__ = [
     "Notification",
     "Reaction",
     "UserRating",
-    "init_tables"
+    "init_tables",
 ]

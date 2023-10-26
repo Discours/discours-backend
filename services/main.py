@@ -1,6 +1,6 @@
+from base.orm import local_session
 from services.search import SearchService
 from services.stat.viewed import ViewedStorage
-from base.orm import local_session
 
 
 async def storages_init():

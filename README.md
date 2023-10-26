@@ -35,6 +35,13 @@ pip install -r requirements.txt
 python3 server.py dev
 ```
 
+# pre-commit hook
+
+```
+pip install -r requirements-dev.txt
+pre-commit install
+```
+
 # How to do an authorized request
 
 Put the header 'Authorization' with token from signIn query or registerUser mutation.
@@ -42,4 +49,3 @@ Put the header 'Authorization' with token from signIn query or registerUser muta
 # How to debug Ackee
 
 Set ACKEE_TOKEN var
-

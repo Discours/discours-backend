@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON as JSONType
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+
 from base.orm import Base, local_session
 from orm.rbac import Role
 
@@ -34,9 +35,7 @@ class AuthorFollower(Base):
     id = None  # type: ignore
     follower = Column(ForeignKey("user.id"), primary_key=True, index=True)
     author = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    createdAt = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Created at"
-    )
+    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
     auto = Column(Boolean, nullable=False, default=False)
 
 
@@ -54,12 +53,8 @@ class User(Base):
     slug = Column(String, unique=True, comment="User's slug")
     muted = Column(Boolean, default=False)
     emailConfirmed = Column(Boolean, default=False)
-    createdAt = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Created at"
-    )
-    lastSeen = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Was online at"
-    )
+    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
+    lastSeen = Column(DateTime, nullable=False, default=datetime.now, comment="Was online at")
     deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
     links = Column(JSONType, nullable=True, comment="Links")
     oauth = Column(String, nullable=True)

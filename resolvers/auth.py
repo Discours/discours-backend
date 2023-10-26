@@ -1,24 +1,30 @@
 # -*- coding: utf-8 -*-
 
+import re
 from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
 from graphql.type import GraphQLResolveInfo
 from starlette.responses import RedirectResponse
 from transliterate import translit
-import re
+
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from auth.email import send_auth_email
 from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-from base.exceptions import (BaseHttpException, InvalidPassword, InvalidToken,
-                             ObjectNotExist, Unauthorized)
+from base.exceptions import (
+    BaseHttpException,
+    InvalidPassword,
+    InvalidToken,
+    ObjectNotExist,
+    Unauthorized,
+)
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
-from settings import SESSION_TOKEN_HEADER, FRONTEND_URL
+from settings import FRONTEND_URL, SESSION_TOKEN_HEADER
 
 
 @mutation.field("getSession")
@@ -32,10 +38,7 @@ async def get_current_user(_, info):
         user.lastSeen = datetime.now(tz=timezone.utc)
         session.commit()
 
-        return {
-            "token": token,
-            "user": user
-        }
+        return {"token": token, "user": user}
 
 
 @mutation.field("confirmEmail")
@@ -53,10 +56,7 @@ async def confirm_email(_, info, token):
             user.lastSeen = datetime.now(tz=timezone.utc)
             session.add(user)
             session.commit()
-            return {
-                "token": session_token,
-                "user": user
-            }
+            return {"token": session_token, "user": user}
     except InvalidToken as e:
         raise InvalidToken(e.message)
     except Exception as e:
@@ -122,7 +122,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
             "email": email,
             "username": email,  # will be used to store phone number or some messenger network id
             "name": name,
-            "slug": slug
+            "slug": slug,
         }
         if password:
             user_dict["password"] = Password.encode(password)
@@ -172,10 +172,7 @@ async def login(_, info, email: str, password: str = "", lang: str = "ru"):
                     user = Identity.password(orm_user, password)
                     session_token = await TokenStorage.create_session(user)
                     print(f"[auth] user {email} authorized")
-                    return {
-                        "token": session_token,
-                        "user": user
-                    }
+                    return {"token": session_token, "user": user}
                 except InvalidPassword:
                     print(f"[auth] {email}: invalid password")
                     raise InvalidPassword("invalid password")  # contains webserver status

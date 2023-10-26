@@ -6,7 +6,7 @@ exclude: |
   )
 
 default_language_version:
-  python: python3.8
+  python: python3.10
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -23,20 +23,20 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.5.3
+    rev: 5.12.0
     hooks:
       - id: isort
 
   - repo: https://github.com/ambv/black
-    rev: 20.8b1
+    rev: 23.9.1
     hooks:
       - id: black
         args:
           - --line-length=100
           - --skip-string-normalization
 
-  - repo: https://gitlab.com/pycqa/flake8
-    rev: 3.8.3
+  - repo: https://github.com/PyCQA/flake8
+    rev: 6.1.0
     hooks:
       - id: flake8
         args:
