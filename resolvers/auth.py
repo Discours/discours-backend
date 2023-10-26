@@ -14,7 +14,13 @@ from auth.email import send_auth_email
 from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-from base.exceptions import BaseHttpException, InvalidPassword, InvalidToken, ObjectNotExist, Unauthorized
+from base.exceptions import (
+    BaseHttpException,
+    InvalidPassword,
+    InvalidToken,
+    ObjectNotExist,
+    Unauthorized,
+)
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
