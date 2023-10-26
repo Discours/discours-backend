@@ -1,14 +1,13 @@
-import asyncio
-import json
-from datetime import datetime, timezone
-
-from sqlalchemy import and_
-
 from base.orm import local_session
+from datetime import datetime, timezone
 from orm import Notification, Reaction, Shout, User
 from orm.notification import NotificationType
 from orm.reaction import ReactionKind
 from services.notifications.sse import connection_manager
+from sqlalchemy import and_
+
+import asyncio
+import json
 
 
 def shout_to_shout_data(shout):
@@ -16,13 +15,18 @@ def shout_to_shout_data(shout):
 
 
 def user_to_user_data(user):
-    return {"id": user.id, "name": user.name, "slug": user.slug, "userpic": user.userpic}
+    return {
+        "id": user.id,
+        "name": user.name,
+        "slug": user.slug,
+        "userpic": user.userpic,
+    }
 
 
 def update_prev_notification(notification, user, reaction):
     notification_data = json.loads(notification.data)
 
-    notification_data["users"] = [u for u in notification_data["users"] if u['id'] != user.id]
+    notification_data["users"] = [u for u in notification_data["users"] if u["id"] != user.id]
     notification_data["users"].append(user_to_user_data(user))
 
     if notification_data["reactionIds"] is None:
@@ -61,7 +65,7 @@ class NewReactionNotificator:
                                     Notification.type == NotificationType.NEW_REPLY,
                                     Notification.shout == shout.id,
                                     Notification.reaction == parent_reaction.id,
-                                    Notification.seen == False,
+                                    Notification.seen == False,  # noqa: E712
                                 )
                             )
                             .first()
@@ -103,7 +107,7 @@ class NewReactionNotificator:
                                 Notification.user == shout.createdBy,
                                 Notification.type == NotificationType.NEW_COMMENT,
                                 Notification.shout == shout.id,
-                                Notification.seen == False,
+                                Notification.seen == False,  # noqa: E712
                             )
                         )
                         .first()
@@ -154,7 +158,7 @@ class NotificationService:
             try:
                 await notificator.run()
             except Exception as e:
-                print(f'[NotificationService.worker] error: {str(e)}')
+                print(f"[NotificationService.worker] error: {str(e)}")
 
 
 notification_service = NotificationService()

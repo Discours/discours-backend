@@ -1,9 +1,7 @@
+from base.orm import Base
 from datetime import datetime
 from enum import Enum as Enumeration
-
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, String
-
-from base.orm import Base
 
 
 class ReactionKind(Enumeration):

@@ -1,18 +1,17 @@
-import json
-import re
-from datetime import datetime, timezone
-
-from dateutil.parser import parse as date_parse
-from sqlalchemy.exc import IntegrityError
-from transliterate import translit
-
 from base.orm import local_session
+from datetime import datetime, timezone
+from dateutil.parser import parse as date_parse
 from migration.extract import extract_html, extract_media
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower, ShoutTopic
 from orm.topic import Topic, TopicFollower
 from orm.user import User
 from services.stat.viewed import ViewedStorage
+from sqlalchemy.exc import IntegrityError
+from transliterate import translit
+
+import json
+import re
 
 OLD_DATE = "2016-03-05 22:22:00.350000"
 ts = datetime.now(tz=timezone.utc)
@@ -35,7 +34,7 @@ def get_shout_slug(entry):
             slug = friend.get("slug", "")
             if slug:
                 break
-    slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+    slug = re.sub("[^0-9a-zA-Z]+", "-", slug)
     return slug
 
 
@@ -43,27 +42,27 @@ def create_author_from_app(app):
     user = None
     userdata = None
     # check if email is used
-    if app['email']:
+    if app["email"]:
         with local_session() as session:
-            user = session.query(User).where(User.email == app['email']).first()
+            user = session.query(User).where(User.email == app["email"]).first()
             if not user:
                 # print('[migration] app %r' % app)
-                name = app.get('name')
+                name = app.get("name")
                 if name:
                     slug = translit(name, "ru", reversed=True).lower()
-                    slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
-                    print('[migration] created slug %s' % slug)
+                    slug = re.sub("[^0-9a-zA-Z]+", "-", slug)
+                    print("[migration] created slug %s" % slug)
                     # check if slug is used
                     if slug:
                         user = session.query(User).where(User.slug == slug).first()
 
                         # get slug from email
                         if user:
-                            slug = app['email'].split('@')[0]
+                            slug = app["email"].split("@")[0]
                             user = session.query(User).where(User.slug == slug).first()
                             # one more try
                             if user:
-                                slug += '-author'
+                                slug += "-author"
                                 user = session.query(User).where(User.slug == slug).first()
 
                 # create user with application data
@@ -81,7 +80,7 @@ def create_author_from_app(app):
                     user = User.create(**userdata)
                     session.add(user)
                     session.commit()
-                    userdata['id'] = user.id
+                    userdata["id"] = user.id
 
             userdata = user.dict()
         return userdata
@@ -119,14 +118,14 @@ async def get_user(entry, storage):
         elif user_oid:
             userdata = storage["users"]["by_oid"].get(user_oid)
         if not userdata:
-            print('no userdata by oid, anonymous')
+            print("no userdata by oid, anonymous")
             userdata = anondict
             print(app)
     # cleanup slug
     if userdata:
         slug = userdata.get("slug", "")
         if slug:
-            slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+            slug = re.sub("[^0-9a-zA-Z]+", "-", slug)
             userdata["slug"] = slug
     else:
         userdata = anondict
@@ -160,7 +159,7 @@ async def migrate(entry, storage):
     }
 
     # main topic patch
-    r['mainTopic'] = r['topics'][0]
+    r["mainTopic"] = r["topics"][0]
 
     # published author auto-confirm
     if entry.get("published"):
@@ -183,7 +182,7 @@ async def migrate(entry, storage):
         shout_dict["oid"] = entry.get("_id", "")
         shout = await create_shout(shout_dict)
     except IntegrityError as e:
-        print('[migration] create_shout integrity error', e)
+        print("[migration] create_shout integrity error", e)
         shout = await resolve_create_shout(shout_dict)
     except Exception as e:
         raise Exception(e)
@@ -202,7 +201,7 @@ async def migrate(entry, storage):
 
     # shout views
     await ViewedStorage.increment(
-        shout_dict["slug"], amount=entry.get("views", 1), viewer='old-discours'
+        shout_dict["slug"], amount=entry.get("views", 1), viewer="old-discours"
     )
     # del shout_dict['ratings']
 
@@ -240,7 +239,7 @@ async def add_topics_follower(entry, storage, user):
                         session.add(tf)
                         session.commit()
             except IntegrityError:
-                print('[migration.shout] hidden by topic ' + tpc.slug)
+                print("[migration.shout] hidden by topic " + tpc.slug)
     # main topic
     maintopic = storage["replacements"].get(topics_by_oid.get(category, {}).get("slug"))
     if maintopic in ttt:
@@ -261,7 +260,7 @@ async def process_user(userdata, storage, oid):
         if not user:
             try:
                 slug = userdata["slug"].lower().strip()
-                slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+                slug = re.sub("[^0-9a-zA-Z]+", "-", slug)
                 userdata["slug"] = slug
                 user = User.create(**userdata)
                 session.add(user)
@@ -289,9 +288,9 @@ async def resolve_create_shout(shout_dict):
         s = session.query(Shout).filter(Shout.slug == shout_dict["slug"]).first()
         bump = False
         if s:
-            if s.createdAt != shout_dict['createdAt']:
+            if s.createdAt != shout_dict["createdAt"]:
                 # create new with different slug
-                shout_dict["slug"] += '-' + shout_dict["layout"]
+                shout_dict["slug"] += "-" + shout_dict["layout"]
                 try:
                     await create_shout(shout_dict)
                 except IntegrityError as e:

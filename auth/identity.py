@@ -1,16 +1,14 @@
-from binascii import hexlify
-from hashlib import sha256
-
-from jwt import DecodeError, ExpiredSignatureError
-from passlib.hash import bcrypt
-from sqlalchemy import or_
-
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
 
 # from base.exceptions import InvalidPassword, InvalidToken
 from base.orm import local_session
+from binascii import hexlify
+from hashlib import sha256
+from jwt import DecodeError, ExpiredSignatureError
 from orm import User
+from passlib.hash import bcrypt
+from sqlalchemy import or_
 from validations.auth import AuthInput
 
 
@@ -35,6 +33,7 @@ class Password:
         Verify that password hash is equal to specified hash. Hash format:
 
         $2a$10$Ro0CUfOqk6cXEKf3dyaM7OhSCvnwM9s4wIX9JeLapehKK5YdLxKcm
+        # noqa: W605
         \__/\/ \____________________/\_____________________________/
         |   |        Salt                     Hash
         |  Cost
@@ -84,7 +83,7 @@ class Identity:
     @staticmethod
     async def onetime(token: str) -> User:
         try:
-            print('[auth.identity] using one time token')
+            print("[auth.identity] using one time token")
             payload = JWTCodec.decode(token)
             if not await TokenStorage.exist(f"{payload.user_id}-{payload.username}-{token}"):
                 # raise InvalidToken("Login token has expired, please login again")

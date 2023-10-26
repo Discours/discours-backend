@@ -1,12 +1,12 @@
-import json
-import uuid
-from datetime import datetime, timezone
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import mutation
+from datetime import datetime, timezone
 from validations.inbox import Chat
+
+import json
+import uuid
 
 
 @mutation.field("updateChat")
@@ -49,7 +49,7 @@ async def update_chat(_, info, chat_new: Chat):
 async def create_chat(_, info, title="", members=[]):
     auth: AuthCredentials = info.context["request"].auth
     chat = {}
-    print('create_chat members: %r' % members)
+    print("create_chat members: %r" % members)
     if auth.user_id not in members:
         members.append(int(auth.user_id))
 
@@ -71,8 +71,8 @@ async def create_chat(_, info, title="", members=[]):
             chat = await redis.execute("GET", f"chats/{c.decode('utf-8')}")
             if chat:
                 chat = json.loads(chat)
-                if chat['title'] == "":
-                    print('[inbox] createChat found old chat')
+                if chat["title"] == "":
+                    print("[inbox] createChat found old chat")
                     print(chat)
                     break
         if chat:
@@ -105,7 +105,7 @@ async def delete_chat(_, info, chat_id: str):
     chat = await redis.execute("GET", f"/chats/{chat_id}")
     if chat:
         chat = dict(json.loads(chat))
-        if auth.user_id in chat['admins']:
+        if auth.user_id in chat["admins"]:
             await redis.execute("DEL", f"chats/{chat_id}")
             await redis.execute("SREM", "chats_by_user/" + str(auth.user_id), chat_id)
             await redis.execute("COMMIT")

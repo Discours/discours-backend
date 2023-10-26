@@ -1,8 +1,6 @@
-from datetime import datetime
-
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
-
 from base.orm import Base
+from datetime import datetime
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
 
 
 class TopicFollower(Base):

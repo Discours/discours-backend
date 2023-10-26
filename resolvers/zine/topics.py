@@ -1,12 +1,11 @@
-from sqlalchemy import and_, distinct, func, select
-from sqlalchemy.orm import aliased
-
 from auth.authenticate import login_required
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import User
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
+from sqlalchemy import and_, distinct, func, select
+from sqlalchemy.orm import aliased
 
 
 def add_topic_stat_columns(q):
@@ -15,11 +14,11 @@ def add_topic_stat_columns(q):
 
     q = (
         q.outerjoin(ShoutTopic, Topic.id == ShoutTopic.topic)
-        .add_columns(func.count(distinct(ShoutTopic.shout)).label('shouts_stat'))
+        .add_columns(func.count(distinct(ShoutTopic.shout)).label("shouts_stat"))
         .outerjoin(aliased_shout_author, ShoutTopic.shout == aliased_shout_author.shout)
-        .add_columns(func.count(distinct(aliased_shout_author.user)).label('authors_stat'))
+        .add_columns(func.count(distinct(aliased_shout_author.user)).label("authors_stat"))
         .outerjoin(aliased_topic_follower)
-        .add_columns(func.count(distinct(aliased_topic_follower.follower)).label('followers_stat'))
+        .add_columns(func.count(distinct(aliased_topic_follower.follower)).label("followers_stat"))
     )
 
     q = q.group_by(Topic.id)
@@ -29,7 +28,11 @@ def add_topic_stat_columns(q):
 
 def add_stat(topic, stat_columns):
     [shouts_stat, authors_stat, followers_stat] = stat_columns
-    topic.stat = {"shouts": shouts_stat, "authors": authors_stat, "followers": followers_stat}
+    topic.stat = {
+        "shouts": shouts_stat,
+        "authors": authors_stat,
+        "followers": followers_stat,
+    }
 
     return topic
 

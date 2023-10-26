@@ -1,8 +1,8 @@
-import asyncio
-import json
-
 from sse_starlette.sse import EventSourceResponse
 from starlette.requests import Request
+
+import asyncio
+import json
 
 
 class ConnectionManager:

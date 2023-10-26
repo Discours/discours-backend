@@ -1,11 +1,9 @@
-from typing import Any, Callable, Dict, Generic, TypeVar
-
-from sqlalchemy import Column, Integer, create_engine
+from settings import DB_URL
+from sqlalchemy import Column, create_engine, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.schema import Table
-
-from settings import DB_URL
+from typing import Any, Callable, Dict, Generic, TypeVar
 
 engine = create_engine(DB_URL, echo=False, pool_size=10, max_overflow=20)
 

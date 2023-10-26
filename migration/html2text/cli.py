@@ -1,7 +1,7 @@
+from . import __version__, config, HTML2Text
+
 import argparse
 import sys
-
-from . import HTML2Text, __version__, config
 
 
 # noinspection DuplicatedCode

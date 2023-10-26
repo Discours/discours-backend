@@ -1,18 +1,16 @@
-from datetime import datetime, timedelta, timezone
-from typing import List
-
-from sqlalchemy import and_, distinct, func, literal, select
-from sqlalchemy.orm import aliased, joinedload
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation, query
+from datetime import datetime, timedelta, timezone
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
 from resolvers.zine.topics import followed_by_user
+from sqlalchemy import and_, distinct, func, literal, select
+from sqlalchemy.orm import aliased, joinedload
+from typing import List
 
 
 def add_author_stat_columns(q):
@@ -22,24 +20,24 @@ def add_author_stat_columns(q):
     # user_rating_aliased = aliased(UserRating)
 
     q = q.outerjoin(shout_author_aliased).add_columns(
-        func.count(distinct(shout_author_aliased.shout)).label('shouts_stat')
+        func.count(distinct(shout_author_aliased.shout)).label("shouts_stat")
     )
     q = q.outerjoin(author_followers, author_followers.author == User.id).add_columns(
-        func.count(distinct(author_followers.follower)).label('followers_stat')
+        func.count(distinct(author_followers.follower)).label("followers_stat")
     )
 
     q = q.outerjoin(author_following, author_following.follower == User.id).add_columns(
-        func.count(distinct(author_following.author)).label('followings_stat')
+        func.count(distinct(author_following.author)).label("followings_stat")
     )
 
-    q = q.add_columns(literal(0).label('rating_stat'))
+    q = q.add_columns(literal(0).label("rating_stat"))
     # FIXME
     # q = q.outerjoin(user_rating_aliased, user_rating_aliased.user == User.id).add_columns(
     #     # TODO: check
     #     func.sum(user_rating_aliased.value).label('rating_stat')
     # )
 
-    q = q.add_columns(literal(0).label('commented_stat'))
+    q = q.add_columns(literal(0).label("commented_stat"))
     # q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
     #     func.count(distinct(Reaction.id)).label('commented_stat')
     # )
@@ -50,7 +48,13 @@ def add_author_stat_columns(q):
 
 
 def add_stat(author, stat_columns):
-    [shouts_stat, followers_stat, followings_stat, rating_stat, commented_stat] = stat_columns
+    [
+        shouts_stat,
+        followers_stat,
+        followings_stat,
+        rating_stat,
+        commented_stat,
+    ] = stat_columns
     author.stat = {
         "shouts": shouts_stat,
         "followers": followers_stat,
@@ -227,7 +231,12 @@ async def get_author(_, _info, slug):
     with local_session() as session:
         comments_count = (
             session.query(Reaction)
-            .where(and_(Reaction.createdBy == author.id, Reaction.kind == ReactionKind.COMMENT))
+            .where(
+                and_(
+                    Reaction.createdBy == author.id,
+                    Reaction.kind == ReactionKind.COMMENT,
+                )
+            )
             .count()
         )
         author.stat["commented"] = comments_count

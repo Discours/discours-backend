@@ -1,25 +1,23 @@
-from datetime import datetime, timedelta, timezone
-
-from sqlalchemy import and_, asc, case, desc, func, select, text
-from sqlalchemy.orm import aliased
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.exceptions import OperationNotAllowed
 from base.orm import local_session
 from base.resolvers import mutation, query
+from datetime import datetime, timedelta, timezone
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.user import User
 from services.notifications.notification_service import notification_service
+from sqlalchemy import and_, asc, case, desc, func, select, text
+from sqlalchemy.orm import aliased
 
 
 def add_reaction_stat_columns(q):
     aliased_reaction = aliased(Reaction)
 
     q = q.outerjoin(aliased_reaction, Reaction.id == aliased_reaction.replyTo).add_columns(
-        func.sum(aliased_reaction.id).label('reacted_stat'),
-        func.sum(case((aliased_reaction.body.is_not(None), 1), else_=0)).label('commented_stat'),
+        func.sum(aliased_reaction.id).label("reacted_stat"),
+        func.sum(case((aliased_reaction.body.is_not(None), 1), else_=0)).label("commented_stat"),
         func.sum(
             case(
                 (aliased_reaction.kind == ReactionKind.AGREE, 1),
@@ -32,7 +30,7 @@ def add_reaction_stat_columns(q):
                 (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
                 else_=0,
             )
-        ).label('rating_stat'),
+        ).label("rating_stat"),
     )
 
     return q
@@ -91,7 +89,7 @@ def reactions_unfollow(user_id: int, shout_id: int):
 
 
 def is_published_author(session, user_id):
-    '''checks if user has at least one publication'''
+    """checks if user has at least one publication"""
     return (
         session.query(Shout)
         .where(Shout.authors.contains(user_id))
@@ -102,7 +100,7 @@ def is_published_author(session, user_id):
 
 
 def check_to_publish(session, user_id, reaction):
-    '''set shout to public if publicated approvers amount > 4'''
+    """set shout to public if publicated approvers amount > 4"""
     if not reaction.replyTo and reaction.kind in [
         ReactionKind.ACCEPT,
         ReactionKind.LIKE,
@@ -126,7 +124,7 @@ def check_to_publish(session, user_id, reaction):
 
 
 def check_to_hide(session, user_id, reaction):
-    '''hides any shout if 20% of reactions are negative'''
+    """hides any shout if 20% of reactions are negative"""
     if not reaction.replyTo and reaction.kind in [
         ReactionKind.REJECT,
         ReactionKind.DISLIKE,
@@ -136,7 +134,11 @@ def check_to_hide(session, user_id, reaction):
         approvers_reactions = session.query(Reaction).where(Reaction.shout == reaction.shout).all()
         rejects = 0
         for r in approvers_reactions:
-            if r.kind in [ReactionKind.REJECT, ReactionKind.DISLIKE, ReactionKind.DISPROOF]:
+            if r.kind in [
+                ReactionKind.REJECT,
+                ReactionKind.DISLIKE,
+                ReactionKind.DISPROOF,
+            ]:
                 rejects += 1
         if len(approvers_reactions) / rejects < 5:
             return True
@@ -146,14 +148,14 @@ def check_to_hide(session, user_id, reaction):
 def set_published(session, shout_id):
     s = session.query(Shout).where(Shout.id == shout_id).first()
     s.publishedAt = datetime.now(tz=timezone.utc)
-    s.visibility = text('public')
+    s.visibility = text("public")
     session.add(s)
     session.commit()
 
 
 def set_hidden(session, shout_id):
     s = session.query(Shout).where(Shout.id == shout_id).first()
-    s.visibility = text('community')
+    s.visibility = text("community")
     session.add(s)
     session.commit()
 
@@ -162,7 +164,7 @@ def set_hidden(session, shout_id):
 @login_required
 async def create_reaction(_, info, reaction):
     auth: AuthCredentials = info.context["request"].auth
-    reaction['createdBy'] = auth.user_id
+    reaction["createdBy"] = auth.user_id
     rdict = {}
     with local_session() as session:
         shout = session.query(Shout).where(Shout.id == reaction["shout"]).one()
@@ -230,8 +232,8 @@ async def create_reaction(_, info, reaction):
         await notification_service.handle_new_reaction(r.id)
 
         rdict = r.dict()
-        rdict['shout'] = shout.dict()
-        rdict['createdBy'] = author.dict()
+        rdict["shout"] = shout.dict()
+        rdict["createdBy"] = author.dict()
 
         # self-regulation mechanics
         if check_to_hide(session, auth.user_id, r):
@@ -244,7 +246,7 @@ async def create_reaction(_, info, reaction):
     except Exception as e:
         print(f"[resolvers.reactions] error on reactions autofollowing: {e}")
 
-    rdict['stat'] = {"commented": 0, "reacted": 0, "rating": 0}
+    rdict["stat"] = {"commented": 0, "reacted": 0, "rating": 0}
     return {"reaction": rdict}
 
 
@@ -274,7 +276,11 @@ async def update_reaction(_, info, id, reaction={}):
         if reaction.get("range"):
             r.range = reaction.get("range")
         session.commit()
-        r.stat = {"commented": commented_stat, "reacted": reacted_stat, "rating": rating_stat}
+        r.stat = {
+            "commented": commented_stat,
+            "reacted": reacted_stat,
+            "rating": rating_stat,
+        }
 
     return {"reaction": r}
 
@@ -338,7 +344,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     if by.get("comment"):
         q = q.filter(func.length(Reaction.body) > 0)
 
-    if len(by.get('search', '')) > 2:
+    if len(by.get("search", "")) > 2:
         q = q.filter(Reaction.body.ilike(f'%{by["body"]}%'))
 
     if by.get("days"):
@@ -346,7 +352,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
         q = q.filter(Reaction.createdAt > after)
 
     order_way = asc if by.get("sort", "").startswith("-") else desc
-    order_field = by.get("sort", "").replace('-', '') or Reaction.createdAt
+    order_field = by.get("sort", "").replace("-", "") or Reaction.createdAt
 
     q = q.group_by(Reaction.id, User.id, Shout.id).order_by(order_way(order_field))
 
@@ -357,9 +363,14 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     reactions = []
 
     with local_session() as session:
-        for [reaction, user, shout, reacted_stat, commented_stat, rating_stat] in session.execute(
-            q
-        ):
+        for [
+            reaction,
+            user,
+            shout,
+            reacted_stat,
+            commented_stat,
+            rating_stat,
+        ] in session.execute(q):
             reaction.createdBy = user
             reaction.shout = shout
             reaction.stat = {

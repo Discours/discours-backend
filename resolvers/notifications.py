@@ -1,10 +1,9 @@
-from sqlalchemy import and_, desc, select, update
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Notification
+from sqlalchemy import and_, desc, select, update
 
 
 @query.field("loadNotifications")
@@ -16,8 +15,8 @@ async def load_notifications(_, info, params=None):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
-    limit = params.get('limit', 50)
-    offset = params.get('offset', 0)
+    limit = params.get("limit", 50)
+    offset = params.get("offset", 0)
 
     q = (
         select(Notification)
@@ -33,7 +32,7 @@ async def load_notifications(_, info, params=None):
 
         total_unread_count = (
             session.query(Notification)
-            .where(and_(Notification.user == user_id, Notification.seen == False))
+            .where(and_(Notification.user == user_id, Notification.seen == False))  # noqa: E712
             .count()
         )
 
@@ -74,7 +73,7 @@ async def mark_all_notifications_as_read(_, info):
 
     statement = (
         update(Notification)
-        .where(and_(Notification.user == user_id, Notification.seen == False))
+        .where(and_(Notification.user == user_id, Notification.seen == False))  # noqa: E712
         .values(seen=True)
     )
 

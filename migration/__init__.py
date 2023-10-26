@@ -1,24 +1,24 @@
 """ cmd managed migration """
-import asyncio
-import gc
-import json
-import sys
 from datetime import datetime, timezone
-
-import bs4
-
 from migration.export import export_mdx
 from migration.tables.comments import migrate as migrateComment
 from migration.tables.comments import migrate_2stage as migrateComment_2stage
 from migration.tables.content_items import get_shout_slug
 from migration.tables.content_items import migrate as migrateShout
-from migration.tables.remarks import migrate as migrateRemark
+
+# from migration.tables.remarks import migrate as migrateRemark
 from migration.tables.topics import migrate as migrateTopic
 from migration.tables.users import migrate as migrateUser
 from migration.tables.users import migrate_2stage as migrateUser_2stage
 from migration.tables.users import post_migrate as users_post_migrate
 from orm import init_tables
 from orm.reaction import Reaction
+
+import asyncio
+import bs4
+import gc
+import json
+import sys
 
 TODAY = datetime.strftime(datetime.now(tz=timezone.utc), "%Y%m%d")
 OLD_DATE = "2016-03-05 22:22:00.350000"
@@ -111,7 +111,7 @@ async def shouts_handle(storage, args):
             # print main counter
             counter += 1
             print(
-                '[migration] shouts_handle %d: %s @%s'
+                "[migration] shouts_handle %d: %s @%s"
                 % ((counter + 1), shout_dict["slug"], author["slug"])
             )
 
@@ -132,13 +132,13 @@ async def shouts_handle(storage, args):
     print("[migration] " + str(anonymous_author) + " authored by @anonymous")
 
 
-async def remarks_handle(storage):
-    print("[migration] comments")
-    c = 0
-    for entry_remark in storage["remarks"]["data"]:
-        remark = await migrateRemark(entry_remark, storage)
-        c += 1
-    print("[migration] " + str(c) + " remarks migrated")
+# async def remarks_handle(storage):
+#     print("[migration] comments")
+#     c = 0
+#     for entry_remark in storage["remarks"]["data"]:
+#         remark = await migrateRemark(entry_remark, storage)
+#         c += 1
+#     print("[migration] " + str(c) + " remarks migrated")
 
 
 async def comments_handle(storage):
@@ -149,9 +149,9 @@ async def comments_handle(storage):
     for oldcomment in storage["reactions"]["data"]:
         if not oldcomment.get("deleted"):
             reaction = await migrateComment(oldcomment, storage)
-            if type(reaction) == str:
+            if isinstance(reaction, str):
                 missed_shouts[reaction] = oldcomment
-            elif type(reaction) == Reaction:
+            elif isinstance(reaction, Reaction):
                 reaction = reaction.dict()
                 rid = reaction["id"]
                 oid = reaction["oid"]

@@ -1,16 +1,14 @@
-import asyncio
-import time
+from base.orm import local_session
 from datetime import datetime, timedelta, timezone
+from gql import Client, gql
+from gql.transport.aiohttp import AIOHTTPTransport
+from orm import Topic
+from orm.shout import Shout, ShoutTopic
 from os import environ, path
 from ssl import create_default_context
 
-from gql import Client, gql
-from gql.transport.aiohttp import AIOHTTPTransport
-from sqlalchemy import func
-
-from base.orm import local_session
-from orm import Topic, User
-from orm.shout import Shout, ShoutTopic
+import asyncio
+import time
 
 load_facts = gql(
     """
@@ -46,7 +44,7 @@ query getDomains {
 }
 """
 )
-schema_str = open(path.dirname(__file__) + '/ackee.graphql').read()
+schema_str = open(path.dirname(__file__) + "/ackee.graphql").read()
 token = environ.get("ACKEE_TOKEN", "")
 
 
@@ -54,7 +52,9 @@ def create_client(headers=None, schema=None):
     return Client(
         schema=schema,
         transport=AIOHTTPTransport(
-            url="https://ackee.discours.io/api", ssl=create_default_context(), headers=headers
+            url="https://ackee.discours.io/api",
+            ssl=create_default_context(),
+            headers=headers,
         ),
     )
 
@@ -98,7 +98,7 @@ class ViewedStorage:
             try:
                 for page in self.pages:
                     p = page["value"].split("?")[0]
-                    slug = p.split('discours.io/')[-1]
+                    slug = p.split("discours.io/")[-1]
                     shouts[slug] = page["count"]
                 for slug in shouts.keys():
                     await ViewedStorage.increment(slug, shouts[slug])
@@ -162,14 +162,14 @@ class ViewedStorage:
             self.by_topics[topic.slug][shout_slug] = self.by_shouts[shout_slug]
 
     @staticmethod
-    async def increment(shout_slug, amount=1, viewer='ackee'):
+    async def increment(shout_slug, amount=1, viewer="ackee"):
         """the only way to change views counter"""
         self = ViewedStorage
         async with self.lock:
             # TODO optimize, currenty we execute 1 DB transaction per shout
             with local_session() as session:
                 shout = session.query(Shout).where(Shout.slug == shout_slug).one()
-                if viewer == 'old-discours':
+                if viewer == "old-discours":
                     # this is needed for old db migration
                     if shout.viewsOld == amount:
                         print(f"viewsOld amount: {amount}")

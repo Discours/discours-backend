@@ -1,29 +1,28 @@
-import re
-from string import punctuation
-
-import nltk
 from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 from pymystem3 import Mystem
-from transformers import BertTokenizer
+from string import punctuation
+
+import nltk
+import re
 
 nltk.download("stopwords")
 
 
 def get_clear_text(text):
-    soup = BeautifulSoup(text, 'html.parser')
+    soup = BeautifulSoup(text, "html.parser")
 
     # extract the plain text from the HTML document without tags
-    clear_text = ''
+    clear_text = ""
     for tag in soup.find_all():
-        clear_text += tag.string or ''
+        clear_text += tag.string or ""
 
-    clear_text = re.sub(pattern='[\u202F\u00A0\n]+', repl=' ', string=clear_text)
+    clear_text = re.sub(pattern="[\u202F\u00A0\n]+", repl=" ", string=clear_text)
 
     # only words
-    clear_text = re.sub(pattern='[^A-ZА-ЯЁ -]', repl='', string=clear_text, flags=re.IGNORECASE)
+    clear_text = re.sub(pattern="[^A-ZА-ЯЁ -]", repl="", string=clear_text, flags=re.IGNORECASE)
 
-    clear_text = re.sub(pattern='\s+', repl=' ', string=clear_text)
+    clear_text = re.sub(pattern=r"\s+", repl=" ", string=clear_text)
 
     clear_text = clear_text.lower()
 

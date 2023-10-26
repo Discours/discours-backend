@@ -1,12 +1,10 @@
-from datetime import datetime
-
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import column_property, relationship
-
 from base.orm import Base, local_session
+from datetime import datetime
 from orm.reaction import Reaction
 from orm.topic import Topic
 from orm.user import User
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy.orm import column_property, relationship
 
 
 class ShoutTopic(Base):
@@ -70,7 +68,7 @@ class Shout(Base):
 
     # TODO: these field should be used or modified
     community = Column(ForeignKey("community.id"), default=1)
-    lang = Column(String, nullable=False, default='ru', comment="Language")
+    lang = Column(String, nullable=False, default="ru", comment="Language")
     mainTopic = Column(ForeignKey("topic.slug"), nullable=True)
     visibility = Column(String, nullable=True)  # owner authors community public
     versionOf = Column(ForeignKey("shout.id"), nullable=True)
@@ -81,7 +79,12 @@ class Shout(Base):
         with local_session() as session:
             s = session.query(Shout).first()
             if not s:
-                entry = {"slug": "genesis-block", "body": "", "title": "Ничего", "lang": "ru"}
+                entry = {
+                    "slug": "genesis-block",
+                    "body": "",
+                    "title": "Ничего",
+                    "lang": "ru",
+                }
                 s = Shout.create(**entry)
                 session.add(s)
                 session.commit()

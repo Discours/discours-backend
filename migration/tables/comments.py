@@ -1,8 +1,6 @@
-from datetime import datetime, timezone
-
-from dateutil.parser import parse as date_parse
-
 from base.orm import local_session
+from datetime import datetime, timezone
+from dateutil.parser import parse as date_parse
 from migration.html2text import html2text
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutReactionsFollower
@@ -30,12 +28,12 @@ def auto_followers(session, topics, reaction_dict):
         tf = (
             session.query(TopicFollower)
             .where(TopicFollower.follower == reaction_dict["createdBy"])
-            .filter(TopicFollower.topic == t['id'])
+            .filter(TopicFollower.topic == t["id"])
             .first()
         )
         if not tf:
             topic_following = TopicFollower.create(
-                follower=reaction_dict["createdBy"], topic=t['id'], auto=True
+                follower=reaction_dict["createdBy"], topic=t["id"], auto=True
             )
             session.add(topic_following)
 
@@ -57,13 +55,13 @@ def migrate_ratings(session, entry, reaction_dict):
             rr = Reaction.create(**re_reaction_dict)
             following2 = (
                 session.query(ShoutReactionsFollower)
-                .where(ShoutReactionsFollower.follower == re_reaction_dict['createdBy'])
+                .where(ShoutReactionsFollower.follower == re_reaction_dict["createdBy"])
                 .filter(ShoutReactionsFollower.shout == rr.shout)
                 .first()
             )
             if not following2:
                 following2 = ShoutReactionsFollower.create(
-                    follower=re_reaction_dict['createdBy'], shout=rr.shout, auto=True
+                    follower=re_reaction_dict["createdBy"], shout=rr.shout, auto=True
                 )
                 session.add(following2)
             session.add(rr)
@@ -160,9 +158,9 @@ async def migrate(entry, storage):
 
 
 def migrate_2stage(old_comment, idmap):
-    if old_comment.get('body'):
-        new_id = idmap.get(old_comment.get('oid'))
-        new_id = idmap.get(old_comment.get('_id'))
+    if old_comment.get("body"):
+        new_id = idmap.get(old_comment.get("oid"))
+        new_id = idmap.get(old_comment.get("_id"))
         if new_id:
             new_replyto_id = None
             old_replyto_id = old_comment.get("replyTo")

@@ -1,11 +1,10 @@
-import re
-
+from base.orm import local_session
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
+from orm.user import AuthorFollower, User, UserRating
 from sqlalchemy.exc import IntegrityError
 
-from base.orm import local_session
-from orm.user import AuthorFollower, User, UserRating
+import re
 
 
 def migrate(entry):
@@ -33,12 +32,12 @@ def migrate(entry):
     if entry.get("profile"):
         # slug
         slug = entry["profile"].get("path").lower()
-        slug = re.sub('[^0-9a-zA-Z]+', '-', slug).strip()
+        slug = re.sub("[^0-9a-zA-Z]+", "-", slug).strip()
         user_dict["slug"] = slug
         bio = (
             (entry.get("profile", {"bio": ""}).get("bio") or "")
-            .replace('\(', '(')
-            .replace('\)', ')')
+            .replace(r"\(", "(")
+            .replace(r"\)", ")")
         )
         bio_text = BeautifulSoup(bio, features="lxml").text
 
@@ -144,7 +143,7 @@ def migrate_2stage(entry, id_map):
                 }
 
                 user_rating = UserRating.create(**user_rating_dict)
-                if user_rating_dict['value'] > 0:
+                if user_rating_dict["value"] > 0:
                     af = AuthorFollower.create(author=user.id, follower=rater.id, auto=True)
                     session.add(af)
                 session.add(user_rating)

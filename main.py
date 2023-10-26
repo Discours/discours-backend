@@ -1,21 +1,12 @@
-import asyncio
-import os
-from importlib import import_module
-from os.path import exists
-
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
-from starlette.applications import Starlette
-from starlette.middleware import Middleware
-from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.middleware.sessions import SessionMiddleware
-from starlette.routing import Route
-
 from auth.authenticate import JWTAuthenticate
 from auth.oauth import oauth_authorize, oauth_login
 from base.redis import redis
 from base.resolvers import resolvers
+from importlib import import_module
 from orm import init_tables
+from os.path import exists
 from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
 from services.main import storages_init
@@ -25,6 +16,14 @@ from services.stat.viewed import ViewedStorage
 
 # from services.zine.gittask import GitTask
 from settings import DEV_SERVER_PID_FILE_NAME, SENTRY_DSN, SESSION_SECRET_KEY
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.routing import Route
+
+import asyncio
+import os
 
 import_module("resolvers")
 schema = make_executable_schema(load_schema_from_path("schema.graphql"), resolvers)  # type: ignore
@@ -51,7 +50,7 @@ async def start_up():
 
         sentry_sdk.init(SENTRY_DSN)
     except Exception as e:
-        print('[sentry] init error')
+        print("[sentry] init error")
         print(e)
 
 
@@ -60,7 +59,7 @@ async def dev_start_up():
         await redis.connect()
         return
     else:
-        with open(DEV_SERVER_PID_FILE_NAME, 'w', encoding='utf-8') as f:
+        with open(DEV_SERVER_PID_FILE_NAME, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
 
     await start_up()
@@ -75,7 +74,7 @@ routes = [
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
     Route("/confirm/{token}", endpoint=confirm_email_handler),
-    Route("/upload", endpoint=upload_handler, methods=['POST']),
+    Route("/upload", endpoint=upload_handler, methods=["POST"]),
     Route("/subscribe/{user_id}", endpoint=sse_subscribe_handler),
 ]
 

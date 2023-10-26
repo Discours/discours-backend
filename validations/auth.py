@@ -1,6 +1,5 @@
-from typing import Optional, Text
-
 from pydantic import BaseModel
+from typing import Optional, Text
 
 
 class AuthInput(BaseModel):

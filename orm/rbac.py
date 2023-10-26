@@ -1,9 +1,8 @@
-import warnings
-
+from base.orm import Base, local_session, REGISTRY
 from sqlalchemy import Column, ForeignKey, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from base.orm import REGISTRY, Base, engine, local_session
+import warnings
 
 # Role Based Access Control #
 
@@ -165,14 +164,14 @@ class Permission(Base):
     )
 
 
-if __name__ == "__main__":
-    Base.metadata.create_all(engine)
-    ops = [
-        Permission(role=1, operation=1, resource=1),
-        Permission(role=1, operation=2, resource=1),
-        Permission(role=1, operation=3, resource=1),
-        Permission(role=1, operation=4, resource=1),
-        Permission(role=2, operation=4, resource=1),
-    ]
-    global_session.add_all(ops)
-    global_session.commit()
+# if __name__ == "__main__":
+#     Base.metadata.create_all(engine)
+#     ops = [
+#         Permission(role=1, operation=1, resource=1),
+#         Permission(role=1, operation=2, resource=1),
+#         Permission(role=1, operation=3, resource=1),
+#         Permission(role=1, operation=4, resource=1),
+#         Permission(role=2, operation=4, resource=1),
+#     ]
+#     global_session.add_all(ops)
+#     global_session.commit()

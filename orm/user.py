@@ -1,11 +1,10 @@
-from datetime import datetime
-
-from sqlalchemy import JSON as JSONType
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
-
 from base.orm import Base, local_session
+from datetime import datetime
 from orm.rbac import Role
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer
+from sqlalchemy import JSON as JSONType
+from sqlalchemy import String
+from sqlalchemy.orm import relationship
 
 
 class UserRating(Base):

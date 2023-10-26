@@ -1,13 +1,5 @@
 """html2text: Turn HTML into equivalent Markdown-structured text."""
 
-import html.entities
-import html.parser
-import re
-import string
-import urllib.parse as urlparse
-from textwrap import wrap
-from typing import Dict, List, Optional, Tuple, Union
-
 from . import config
 from .elements import AnchorElement, ListElement
 from .typing import OutCallback
@@ -26,6 +18,14 @@ from .utils import (
     skipwrap,
     unifiable_n,
 )
+from textwrap import wrap
+from typing import Dict, List, Optional, Tuple, Union
+
+import html.entities
+import html.parser
+import re
+import string
+import urllib.parse as urlparse
 
 __version__ = (2020, 1, 16)
 

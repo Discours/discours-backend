@@ -1,15 +1,13 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import and_
-from sqlalchemy.orm import joinedload
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation
+from datetime import datetime, timezone
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
+from sqlalchemy import and_
+from sqlalchemy.orm import joinedload
 
 
 @mutation.field("createShout")
@@ -18,15 +16,15 @@ async def create_shout(_, info, inp):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        topics = session.query(Topic).filter(Topic.slug.in_(inp.get('topics', []))).all()
+        topics = session.query(Topic).filter(Topic.slug.in_(inp.get("topics", []))).all()
 
         new_shout = Shout.create(
             **{
                 "title": inp.get("title"),
-                "subtitle": inp.get('subtitle'),
-                "lead": inp.get('lead'),
-                "description": inp.get('description'),
-                "body": inp.get("body", ''),
+                "subtitle": inp.get("subtitle"),
+                "lead": inp.get("lead"),
+                "description": inp.get("description"),
+                "body": inp.get("body", ""),
                 "layout": inp.get("layout"),
                 "authors": inp.get("authors", []),
                 "slug": inp.get("slug"),
@@ -128,7 +126,10 @@ async def update_shout(_, info, shout_id, shout_input=None, publish=False):
             ]
 
             shout_topics_to_remove = session.query(ShoutTopic).filter(
-                and_(ShoutTopic.shout == shout.id, ShoutTopic.topic.in_(topic_to_unlink_ids))
+                and_(
+                    ShoutTopic.shout == shout.id,
+                    ShoutTopic.topic.in_(topic_to_unlink_ids),
+                )
             )
 
             for shout_topic_to_remove in shout_topics_to_remove:
@@ -136,13 +137,13 @@ async def update_shout(_, info, shout_id, shout_input=None, publish=False):
 
             shout_input["mainTopic"] = shout_input["mainTopic"]["slug"]
 
-            if shout_input["mainTopic"] == '':
+            if shout_input["mainTopic"] == "":
                 del shout_input["mainTopic"]
 
             shout.update(shout_input)
             updated = True
 
-        if publish and shout.visibility == 'owner':
+        if publish and shout.visibility == "owner":
             shout.visibility = "community"
             shout.publishedAt = datetime.now(tz=timezone.utc)
             updated = True

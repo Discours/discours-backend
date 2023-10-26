@@ -1,8 +1,6 @@
-from datetime import datetime
-
-from sqlalchemy import Column, DateTime, ForeignKey, String
-
 from base.orm import Base, local_session
+from datetime import datetime
+from sqlalchemy import Column, DateTime, ForeignKey, String
 
 
 class CommunityFollower(Base):
@@ -33,4 +31,4 @@ class Community(Base):
                 session.add(d)
                 session.commit()
             Community.default_community = d
-            print('[orm] default community id: %s' % d.id)
+            print("[orm] default community id: %s" % d.id)

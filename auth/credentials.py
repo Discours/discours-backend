@@ -1,6 +1,5 @@
-from typing import List, Optional, Text
-
 from pydantic import BaseModel
+from typing import List, Optional, Text
 
 # from base.exceptions import Unauthorized
 

@@ -1,7 +1,7 @@
-import html.entities
+from . import config
 from typing import Dict, List, Optional
 
-from . import config
+import html.entities
 
 unifiable_n = {
     html.entities.name2codepoint[k]: v for k, v in config.UNIFIABLE.items() if k != "nbsp"

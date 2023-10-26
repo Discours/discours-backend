@@ -1,26 +1,24 @@
-from datetime import datetime, timedelta, timezone
-
-from sqlalchemy.orm import aliased, joinedload
-from sqlalchemy.sql.expression import and_, asc, case, desc, func, nulls_last, select, text
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from base.exceptions import ObjectNotExist, OperationNotAllowed
+from base.exceptions import ObjectNotExist
 from base.orm import local_session
 from base.resolvers import query
+from datetime import datetime, timedelta, timezone
 from orm import TopicFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.user import AuthorFollower
+from sqlalchemy.orm import aliased, joinedload
+from sqlalchemy.sql.expression import and_, asc, case, desc, func, nulls_last, select
 
 
 def add_stat_columns(q):
     aliased_reaction = aliased(Reaction)
 
     q = q.outerjoin(aliased_reaction).add_columns(
-        func.sum(aliased_reaction.id).label('reacted_stat'),
+        func.sum(aliased_reaction.id).label("reacted_stat"),
         func.sum(case((aliased_reaction.kind == ReactionKind.COMMENT, 1), else_=0)).label(
-            'commented_stat'
+            "commented_stat"
         ),
         func.sum(
             case(
@@ -36,13 +34,13 @@ def add_stat_columns(q):
                 (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
                 else_=0,
             )
-        ).label('rating_stat'),
+        ).label("rating_stat"),
         func.max(
             case(
                 (aliased_reaction.kind != ReactionKind.COMMENT, None),
                 else_=aliased_reaction.createdAt,
             )
-        ).label('last_comment'),
+        ).label("last_comment"),
     )
 
     return q
@@ -60,7 +58,7 @@ def apply_filters(q, filters, user_id=None):
 
     if filters.get("layout"):
         q = q.filter(Shout.layout == filters.get("layout"))
-    if filters.get('excludeLayout'):
+    if filters.get("excludeLayout"):
         q = q.filter(Shout.layout != filters.get("excludeLayout"))
     if filters.get("author"):
         q = q.filter(Shout.authors.any(slug=filters.get("author")))
@@ -95,9 +93,13 @@ async def load_shout(_, info, slug=None, shout_id=None):
         q = q.filter(Shout.deletedAt.is_(None)).group_by(Shout.id)
 
         try:
-            [shout, reacted_stat, commented_stat, rating_stat, last_comment] = session.execute(
-                q
-            ).first()
+            [
+                shout,
+                reacted_stat,
+                commented_stat,
+                rating_stat,
+                last_comment,
+            ] = session.execute(q).first()
 
             shout.stat = {
                 "viewed": shout.views,
@@ -154,7 +156,7 @@ async def load_shouts_by(_, info, options):
 
     order_by = options.get("order_by", Shout.publishedAt)
 
-    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
+    query_order_by = desc(order_by) if options.get("order_by_desc", True) else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
 
@@ -164,9 +166,13 @@ async def load_shouts_by(_, info, options):
     with local_session() as session:
         shouts_map = {}
 
-        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(
-            q
-        ).unique():
+        for [
+            shout,
+            reacted_stat,
+            commented_stat,
+            rating_stat,
+            last_comment,
+        ] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
                 "viewed": shout.views,
@@ -225,7 +231,11 @@ async def get_my_feed(_, info, options):
             joinedload(Shout.topics),
         )
         .where(
-            and_(Shout.publishedAt.is_not(None), Shout.deletedAt.is_(None), Shout.id.in_(subquery))
+            and_(
+                Shout.publishedAt.is_not(None),
+                Shout.deletedAt.is_(None),
+                Shout.id.in_(subquery),
+            )
         )
     )
 
@@ -234,7 +244,7 @@ async def get_my_feed(_, info, options):
 
     order_by = options.get("order_by", Shout.publishedAt)
 
-    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
+    query_order_by = desc(order_by) if options.get("order_by_desc", True) else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
 
@@ -243,9 +253,13 @@ async def get_my_feed(_, info, options):
     shouts = []
     with local_session() as session:
         shouts_map = {}
-        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(
-            q
-        ).unique():
+        for [
+            shout,
+            reacted_stat,
+            commented_stat,
+            rating_stat,
+            last_comment,
+        ] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
                 "viewed": shout.views,
