@@ -1,15 +1,13 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import and_
-from sqlalchemy.orm import joinedload
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation
+from datetime import datetime, timezone
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from resolvers.zine.reactions import reactions_follow, reactions_unfollow
+from sqlalchemy import and_
+from sqlalchemy.orm import joinedload
 
 
 @mutation.field("createShout")
@@ -18,21 +16,23 @@ async def create_shout(_, info, inp):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        topics = session.query(Topic).filter(Topic.slug.in_(inp.get('topics', []))).all()
+        topics = session.query(Topic).filter(Topic.slug.in_(inp.get("topics", []))).all()
 
-        new_shout = Shout.create(**{
-            "title": inp.get("title"),
-            "subtitle": inp.get('subtitle'),
-            "lead": inp.get('lead'),
-            "description": inp.get('description'),
-            "body": inp.get("body", ''),
-            "layout": inp.get("layout"),
-            "authors": inp.get("authors", []),
-            "slug": inp.get("slug"),
-            "mainTopic": inp.get("mainTopic"),
-            "visibility": "owner",
-            "createdBy": auth.user_id
-        })
+        new_shout = Shout.create(
+            **{
+                "title": inp.get("title"),
+                "subtitle": inp.get("subtitle"),
+                "lead": inp.get("lead"),
+                "description": inp.get("description"),
+                "body": inp.get("body", ""),
+                "layout": inp.get("layout"),
+                "authors": inp.get("authors", []),
+                "slug": inp.get("slug"),
+                "mainTopic": inp.get("mainTopic"),
+                "visibility": "owner",
+                "createdBy": auth.user_id,
+            }
+        )
 
         for topic in topics:
             t = ShoutTopic.create(topic=topic.id, shout=new_shout.id)
@@ -64,10 +64,15 @@ async def update_shout(_, info, shout_id, shout_input=None, publish=False):
     auth: AuthCredentials = info.context["request"].auth
 
     with local_session() as session:
-        shout = session.query(Shout).options(
-            joinedload(Shout.authors),
-            joinedload(Shout.topics),
-        ).filter(Shout.id == shout_id).first()
+        shout = (
+            session.query(Shout)
+            .options(
+                joinedload(Shout.authors),
+                joinedload(Shout.topics),
+            )
+            .filter(Shout.id == shout_id)
+            .first()
+        )
 
         if not shout:
             return {"error": "shout not found"}
@@ -94,24 +99,36 @@ async def update_shout(_, info, shout_id, shout_input=None, publish=False):
                 session.commit()
 
             for new_topic_to_link in new_topics_to_link:
-                created_unlinked_topic = ShoutTopic.create(shout=shout.id, topic=new_topic_to_link.id)
+                created_unlinked_topic = ShoutTopic.create(
+                    shout=shout.id, topic=new_topic_to_link.id
+                )
                 session.add(created_unlinked_topic)
 
-            existing_topics_input = [topic_input for topic_input in topics_input if topic_input.get("id", 0) > 0]
-            existing_topic_to_link_ids = [existing_topic_input["id"] for existing_topic_input in existing_topics_input
-                                          if existing_topic_input["id"] not in [topic.id for topic in shout.topics]]
+            existing_topics_input = [
+                topic_input for topic_input in topics_input if topic_input.get("id", 0) > 0
+            ]
+            existing_topic_to_link_ids = [
+                existing_topic_input["id"]
+                for existing_topic_input in existing_topics_input
+                if existing_topic_input["id"] not in [topic.id for topic in shout.topics]
+            ]
 
             for existing_topic_to_link_id in existing_topic_to_link_ids:
-                created_unlinked_topic = ShoutTopic.create(shout=shout.id, topic=existing_topic_to_link_id)
+                created_unlinked_topic = ShoutTopic.create(
+                    shout=shout.id, topic=existing_topic_to_link_id
+                )
                 session.add(created_unlinked_topic)
 
-            topic_to_unlink_ids = [topic.id for topic in shout.topics
-                                   if topic.id not in [topic_input["id"] for topic_input in existing_topics_input]]
+            topic_to_unlink_ids = [
+                topic.id
+                for topic in shout.topics
+                if topic.id not in [topic_input["id"] for topic_input in existing_topics_input]
+            ]
 
             shout_topics_to_remove = session.query(ShoutTopic).filter(
                 and_(
                     ShoutTopic.shout == shout.id,
-                    ShoutTopic.topic.in_(topic_to_unlink_ids)
+                    ShoutTopic.topic.in_(topic_to_unlink_ids),
                 )
             )
 
@@ -120,13 +137,13 @@ async def update_shout(_, info, shout_id, shout_input=None, publish=False):
 
             shout_input["mainTopic"] = shout_input["mainTopic"]["slug"]
 
-            if shout_input["mainTopic"] == '':
+            if shout_input["mainTopic"] == "":
                 del shout_input["mainTopic"]
 
             shout.update(shout_input)
             updated = True
 
-        if publish and shout.visibility == 'owner':
+        if publish and shout.visibility == "owner":
             shout.visibility = "community"
             shout.publishedAt = datetime.now(tz=timezone.utc)
             updated = True

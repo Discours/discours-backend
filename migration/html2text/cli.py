@@ -1,7 +1,7 @@
+from . import __version__, config, HTML2Text
+
 import argparse
 import sys
-
-from . import HTML2Text, __version__, config
 
 
 # noinspection DuplicatedCode
@@ -117,10 +117,7 @@ def main() -> None:
         dest="images_with_size",
         action="store_true",
         default=config.IMAGES_WITH_SIZE,
-        help=(
-            "Write image tags with height and width attrs as raw html to retain "
-            "dimensions"
-        ),
+        help=("Write image tags with height and width attrs as raw html to retain " "dimensions"),
     )
     p.add_argument(
         "-g",
@@ -260,9 +257,7 @@ def main() -> None:
         default=config.CLOSE_QUOTE,
         help="The character used to close quotes",
     )
-    p.add_argument(
-        "--version", action="version", version=".".join(map(str, __version__))
-    )
+    p.add_argument("--version", action="version", version=".".join(map(str, __version__)))
     p.add_argument("filename", nargs="?")
     p.add_argument("encoding", nargs="?", default="utf-8")
     args = p.parse_args()

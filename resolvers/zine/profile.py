@@ -1,17 +1,16 @@
-from typing import List
-from datetime import datetime, timedelta, timezone
-from sqlalchemy import and_, func, distinct, select, literal
-from sqlalchemy.orm import aliased, joinedload
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.orm import local_session
 from base.resolvers import mutation, query
+from datetime import datetime, timedelta, timezone
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
 from orm.user import AuthorFollower, Role, User, UserRating, UserRole
 from resolvers.zine.topics import followed_by_user
+from sqlalchemy import and_, distinct, func, literal, select
+from sqlalchemy.orm import aliased, joinedload
+from typing import List
 
 
 def add_author_stat_columns(q):
@@ -21,24 +20,24 @@ def add_author_stat_columns(q):
     # user_rating_aliased = aliased(UserRating)
 
     q = q.outerjoin(shout_author_aliased).add_columns(
-        func.count(distinct(shout_author_aliased.shout)).label('shouts_stat')
+        func.count(distinct(shout_author_aliased.shout)).label("shouts_stat")
     )
     q = q.outerjoin(author_followers, author_followers.author == User.id).add_columns(
-        func.count(distinct(author_followers.follower)).label('followers_stat')
+        func.count(distinct(author_followers.follower)).label("followers_stat")
     )
 
     q = q.outerjoin(author_following, author_following.follower == User.id).add_columns(
-        func.count(distinct(author_following.author)).label('followings_stat')
+        func.count(distinct(author_following.author)).label("followings_stat")
     )
 
-    q = q.add_columns(literal(0).label('rating_stat'))
+    q = q.add_columns(literal(0).label("rating_stat"))
     # FIXME
     # q = q.outerjoin(user_rating_aliased, user_rating_aliased.user == User.id).add_columns(
     #     # TODO: check
     #     func.sum(user_rating_aliased.value).label('rating_stat')
     # )
 
-    q = q.add_columns(literal(0).label('commented_stat'))
+    q = q.add_columns(literal(0).label("commented_stat"))
     # q = q.outerjoin(Reaction, and_(Reaction.createdBy == User.id, Reaction.body.is_not(None))).add_columns(
     #     func.count(distinct(Reaction.id)).label('commented_stat')
     # )
@@ -49,13 +48,19 @@ def add_author_stat_columns(q):
 
 
 def add_stat(author, stat_columns):
-    [shouts_stat, followers_stat, followings_stat, rating_stat, commented_stat] = stat_columns
+    [
+        shouts_stat,
+        followers_stat,
+        followings_stat,
+        rating_stat,
+        commented_stat,
+    ] = stat_columns
     author.stat = {
         "shouts": shouts_stat,
         "followers": followers_stat,
         "followings": followings_stat,
         "rating": rating_stat,
-        "commented": commented_stat
+        "commented": commented_stat,
     }
 
     return author
@@ -119,10 +124,10 @@ async def user_followers(_, _info, slug) -> List[User]:
     q = add_author_stat_columns(q)
 
     aliased_user = aliased(User)
-    q = q.join(AuthorFollower, AuthorFollower.follower == User.id).join(
-        aliased_user, aliased_user.id == AuthorFollower.author
-    ).where(
-        aliased_user.slug == slug
+    q = (
+        q.join(AuthorFollower, AuthorFollower.follower == User.id)
+        .join(aliased_user, aliased_user.id == AuthorFollower.author)
+        .where(aliased_user.slug == slug)
     )
 
     return get_authors_from_query(q)
@@ -150,15 +155,10 @@ async def update_profile(_, info, profile):
     with local_session() as session:
         user = session.query(User).filter(User.id == user_id).one()
         if not user:
-            return {
-                "error": "canoot find user"
-            }
+            return {"error": "canoot find user"}
         user.update(profile)
         session.commit()
-    return {
-        "error": None,
-        "author": user
-    }
+    return {"error": None, "author": user}
 
 
 @mutation.field("rateUser")
@@ -200,13 +200,10 @@ def author_follow(user_id, slug):
 def author_unfollow(user_id, slug):
     with local_session() as session:
         flw = (
-            session.query(
-                AuthorFollower
-            ).join(User, User.id == AuthorFollower.author).filter(
-                and_(
-                    AuthorFollower.follower == user_id, User.slug == slug
-                )
-            ).first()
+            session.query(AuthorFollower)
+            .join(User, User.id == AuthorFollower.author)
+            .filter(and_(AuthorFollower.follower == user_id, User.slug == slug))
+            .first()
         )
         if flw:
             session.delete(flw)
@@ -232,12 +229,16 @@ async def get_author(_, _info, slug):
     [author] = get_authors_from_query(q)
 
     with local_session() as session:
-        comments_count = session.query(Reaction).where(
-            and_(
-                Reaction.createdBy == author.id,
-                Reaction.kind == ReactionKind.COMMENT
+        comments_count = (
+            session.query(Reaction)
+            .where(
+                and_(
+                    Reaction.createdBy == author.id,
+                    Reaction.kind == ReactionKind.COMMENT,
+                )
             )
-        ).count()
+            .count()
+        )
         author.stat["commented"] = comments_count
 
     return author
@@ -260,9 +261,7 @@ async def load_authors_by(_, info, by, limit, offset):
         days_before = datetime.now(tz=timezone.utc) - timedelta(days=by["createdAt"])
         q = q.filter(User.createdAt > days_before)
 
-    q = q.order_by(
-        by.get("order", User.createdAt)
-    ).limit(limit).offset(offset)
+    q = q.order_by(by.get("order", User.createdAt)).limit(limit).offset(offset)
 
     return get_authors_from_query(q)
 
@@ -273,13 +272,13 @@ async def load_my_subscriptions(_, info):
     auth = info.context["request"].auth
     user_id = auth.user_id
 
-    authors_query = select(User).join(AuthorFollower, AuthorFollower.author == User.id).where(
-        AuthorFollower.follower == user_id
+    authors_query = (
+        select(User)
+        .join(AuthorFollower, AuthorFollower.author == User.id)
+        .where(AuthorFollower.follower == user_id)
     )
 
-    topics_query = select(Topic).join(TopicFollower).where(
-        TopicFollower.follower == user_id
-    )
+    topics_query = select(Topic).join(TopicFollower).where(TopicFollower.follower == user_id)
 
     topics = []
     authors = []
@@ -291,7 +290,4 @@ async def load_my_subscriptions(_, info):
         for [topic] in session.execute(topics_query):
             topics.append(topic)
 
-    return {
-        "topics": topics,
-        "authors": authors
-    }
+    return {"topics": topics, "authors": authors}

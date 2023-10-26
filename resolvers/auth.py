@@ -1,24 +1,29 @@
 # -*- coding: utf-8 -*-
 
-from datetime import datetime, timezone
-from urllib.parse import quote_plus
-
-from graphql.type import GraphQLResolveInfo
-from starlette.responses import RedirectResponse
-from transliterate import translit
-import re
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from auth.email import send_auth_email
 from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-from base.exceptions import (BaseHttpException, InvalidPassword, InvalidToken,
-                             ObjectNotExist, Unauthorized)
+from base.exceptions import (
+    BaseHttpException,
+    InvalidPassword,
+    InvalidToken,
+    ObjectNotExist,
+    Unauthorized,
+)
 from base.orm import local_session
 from base.resolvers import mutation, query
+from datetime import datetime, timezone
+from graphql.type import GraphQLResolveInfo
 from orm import Role, User
-from settings import SESSION_TOKEN_HEADER, FRONTEND_URL
+from settings import FRONTEND_URL, SESSION_TOKEN_HEADER
+from starlette.responses import RedirectResponse
+from transliterate import translit
+from urllib.parse import quote_plus
+
+import re
 
 
 @mutation.field("getSession")
@@ -32,17 +37,14 @@ async def get_current_user(_, info):
         user.lastSeen = datetime.now(tz=timezone.utc)
         session.commit()
 
-        return {
-            "token": token,
-            "user": user
-        }
+        return {"token": token, "user": user}
 
 
 @mutation.field("confirmEmail")
 async def confirm_email(_, info, token):
     """confirm owning email address"""
     try:
-        print('[resolvers.auth] confirm email by token')
+        print("[resolvers.auth] confirm email by token")
         payload = JWTCodec.decode(token)
         user_id = payload.user_id
         await TokenStorage.get(f"{user_id}-{payload.username}-{token}")
@@ -53,10 +55,7 @@ async def confirm_email(_, info, token):
             user.lastSeen = datetime.now(tz=timezone.utc)
             session.add(user)
             session.commit()
-            return {
-                "token": session_token,
-                "user": user
-            }
+            return {"token": session_token, "user": user}
     except InvalidToken as e:
         raise InvalidToken(e.message)
     except Exception as e:
@@ -68,9 +67,9 @@ async def confirm_email_handler(request):
     token = request.path_params["token"]  # one time
     request.session["token"] = token
     res = await confirm_email(None, {}, token)
-    print('[resolvers.auth] confirm_email request: %r' % request)
+    print("[resolvers.auth] confirm_email request: %r" % request)
     if "error" in res:
-        raise BaseHttpException(res['error'])
+        raise BaseHttpException(res["error"])
     else:
         response = RedirectResponse(url=FRONTEND_URL)
         response.set_cookie("token", res["token"])  # session token
@@ -87,22 +86,22 @@ def create_user(user_dict):
 
 
 def generate_unique_slug(src):
-    print('[resolvers.auth] generating slug from: ' + src)
+    print("[resolvers.auth] generating slug from: " + src)
     slug = translit(src, "ru", reversed=True).replace(".", "-").lower()
-    slug = re.sub('[^0-9a-zA-Z]+', '-', slug)
+    slug = re.sub("[^0-9a-zA-Z]+", "-", slug)
     if slug != src:
-        print('[resolvers.auth] translited name: ' + slug)
+        print("[resolvers.auth] translited name: " + slug)
     c = 1
     with local_session() as session:
         user = session.query(User).where(User.slug == slug).first()
         while user:
             user = session.query(User).where(User.slug == slug).first()
-            slug = slug + '-' + str(c)
+            slug = slug + "-" + str(c)
             c += 1
         if not user:
             unique_slug = slug
-            print('[resolvers.auth] ' + unique_slug)
-            return quote_plus(unique_slug.replace('\'', '')).replace('+', '-')
+            print("[resolvers.auth] " + unique_slug)
+            return quote_plus(unique_slug.replace("'", "")).replace("+", "-")
 
 
 @mutation.field("registerUser")
@@ -117,12 +116,12 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
         slug = generate_unique_slug(name)
         user = session.query(User).where(User.slug == slug).first()
         if user:
-            slug = generate_unique_slug(email.split('@')[0])
+            slug = generate_unique_slug(email.split("@")[0])
         user_dict = {
             "email": email,
             "username": email,  # will be used to store phone number or some messenger network id
             "name": name,
-            "slug": slug
+            "slug": slug,
         }
         if password:
             user_dict["password"] = Password.encode(password)
@@ -172,10 +171,7 @@ async def login(_, info, email: str, password: str = "", lang: str = "ru"):
                     user = Identity.password(orm_user, password)
                     session_token = await TokenStorage.create_session(user)
                     print(f"[auth] user {email} authorized")
-                    return {
-                        "token": session_token,
-                        "user": user
-                    }
+                    return {"token": session_token, "user": user}
                 except InvalidPassword:
                     print(f"[auth] {email}: invalid password")
                     raise InvalidPassword("invalid password")  # contains webserver status

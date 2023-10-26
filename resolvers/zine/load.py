@@ -1,49 +1,47 @@
-from datetime import datetime, timedelta, timezone
-
-from sqlalchemy.orm import joinedload, aliased
-from sqlalchemy.sql.expression import desc, asc, select, func, case, and_, text, nulls_last
-
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from base.exceptions import ObjectNotExist, OperationNotAllowed
+from base.exceptions import ObjectNotExist
 from base.orm import local_session
 from base.resolvers import query
+from datetime import datetime, timedelta, timezone
 from orm import TopicFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.user import AuthorFollower
+from sqlalchemy.orm import aliased, joinedload
+from sqlalchemy.sql.expression import and_, asc, case, desc, func, nulls_last, select
 
 
 def add_stat_columns(q):
     aliased_reaction = aliased(Reaction)
 
     q = q.outerjoin(aliased_reaction).add_columns(
-        func.sum(
-            aliased_reaction.id
-        ).label('reacted_stat'),
+        func.sum(aliased_reaction.id).label("reacted_stat"),
+        func.sum(case((aliased_reaction.kind == ReactionKind.COMMENT, 1), else_=0)).label(
+            "commented_stat"
+        ),
         func.sum(
             case(
-                (aliased_reaction.kind == ReactionKind.COMMENT, 1),
-                else_=0
+                # do not count comments' reactions
+                (aliased_reaction.replyTo.is_not(None), 0),
+                (aliased_reaction.kind == ReactionKind.AGREE, 1),
+                (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
+                (aliased_reaction.kind == ReactionKind.PROOF, 1),
+                (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
+                (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
+                (aliased_reaction.kind == ReactionKind.REJECT, -1),
+                (aliased_reaction.kind == ReactionKind.LIKE, 1),
+                (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
+                else_=0,
             )
-        ).label('commented_stat'),
-        func.sum(case(
-            # do not count comments' reactions
-            (aliased_reaction.replyTo.is_not(None), 0),
-            (aliased_reaction.kind == ReactionKind.AGREE, 1),
-            (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
-            (aliased_reaction.kind == ReactionKind.PROOF, 1),
-            (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
-            (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
-            (aliased_reaction.kind == ReactionKind.REJECT, -1),
-            (aliased_reaction.kind == ReactionKind.LIKE, 1),
-            (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
-            else_=0)
-        ).label('rating_stat'),
-        func.max(case(
-            (aliased_reaction.kind != ReactionKind.COMMENT, None),
-            else_=aliased_reaction.createdAt
-        )).label('last_comment'))
+        ).label("rating_stat"),
+        func.max(
+            case(
+                (aliased_reaction.kind != ReactionKind.COMMENT, None),
+                else_=aliased_reaction.createdAt,
+            )
+        ).label("last_comment"),
+    )
 
     return q
 
@@ -60,7 +58,7 @@ def apply_filters(q, filters, user_id=None):
 
     if filters.get("layout"):
         q = q.filter(Shout.layout == filters.get("layout"))
-    if filters.get('excludeLayout'):
+    if filters.get("excludeLayout"):
         q = q.filter(Shout.layout != filters.get("excludeLayout"))
     if filters.get("author"):
         q = q.filter(Shout.authors.any(slug=filters.get("author")))
@@ -87,27 +85,27 @@ async def load_shout(_, info, slug=None, shout_id=None):
         q = add_stat_columns(q)
 
         if slug is not None:
-            q = q.filter(
-                Shout.slug == slug
-            )
+            q = q.filter(Shout.slug == slug)
 
         if shout_id is not None:
-            q = q.filter(
-                Shout.id == shout_id
-            )
+            q = q.filter(Shout.id == shout_id)
 
-        q = q.filter(
-            Shout.deletedAt.is_(None)
-        ).group_by(Shout.id)
+        q = q.filter(Shout.deletedAt.is_(None)).group_by(Shout.id)
 
         try:
-            [shout, reacted_stat, commented_stat, rating_stat, last_comment] = session.execute(q).first()
+            [
+                shout,
+                reacted_stat,
+                commented_stat,
+                rating_stat,
+                last_comment,
+            ] = session.execute(q).first()
 
             shout.stat = {
                 "viewed": shout.views,
                 "reacted": reacted_stat,
                 "commented": commented_stat,
-                "rating": rating_stat
+                "rating": rating_stat,
             }
 
             for author_caption in session.query(ShoutAuthor).join(Shout).where(Shout.slug == slug):
@@ -142,14 +140,13 @@ async def load_shouts_by(_, info, options):
     :return: Shout[]
     """
 
-    q = select(Shout).options(
-        joinedload(Shout.authors),
-        joinedload(Shout.topics),
-    ).where(
-        and_(
-            Shout.deletedAt.is_(None),
-            Shout.layout.is_not(None)
+    q = (
+        select(Shout)
+        .options(
+            joinedload(Shout.authors),
+            joinedload(Shout.topics),
         )
+        .where(and_(Shout.deletedAt.is_(None), Shout.layout.is_not(None)))
     )
 
     q = add_stat_columns(q)
@@ -159,7 +156,7 @@ async def load_shouts_by(_, info, options):
 
     order_by = options.get("order_by", Shout.publishedAt)
 
-    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
+    query_order_by = desc(order_by) if options.get("order_by_desc", True) else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
 
@@ -169,13 +166,19 @@ async def load_shouts_by(_, info, options):
     with local_session() as session:
         shouts_map = {}
 
-        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(q).unique():
+        for [
+            shout,
+            reacted_stat,
+            commented_stat,
+            rating_stat,
+            last_comment,
+        ] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
                 "viewed": shout.views,
                 "reacted": reacted_stat,
                 "commented": commented_stat,
-                "rating": rating_stat
+                "rating": rating_stat,
             }
             shouts_map[shout.id] = shout
 
@@ -188,11 +191,13 @@ async def get_drafts(_, info):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
-    q = select(Shout).options(
-        joinedload(Shout.authors),
-        joinedload(Shout.topics),
-    ).where(
-        and_(Shout.deletedAt.is_(None), Shout.createdBy == user_id)
+    q = (
+        select(Shout)
+        .options(
+            joinedload(Shout.authors),
+            joinedload(Shout.topics),
+        )
+        .where(and_(Shout.deletedAt.is_(None), Shout.createdBy == user_id))
     )
 
     q = q.group_by(Shout.id)
@@ -211,24 +216,26 @@ async def get_my_feed(_, info, options):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
-    subquery = select(Shout.id).join(
-        ShoutAuthor
-    ).join(
-        AuthorFollower, AuthorFollower.follower == user_id
-    ).join(
-        ShoutTopic
-    ).join(
-        TopicFollower, TopicFollower.follower == user_id
+    subquery = (
+        select(Shout.id)
+        .join(ShoutAuthor)
+        .join(AuthorFollower, AuthorFollower.follower == user_id)
+        .join(ShoutTopic)
+        .join(TopicFollower, TopicFollower.follower == user_id)
     )
 
-    q = select(Shout).options(
-        joinedload(Shout.authors),
-        joinedload(Shout.topics),
-    ).where(
-        and_(
-            Shout.publishedAt.is_not(None),
-            Shout.deletedAt.is_(None),
-            Shout.id.in_(subquery)
+    q = (
+        select(Shout)
+        .options(
+            joinedload(Shout.authors),
+            joinedload(Shout.topics),
+        )
+        .where(
+            and_(
+                Shout.publishedAt.is_not(None),
+                Shout.deletedAt.is_(None),
+                Shout.id.in_(subquery),
+            )
         )
     )
 
@@ -237,7 +244,7 @@ async def get_my_feed(_, info, options):
 
     order_by = options.get("order_by", Shout.publishedAt)
 
-    query_order_by = desc(order_by) if options.get('order_by_desc', True) else asc(order_by)
+    query_order_by = desc(order_by) if options.get("order_by_desc", True) else asc(order_by)
     offset = options.get("offset", 0)
     limit = options.get("limit", 10)
 
@@ -246,13 +253,19 @@ async def get_my_feed(_, info, options):
     shouts = []
     with local_session() as session:
         shouts_map = {}
-        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(q).unique():
+        for [
+            shout,
+            reacted_stat,
+            commented_stat,
+            rating_stat,
+            last_comment,
+        ] in session.execute(q).unique():
             shouts.append(shout)
             shout.stat = {
                 "viewed": shout.views,
                 "reacted": reacted_stat,
                 "commented": commented_stat,
-                "rating": rating_stat
+                "rating": rating_stat,
             }
             shouts_map[shout.id] = shout
 

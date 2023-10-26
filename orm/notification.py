@@ -1,9 +1,8 @@
-from datetime import datetime
-from sqlalchemy import Column, Enum, ForeignKey, DateTime, Boolean, Integer
-from sqlalchemy.dialects.postgresql import JSONB
-
 from base.orm import Base
+from datetime import datetime
 from enum import Enum as Enumeration
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class NotificationType(Enumeration):

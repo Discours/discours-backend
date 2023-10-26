@@ -1,6 +1,6 @@
 [flake8]
-ignore = E203,W504,W191,W503
+ignore = E203
 exclude = .git,__pycache__,orm/rbac.py
-max-complexity = 10
-max-line-length = 108
+max-complexity = 15
+max-line-length = 100
 indent-string = '  '

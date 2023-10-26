@@ -2,3 +2,5 @@ isort
 brunette
 flake8
 mypy
+pre-commit
+black

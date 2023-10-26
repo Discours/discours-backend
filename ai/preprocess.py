@@ -1,28 +1,28 @@
-import re
-import nltk
 from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 from pymystem3 import Mystem
 from string import punctuation
-from transformers import BertTokenizer
+
+import nltk
+import re
 
 nltk.download("stopwords")
 
 
 def get_clear_text(text):
-    soup = BeautifulSoup(text, 'html.parser')
+    soup = BeautifulSoup(text, "html.parser")
 
     # extract the plain text from the HTML document without tags
-    clear_text = ''
+    clear_text = ""
     for tag in soup.find_all():
-        clear_text += tag.string or ''
+        clear_text += tag.string or ""
 
-    clear_text = re.sub(pattern='[\u202F\u00A0\n]+', repl=' ', string=clear_text)
+    clear_text = re.sub(pattern="[\u202F\u00A0\n]+", repl=" ", string=clear_text)
 
     # only words
-    clear_text = re.sub(pattern='[^A-ZА-ЯЁ -]', repl='', string=clear_text, flags=re.IGNORECASE)
+    clear_text = re.sub(pattern="[^A-ZА-ЯЁ -]", repl="", string=clear_text, flags=re.IGNORECASE)
 
-    clear_text = re.sub(pattern='\s+', repl=' ', string=clear_text)
+    clear_text = re.sub(pattern=r"\s+", repl=" ", string=clear_text)
 
     clear_text = clear_text.lower()
 
@@ -30,9 +30,11 @@ def get_clear_text(text):
     russian_stopwords = stopwords.words("russian")
 
     tokens = mystem.lemmatize(clear_text)
-    tokens = [token for token in tokens if token not in russian_stopwords \
-              and token != " " \
-              and token.strip() not in punctuation]
+    tokens = [
+        token
+        for token in tokens
+        if token not in russian_stopwords and token != " " and token.strip() not in punctuation
+    ]
 
     clear_text = " ".join(tokens)
 

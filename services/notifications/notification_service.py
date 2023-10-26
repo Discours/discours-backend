@@ -1,21 +1,17 @@
-import asyncio
-import json
-from datetime import datetime, timezone
-
-from sqlalchemy import and_
-
 from base.orm import local_session
-from orm import Reaction, Shout, Notification, User
+from datetime import datetime, timezone
+from orm import Notification, Reaction, Shout, User
 from orm.notification import NotificationType
 from orm.reaction import ReactionKind
 from services.notifications.sse import connection_manager
+from sqlalchemy import and_
+
+import asyncio
+import json
 
 
 def shout_to_shout_data(shout):
-    return {
-        "title": shout.title,
-        "slug": shout.slug
-    }
+    return {"title": shout.title, "slug": shout.slug}
 
 
 def user_to_user_data(user):
@@ -23,14 +19,14 @@ def user_to_user_data(user):
         "id": user.id,
         "name": user.name,
         "slug": user.slug,
-        "userpic": user.userpic
+        "userpic": user.userpic,
     }
 
 
 def update_prev_notification(notification, user, reaction):
     notification_data = json.loads(notification.data)
 
-    notification_data["users"] = [u for u in notification_data["users"] if u['id'] != user.id]
+    notification_data["users"] = [u for u in notification_data["users"] if u["id"] != user.id]
     notification_data["users"].append(user_to_user_data(user))
 
     if notification_data["reactionIds"] is None:
@@ -57,34 +53,45 @@ class NewReactionNotificator:
             if reaction.kind == ReactionKind.COMMENT:
                 parent_reaction = None
                 if reaction.replyTo:
-                    parent_reaction = session.query(Reaction).where(Reaction.id == reaction.replyTo).one()
+                    parent_reaction = (
+                        session.query(Reaction).where(Reaction.id == reaction.replyTo).one()
+                    )
                     if parent_reaction.createdBy != reaction.createdBy:
-                        prev_new_reply_notification = session.query(Notification).where(
-                            and_(
-                                Notification.user == shout.createdBy,
-                                Notification.type == NotificationType.NEW_REPLY,
-                                Notification.shout == shout.id,
-                                Notification.reaction == parent_reaction.id,
-                                Notification.seen == False
+                        prev_new_reply_notification = (
+                            session.query(Notification)
+                            .where(
+                                and_(
+                                    Notification.user == shout.createdBy,
+                                    Notification.type == NotificationType.NEW_REPLY,
+                                    Notification.shout == shout.id,
+                                    Notification.reaction == parent_reaction.id,
+                                    Notification.seen == False,  # noqa: E712
+                                )
                             )
-                        ).first()
+                            .first()
+                        )
 
                         if prev_new_reply_notification:
                             update_prev_notification(prev_new_reply_notification, user, reaction)
                         else:
-                            reply_notification_data = json.dumps({
-                                "shout": shout_to_shout_data(shout),
-                                "users": [user_to_user_data(user)],
-                                "reactionIds": [reaction.id]
-                            }, ensure_ascii=False)
+                            reply_notification_data = json.dumps(
+                                {
+                                    "shout": shout_to_shout_data(shout),
+                                    "users": [user_to_user_data(user)],
+                                    "reactionIds": [reaction.id],
+                                },
+                                ensure_ascii=False,
+                            )
 
-                            reply_notification = Notification.create(**{
-                                "user": parent_reaction.createdBy,
-                                "type": NotificationType.NEW_REPLY,
-                                "shout": shout.id,
-                                "reaction": parent_reaction.id,
-                                "data": reply_notification_data
-                            })
+                            reply_notification = Notification.create(
+                                **{
+                                    "user": parent_reaction.createdBy,
+                                    "type": NotificationType.NEW_REPLY,
+                                    "shout": shout.id,
+                                    "reaction": parent_reaction.id,
+                                    "data": reply_notification_data,
+                                }
+                            )
 
                             session.add(reply_notification)
 
@@ -93,30 +100,39 @@ class NewReactionNotificator:
                 if reaction.createdBy != shout.createdBy and (
                     parent_reaction is None or parent_reaction.createdBy != shout.createdBy
                 ):
-                    prev_new_comment_notification = session.query(Notification).where(
-                        and_(
-                            Notification.user == shout.createdBy,
-                            Notification.type == NotificationType.NEW_COMMENT,
-                            Notification.shout == shout.id,
-                            Notification.seen == False
+                    prev_new_comment_notification = (
+                        session.query(Notification)
+                        .where(
+                            and_(
+                                Notification.user == shout.createdBy,
+                                Notification.type == NotificationType.NEW_COMMENT,
+                                Notification.shout == shout.id,
+                                Notification.seen == False,  # noqa: E712
+                            )
                         )
-                    ).first()
+                        .first()
+                    )
 
                     if prev_new_comment_notification:
                         update_prev_notification(prev_new_comment_notification, user, reaction)
                     else:
-                        notification_data_string = json.dumps({
-                            "shout": shout_to_shout_data(shout),
-                            "users": [user_to_user_data(user)],
-                            "reactionIds": [reaction.id]
-                        }, ensure_ascii=False)
+                        notification_data_string = json.dumps(
+                            {
+                                "shout": shout_to_shout_data(shout),
+                                "users": [user_to_user_data(user)],
+                                "reactionIds": [reaction.id],
+                            },
+                            ensure_ascii=False,
+                        )
 
-                        author_notification = Notification.create(**{
-                            "user": shout.createdBy,
-                            "type": NotificationType.NEW_COMMENT,
-                            "shout": shout.id,
-                            "data": notification_data_string
-                        })
+                        author_notification = Notification.create(
+                            **{
+                                "user": shout.createdBy,
+                                "type": NotificationType.NEW_COMMENT,
+                                "shout": shout.id,
+                                "data": notification_data_string,
+                            }
+                        )
 
                         session.add(author_notification)
 
@@ -142,7 +158,7 @@ class NotificationService:
             try:
                 await notificator.run()
             except Exception as e:
-                print(f'[NotificationService.worker] error: {str(e)}')
+                print(f"[NotificationService.worker] error: {str(e)}")
 
 
 notification_service = NotificationService()

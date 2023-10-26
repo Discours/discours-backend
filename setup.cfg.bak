@@ -9,16 +9,15 @@ force_alphabetical_sort = false
 
 [tool:brunette]
 # https://github.com/odwyersoftware/brunette
-line-length = 100
+line-length = 120
 single-quotes = false
 
 [flake8]
 # https://github.com/PyCQA/flake8
 exclude = .git,__pycache__,.mypy_cache,.vercel
-max-line-length = 100
-max-complexity = 10
+max-line-length = 120
+max-complexity = 15
 select = B,C,E,F,W,T4,B9
-# FIXME
 # E203: Whitespace before ':'
 # E266: Too many leading '#' for block comment
 # E501: Line too long (82 > 79 characters)

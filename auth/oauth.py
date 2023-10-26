@@ -1,8 +1,8 @@
-from authlib.integrations.starlette_client import OAuth
-from starlette.responses import RedirectResponse
 from auth.identity import Identity
 from auth.tokenstorage import TokenStorage
-from settings import OAUTH_CLIENTS, FRONTEND_URL
+from authlib.integrations.starlette_client import OAuth
+from settings import FRONTEND_URL, OAUTH_CLIENTS
+from starlette.responses import RedirectResponse
 
 oauth = OAuth()
 

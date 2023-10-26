@@ -1,11 +1,10 @@
-import re
-
+from base.orm import local_session
 from bs4 import BeautifulSoup
 from dateutil.parser import parse
+from orm.user import AuthorFollower, User, UserRating
 from sqlalchemy.exc import IntegrityError
 
-from base.orm import local_session
-from orm.user import AuthorFollower, User, UserRating
+import re
 
 
 def migrate(entry):
@@ -23,7 +22,7 @@ def migrate(entry):
         "muted": False,  # amnesty
         "links": [],
         "name": "anonymous",
-        "password": entry["services"]["password"].get("bcrypt")
+        "password": entry["services"]["password"].get("bcrypt"),
     }
 
     if "updatedAt" in entry:
@@ -33,9 +32,13 @@ def migrate(entry):
     if entry.get("profile"):
         # slug
         slug = entry["profile"].get("path").lower()
-        slug = re.sub('[^0-9a-zA-Z]+', '-', slug).strip()
+        slug = re.sub("[^0-9a-zA-Z]+", "-", slug).strip()
         user_dict["slug"] = slug
-        bio = (entry.get("profile", {"bio": ""}).get("bio") or "").replace('\(', '(').replace('\)', ')')
+        bio = (
+            (entry.get("profile", {"bio": ""}).get("bio") or "")
+            .replace(r"\(", "(")
+            .replace(r"\)", ")")
+        )
         bio_text = BeautifulSoup(bio, features="lxml").text
 
         if len(bio_text) > 120:
@@ -46,8 +49,7 @@ def migrate(entry):
         # userpic
         try:
             user_dict["userpic"] = (
-                "https://images.discours.io/unsafe/"
-                + entry["profile"]["thumborId"]
+                "https://images.discours.io/unsafe/" + entry["profile"]["thumborId"]
             )
         except KeyError:
             try:
@@ -62,11 +64,7 @@ def migrate(entry):
         name = (name + " " + ln) if ln else name
         if not name:
             name = slug if slug else "anonymous"
-        name = (
-            entry["profile"]["path"].lower().strip().replace(" ", "-")
-            if len(name) < 2
-            else name
-        )
+        name = entry["profile"]["path"].lower().strip().replace(" ", "-") if len(name) < 2 else name
         user_dict["name"] = name
 
         # links
@@ -95,9 +93,7 @@ def migrate(entry):
     except IntegrityError:
         print("[migration] cannot create user " + user_dict["slug"])
         with local_session() as session:
-            old_user = (
-                session.query(User).filter(User.slug == user_dict["slug"]).first()
-            )
+            old_user = session.query(User).filter(User.slug == user_dict["slug"]).first()
             old_user.oid = oid
             old_user.password = user_dict["password"]
             session.commit()
@@ -114,7 +110,7 @@ def post_migrate():
         "slug": "old-discours",
         "username": "old-discours",
         "email": "old@discours.io",
-        "name": "Просмотры на старой версии сайта"
+        "name": "Просмотры на старой версии сайта",
     }
 
     with local_session() as session:
@@ -147,12 +143,8 @@ def migrate_2stage(entry, id_map):
                 }
 
                 user_rating = UserRating.create(**user_rating_dict)
-                if user_rating_dict['value'] > 0:
-                    af = AuthorFollower.create(
-                        author=user.id,
-                        follower=rater.id,
-                        auto=True
-                    )
+                if user_rating_dict["value"] > 0:
+                    af = AuthorFollower.create(author=user.id, follower=rater.id, auto=True)
                     session.add(af)
                 session.add(user_rating)
                 session.commit()
