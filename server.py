@@ -1,8 +1,8 @@
-from settings import DEV_SERVER_PID_FILE_NAME, PORT
-
-import os
 import sys
+import os
 import uvicorn
+
+from settings import PORT, DEV_SERVER_PID_FILE_NAME
 
 
 def exception_handler(exception_type, exception, traceback, debug_hook=sys.excepthook):
@@ -10,36 +10,47 @@ def exception_handler(exception_type, exception, traceback, debug_hook=sys.excep
 
 
 log_settings = {
-    "version": 1,
-    "disable_existing_loggers": True,
-    "formatters": {
-        "default": {
-            "()": "uvicorn.logging.DefaultFormatter",
-            "fmt": "%(levelprefix)s %(message)s",
-            "use_colors": None,
+    'version': 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'default': {
+            '()': 'uvicorn.logging.DefaultFormatter',
+            'fmt': '%(levelprefix)s %(message)s',
+            'use_colors': None
         },
-        "access": {
-            "()": "uvicorn.logging.AccessFormatter",
-            "fmt": '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
-        },
+        'access': {
+            '()': 'uvicorn.logging.AccessFormatter',
+            'fmt': '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
+        }
     },
-    "handlers": {
-        "default": {
-            "formatter": "default",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
+    'handlers': {
+        'default': {
+            'formatter': 'default',
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stderr'
         },
-        "access": {
-            "formatter": "access",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
+        'access': {
+            'formatter': 'access',
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout'
+        }
+    },
+    'loggers': {
+        'uvicorn': {
+            'handlers': ['default'],
+            'level': 'INFO'
         },
-    },
-    "loggers": {
-        "uvicorn": {"handlers": ["default"], "level": "INFO"},
-        "uvicorn.error": {"level": "INFO", "handlers": ["default"], "propagate": True},
-        "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
-    },
+        'uvicorn.error': {
+            'level': 'INFO',
+            'handlers': ['default'],
+            'propagate': True
+        },
+        'uvicorn.access': {
+            'handlers': ['access'],
+            'level': 'INFO',
+            'propagate': False
+        }
+    }
 }
 
 local_headers = [
@@ -47,8 +58,7 @@ local_headers = [
     ("Access-Control-Allow-Origin", "https://localhost:3000"),
     (
         "Access-Control-Allow-Headers",
-        "DNT,User-Agent,X-Requested-With,If-Modified-Since,"
-        + "Cache-Control,Content-Type,Range,Authorization",
+        "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization",
     ),
     ("Access-Control-Expose-Headers", "Content-Length,Content-Range"),
     ("Access-Control-Allow-Credentials", "true"),
@@ -76,17 +86,15 @@ if __name__ == "__main__":
             # log_config=log_settings,
             log_level=None,
             access_log=True,
-            reload=want_reload,
+            reload=want_reload
         )  # , ssl_keyfile="discours.key", ssl_certfile="discours.crt")
     elif x == "migrate":
         from migration import process
-
         print("MODE: MIGRATE")
 
         process()
     elif x == "bson":
         from migration.bson2json import json_tables
-
         print("MODE: BSON")
 
         json_tables()
@@ -97,5 +105,5 @@ if __name__ == "__main__":
             host="0.0.0.0",
             port=PORT,
             proxy_headers=True,
-            server_header=True,
+            server_header=True
         )

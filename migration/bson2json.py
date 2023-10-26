@@ -1,9 +1,9 @@
-from .utils import DateTimeEncoder
+import json
+import os
 
 import bson
 import gc
-import json
-import os
+from .utils import DateTimeEncoder
 
 
 def json_tables():
@@ -15,10 +15,10 @@ def json_tables():
         "email_subscriptions": [],
         "users": [],
         "comments": [],
-        "remarks": [],
+        "remarks": []
     }
     for table in data.keys():
-        print("[migration] bson2json for " + table)
+        print('[migration] bson2json for ' + table)
         gc.collect()
         lc = []
         bs = open("dump/discours/" + table + ".bson", "rb").read()

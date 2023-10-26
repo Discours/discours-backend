@@ -1,14 +1,15 @@
-from auth.jwtcodec import JWTCodec
-from auth.tokenstorage import TokenStorage
-
-# from base.exceptions import InvalidPassword, InvalidToken
-from base.orm import local_session
 from binascii import hexlify
 from hashlib import sha256
+
 from jwt import DecodeError, ExpiredSignatureError
-from orm import User
 from passlib.hash import bcrypt
 from sqlalchemy import or_
+
+from auth.jwtcodec import JWTCodec
+from auth.tokenstorage import TokenStorage
+# from base.exceptions import InvalidPassword, InvalidToken
+from base.orm import local_session
+from orm import User
 from validations.auth import AuthInput
 
 
@@ -33,7 +34,6 @@ class Password:
         Verify that password hash is equal to specified hash. Hash format:
 
         $2a$10$Ro0CUfOqk6cXEKf3dyaM7OhSCvnwM9s4wIX9JeLapehKK5YdLxKcm
-        # noqa: W605
         \__/\/ \____________________/\_____________________________/
         |   |        Salt                     Hash
         |  Cost
@@ -57,10 +57,14 @@ class Identity:
         user = User(**orm_user.dict())
         if not user.password:
             # raise InvalidPassword("User password is empty")
-            return {"error": "User password is empty"}
+            return {
+                "error": "User password is empty"
+            }
         if not Password.verify(password, user.password):
             # raise InvalidPassword("Wrong user password")
-            return {"error": "Wrong user password"}
+            return {
+                "error": "Wrong user password"
+            }
         return user
 
     @staticmethod
@@ -83,22 +87,30 @@ class Identity:
     @staticmethod
     async def onetime(token: str) -> User:
         try:
-            print("[auth.identity] using one time token")
+            print('[auth.identity] using one time token')
             payload = JWTCodec.decode(token)
             if not await TokenStorage.exist(f"{payload.user_id}-{payload.username}-{token}"):
                 # raise InvalidToken("Login token has expired, please login again")
-                return {"error": "Token has expired"}
+                return {
+                    "error": "Token has expired"
+                }
         except ExpiredSignatureError:
             # raise InvalidToken("Login token has expired, please try again")
-            return {"error": "Token has expired"}
+            return {
+                "error": "Token has expired"
+            }
         except DecodeError:
             # raise InvalidToken("token format error") from e
-            return {"error": "Token format error"}
+            return {
+                "error": "Token format error"
+            }
         with local_session() as session:
             user = session.query(User).filter_by(id=payload.user_id).first()
             if not user:
                 # raise Exception("user not exist")
-                return {"error": "User does not exist"}
+                return {
+                    "error": "User does not exist"
+                }
             if not user.emailConfirmed:
                 user.emailConfirmed = True
                 session.commit()

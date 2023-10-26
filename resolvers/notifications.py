@@ -1,9 +1,10 @@
-from auth.authenticate import login_required
+from sqlalchemy import select, desc, and_, update
+
 from auth.credentials import AuthCredentials
+from base.resolvers import query, mutation
+from auth.authenticate import login_required
 from base.orm import local_session
-from base.resolvers import mutation, query
 from orm import Notification
-from sqlalchemy import and_, desc, select, update
 
 
 @query.field("loadNotifications")
@@ -15,26 +16,25 @@ async def load_notifications(_, info, params=None):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
-    limit = params.get("limit", 50)
-    offset = params.get("offset", 0)
+    limit = params.get('limit', 50)
+    offset = params.get('offset', 0)
 
-    q = (
-        select(Notification)
-        .where(Notification.user == user_id)
-        .order_by(desc(Notification.createdAt))
-        .limit(limit)
-        .offset(offset)
-    )
+    q = select(Notification).where(
+        Notification.user == user_id
+    ).order_by(desc(Notification.createdAt)).limit(limit).offset(offset)
 
     notifications = []
     with local_session() as session:
-        total_count = session.query(Notification).where(Notification.user == user_id).count()
+        total_count = session.query(Notification).where(
+            Notification.user == user_id
+        ).count()
 
-        total_unread_count = (
-            session.query(Notification)
-            .where(and_(Notification.user == user_id, Notification.seen == False))  # noqa: E712
-            .count()
-        )
+        total_unread_count = session.query(Notification).where(
+            and_(
+                Notification.user == user_id,
+                Notification.seen == False
+            )
+        ).count()
 
         for [notification] in session.execute(q):
             notification.type = notification.type.name
@@ -43,7 +43,7 @@ async def load_notifications(_, info, params=None):
     return {
         "notifications": notifications,
         "totalCount": total_count,
-        "totalUnreadCount": total_unread_count,
+        "totalUnreadCount": total_unread_count
     }
 
 
@@ -54,11 +54,9 @@ async def mark_notification_as_read(_, info, notification_id: int):
     user_id = auth.user_id
 
     with local_session() as session:
-        notification = (
-            session.query(Notification)
-            .where(and_(Notification.id == notification_id, Notification.user == user_id))
-            .one()
-        )
+        notification = session.query(Notification).where(
+            and_(Notification.id == notification_id, Notification.user == user_id)
+        ).one()
         notification.seen = True
         session.commit()
 
@@ -71,11 +69,12 @@ async def mark_all_notifications_as_read(_, info):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
-    statement = (
-        update(Notification)
-        .where(and_(Notification.user == user_id, Notification.seen == False))  # noqa: E712
-        .values(seen=True)
-    )
+    statement = update(Notification).where(
+        and_(
+            Notification.user == user_id,
+            Notification.seen == False
+        )
+    ).values(seen=True)
 
     with local_session() as session:
         try:

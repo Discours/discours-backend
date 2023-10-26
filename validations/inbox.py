@@ -1,5 +1,5 @@
+from typing import Optional, Text, List
 from pydantic import BaseModel
-from typing import List, Optional, Text
 
 
 class Message(BaseModel):
