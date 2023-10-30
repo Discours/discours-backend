@@ -1,4 +1,8 @@
-isort
-brunette
-flake8
-mypy
+black==23.10.1
+flake8==6.1.0
+gql_schema_codegen==1.0.1
+isort==5.12.0
+mypy==1.6.1
+pre-commit==3.5.0
+pymongo-stubs==0.2.0
+sqlalchemy-stubs==0.4

@@ -1,7 +1,7 @@
 from graphql.error import GraphQLError
 
-
 # TODO: remove traceback from logs for defined exceptions
+
 
 class BaseHttpException(GraphQLError):
     code = 500

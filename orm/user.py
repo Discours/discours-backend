@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON as JSONType
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+
 from base.orm import Base, local_session
 from orm.rbac import Role
 
@@ -10,10 +11,10 @@ from orm.rbac import Role
 class UserRating(Base):
     __tablename__ = "user_rating"
 
-    id = None  # type: ignore
-    rater = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    user = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    value = Column(Integer)
+    id = None
+    rater: Column = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    user: Column = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    value: Column = Column(Integer)
 
     @staticmethod
     def init_table():
@@ -23,7 +24,7 @@ class UserRating(Base):
 class UserRole(Base):
     __tablename__ = "user_role"
 
-    id = None  # type: ignore
+    id = None
     user = Column(ForeignKey("user.id"), primary_key=True, index=True)
     role = Column(ForeignKey("role.id"), primary_key=True, index=True)
 
@@ -31,12 +32,10 @@ class UserRole(Base):
 class AuthorFollower(Base):
     __tablename__ = "author_follower"
 
-    id = None  # type: ignore
-    follower = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    author = Column(ForeignKey("user.id"), primary_key=True, index=True)
-    createdAt = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Created at"
-    )
+    id = None
+    follower: Column = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    author: Column = Column(ForeignKey("user.id"), primary_key=True, index=True)
+    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
     auto = Column(Boolean, nullable=False, default=False)
 
 
@@ -54,12 +53,8 @@ class User(Base):
     slug = Column(String, unique=True, comment="User's slug")
     muted = Column(Boolean, default=False)
     emailConfirmed = Column(Boolean, default=False)
-    createdAt = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Created at"
-    )
-    lastSeen = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Was online at"
-    )
+    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
+    lastSeen = Column(DateTime, nullable=False, default=datetime.now, comment="Was online at")
     deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
     links = Column(JSONType, nullable=True, comment="Links")
     oauth = Column(String, nullable=True)
@@ -103,4 +98,4 @@ class User(Base):
 
 
 # if __name__ == "__main__":
-#   print(User.get_permission(user_id=1))  # type: ignore
+#   print(User.get_permission(user_id=1))
