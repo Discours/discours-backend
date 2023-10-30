@@ -1,8 +1,8 @@
+import asyncio
 import json
 
 from sse_starlette.sse import EventSourceResponse
 from starlette.requests import Request
-import asyncio
 
 
 class ConnectionManager:
@@ -28,9 +28,7 @@ class ConnectionManager:
             return
 
         for connection in self.connections_by_user_id[user_id]:
-            data = {
-                "type": "newNotifications"
-            }
+            data = {"type": "newNotifications"}
             data_string = json.dumps(data, ensure_ascii=False)
             await connection.put(data_string)
 

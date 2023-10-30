@@ -16,4 +16,3 @@ echo "Start migration"
 python3 server.py migrate
 if [ $? -ne 0 ]; then { echo "Migration failed, aborting." ; exit 1; } fi
 echo 'Done!'
-

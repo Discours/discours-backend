@@ -42,4 +42,3 @@ Put the header 'Authorization' with token from signIn query or registerUser muta
 # How to debug Ackee
 
 Set ACKEE_TOKEN var
-

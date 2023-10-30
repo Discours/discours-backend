@@ -1,62 +1,54 @@
-import asyncio
 import json
-from typing import Any
 from datetime import datetime, timezone
-from graphql.type import GraphQLResolveInfo
+
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
 from base.redis import redis
 from base.resolvers import mutation
-from services.following import FollowingManager, FollowingResult, Following
-from validations.inbox import Message
+from services.following import FollowingManager, FollowingResult
 
 
 @mutation.field("createMessage")
 @login_required
 async def create_message(_, info, chat: str, body: str, replyTo=None):
-    """ create message with :body for :chat_id replying to :replyTo optionally """
+    """create message with :body for :chat_id replying to :replyTo optionally"""
     auth: AuthCredentials = info.context["request"].auth
 
     chat = await redis.execute("GET", f"chats/{chat}")
     if not chat:
-        return {
-            "error": "chat is not exist"
-        }
+        return {"error": "chat is not exist"}
     else:
-        chat = dict(json.loads(chat))
-        message_id = await redis.execute("GET", f"chats/{chat['id']}/next_message_id")
+        chat_dict = dict(json.loads(chat))
+        message_id = await redis.execute("GET", f"chats/{chat_dict['id']}/next_message_id")
         message_id = int(message_id)
         new_message = {
-            "chatId": chat['id'],
+            "chatId": chat_dict["id"],
             "id": message_id,
             "author": auth.user_id,
             "body": body,
-            "createdAt": int(datetime.now(tz=timezone.utc).timestamp())
+            "createdAt": int(datetime.now(tz=timezone.utc).timestamp()),
         }
         if replyTo:
-            new_message['replyTo'] = replyTo
-        chat['updatedAt'] = new_message['createdAt']
-        await redis.execute("SET", f"chats/{chat['id']}", json.dumps(chat))
+            new_message["replyTo"] = replyTo
+        chat_dict["updatedAt"] = new_message["createdAt"]
+        await redis.execute("SET", f"chats/{chat_dict['id']}", json.dumps(chat))
         print(f"[inbox] creating message {new_message}")
         await redis.execute(
-            "SET", f"chats/{chat['id']}/messages/{message_id}", json.dumps(new_message)
+            "SET", f"chats/{chat_dict['id']}/messages/{message_id}", json.dumps(new_message)
         )
-        await redis.execute("LPUSH", f"chats/{chat['id']}/message_ids", str(message_id))
-        await redis.execute("SET", f"chats/{chat['id']}/next_message_id", str(message_id + 1))
+        await redis.execute("LPUSH", f"chats/{chat_dict['id']}/message_ids", str(message_id))
+        await redis.execute("SET", f"chats/{chat_dict['id']}/next_message_id", str(message_id + 1))
 
-        users = chat["users"]
+        users = chat_dict["users"]
         for user_slug in users:
             await redis.execute(
-                "LPUSH", f"chats/{chat['id']}/unread/{user_slug}", str(message_id)
+                "LPUSH", f"chats/{chat_dict['id']}/unread/{user_slug}", str(message_id)
             )
 
-        result = FollowingResult("NEW", 'chat', new_message)
-        await FollowingManager.push('chat', result)
+        result = FollowingResult("NEW", "chat", new_message)
+        await FollowingManager.push("chat", result)
 
-        return {
-            "message": new_message,
-            "error": None
-        }
+        return {"message": new_message, "error": None}
 
 
 @mutation.field("updateMessage")
@@ -81,13 +73,10 @@ async def update_message(_, info, chat_id: str, message_id: int, body: str):
 
     await redis.execute("SET", f"chats/{chat_id}/messages/{message_id}", json.dumps(message))
 
-    result = FollowingResult("UPDATED", 'chat', message)
-    await FollowingManager.push('chat', result)
+    result = FollowingResult("UPDATED", "chat", message)
+    await FollowingManager.push("chat", result)
 
-    return {
-        "message": message,
-        "error": None
-    }
+    return {"message": message, "error": None}
 
 
 @mutation.field("deleteMessage")
@@ -114,7 +103,7 @@ async def delete_message(_, info, chat_id: str, message_id: int):
     for user_id in users:
         await redis.execute("LREM", f"chats/{chat_id}/unread/{user_id}", 0, str(message_id))
 
-    result = FollowingResult("DELETED", 'chat', message)
+    result = FollowingResult("DELETED", "chat", message)
     await FollowingManager.push(result)
 
     return {}
@@ -137,6 +126,4 @@ async def mark_as_read(_, info, chat_id: str, messages: [int]):
     for message_id in messages:
         await redis.execute("LREM", f"chats/{chat_id}/unread/{auth.user_id}", 0, str(message_id))
 
-    return {
-        "error": None
-    }
+    return {"error": None}

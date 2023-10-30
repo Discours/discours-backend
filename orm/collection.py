@@ -8,7 +8,7 @@ from base.orm import Base
 class ShoutCollection(Base):
     __tablename__ = "shout_collection"
 
-    id = None  # type: ignore
+    id = None
     shout = Column(ForeignKey("shout.id"), primary_key=True)
     collection = Column(ForeignKey("collection.id"), primary_key=True)
 

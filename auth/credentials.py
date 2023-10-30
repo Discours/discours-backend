@@ -23,13 +23,11 @@ class AuthCredentials(BaseModel):
     async def permissions(self) -> List[Permission]:
         if self.user_id is None:
             # raise Unauthorized("Please login first")
-            return {
-                "error": "Please login first"
-            }
+            return {"error": "Please login first"}
         else:
             # TODO: implement permissions logix
             print(self.user_id)
-        return NotImplemented()
+        return NotImplemented
 
 
 class AuthUser(BaseModel):
@@ -40,6 +38,6 @@ class AuthUser(BaseModel):
     def is_authenticated(self) -> bool:
         return self.user_id is not None
 
-    @property
-    def display_id(self) -> int:
-        return self.user_id
+    # @property
+    # def display_id(self) -> int:
+    #     return self.user_id
