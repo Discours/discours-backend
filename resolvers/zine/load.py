@@ -210,12 +210,17 @@ async def get_my_feed(_, info, options):
     auth: AuthCredentials = info.context["request"].auth
     user_id = auth.user_id
 
+    user_followed_authors = select(AuthorFollower.author).where(AuthorFollower.follower == user_id)
+    user_followed_topics = select(TopicFollower.topic).where(TopicFollower.follower == user_id)
+
     subquery = (
         select(Shout.id)
-        .join(ShoutAuthor)
-        .join(AuthorFollower, AuthorFollower.follower == user_id)
-        .join(ShoutTopic)
-        .join(TopicFollower, TopicFollower.follower == user_id)
+        .where(Shout.id == ShoutAuthor.shout)
+        .where(Shout.id == ShoutTopic.shout)
+        .where(
+            (ShoutAuthor.user.in_(user_followed_authors))
+            | (ShoutTopic.topic.in_(user_followed_topics))
+        )
     )
 
     q = (
@@ -240,9 +245,10 @@ async def get_my_feed(_, info, options):
 
     q = q.group_by(Shout.id).order_by(nulls_last(query_order_by)).limit(limit).offset(offset)
 
+    # print(q.compile(compile_kwargs={"literal_binds": True}))
+
     shouts = []
     with local_session() as session:
-        shouts_map = {}
         for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(
             q
         ).unique():
@@ -253,6 +259,5 @@ async def get_my_feed(_, info, options):
                 "commented": commented_stat,
                 "rating": rating_stat,
             }
-            shouts_map[shout.id] = shout
 
     return shouts
