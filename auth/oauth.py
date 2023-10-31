@@ -33,8 +33,10 @@ oauth.register(
 
 oauth.register(
     name="google",
-    client_id=OAUTH_CLIENTS["GOOGLE"]["id"],
-    client_secret=OAUTH_CLIENTS["GOOGLE"]["key"],
+    # client_id=OAUTH_CLIENTS["GOOGLE"]["id"],
+    # client_secret=OAUTH_CLIENTS["GOOGLE"]["key"],
+    client_id="648983473866-2hd6v2eqqk6hhqabfhuqq2slb2fkfvve.apps.googleusercontent.com",
+    client_secret="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",
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
     client_kwargs={"scope": "openid email profile"},
 )
@@ -67,11 +69,13 @@ async def oauth_login(request):
     provider = request.path_params["provider"]
     request.session["provider"] = provider
     client = oauth.create_client(provider)
-    redirect_uri = "https://v2.discours.io/oauth-authorize"
+    # redirect_uri = "https://v2.discours.io/oauth-authorize"
+    redirect_uri = "https://localhost"
     return await client.authorize_redirect(request, redirect_uri)
 
 
 async def oauth_authorize(request):
+    print(request.session)
     provider = request.session["provider"]
     client = oauth.create_client(provider)
     token = await client.authorize_access_token(request)
