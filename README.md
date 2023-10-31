@@ -7,10 +7,6 @@
 - starlette
 - uvicorn
 
-# Local development
-
-Install deps first
-
 on osx
 ```
 brew install redis nginx postgres
@@ -22,16 +18,23 @@ on debian/ubuntu
 apt install redis nginx
 ```
 
-First, install Postgres. Then you'll need some data, so migrate it:
+# Local development
+
+Install deps first
+
 ```
-createdb discoursio
-python server.py migrate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+pre-commit install
 ```
 
-Then run nginx, redis and API server
+Create database from backup
 ```
-redis-server
-pip install -r requirements.txt
+./restdb.sh
+```
+
+Start local server
+```
 python3 server.py dev
 ```
 
