@@ -30,7 +30,7 @@ class Base(DeclarativeBase):
     __abstract__ = True
     __table_args__ = {"extend_existing": True}
 
-    id: Column | None = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)
 
     def __init_subclass__(cls, **kwargs):
         REGISTRY[cls.__name__] = cls
