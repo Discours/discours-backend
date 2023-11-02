@@ -36,15 +36,22 @@ oauth.register(
     # client_id=OAUTH_CLIENTS["GOOGLE"]["id"],
     # client_secret=OAUTH_CLIENTS["GOOGLE"]["key"],
     client_id="648983473866-2hd6v2eqqk6hhqabfhuqq2slb2fkfvve.apps.googleusercontent.com",
-    client_secret="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",
+    client_secret="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",
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
     client_kwargs={"scope": "openid email profile"},
+    authorize_state="test",
 )
 
 
 async def google_profile(client, request, token):
-    profile = await client.parse_id_token(request, token)
-    profile["id"] = profile["sub"]
+    userinfo = token["userinfo"]
+
+    profile = {"name": userinfo["name"], "email": userinfo["email"], "id": userinfo["sub"]}
+
+    if userinfo["picture"]:
+        userpic = userinfo["picture"].replace("=s96", "=s600")
+        profile["userpic"] = userpic
+
     return profile
 
 
@@ -69,13 +76,12 @@ async def oauth_login(request):
     provider = request.path_params["provider"]
     request.session["provider"] = provider
     client = oauth.create_client(provider)
-    # redirect_uri = "https://v2.discours.io/oauth-authorize"
-    redirect_uri = "https://localhost"
+    # redirect_uri = "http://v2.discours.io/oauth-authorize"
+    redirect_uri = "http://localhost:8080/oauth-authorize"
     return await client.authorize_redirect(request, redirect_uri)
 
 
 async def oauth_authorize(request):
-    print(request.session)
     provider = request.session["provider"]
     client = oauth.create_client(provider)
     token = await client.authorize_access_token(request)
@@ -86,6 +92,7 @@ async def oauth_authorize(request):
         "oauth": user_oauth_info,
         "email": profile["email"],
         "username": profile["name"],
+        "userpic": profile["userpic"],
     }
     user = Identity.oauth(user_input)
     session_token = await TokenStorage.create_session(user)

@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from urllib.parse import quote_plus
 
 from graphql.type import GraphQLResolveInfo
-from starlette.responses import RedirectResponse
 from transliterate import translit
 
 from auth.authenticate import login_required
@@ -14,17 +13,11 @@ from auth.email import send_auth_email
 from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-from base.exceptions import (
-    BaseHttpException,
-    InvalidPassword,
-    InvalidToken,
-    ObjectNotExist,
-    Unauthorized,
-)
+from base.exceptions import InvalidPassword, InvalidToken, ObjectNotExist, Unauthorized
 from base.orm import local_session
 from base.resolvers import mutation, query
 from orm import Role, User
-from settings import FRONTEND_URL, SESSION_TOKEN_HEADER
+from settings import SESSION_TOKEN_HEADER
 
 
 @mutation.field("getSession")
@@ -62,19 +55,6 @@ async def confirm_email(_, info, token):
     except Exception as e:
         print(e)  # FIXME: debug only
         return {"error": "email is not confirmed"}
-
-
-async def confirm_email_handler(request):
-    token = request.path_params["token"]  # one time
-    request.session["token"] = token
-    res = await confirm_email(None, {}, token)
-    print("[resolvers.auth] confirm_email request: %r" % request)
-    if "error" in res:
-        raise BaseHttpException(res["error"])
-    else:
-        response = RedirectResponse(url=FRONTEND_URL)
-        response.set_cookie("token", res["token"])  # session token
-        return response
 
 
 def create_user(user_dict):

@@ -23,7 +23,7 @@ for provider in OAUTH_PROVIDERS:
         "id": environ.get(provider + "_OAUTH_ID"),
         "key": environ.get(provider + "_OAUTH_KEY"),
     }
-FRONTEND_URL = environ.get("FRONTEND_URL") or "http://localhost:3000"
+FRONTEND_URL = environ.get("FRONTEND_URL") or "https://localhost:3000"
 SHOUTS_REPO = "content"
 SESSION_TOKEN_HEADER = "Authorization"
 
