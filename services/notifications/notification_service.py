@@ -142,7 +142,7 @@ class NewReactionNotificator:
 
 class NotificationService:
     def __init__(self):
-        self._queue = asyncio.Queue()
+        self._queue = asyncio.Queue(maxsize=1000)
 
     async def handle_new_reaction(self, reaction_id):
         notificator = NewReactionNotificator(reaction_id)

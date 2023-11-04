@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import aliased, joinedload
@@ -79,6 +80,15 @@ def apply_filters(q, filters, user_id=None):  # noqa: C901
 
 @query.field("loadShout")
 async def load_shout(_, info, slug=None, shout_id=None):
+    # for testing, soon will be removed
+    if slug == "testtesttest":
+        with open("test/test.json") as json_file:
+            test_shout = json.load(json_file)["data"]["loadShout"]
+            test_shout["createdAt"] = datetime.fromisoformat(test_shout["createdAt"])
+            test_shout["publishedAt"] = datetime.fromisoformat(test_shout["publishedAt"])
+            print(test_shout)
+            return test_shout
+
     with local_session() as session:
         q = select(Shout).options(
             joinedload(Shout.authors),
