@@ -86,7 +86,6 @@ async def load_shout(_, info, slug=None, shout_id=None):
             test_shout = json.load(json_file)["data"]["loadShout"]
             test_shout["createdAt"] = datetime.fromisoformat(test_shout["createdAt"])
             test_shout["publishedAt"] = datetime.fromisoformat(test_shout["publishedAt"])
-            print(test_shout)
             return test_shout
 
     with local_session() as session:
