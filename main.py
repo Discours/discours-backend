@@ -16,7 +16,6 @@ from auth.oauth import oauth_authorize, oauth_login
 from base.redis import redis
 from base.resolvers import resolvers
 from orm import init_tables
-from resolvers.auth import confirm_email_handler
 from resolvers.upload import upload_handler
 from services.main import storages_init
 from services.notifications.notification_service import notification_service
@@ -71,10 +70,8 @@ async def shutdown():
 
 
 routes = [
-    # Route("/messages", endpoint=sse_messages),
     Route("/oauth/{provider}", endpoint=oauth_login),
     Route("/oauth-authorize", endpoint=oauth_authorize),
-    Route("/confirm/{token}", endpoint=confirm_email_handler),
     Route("/upload", endpoint=upload_handler, methods=["POST"]),
     Route("/subscribe/{user_id}", endpoint=sse_subscribe_handler),
 ]

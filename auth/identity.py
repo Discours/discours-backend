@@ -3,7 +3,6 @@ from hashlib import sha256
 
 from jwt import DecodeError, ExpiredSignatureError
 from passlib.hash import bcrypt
-from sqlalchemy import or_
 
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
@@ -11,7 +10,6 @@ from auth.tokenstorage import TokenStorage
 # from base.exceptions import InvalidPassword, InvalidToken
 from base.orm import local_session
 from orm import User
-from validations.auth import AuthInput
 
 
 class Password:
@@ -65,20 +63,13 @@ class Identity:
         return user
 
     @staticmethod
-    def oauth(inp: AuthInput) -> User:
+    def oauth(inp) -> User:
         with local_session() as session:
-            user = (
-                session.query(User)
-                .filter(or_(User.oauth == inp["oauth"], User.email == inp["email"]))
-                .first()
-            )
+            user = session.query(User).filter(User.email == inp["email"]).first()
             if not user:
-                user = User.create(**inp)
-            if not user.oauth:
-                user.oauth = inp["oauth"]
+                user = User.create(**inp, emailConfirmed=True)
                 session.commit()
 
-        user = User(**user.dict())
         return user
 
     @staticmethod
