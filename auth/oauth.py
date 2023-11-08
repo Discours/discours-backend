@@ -74,7 +74,7 @@ async def oauth_login(request):
     provider = request.path_params["provider"]
     request.session["provider"] = provider
     client = oauth.create_client(provider)
-    redirect_uri = "http://v2.discours.io/oauth-authorize"
+    redirect_uri = "https://v2.discours.io/oauth-authorize"
     return await client.authorize_redirect(request, redirect_uri)
 
 
