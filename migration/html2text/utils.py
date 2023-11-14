@@ -4,9 +4,7 @@ from typing import Dict, List, Optional
 from . import config
 
 unifiable_n = {
-    html.entities.name2codepoint[k]: v
-    for k, v in config.UNIFIABLE.items()
-    if k != "nbsp"
+    html.entities.name2codepoint[k]: v for k, v in config.UNIFIABLE.items() if k != "nbsp"
 }
 
 
@@ -68,12 +66,14 @@ def element_style(
     :rtype: dict
     """
     style = parent_style.copy()
-    if attrs.get("class"):
-        for css_class in attrs["class"].split():
+    attrs_class = attrs.get("class")
+    if attrs_class:
+        for css_class in attrs_class.split():
             css_style = style_def.get("." + css_class, {})
             style.update(css_style)
-    if attrs.get("style"):
-        immediate_style = dumb_property_dict(attrs["style"])
+    attrs_style = attrs.get("style")
+    if attrs_style:
+        immediate_style = dumb_property_dict(attrs_style)
         style.update(immediate_style)
 
     return style
@@ -147,18 +147,17 @@ def list_numbering_start(attrs: Dict[str, Optional[str]]) -> int:
 
     :rtype: int or None
     """
-    if attrs.get("start"):
+    attrs_start = attrs.get("start")
+    if attrs_start:
         try:
-            return int(attrs["start"]) - 1
+            return int(attrs_start) - 1
         except ValueError:
             pass
 
     return 0
 
 
-def skipwrap(
-    para: str, wrap_links: bool, wrap_list_items: bool, wrap_tables: bool
-) -> bool:
+def skipwrap(para: str, wrap_links: bool, wrap_list_items: bool, wrap_tables: bool) -> bool:
     # If it appears to contain a link
     # don't wrap
     if not wrap_links and config.RE_LINK.search(para):
@@ -236,9 +235,7 @@ def reformat_table(lines: List[str], right_margin: int) -> List[str]:
             max_width += [len(x) + right_margin for x in cols[-(num_cols - max_cols) :]]
             max_cols = num_cols
 
-        max_width = [
-            max(len(x) + right_margin, old_len) for x, old_len in zip(cols, max_width)
-        ]
+        max_width = [max(len(x) + right_margin, old_len) for x, old_len in zip(cols, max_width)]
 
     # reformat
     new_lines = []
@@ -247,15 +244,13 @@ def reformat_table(lines: List[str], right_margin: int) -> List[str]:
         if set(line.strip()) == set("-|"):
             filler = "-"
             new_cols = [
-                x.rstrip() + (filler * (M - len(x.rstrip())))
-                for x, M in zip(cols, max_width)
+                x.rstrip() + (filler * (M - len(x.rstrip()))) for x, M in zip(cols, max_width)
             ]
             new_lines.append("|-" + "|".join(new_cols) + "|")
         else:
             filler = " "
             new_cols = [
-                x.rstrip() + (filler * (M - len(x.rstrip())))
-                for x, M in zip(cols, max_width)
+                x.rstrip() + (filler * (M - len(x.rstrip()))) for x, M in zip(cols, max_width)
             ]
             new_lines.append("| " + "|".join(new_cols) + "|")
     return new_lines

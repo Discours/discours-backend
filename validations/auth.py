@@ -1,4 +1,5 @@
 from typing import Optional, Text
+
 from pydantic import BaseModel
 
 

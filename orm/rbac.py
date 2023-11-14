@@ -1,9 +1,9 @@
 import warnings
 
-from sqlalchemy import String, Column, ForeignKey, UniqueConstraint, TypeDecorator
+from sqlalchemy import Column, ForeignKey, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from base.orm import Base, REGISTRY, engine, local_session
+from base.orm import REGISTRY, Base, local_session
 
 # Role Based Access Control #
 
@@ -121,16 +121,23 @@ class Operation(Base):
 
 class Resource(Base):
     __tablename__ = "resource"
-    resourceClass = Column(
-        String, nullable=False, unique=True, comment="Resource class"
-    )
+    resourceClass = Column(String, nullable=False, unique=True, comment="Resource class")
     name = Column(String, nullable=False, unique=True, comment="Resource name")
     # TODO: community = Column(ForeignKey())
 
     @staticmethod
     def init_table():
         with local_session() as session:
-            for res in ["shout", "topic", "reaction", "chat", "message", "invite", "community", "user"]:
+            for res in [
+                "shout",
+                "topic",
+                "reaction",
+                "chat",
+                "message",
+                "invite",
+                "community",
+                "user",
+            ]:
                 r = session.query(Resource).filter(Resource.name == res).first()
                 if not r:
                     r = Resource.create(name=res, resourceClass=res)
@@ -145,29 +152,27 @@ class Permission(Base):
         {"extend_existing": True},
     )
 
-    role = Column(
-        ForeignKey("role.id", ondelete="CASCADE"), nullable=False, comment="Role"
-    )
-    operation = Column(
+    role: Column = Column(ForeignKey("role.id", ondelete="CASCADE"), nullable=False, comment="Role")
+    operation: Column = Column(
         ForeignKey("operation.id", ondelete="CASCADE"),
         nullable=False,
         comment="Operation",
     )
-    resource = Column(
+    resource: Column = Column(
         ForeignKey("resource.id", ondelete="CASCADE"),
         nullable=False,
         comment="Resource",
     )
 
 
-if __name__ == "__main__":
-    Base.metadata.create_all(engine)
-    ops = [
-        Permission(role=1, operation=1, resource=1),
-        Permission(role=1, operation=2, resource=1),
-        Permission(role=1, operation=3, resource=1),
-        Permission(role=1, operation=4, resource=1),
-        Permission(role=2, operation=4, resource=1),
-    ]
-    global_session.add_all(ops)
-    global_session.commit()
+# if __name__ == "__main__":
+#     Base.metadata.create_all(engine)
+#     ops = [
+#         Permission(role=1, operation=1, resource=1),
+#         Permission(role=1, operation=2, resource=1),
+#         Permission(role=1, operation=3, resource=1),
+#         Permission(role=1, operation=4, resource=1),
+#         Permission(role=2, operation=4, resource=1),
+#     ]
+#     global_session.add_all(ops)
+#     global_session.commit()

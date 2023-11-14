@@ -12,10 +12,12 @@ from migration.tables.comments import migrate as migrateComment
 from migration.tables.comments import migrate_2stage as migrateComment_2stage
 from migration.tables.content_items import get_shout_slug
 from migration.tables.content_items import migrate as migrateShout
-from migration.tables.remarks import migrate as migrateRemark
+
+# from migration.tables.remarks import migrate as migrateRemark
 from migration.tables.topics import migrate as migrateTopic
-from migration.tables.users import migrate as migrateUser, post_migrate as users_post_migrate
+from migration.tables.users import migrate as migrateUser
 from migration.tables.users import migrate_2stage as migrateUser_2stage
+from migration.tables.users import post_migrate as users_post_migrate
 from orm import init_tables
 from orm.reaction import Reaction
 
@@ -63,16 +65,8 @@ async def topics_handle(storage):
             del storage["topics"]["by_slug"][oldslug]
             storage["topics"]["by_oid"][oid] = storage["topics"]["by_slug"][newslug]
     print("[migration] " + str(counter) + " topics migrated")
-    print(
-        "[migration] "
-        + str(len(storage["topics"]["by_oid"].values()))
-        + " topics by oid"
-    )
-    print(
-        "[migration] "
-        + str(len(storage["topics"]["by_slug"].values()))
-        + " topics by slug"
-    )
+    print("[migration] " + str(len(storage["topics"]["by_oid"].values())) + " topics by oid")
+    print("[migration] " + str(len(storage["topics"]["by_slug"].values())) + " topics by slug")
 
 
 async def shouts_handle(storage, args):
@@ -117,9 +111,10 @@ async def shouts_handle(storage, args):
 
             # print main counter
             counter += 1
-            print('[migration] shouts_handle %d: %s @%s' % (
-                (counter + 1), shout_dict["slug"], author["slug"]
-            ))
+            print(
+                "[migration] shouts_handle %d: %s @%s"
+                % ((counter + 1), shout_dict["slug"], author["slug"])
+            )
 
             b = bs4.BeautifulSoup(shout_dict["body"], "html.parser")
             texts = [shout_dict["title"].lower().replace(r"[^а-яА-Яa-zA-Z]", "")]
@@ -138,13 +133,13 @@ async def shouts_handle(storage, args):
     print("[migration] " + str(anonymous_author) + " authored by @anonymous")
 
 
-async def remarks_handle(storage):
-    print("[migration] comments")
-    c = 0
-    for entry_remark in storage["remarks"]["data"]:
-        remark = await migrateRemark(entry_remark, storage)
-        c += 1
-    print("[migration] " + str(c) + " remarks migrated")
+# async def remarks_handle(storage):
+#     print("[migration] comments")
+#     c = 0
+#     for entry_remark in storage["remarks"]["data"]:
+#         remark = await migrateRemark(entry_remark, storage)
+#         c += 1
+#     print("[migration] " + str(c) + " remarks migrated")
 
 
 async def comments_handle(storage):
@@ -155,9 +150,9 @@ async def comments_handle(storage):
     for oldcomment in storage["reactions"]["data"]:
         if not oldcomment.get("deleted"):
             reaction = await migrateComment(oldcomment, storage)
-            if type(reaction) == str:
+            if isinstance(reaction, str):
                 missed_shouts[reaction] = oldcomment
-            elif type(reaction) == Reaction:
+            elif isinstance(reaction, Reaction):
                 reaction = reaction.dict()
                 rid = reaction["id"]
                 oid = reaction["oid"]
@@ -214,9 +209,7 @@ def data_load():
         tags_data = json.loads(open("migration/data/tags.json").read())
         storage["topics"]["tags"] = tags_data
         print("[migration.load] " + str(len(tags_data)) + " tags ")
-        cats_data = json.loads(
-            open("migration/data/content_item_categories.json").read()
-        )
+        cats_data = json.loads(open("migration/data/content_item_categories.json").read())
         storage["topics"]["cats"] = cats_data
         print("[migration.load] " + str(len(cats_data)) + " cats ")
         comments_data = json.loads(open("migration/data/comments.json").read())
@@ -235,11 +228,7 @@ def data_load():
             storage["users"]["by_oid"][x["_id"]] = x
             # storage['users']['by_slug'][x['slug']] = x
         # no user.slug yet
-        print(
-            "[migration.load] "
-            + str(len(storage["users"]["by_oid"].keys()))
-            + " users by oid"
-        )
+        print("[migration.load] " + str(len(storage["users"]["by_oid"].keys())) + " users by oid")
         for x in tags_data:
             storage["topics"]["by_oid"][x["_id"]] = x
             storage["topics"]["by_slug"][x["slug"]] = x
@@ -247,9 +236,7 @@ def data_load():
             storage["topics"]["by_oid"][x["_id"]] = x
             storage["topics"]["by_slug"][x["slug"]] = x
         print(
-            "[migration.load] "
-            + str(len(storage["topics"]["by_slug"].keys()))
-            + " topics by slug"
+            "[migration.load] " + str(len(storage["topics"]["by_slug"].keys())) + " topics by slug"
         )
         for item in content_data:
             slug = get_shout_slug(item)

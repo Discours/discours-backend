@@ -6,11 +6,11 @@ exclude: |
   )
 
 default_language_version:
-  python: python3.8
+  python: python3.10
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: v4.5.0
     hooks:
       - id: check-added-large-files
       - id: check-case-conflict
@@ -21,6 +21,7 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+      - id: requirements-txt-fixer
 
   - repo: https://github.com/timothycrosley/isort
     rev: 5.12.0

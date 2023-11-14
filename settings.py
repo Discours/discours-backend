@@ -3,8 +3,9 @@ from os import environ
 PORT = 8080
 
 DB_URL = (
-    environ.get("DATABASE_URL") or environ.get("DB_URL") or
-    "postgresql://postgres@localhost:5432/discoursio"
+    environ.get("DATABASE_URL")
+    or environ.get("DB_URL")
+    or "postgresql://postgres@localhost:5432/discoursio"
 )
 JWT_ALGORITHM = "HS256"
 JWT_SECRET_KEY = environ.get("JWT_SECRET_KEY") or "8f1bd7696ffb482d8486dfbc6e7d16dd-secret-key"
@@ -22,7 +23,7 @@ for provider in OAUTH_PROVIDERS:
         "id": environ.get(provider + "_OAUTH_ID"),
         "key": environ.get(provider + "_OAUTH_KEY"),
     }
-FRONTEND_URL = environ.get("FRONTEND_URL") or "http://localhost:3000"
+FRONTEND_URL = environ.get("FRONTEND_URL") or "https://localhost:3000"
 SHOUTS_REPO = "content"
 SESSION_TOKEN_HEADER = "Authorization"
 
@@ -30,4 +31,4 @@ SENTRY_DSN = environ.get("SENTRY_DSN")
 SESSION_SECRET_KEY = environ.get("SESSION_SECRET_KEY") or "!secret"
 
 # for local development
-DEV_SERVER_PID_FILE_NAME = 'dev-server.pid'
+DEV_SERVER_PID_FILE_NAME = "dev-server.pid"
