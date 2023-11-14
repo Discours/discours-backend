@@ -1,7 +1,6 @@
-from datetime import datetime
 from enum import Enum as Enumeration
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, func
 
 from base.orm import Base
 
@@ -27,13 +26,15 @@ class ReactionKind(Enumeration):
 class Reaction(Base):
     __tablename__ = "reaction"
     body = Column(String, nullable=True, comment="Reaction Body")
-    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
+    createdAt = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), comment="Created at"
+    )
     createdBy: Column = Column(ForeignKey("user.id"), nullable=False, index=True, comment="Sender")
-    updatedAt = Column(DateTime, nullable=True, comment="Updated at")
+    updatedAt = Column(DateTime(timezone=True), nullable=True, comment="Updated at")
     updatedBy: Column = Column(
         ForeignKey("user.id"), nullable=True, index=True, comment="Last Editor"
     )
-    deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
+    deletedAt = Column(DateTime(timezone=True), nullable=True, comment="Deleted at")
     deletedBy: Column = Column(
         ForeignKey("user.id"), nullable=True, index=True, comment="Deleted by"
     )
