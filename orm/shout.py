@@ -1,6 +1,13 @@
-from datetime import datetime
-
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    func,
+)
 from sqlalchemy.orm import column_property, relationship
 
 from base.orm import Base, local_session
@@ -24,8 +31,10 @@ class ShoutReactionsFollower(Base):
     follower: Column = Column(ForeignKey("user.id"), primary_key=True, index=True)
     shout: Column = Column(ForeignKey("shout.id"), primary_key=True, index=True)
     auto = Column(Boolean, nullable=False, default=False)
-    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
-    deletedAt = Column(DateTime, nullable=True)
+    createdAt = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), comment="Created at"
+    )
+    deletedAt = Column(DateTime(timezone=True), nullable=True)
 
 
 class ShoutAuthor(Base):
@@ -41,10 +50,12 @@ class Shout(Base):
     __tablename__ = "shout"
 
     # timestamps
-    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
-    updatedAt = Column(DateTime, nullable=True, comment="Updated at")
-    publishedAt = Column(DateTime, nullable=True)
-    deletedAt = Column(DateTime, nullable=True)
+    createdAt = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), comment="Created at"
+    )
+    updatedAt = Column(DateTime(timezone=True), nullable=True, comment="Updated at")
+    publishedAt = Column(DateTime(timezone=True), nullable=True)
+    deletedAt = Column(DateTime(timezone=True), nullable=True)
 
     createdBy: Column = Column(ForeignKey("user.id"), comment="Created By")
     deletedBy: Column = Column(ForeignKey("user.id"), nullable=True)

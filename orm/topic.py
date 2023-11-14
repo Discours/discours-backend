@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, func
 
 from base.orm import Base
 
@@ -11,7 +9,9 @@ class TopicFollower(Base):
     id = None
     follower: Column = Column(ForeignKey("user.id"), primary_key=True, index=True)
     topic: Column = Column(ForeignKey("topic.id"), primary_key=True, index=True)
-    createdAt = Column(DateTime, nullable=False, default=datetime.now, comment="Created at")
+    createdAt = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), comment="Created at"
+    )
     auto = Column(Boolean, nullable=False, default=False)
 
 
