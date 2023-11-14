@@ -15,7 +15,9 @@ from resolvers.zine.profile import (
     load_authors_by,
     rate_user,
     update_profile,
-    get_authors_all
+    get_authors_all,
+    get_author,
+    get_author_by_id
 )
 
 from resolvers.zine.reactions import (
