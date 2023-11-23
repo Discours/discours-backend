@@ -1,4 +1,5 @@
-from typing import Optional, Text, List
+from typing import List, Optional, Text
+
 from pydantic import BaseModel
 
 
@@ -20,6 +21,7 @@ class Member(BaseModel):
 
 
 class Chat(BaseModel):
+    id: int
     createdAt: int
     createdBy: int
     users: List[int]

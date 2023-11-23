@@ -1,5 +1,4 @@
 from base.orm import local_session
-from migration.extract import extract_md
 from migration.html2text import html2text
 from orm import Topic
 
@@ -10,7 +9,7 @@ def migrate(entry):
         "slug": entry["slug"],
         "oid": entry["_id"],
         "title": entry["title"].replace("&nbsp;", " "),
-        "body": extract_md(html2text(body_orig))
+        "body": html2text(body_orig),
     }
 
     with local_session() as session:

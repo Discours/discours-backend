@@ -1,7 +1,6 @@
-from datetime import datetime
 from enum import Enum as Enumeration
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, func
 
 from base.orm import Base
 
@@ -28,15 +27,19 @@ class Reaction(Base):
     __tablename__ = "reaction"
     body = Column(String, nullable=True, comment="Reaction Body")
     createdAt = Column(
-        DateTime, nullable=False, default=datetime.now, comment="Created at"
+        DateTime(timezone=True), nullable=False, server_default=func.now(), comment="Created at"
     )
-    createdBy = Column(ForeignKey("user.id"), nullable=False, index=True, comment="Sender")
-    updatedAt = Column(DateTime, nullable=True, comment="Updated at")
-    updatedBy = Column(ForeignKey("user.id"), nullable=True, index=True, comment="Last Editor")
-    deletedAt = Column(DateTime, nullable=True, comment="Deleted at")
-    deletedBy = Column(ForeignKey("user.id"), nullable=True, index=True, comment="Deleted by")
-    shout = Column(ForeignKey("shout.id"), nullable=False, index=True)
-    replyTo = Column(
+    createdBy: Column = Column(ForeignKey("user.id"), nullable=False, index=True, comment="Sender")
+    updatedAt = Column(DateTime(timezone=True), nullable=True, comment="Updated at")
+    updatedBy: Column = Column(
+        ForeignKey("user.id"), nullable=True, index=True, comment="Last Editor"
+    )
+    deletedAt = Column(DateTime(timezone=True), nullable=True, comment="Deleted at")
+    deletedBy: Column = Column(
+        ForeignKey("user.id"), nullable=True, index=True, comment="Deleted by"
+    )
+    shout: Column = Column(ForeignKey("shout.id"), nullable=False, index=True)
+    replyTo: Column = Column(
         ForeignKey("reaction.id"), nullable=True, comment="Reply to reaction ID"
     )
     range = Column(String, nullable=True, comment="Range in format <start index>:<end>")

@@ -3,24 +3,15 @@ scalar DateTime
 ################################### Payload ###################################
 
 enum MessageStatus {
-  NEW
-  UPDATED
-  DELETED
-}
-
-type UserFollowings {
-  unread: Int
-  topics: [String]
-  authors: [String]
-  reactions: [Int]
-  communities: [String]
+    NEW
+    UPDATED
+    DELETED
 }
 
 type AuthResult {
-  error: String
-  token: String
-  user: User
-  news: UserFollowings
+    error: String
+    token: String
+    user: User
 }
 
 type ChatMember {
@@ -60,84 +51,84 @@ type Author {
 }
 
 type Result {
-  error: String
-  slugs: [String]
-  chat: Chat
-  chats: [Chat]
-  message: Message
-  messages: [Message]
-  members: [ChatMember]
-  shout: Shout
-  shouts: [Shout]
-  author: Author
-  authors: [Author]
-  reaction: Reaction
-  reactions: [Reaction]
-  topic: Topic
-  topics: [Topic]
-  community: Community
-  communities: [Community]
+    error: String
+    slugs: [String]
+    chat: Chat
+    chats: [Chat]
+    message: Message
+    messages: [Message]
+    members: [ChatMember]
+    shout: Shout
+    shouts: [Shout]
+    author: Author
+    authors: [Author]
+    reaction: Reaction
+    reactions: [Reaction]
+    topic: Topic
+    topics: [Topic]
+    community: Community
+    communities: [Community]
 }
 
 enum ReactionStatus {
-  NEW
-  UPDATED
-  CHANGED
-  EXPLAINED
-  DELETED
+    NEW
+    UPDATED
+    CHANGED
+    EXPLAINED
+    DELETED
 }
 
 type ReactionUpdating {
-  error: String
-  status: ReactionStatus
-  reaction: Reaction
+    error: String
+    status: ReactionStatus
+    reaction: Reaction
 }
 
 ################################### Inputs ###################################
 
 input ShoutInput {
-  slug: String
-  title: String
-  body: String
-  lead: String
-  description: String
-  layout: String
-  media: String
-  authors: [String]
-  topics: [TopicInput]
-  community: Int
-  mainTopic: TopicInput
-  subtitle: String
-  cover: String
+    slug: String
+    title: String
+    body: String
+    lead: String
+    description: String
+    layout: String
+    media: String
+    authors: [String]
+    topics: [TopicInput]
+    community: Int
+    mainTopic: TopicInput
+    subtitle: String
+    cover: String
 }
 
 input ProfileInput {
-  slug: String
-  name: String
-  userpic: String
-  links: [String]
-  bio: String
-  about: String
+    slug: String
+    name: String
+    userpic: String
+    links: [String]
+    bio: String
+    about: String
 }
 
 input TopicInput {
-  id: Int,
-  slug: String!
-  # community: String!
-  title: String
-  body: String
-  pic: String
-  # children: [String]
-  # parents: [String]
+    id: Int,
+    slug: String!
+    # community: String!
+    title: String
+    body: String
+    pic: String
+    # children: [String]
+    # parents: [String]
 }
 
 
 input ReactionInput {
-  kind: ReactionKind!
-  shout: Int!
-  range: String
-  body: String
-  replyTo: Int
+    kind: ReactionKind!
+    shout: Int!
+    range: String
+    body: String
+    replyTo: Int
 }
 
 input ChatInput {
@@ -147,55 +138,57 @@ input ChatInput {
 }
 
 enum FollowingEntity {
-  TOPIC
-  AUTHOR
-  COMMUNITY
-  REACTIONS
+    TOPIC
+    AUTHOR
+    COMMUNITY
+    REACTIONS
 }
 
 ################################### Mutation
 
 type Mutation {
-  # inbox
-  createChat(title: String, members: [Int]!): Result!
-  updateChat(chat: ChatInput!): Result!
-  deleteChat(chatId: String!): Result!
+    # inbox
+    createChat(title: String, members: [Int]!): Result!
+    updateChat(chat: ChatInput!): Result!
+    deleteChat(chatId: String!): Result!
 
-  createMessage(chat: String!, body: String!, replyTo: Int): Result!
-  updateMessage(chatId: String!, id: Int!, body: String!): Result!
-  deleteMessage(chatId: String!, id: Int!): Result!
-  markAsRead(chatId: String!, ids: [Int]!): Result!
+    createMessage(chat: String!, body: String!, replyTo: Int): Result!
+    updateMessage(chatId: String!, id: Int!, body: String!): Result!
+    deleteMessage(chatId: String!, id: Int!): Result!
+    markAsRead(chatId: String!, ids: [Int]!): Result!
 
-  # auth
-  getSession: AuthResult!
-  registerUser(email: String!, password: String, name: String): AuthResult!
-  sendLink(email: String!, lang: String, template: String): Result!
-  confirmEmail(token: String!): AuthResult!
+    # auth
+    getSession: AuthResult!
+    registerUser(email: String!, password: String, name: String): AuthResult!
+    sendLink(email: String!, lang: String, template: String): Result!
+    confirmEmail(token: String!): AuthResult!
 
-  # shout
-  createShout(inp: ShoutInput!): Result!
-  updateShout(shout_id: Int!, shout_input: ShoutInput, publish: Boolean): Result!
-  deleteShout(shout_id: Int!): Result!
+    # shout
+    createShout(inp: ShoutInput!): Result!
+    updateShout(shout_id: Int!, shout_input: ShoutInput, publish: Boolean): Result!
+    deleteShout(shout_id: Int!): Result!
 
-  # user profile
-  rateUser(slug: String!, value: Int!): Result!
-  updateOnlineStatus: Result!
-  updateProfile(profile: ProfileInput!): Result!
+    # user profile
+    rateUser(slug: String!, value: Int!): Result!
+    updateProfile(profile: ProfileInput!): Result!
 
-  # topics
-  createTopic(input: TopicInput!): Result!
-  # TODO: mergeTopics(t1: String!, t2: String!): Result!
-  updateTopic(input: TopicInput!): Result!
-  destroyTopic(slug: String!): Result!
+    # topics
+    createTopic(input: TopicInput!): Result!
+    # TODO: mergeTopics(t1: String!, t2: String!): Result!
+    updateTopic(input: TopicInput!): Result!
+    destroyTopic(slug: String!): Result!
 
-  # reactions
-  createReaction(reaction: ReactionInput!): Result!
-  updateReaction(id: Int!, reaction: ReactionInput!): Result!
-  deleteReaction(id: Int!): Result!
+    # reactions
+    createReaction(reaction: ReactionInput!): Result!
+    updateReaction(id: Int!, reaction: ReactionInput!): Result!
+    deleteReaction(id: Int!): Result!
 
-  # following
-  follow(what: FollowingEntity!, slug: String!): Result!
-  unfollow(what: FollowingEntity!, slug: String!): Result!
+    # following
+    follow(what: FollowingEntity!, slug: String!): Result!
+    unfollow(what: FollowingEntity!, slug: String!): Result!
+
+    markNotificationAsRead(notification_id: Int!): Result!
+    markAllNotificationsAsRead: Result!
 }
 
 input MessagesBy {
@@ -219,24 +212,24 @@ input AuthorsBy {
 }
 
 input LoadShoutsFilters {
-  title: String
-  body: String
-  topic: String
-  author: String
-  layout: String
-  excludeLayout: String
-  visibility: String
-  days: Int
-  reacted: Boolean
+    title: String
+    body: String
+    topic: String
+    author: String
+    layout: String
+    excludeLayout: String
+    visibility: String
+    days: Int
+    reacted: Boolean
 }
 
 input LoadShoutsOptions {
-  filters: LoadShoutsFilters
-  with_author_captions: Boolean
-  limit: Int!
-  offset: Int
-  order_by: String
-  order_by_desc: Boolean
+    filters: LoadShoutsFilters
+    with_author_captions: Boolean
+    limit: Int!
+    offset: Int
+    order_by: String
+    order_by_desc: Boolean
 }
 
 input ReactionBy {
@@ -249,254 +242,281 @@ input ReactionBy {
     days: Int # before
     sort: String # how to sort, default createdAt
 }
-################################### Query
 
-type Query {
-  # inbox
-  loadChats( limit: Int, offset: Int): Result!  # your chats
-  loadMessagesBy(by: MessagesBy!, limit: Int, offset: Int): Result!
-  loadRecipients(limit: Int, offset: Int): Result!
-  searchRecipients(query: String!, limit: Int, offset: Int): Result!
-  searchMessages(by: MessagesBy!, limit: Int, offset: Int): Result!
-
-  # auth
-  isEmailUsed(email: String!): Boolean!
-  signIn(email: String!, password: String, lang: String): AuthResult!
-  signOut: AuthResult!
-
-  # zine
-  loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
-  loadShout(slug: String, shout_id: Int): Shout
-  loadShouts(options: LoadShoutsOptions): [Shout]!
-  loadDrafts: [Shout]!
-  loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
-  userFollowers(slug: String!): [Author]!
-  userFollowedAuthors(slug: String!): [Author]!
-  userFollowedTopics(slug: String!): [Topic]!
-  authorsAll: [Author]!
-  getAuthor(slug: String!): Author
-  myFeed(options: LoadShoutsOptions): [Shout]
-
-  # migrate
-  markdownBody(body: String!): String!
-
-  # topics
-  getTopic(slug: String!): Topic
-  topicsAll: [Topic]!
-  topicsRandom(amount: Int): [Topic]!
-  topicsByCommunity(community: String!): [Topic]!
-  topicsByAuthor(author: String!): [Topic]!
+input NotificationsQueryParams {
+    limit: Int
+    offset: Int
 }
 
-############################################ Subscription
+type NotificationsQueryResult {
+    notifications: [Notification]!
+    totalCount: Int!
+    totalUnreadCount: Int!
+}
 
-type Subscription {
-  newMessage: Message  # new messages in inbox
-  newShout: Shout  # personal feed new shout
-  newReaction: Reaction # new reactions to notify
+type MySubscriptionsQueryResult {
+    topics: [Topic]!
+    authors: [Author]!
+}
+
+type Query {
+    # inbox
+    loadChats( limit: Int, offset: Int): Result!  # your chats
+    loadMessagesBy(by: MessagesBy!, limit: Int, offset: Int): Result!
+    loadRecipients(limit: Int, offset: Int): Result!
+    searchRecipients(query: String!, limit: Int, offset: Int): Result!
+    searchMessages(by: MessagesBy!, limit: Int, offset: Int): Result!
+
+    # auth
+    isEmailUsed(email: String!): Boolean!
+    signIn(email: String!, password: String, lang: String): AuthResult!
+    signOut: AuthResult!
+
+    # zine
+    loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
+    loadShout(slug: String, shout_id: Int): Shout
+    loadShouts(options: LoadShoutsOptions): [Shout]!
+    loadDrafts: [Shout]!
+    loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
+    userFollowers(slug: String!): [Author]!
+    userFollowedAuthors(slug: String!): [Author]!
+    userFollowedTopics(slug: String!): [Topic]!
+    authorsAll: [Author]!
+    getAuthor(slug: String!): Author
+    myFeed(options: LoadShoutsOptions): [Shout]
+
+    # migrate
+    markdownBody(body: String!): String!
+
+    # topics
+    getTopic(slug: String!): Topic
+    topicsAll: [Topic]!
+    topicsRandom(amount: Int): [Topic]!
+    topicsByCommunity(community: String!): [Topic]!
+    topicsByAuthor(author: String!): [Topic]!
+
+    loadNotifications(params: NotificationsQueryParams!): NotificationsQueryResult!
+
+    loadMySubscriptions: MySubscriptionsQueryResult
 }
 
 ############################################ Entities
 
 type Resource {
-  id: Int!
-  name: String!
+    id: Int!
+    name: String!
 }
 
 type Operation {
-  id: Int!
-  name: String!
+    id: Int!
+    name: String!
 }
 
 type Permission {
-  operation: Int!
-  resource: Int!
+    operation: Int!
+    resource: Int!
 }
 
 type Role {
-  id: Int!
-  name: String!
-  community: String!
-  desc: String
-  permissions: [Permission!]!
+    id: Int!
+    name: String!
+    community: String!
+    desc: String
+    permissions: [Permission!]!
 }
 
 type Rating {
-  rater: String!
-  value: Int!
+    rater: String!
+    value: Int!
 }
 
 type User {
-  id: Int!
-  username: String! # to login, ex. email, phone
-  createdAt: DateTime!
-  lastSeen: DateTime
-  slug: String!
-  name: String # to display
-  email: String
-  password: String
-  oauth: String # provider:token
-  userpic: String
-  links: [String]
-  emailConfirmed: Boolean # should contain all emails too
-  muted: Boolean
-  updatedAt: DateTime
-  ratings: [Rating]
-  bio: String
-  about: String
-  communities: [Int] # user participating communities
-  oid: String
+    id: Int!
+    username: String! # to login, ex. email, phone
+    createdAt: DateTime!
+    lastSeen: DateTime
+    slug: String!
+    name: String # to display
+    email: String
+    password: String
+    oauth: String # provider:token
+    userpic: String
+    links: [String]
+    emailConfirmed: Boolean # should contain all emails too
+    muted: Boolean
+    updatedAt: DateTime
+    ratings: [Rating]
+    bio: String
+    about: String
+    communities: [Int] # user participating communities
+    oid: String
 }
 
 enum ReactionKind {
-  LIKE
-  DISLIKE
+    LIKE
+    DISLIKE
 
-  AGREE
-  DISAGREE
+    AGREE
+    DISAGREE
 
-  PROOF
-  DISPROOF
+    PROOF
+    DISPROOF
 
-  COMMENT
-  QUOTE
+    COMMENT
+    QUOTE
 
-  PROPOSE
-  ASK
+    PROPOSE
+    ASK
 
-  REMARK
-  FOOTNOTE
+    REMARK
+    FOOTNOTE
 
-  ACCEPT
-  REJECT
+    ACCEPT
+    REJECT
 }
 
 type Reaction {
-  id: Int!
-  shout: Shout!
-  createdAt: DateTime!
-  createdBy: User!
-  updatedAt: DateTime
-  deletedAt: DateTime
-  deletedBy: User
-  range: String # full / 0:2340
-  kind: ReactionKind!
-  body: String
-  replyTo: Int
-  stat: Stat
-  old_id: String
-  old_thread: String
+    id: Int!
+    shout: Shout!
+    createdAt: DateTime!
+    createdBy: User!
+    updatedAt: DateTime
+    deletedAt: DateTime
+    deletedBy: User
+    range: String # full / 0:2340
+    kind: ReactionKind!
+    body: String
+    replyTo: Int
+    stat: Stat
+    old_id: String
+    old_thread: String
 }
 
 # is publication
 type Shout {
-  id: Int!
-  slug: String!
-  body: String!
-  lead: String
-  description: String
-  createdAt: DateTime!
-  topics: [Topic]
-  mainTopic: String
-  title: String
-  subtitle: String
-  authors: [Author]
-  lang: String
-  community: String
-  cover: String
-  layout: String # audio video literature image
-  versionOf: String # for translations and re-telling the same story
-  visibility: String # owner authors community public
-  updatedAt: DateTime
-  updatedBy: User
-  deletedAt: DateTime
-  deletedBy: User
-  publishedAt: DateTime
-  media: String # json [ { title pic url body }, .. ]
-  stat: Stat
+    id: Int!
+    slug: String!
+    body: String!
+    lead: String
+    description: String
+    createdAt: DateTime!
+    topics: [Topic]
+    mainTopic: String
+    title: String
+    subtitle: String
+    authors: [Author]
+    lang: String
+    community: String
+    cover: String
+    layout: String # music video literature image
+    versionOf: String # for translations and re-telling the same story
+    visibility: String # owner authors community public
+    updatedAt: DateTime
+    updatedBy: User
+    deletedAt: DateTime
+    deletedBy: User
+    publishedAt: DateTime
+    media: String # json [ { title pic url body }, .. ]
+    stat: Stat
 }
 
 type Stat {
-  viewed: Int
-  reacted: Int
-  rating: Int
-  commented: Int
-  ranking: Int
+    viewed: Int
+    reacted: Int
+    rating: Int
+    commented: Int
+    ranking: Int
 }
 
 type Community {
-  id: Int!
-  slug: String!
-  name: String!
-  desc: String
-  pic: String!
-  createdAt: DateTime!
-  createdBy: User!
+    id: Int!
+    slug: String!
+    name: String!
+    desc: String
+    pic: String!
+    createdAt: DateTime!
+    createdBy: User!
 }
 
 type Collection {
-  id: Int!
-  slug: String!
-  title: String!
-  desc: String
-  amount: Int
-  publishedAt: DateTime
-  createdAt: DateTime!
-  createdBy: User!
+    id: Int!
+    slug: String!
+    title: String!
+    desc: String
+    amount: Int
+    publishedAt: DateTime
+    createdAt: DateTime!
+    createdBy: User!
 }
 
 type TopicStat {
-  shouts: Int!
-  followers: Int!
-  authors: Int!
-  # viewed: Int
-  # reacted: Int!
-  # commented: Int
-  # rating: Int
+    shouts: Int!
+    followers: Int!
+    authors: Int!
+    # viewed: Int
+    # reacted: Int!
+    # commented: Int
+    # rating: Int
 }
 
 type Topic {
-  id: Int!
-  slug: String!
-  title: String
-  body: String
-  pic: String
-  # community: Community!
-  stat: TopicStat
-  oid: String
+    id: Int!
+    slug: String!
+    title: String
+    body: String
+    pic: String
+    # community: Community!
+    stat: TopicStat
+    oid: String
 }
 
 type Token {
-  createdAt: DateTime!
-  expiresAt: DateTime
-  id: Int!
-  ownerId: Int!
-  usedAt: DateTime
-  value: String!
+    createdAt: DateTime!
+    expiresAt: DateTime
+    id: Int!
+    ownerId: Int!
+    usedAt: DateTime
+    value: String!
 }
 
 type Message {
-  author: Int!
-  chatId: String!
-  body: String!
-  createdAt: Int!
-  id: Int!
-  replyTo: Int
-  updatedAt: Int
-  seen: Boolean
+    author: Int!
+    chatId: String!
+    body: String!
+    createdAt: Int!
+    id: Int!
+    replyTo: Int
+    updatedAt: Int
+    seen: Boolean
 }
 
 type Chat {
-  id: String!
-  createdAt: Int!
-  createdBy: Int!
-  updatedAt: Int!
-  title: String
-  description: String
-  users: [Int]
-  members: [ChatMember]
-  admins: [Int]
-  messages: [Message]
-  unread: Int
-  private: Boolean
+    id: String!
+    createdAt: Int!
+    createdBy: Int!
+    updatedAt: Int!
+    title: String
+    description: String
+    users: [Int]
+    members: [ChatMember]
+    admins: [Int]
+    messages: [Message]
+    unread: Int
+    private: Boolean
+}
+
+enum NotificationType {
+    NEW_COMMENT,
+    NEW_REPLY
+}
+
+type Notification {
+    id: Int!
+    shout: Int
+    reaction: Int
+    type: NotificationType!
+    createdAt: DateTime!
+    seen: Boolean!
+    data: String # JSON
+    occurrences: Int!
 }

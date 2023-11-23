@@ -1,13 +1,24 @@
 from base.orm import Base, engine
 from orm.community import Community
 from orm.notification import Notification
-from orm.rbac import Operation, Resource, Permission, Role
+from orm.rbac import Operation, Permission, Resource, Role
 from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic, TopicFollower
 from orm.user import User, UserRating
 
-# NOTE: keep orm module isolated
+
+def init_tables():
+    Base.metadata.create_all(engine)
+    Operation.init_table()
+    Resource.init_table()
+    User.init_table()
+    Community.init_table()
+    Role.init_table()
+    UserRating.init_table()
+    Shout.init_table()
+    print("[orm] tables initialized")
+
 
 __all__ = [
     "User",
@@ -21,16 +32,5 @@ __all__ = [
     "Notification",
     "Reaction",
     "UserRating",
+    "init_tables",
 ]
-
-
-def init_tables():
-    Base.metadata.create_all(engine)
-    Operation.init_table()
-    Resource.init_table()
-    User.init_table()
-    Community.init_table()
-    Role.init_table()
-    UserRating.init_table()
-    Shout.init_table()
-    print("[orm] tables initialized")

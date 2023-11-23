@@ -1,8 +1,9 @@
 from authlib.integrations.starlette_client import OAuth
 from starlette.responses import RedirectResponse
+
 from auth.identity import Identity
 from auth.tokenstorage import TokenStorage
-from settings import OAUTH_CLIENTS, FRONTEND_URL
+from settings import FRONTEND_URL, OAUTH_CLIENTS
 
 oauth = OAuth()
 
@@ -36,12 +37,19 @@ oauth.register(
     client_secret=OAUTH_CLIENTS["GOOGLE"]["key"],
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
     client_kwargs={"scope": "openid email profile"},
+    authorize_state="test",
 )
 
 
 async def google_profile(client, request, token):
-    profile = await client.parse_id_token(request, token)
-    profile["id"] = profile["sub"]
+    userinfo = token["userinfo"]
+
+    profile = {"name": userinfo["name"], "email": userinfo["email"], "id": userinfo["sub"]}
+
+    if userinfo["picture"]:
+        userpic = userinfo["picture"].replace("=s96", "=s600")
+        profile["userpic"] = userpic
+
     return profile
 
 
@@ -81,6 +89,7 @@ async def oauth_authorize(request):
         "oauth": user_oauth_info,
         "email": profile["email"],
         "username": profile["name"],
+        "userpic": profile["userpic"],
     }
     user = Identity.oauth(user_input)
     session_token = await TokenStorage.create_session(user)

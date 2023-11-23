@@ -1,15 +1,13 @@
-from typing import TypeVar, Any, Dict, Generic, Callable
+from typing import Any, Callable, Dict, Generic, TypeVar
 
-from sqlalchemy import create_engine, Column, Integer
+from sqlalchemy import Column, Integer, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.schema import Table
 
 from settings import DB_URL
 
-engine = create_engine(
-    DB_URL, echo=False, pool_size=10, max_overflow=20
-)
+engine = create_engine(DB_URL, echo=False, pool_size=10, max_overflow=20)
 
 T = TypeVar("T")
 
@@ -20,7 +18,10 @@ def local_session():
     return Session(bind=engine, expire_on_commit=False)
 
 
-class Base(declarative_base()):
+DeclarativeBase = declarative_base()  # type: Any
+
+
+class Base(DeclarativeBase):
     __table__: Table
     __tablename__: str
     __new__: Callable
@@ -47,7 +48,7 @@ class Base(declarative_base()):
 
     def update(self, input):
         column_names = self.__table__.columns.keys()
-        for (name, value) in input.items():
+        for name, value in input.items():
             if name in column_names:
                 setattr(self, name, value)
 
