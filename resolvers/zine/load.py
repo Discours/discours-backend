@@ -211,9 +211,6 @@ async def load_random_top_shouts(_, info, params):
     :return: Shout[]
     """
 
-    limit = params.get("limit", 10)
-    from_random_count = params.get("fromRandomCount", 100)
-
     aliased_reaction = aliased(Reaction)
 
     subquery = (
@@ -223,11 +220,11 @@ async def load_random_top_shouts(_, info, params):
     )
 
     subquery = apply_filters(subquery, params.get("filters", {}))
-    subquery = (
-        subquery.group_by(Shout.id)
-        .order_by(desc(get_rating_func(aliased_reaction)))
-        .limit(from_random_count)
-    )
+    subquery = subquery.group_by(Shout.id).order_by(desc(get_rating_func(aliased_reaction)))
+
+    from_random_count = params.get("fromRandomCount")
+    if from_random_count:
+        subquery = subquery.limit(from_random_count)
 
     q = (
         select(Shout)
@@ -240,6 +237,7 @@ async def load_random_top_shouts(_, info, params):
 
     q = add_stat_columns(q)
 
+    limit = params.get("limit", 10)
     q = q.group_by(Shout.id).order_by(func.random()).limit(limit)
 
     # print(q.compile(compile_kwargs={"literal_binds": True}))

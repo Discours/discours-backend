@@ -234,7 +234,7 @@ input LoadShoutsOptions {
 input LoadRandomTopShoutsParams {
     filters: LoadShoutsFilters
     limit: Int!
-    fromRandomCount: Int!
+    fromRandomCount: Int
 }
 
 input ReactionBy {
