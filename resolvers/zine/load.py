@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import aliased, joinedload
 from sqlalchemy.sql.expression import and_, asc, case, desc, func, nulls_last, select
@@ -15,6 +15,41 @@ from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.user import AuthorFollower
 
 
+def get_shouts_from_query(q):
+    shouts = []
+    with local_session() as session:
+        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(
+            q
+        ).unique():
+            shouts.append(shout)
+            shout.stat = {
+                "viewed": shout.views,
+                "reacted": reacted_stat,
+                "commented": commented_stat,
+                "rating": rating_stat,
+            }
+
+    return shouts
+
+
+def get_rating_func(aliased_reaction):
+    return func.sum(
+        case(
+            # do not count comments' reactions
+            (aliased_reaction.replyTo.is_not(None), 0),
+            (aliased_reaction.kind == ReactionKind.AGREE, 1),
+            (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
+            (aliased_reaction.kind == ReactionKind.PROOF, 1),
+            (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
+            (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
+            (aliased_reaction.kind == ReactionKind.REJECT, -1),
+            (aliased_reaction.kind == ReactionKind.LIKE, 1),
+            (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
+            else_=0,
+        )
+    )
+
+
 def add_stat_columns(q):
     aliased_reaction = aliased(Reaction)
 
@@ -23,21 +58,7 @@ def add_stat_columns(q):
         func.sum(case((aliased_reaction.kind == ReactionKind.COMMENT, 1), else_=0)).label(
             "commented_stat"
         ),
-        func.sum(
-            case(
-                # do not count comments' reactions
-                (aliased_reaction.replyTo.is_not(None), 0),
-                (aliased_reaction.kind == ReactionKind.AGREE, 1),
-                (aliased_reaction.kind == ReactionKind.DISAGREE, -1),
-                (aliased_reaction.kind == ReactionKind.PROOF, 1),
-                (aliased_reaction.kind == ReactionKind.DISPROOF, -1),
-                (aliased_reaction.kind == ReactionKind.ACCEPT, 1),
-                (aliased_reaction.kind == ReactionKind.REJECT, -1),
-                (aliased_reaction.kind == ReactionKind.LIKE, 1),
-                (aliased_reaction.kind == ReactionKind.DISLIKE, -1),
-                else_=0,
-            )
-        ).label("rating_stat"),
+        get_rating_func(aliased_reaction).label("rating_stat"),
         func.max(
             case(
                 (aliased_reaction.kind != ReactionKind.COMMENT, None),
@@ -67,13 +88,14 @@ def apply_filters(q, filters, user_id=None):  # noqa: C901
         q = q.filter(Shout.authors.any(slug=filters.get("author")))
     if filters.get("topic"):
         q = q.filter(Shout.topics.any(slug=filters.get("topic")))
-    if filters.get("title"):
-        q = q.filter(Shout.title.ilike(f'%{filters.get("title")}%'))
-    if filters.get("body"):
-        q = q.filter(Shout.body.ilike(f'%{filters.get("body")}%s'))
-    if filters.get("days"):
-        before = datetime.now(tz=timezone.utc) - timedelta(days=int(filters.get("days")) or 30)
-        q = q.filter(Shout.createdAt > before)
+    if filters.get("fromDate"):
+        # fromDate: '2022-12-31
+        date_from = datetime.strptime(filters.get("fromDate"), "%Y-%m-%d")
+        q = q.filter(Shout.createdAt >= date_from)
+    if filters.get("toDate"):
+        # toDate: '2023-12-31'
+        date_to = datetime.strptime(filters.get("toDate"), "%Y-%m-%d")
+        q = q.filter(Shout.createdAt < (date_to + timedelta(days=1)))
 
     return q
 
@@ -136,7 +158,8 @@ async def load_shouts_by(_, info, options):
             topic: 'culture',
             title: 'something',
             body: 'something else',
-            days: 30
+            fromDate: '2022-12-31',
+            toDate: '2023-12-31'
         }
         offset: 0
         limit: 50
@@ -169,23 +192,57 @@ async def load_shouts_by(_, info, options):
 
     q = q.group_by(Shout.id).order_by(nulls_last(query_order_by)).limit(limit).offset(offset)
 
-    shouts = []
-    with local_session() as session:
-        shouts_map = {}
+    return get_shouts_from_query(q)
 
-        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(
-            q
-        ).unique():
-            shouts.append(shout)
-            shout.stat = {
-                "viewed": shout.views,
-                "reacted": reacted_stat,
-                "commented": commented_stat,
-                "rating": rating_stat,
-            }
-            shouts_map[shout.id] = shout
 
-    return shouts
+@query.field("loadRandomTopShouts")
+async def load_random_top_shouts(_, info, params):
+    """
+    :param params: {
+        filters: {
+            layout: 'music',
+            excludeLayout: 'article',
+            fromDate: '2022-12-31'
+            toDate: '2023-12-31'
+        }
+        fromRandomCount: 100,
+        limit: 50
+    }
+    :return: Shout[]
+    """
+
+    aliased_reaction = aliased(Reaction)
+
+    subquery = (
+        select(Shout.id)
+        .outerjoin(aliased_reaction)
+        .where(and_(Shout.deletedAt.is_(None), Shout.layout.is_not(None)))
+    )
+
+    subquery = apply_filters(subquery, params.get("filters", {}))
+    subquery = subquery.group_by(Shout.id).order_by(desc(get_rating_func(aliased_reaction)))
+
+    from_random_count = params.get("fromRandomCount")
+    if from_random_count:
+        subquery = subquery.limit(from_random_count)
+
+    q = (
+        select(Shout)
+        .options(
+            joinedload(Shout.authors),
+            joinedload(Shout.topics),
+        )
+        .where(Shout.id.in_(subquery))
+    )
+
+    q = add_stat_columns(q)
+
+    limit = params.get("limit", 10)
+    q = q.group_by(Shout.id).order_by(func.random()).limit(limit)
+
+    # print(q.compile(compile_kwargs={"literal_binds": True}))
+
+    return get_shouts_from_query(q)
 
 
 @query.field("loadDrafts")
@@ -256,17 +313,4 @@ async def get_my_feed(_, info, options):
 
     # print(q.compile(compile_kwargs={"literal_binds": True}))
 
-    shouts = []
-    with local_session() as session:
-        for [shout, reacted_stat, commented_stat, rating_stat, last_comment] in session.execute(
-            q
-        ).unique():
-            shouts.append(shout)
-            shout.stat = {
-                "viewed": shout.views,
-                "reacted": reacted_stat,
-                "commented": commented_stat,
-                "rating": rating_stat,
-            }
-
-    return shouts
+    return get_shouts_from_query(q)
