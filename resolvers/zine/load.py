@@ -245,6 +245,34 @@ async def load_random_top_shouts(_, info, params):
     return get_shouts_from_query(q)
 
 
+@query.field("loadUnratedShouts")
+async def load_unrated_shouts(_, info, limit):
+    q = (
+        select(Shout)
+        .options(
+            joinedload(Shout.authors),
+            joinedload(Shout.topics),
+        )
+        .outerjoin(
+            Reaction,
+            and_(
+                Reaction.shout == Shout.id,
+                Reaction.replyTo.is_(None),
+                Reaction.kind.in_([ReactionKind.LIKE, ReactionKind.DISLIKE]),
+            ),
+        )
+        .where(and_(Shout.deletedAt.is_(None), Shout.layout.is_not(None), Reaction.id.is_(None)))
+    )
+
+    q = add_stat_columns(q)
+
+    q = q.group_by(Shout.id).order_by(desc(Shout.createdAt)).limit(limit)
+
+    # print(q.compile(compile_kwargs={"literal_binds": True}))
+
+    return get_shouts_from_query(q)
+
+
 @query.field("loadDrafts")
 @login_required
 async def get_drafts(_, info):
