@@ -2,7 +2,16 @@ import json
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import aliased, joinedload
-from sqlalchemy.sql.expression import and_, asc, case, desc, func, nulls_last, select
+from sqlalchemy.sql.expression import (
+    and_,
+    asc,
+    case,
+    desc,
+    distinct,
+    func,
+    nulls_last,
+    select,
+)
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
@@ -247,6 +256,8 @@ async def load_random_top_shouts(_, info, params):
 
 @query.field("loadUnratedShouts")
 async def load_unrated_shouts(_, info, limit):
+    auth: AuthCredentials = info.context["request"].auth
+
     q = (
         select(Shout)
         .options(
@@ -261,12 +272,25 @@ async def load_unrated_shouts(_, info, limit):
                 Reaction.kind.in_([ReactionKind.LIKE, ReactionKind.DISLIKE]),
             ),
         )
-        .where(and_(Shout.deletedAt.is_(None), Shout.layout.is_not(None), Reaction.id.is_(None)))
+        .where(
+            and_(
+                Shout.deletedAt.is_(None),
+                Shout.layout.is_not(None),
+                Shout.createdAt >= (datetime.now() - timedelta(days=14)).date(),
+            )
+        )
     )
+
+    user_id = auth.user_id
+    if user_id:
+        q = q.where(Reaction.createdBy != user_id)
+
+    # 3 or fewer votes is 0, 1, 2 or 3 votes (null, reaction id1, reaction id2, reaction id3)
+    q = q.having(func.count(distinct(Reaction.id)) <= 4)
 
     q = add_stat_columns(q)
 
-    q = q.group_by(Shout.id).order_by(desc(Shout.createdAt)).limit(limit)
+    q = q.group_by(Shout.id).order_by(func.random()).limit(limit)
 
     # print(q.compile(compile_kwargs={"literal_binds": True}))
 
