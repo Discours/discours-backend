@@ -257,6 +257,9 @@ async def load_random_top_shouts(_, info, params):
 @query.field("loadUnratedShouts")
 async def load_unrated_shouts(_, info, limit):
     auth: AuthCredentials = info.context["request"].auth
+    user_id = auth.user_id
+
+    aliased_reaction = aliased(Reaction)
 
     q = (
         select(Shout)
@@ -272,21 +275,35 @@ async def load_unrated_shouts(_, info, limit):
                 Reaction.kind.in_([ReactionKind.LIKE, ReactionKind.DISLIKE]),
             ),
         )
-        .where(
+    )
+
+    if user_id:
+        q = q.outerjoin(
+            aliased_reaction,
             and_(
-                Shout.deletedAt.is_(None),
-                Shout.layout.is_not(None),
-                Shout.createdAt >= (datetime.now() - timedelta(days=14)).date(),
-            )
+                aliased_reaction.shout == Shout.id,
+                aliased_reaction.replyTo.is_(None),
+                aliased_reaction.kind.in_([ReactionKind.LIKE, ReactionKind.DISLIKE]),
+                aliased_reaction.createdBy == user_id,
+            ),
+        )
+
+    q = q.where(
+        and_(
+            Shout.deletedAt.is_(None),
+            Shout.layout.is_not(None),
+            Shout.createdAt >= (datetime.now() - timedelta(days=14)).date(),
         )
     )
 
-    user_id = auth.user_id
     if user_id:
-        q = q.where(Reaction.createdBy != user_id)
+        q = q.where(Shout.createdBy != user_id)
 
     # 3 or fewer votes is 0, 1, 2 or 3 votes (null, reaction id1, reaction id2, reaction id3)
     q = q.having(func.count(distinct(Reaction.id)) <= 4)
+
+    if user_id:
+        q = q.having(func.count(distinct(aliased_reaction.id)) == 0)
 
     q = add_stat_columns(q)
 
