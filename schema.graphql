@@ -264,6 +264,11 @@ type MySubscriptionsQueryResult {
     authors: [Author]!
 }
 
+type RandomTopicShoutsQueryResult {
+    topic: Topic!
+    shouts: [Shout]!
+}
+
 type Query {
     # inbox
     loadChats( limit: Int, offset: Int): Result!  # your chats
@@ -282,6 +287,7 @@ type Query {
     loadShout(slug: String, shout_id: Int): Shout
     loadShouts(options: LoadShoutsOptions): [Shout]!
     loadRandomTopShouts(params: LoadRandomTopShoutsParams): [Shout]!
+    loadRandomTopicShouts(limit: Int!): RandomTopicShoutsQueryResult!
     loadUnratedShouts(limit: Int!): [Shout]!
     loadDrafts: [Shout]!
     loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
