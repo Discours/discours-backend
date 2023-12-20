@@ -22,6 +22,7 @@ from orm import TopicFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.user import AuthorFollower
+from resolvers.zine.topics import get_random_topic
 
 
 def get_shouts_from_query(q):
@@ -79,7 +80,8 @@ def add_stat_columns(q):
     return q
 
 
-def apply_filters(q, filters, user_id=None):  # noqa: C901
+# use_published_date is a quick fix, will be reworked as a part of tech debt
+def apply_filters(q, filters, user_id=None, use_published_date=False):  # noqa: C901
     if filters.get("reacted") and user_id:
         q.join(Reaction, Reaction.createdBy == user_id)
 
@@ -100,12 +102,17 @@ def apply_filters(q, filters, user_id=None):  # noqa: C901
     if filters.get("fromDate"):
         # fromDate: '2022-12-31
         date_from = datetime.strptime(filters.get("fromDate"), "%Y-%m-%d")
-        q = q.filter(Shout.createdAt >= date_from)
+        if use_published_date:
+            q = q.filter(Shout.publishedAt >= date_from)
+        else:
+            q = q.filter(Shout.createdAt >= date_from)
     if filters.get("toDate"):
         # toDate: '2023-12-31'
         date_to = datetime.strptime(filters.get("toDate"), "%Y-%m-%d")
-        q = q.filter(Shout.createdAt < (date_to + timedelta(days=1)))
-
+        if use_published_date:
+            q = q.filter(Shout.publishedAt < (date_to + timedelta(days=1)))
+        else:
+            q = q.filter(Shout.createdAt < (date_to + timedelta(days=1)))
     return q
 
 
@@ -228,7 +235,8 @@ async def load_random_top_shouts(_, info, params):
         .where(and_(Shout.deletedAt.is_(None), Shout.layout.is_not(None)))
     )
 
-    subquery = apply_filters(subquery, params.get("filters", {}))
+    subquery = apply_filters(subquery, params.get("filters", {}), use_published_date=True)
+
     subquery = subquery.group_by(Shout.id).order_by(desc(get_rating_func(aliased_reaction)))
 
     from_random_count = params.get("fromRandomCount")
@@ -252,6 +260,29 @@ async def load_random_top_shouts(_, info, params):
     # print(q.compile(compile_kwargs={"literal_binds": True}))
 
     return get_shouts_from_query(q)
+
+
+@query.field("loadRandomTopicShouts")
+async def load_random_topic_shouts(_, info, limit):
+    topic = get_random_topic()
+
+    q = (
+        select(Shout)
+        .options(
+            joinedload(Shout.authors),
+            joinedload(Shout.topics),
+        )
+        .join(ShoutTopic, and_(Shout.id == ShoutTopic.shout, ShoutTopic.topic == topic.id))
+        .where(and_(Shout.deletedAt.is_(None), Shout.layout.is_not(None)))
+    )
+
+    q = add_stat_columns(q)
+
+    q = q.group_by(Shout.id).order_by(desc(Shout.createdAt)).limit(limit)
+
+    shouts = get_shouts_from_query(q)
+
+    return {"topic": topic, "shouts": shouts}
 
 
 @query.field("loadUnratedShouts")
