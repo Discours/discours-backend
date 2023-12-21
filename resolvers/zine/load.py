@@ -273,7 +273,9 @@ async def load_random_topic_shouts(_, info, limit):
             joinedload(Shout.topics),
         )
         .join(ShoutTopic, and_(Shout.id == ShoutTopic.shout, ShoutTopic.topic == topic.id))
-        .where(and_(Shout.deletedAt.is_(None), Shout.layout.is_not(None)))
+        .where(
+            and_(Shout.deletedAt.is_(None), Shout.layout.is_not(None), Shout.visibility == "public")
+        )
     )
 
     q = add_stat_columns(q)
