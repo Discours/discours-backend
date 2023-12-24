@@ -12,11 +12,12 @@ from orm.topic import Topic, TopicFollower
 def add_topic_stat_columns(q):
     aliased_shout_author = aliased(ShoutAuthor)
     aliased_topic_follower = aliased(TopicFollower)
+    aliased_shout_topic = aliased(ShoutTopic)
 
     q = (
-        q.outerjoin(ShoutTopic, Topic.id == ShoutTopic.topic)
-        .add_columns(func.count(distinct(ShoutTopic.shout)).label("shouts_stat"))
-        .outerjoin(aliased_shout_author, ShoutTopic.shout == aliased_shout_author.shout)
+        q.outerjoin(aliased_shout_topic, Topic.id == aliased_shout_topic.topic)
+        .add_columns(func.count(distinct(aliased_shout_topic.shout)).label("shouts_stat"))
+        .outerjoin(aliased_shout_author, aliased_shout_topic.shout == aliased_shout_author.shout)
         .add_columns(func.count(distinct(aliased_shout_author.user)).label("authors_stat"))
         .outerjoin(aliased_topic_follower)
         .add_columns(func.count(distinct(aliased_topic_follower.follower)).label("followers_stat"))
@@ -144,6 +145,18 @@ def topic_unfollow(user_id, slug):
         print(e)
         pass
     return False
+
+
+def get_random_topic():
+    q = select(Topic)
+    q = q.join(ShoutTopic)
+    q = q.group_by(Topic.id)
+    q = q.having(func.count(distinct(ShoutTopic.shout)) > 10)
+    q = q.order_by(func.random()).limit(1)
+
+    with local_session() as session:
+        [topic] = session.execute(q).first()
+        return topic
 
 
 @query.field("topicsRandom")

@@ -212,14 +212,13 @@ input AuthorsBy {
 }
 
 input LoadShoutsFilters {
-    title: String
-    body: String
     topic: String
     author: String
     layout: String
     excludeLayout: String
     visibility: String
-    days: Int
+    fromDate: String
+    toDate: String
     reacted: Boolean
 }
 
@@ -230,6 +229,12 @@ input LoadShoutsOptions {
     offset: Int
     order_by: String
     order_by_desc: Boolean
+}
+
+input LoadRandomTopShoutsParams {
+    filters: LoadShoutsFilters
+    limit: Int!
+    fromRandomCount: Int
 }
 
 input ReactionBy {
@@ -259,6 +264,11 @@ type MySubscriptionsQueryResult {
     authors: [Author]!
 }
 
+type RandomTopicShoutsQueryResult {
+    topic: Topic!
+    shouts: [Shout]!
+}
+
 type Query {
     # inbox
     loadChats( limit: Int, offset: Int): Result!  # your chats
@@ -276,6 +286,9 @@ type Query {
     loadAuthorsBy(by: AuthorsBy, limit: Int, offset: Int): [Author]!
     loadShout(slug: String, shout_id: Int): Shout
     loadShouts(options: LoadShoutsOptions): [Shout]!
+    loadRandomTopShouts(params: LoadRandomTopShoutsParams): [Shout]!
+    loadRandomTopicShouts(limit: Int!): RandomTopicShoutsQueryResult!
+    loadUnratedShouts(limit: Int!): [Shout]!
     loadDrafts: [Shout]!
     loadReactionsBy(by: ReactionBy!, limit: Int, offset: Int): [Reaction]!
     userFollowers(slug: String!): [Author]!
