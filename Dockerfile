@@ -7,3 +7,5 @@ COPY requirements.txt .
 RUN apt update && apt install -y git gcc curl postgresql
 RUN pip install -r requirements.txt
 COPY . .
+
+CMD python server.py
