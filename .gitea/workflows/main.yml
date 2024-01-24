@@ -1,4 +1,4 @@
-name: 'Deploy to discoursio-api'
+name:  'Deploy to discoursio-api'
 on: 
   push:
     branches:
@@ -13,11 +13,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Push to discoursio-api
+      - name: Get Repo Name
+        id: repo_name
+        run: echo "::set-output name=repo::$(echo ${GITHUB_REPOSITORY##*/})"
+
+      - name: Get Branch Name
+        id: branch_name
+        run: echo "::set-output name=branch::$(echo ${GITHUB_REF##*/})"
+
+      - name: Push to dokku
         uses: dokku/github-action@master
         with:
-          ssh-private-key: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
-          ssh-host: staging.discours.io
-          ssh-user: dokku
-          app-name: discoursio-api
-          git-remote-url: ssh://dokku@staging.discours.io:22/discoursio-api
+          branch: 'main'
+          git_remote_url: 'ssh://dokku@staging.discours.io:22/discoursio-api'
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          git_push_flags: '--force'
+
+
