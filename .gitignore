@@ -147,3 +147,6 @@ migration/content/**/*.md
 *.csv
 dev-server.pid
 backups/
+.ruff_cache
+.venv
+poetry.lock
