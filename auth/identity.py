@@ -33,8 +33,8 @@ class Password:
         Verify that password hash is equal to specified hash. Hash format:
 
         $2a$10$Ro0CUfOqk6cXEKf3dyaM7OhSCvnwM9s4wIX9JeLapehKK5YdLxKcm
-        \__/\/ \____________________/\_____________________________/  # noqa: W605
-        |   |        Salt                     Hash
+         __ __ ____________________________________________________  # noqa: W605
+        |   |  |     Salt  (22)    |          Hash
         |  Cost
         Version
 
