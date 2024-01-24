@@ -84,7 +84,8 @@ async def get_topic(_, _info, slug):
     q = add_topic_stat_columns(q)
 
     topics = get_topics_from_query(q)
-    return topics[0]
+    if topics:
+        return topics[0]
 
 
 @mutation.field("createTopic")
@@ -155,8 +156,9 @@ def get_random_topic():
     q = q.order_by(func.random()).limit(1)
 
     with local_session() as session:
-        [topic] = session.execute(q).first()
-        return topic
+        topics = session.execute(q).first()
+        if topics:
+            return topics[0]
 
 
 @query.field("topicsRandom")
