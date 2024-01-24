@@ -40,6 +40,14 @@ server {
         }
     }
 
+    location ~ /.well-known/acme-challenge {
+    allow all;
+    root /var/www/html; # Adjust this to the correct path where challenge files are stored
+    default_type "text/plain";
+    try_files $uri =404;
+    }
+
+
     client_max_body_size 100m;
     include /home/dokku/{{ $.APP }}/nginx.conf.d/*.conf;
 
