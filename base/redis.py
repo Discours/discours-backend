@@ -23,7 +23,7 @@ class RedisCache:
     async def execute(self, command, *args, **kwargs):
         if self._client:
             try:
-                logger.debug(command + " " + " ".join(args))
+                logger.debug(f"{command} {args} {kwargs}")
                 r = await self._client.execute_command(command, *args, **kwargs)
                 logger.debug(type(r))
                 logger.debug(r)
