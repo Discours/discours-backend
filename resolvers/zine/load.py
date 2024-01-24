@@ -87,7 +87,7 @@ def apply_filters(q, filters, user_id=None, use_published_date=False):  # noqa: 
 
     v = filters.get("visibility")
     if v == "public":
-        q = q.filter(Shout.visibility == filters.get("visibility"))
+        q = q.filter(Shout.visibility == "public")
     if v == "community":
         q = q.filter(Shout.visibility.in_(["public", "community"]))
 
