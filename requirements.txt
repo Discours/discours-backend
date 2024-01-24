@@ -1,5 +1,4 @@
 aiohttp
-aioredis~=2.0.1
 alembic==1.11.3
 ariadne>=0.17.0
 asyncio~=3.4.3
@@ -34,3 +33,5 @@ sse-starlette==1.6.5
 starlette~=0.23.1
 transliterate~=1.10.2
 uvicorn>=0.18.3
+
+redis
