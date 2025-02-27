@@ -67,7 +67,7 @@ async def create_draft(_, info, draft_input):
     Args:
         info: GraphQL context
         draft_input (dict): Draft data including optional fields:
-            - title (str)
+            - title (str, required) - заголовок черновика
             - body (str, required) - текст черновика
             - slug (str)
             - etc.
@@ -96,6 +96,9 @@ async def create_draft(_, info, draft_input):
     # Проверяем обязательные поля
     if "body" not in draft_input or not draft_input["body"]:
         draft_input["body"] = ""  # Пустая строка вместо NULL
+        
+    if "title" not in draft_input or not draft_input["title"]:
+        draft_input["title"] = ""  # Пустая строка вместо NULL
 
     try:
         with local_session() as session:
