@@ -181,3 +181,27 @@ def get_json_builder():
 
 # Используем их в коде
 json_builder, json_array_builder, json_cast = get_json_builder()
+
+async def fetch_all_shouts(session=None):
+    """Fetch all published shouts for search indexing"""
+    from orm.shout import Shout
+    
+    close_session = False
+    if session is None:
+        session = local_session()
+        close_session = True
+    
+    try:
+        # Fetch only published and non-deleted shouts
+        query = session.query(Shout).filter(
+            Shout.published_at.is_not(None),
+            Shout.deleted_at.is_(None)
+        )
+        shouts = query.all()
+        return shouts
+    except Exception as e:
+        logger.error(f"Error fetching shouts for search indexing: {e}")
+        return []
+    finally:
+        if close_session:
+            session.close()
