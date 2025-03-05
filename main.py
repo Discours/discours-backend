@@ -17,7 +17,8 @@ from cache.revalidator import revalidation_manager
 from services.exception import ExceptionHandlerMiddleware
 from services.redis import redis
 from services.schema import create_all_tables, resolvers
-from services.search import search_service
+#from services.search import search_service
+from services.search import search_service, initialize_search_index
 from services.viewed import ViewedStorage
 from services.webhook import WebhookEndpoint, create_webhook_endpoint
 from settings import DEV_SERVER_PID_FILE_NAME, MODE
@@ -47,6 +48,12 @@ async def lifespan(_app):
             start(),
             revalidation_manager.start(),
         )
+
+        # After basic initialization is complete, fetch shouts and initialize search
+        from services.db import fetch_all_shouts  # Import your database access function
+        all_shouts = await fetch_all_shouts()  # Replace with your actual function
+        await initialize_search_index(all_shouts)
+
         yield
     finally:
         tasks = [redis.disconnect(), ViewedStorage.stop(), revalidation_manager.stop()]

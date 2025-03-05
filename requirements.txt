@@ -17,6 +17,10 @@ gql
 ariadne
 granian
 
+# NLP and search
+txtai[embeddings]
+sentence-transformers
+
 pydantic
 fakeredis
 pytest
