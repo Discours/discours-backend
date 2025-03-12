@@ -4,7 +4,6 @@ from pathlib import Path
 from granian.constants import Interfaces
 from granian.log import LogLevels
 from granian.server import Server
-from sentence_transformers import SentenceTransformer
 
 from settings import PORT
 from utils.logger import root_logger as logger
@@ -12,11 +11,7 @@ from utils.logger import root_logger as logger
 if __name__ == "__main__":
     logger.info("started")
     try:
-        # Preload the model before starting the server
-        logger.info("Loading sentence transformer model...")
-        model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
-        logger.info("Model loaded successfully!")
-        
+
         granian_instance = Server(
             "main:app",
             address="0.0.0.0",

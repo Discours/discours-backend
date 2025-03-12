@@ -2,9 +2,7 @@ import asyncio
 import json
 import logging
 import os
-import concurrent.futures
-
-from txtai.embeddings import Embeddings
+import httpx
 
 from services.redis import redis
 from utils.encoders import CustomJSONEncoder
@@ -13,96 +11,53 @@ from utils.encoders import CustomJSONEncoder
 logger = logging.getLogger("search")
 logger.setLevel(logging.WARNING)
 
-REDIS_TTL = 86400  # 1 день в секундах
+REDIS_TTL = 86400  # 1 day in seconds
 
-# Configuration for txtai search
+# Configuration for search service
 SEARCH_ENABLED = bool(os.environ.get("SEARCH_ENABLED", "true").lower() in ["true", "1", "yes"])
-# Thread executor for non-blocking initialization
-thread_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+TXTAI_SERVICE_URL = os.environ.get("TXTAI_SERVICE_URL", "http://txtai-service:8000")
 
 
 class SearchService:
-    def __init__(self, index_name="search_index"):
-        logger.info("Инициализируем поиск...")
-        self.index_name = index_name
-        self.embeddings = None
-        self._initialization_future = None
+    def __init__(self):
+        logger.info("Initializing search service...")
         self.available = SEARCH_ENABLED
+        self.client = httpx.AsyncClient(timeout=30.0, base_url=TXTAI_SERVICE_URL)
         
         if not self.available:
-            logger.info("Поиск отключен (SEARCH_ENABLED = False)")
-            return
+            logger.info("Search disabled (SEARCH_ENABLED = False)")
             
-        # Initialize embeddings in background thread
-        self._initialization_future = thread_executor.submit(self._init_embeddings)
-        
-    def _init_embeddings(self):
-        """Initialize txtai embeddings in a background thread"""
-        try:
-            # Use the same model as in TopicClassifier
-            model_path = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-            
-            # Configure embeddings with content storage and quantization for lower memory usage
-            self.embeddings = Embeddings({
-                "path": model_path,
-                "content": True,
-                "quantize": True
-            })
-            logger.info("txtai embeddings initialized successfully")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to initialize txtai embeddings: {e}")
-            self.available = False
-            return False
-
     async def info(self):
         """Return information about search service"""
         if not self.available:
             return {"status": "disabled"}
 
         try:
-            if not self.is_ready():
-                return {"status": "initializing", "model": "paraphrase-multilingual-mpnet-base-v2"}
-                
-            return {
-                "status": "active",
-                "count": len(self.embeddings) if self.embeddings else 0,
-                "model": "paraphrase-multilingual-mpnet-base-v2"
-            }
+            response = await self.client.get("/info")
+            response.raise_for_status()
+            return response.json()
         except Exception as e:
             logger.error(f"Failed to get search info: {e}")
             return {"status": "error", "message": str(e)}
 
     def is_ready(self):
-        """Check if embeddings are fully initialized and ready"""
-        return self.embeddings is not None and self.available
+        """Check if service is available"""
+        return self.available
 
     def index(self, shout):
         """Index a single document"""
         if not self.available:
             return
 
-        logger.info(f"Индексируем пост {shout.id}")
+        logger.info(f"Indexing post {shout.id}")
         
         # Start in background to not block
         asyncio.create_task(self.perform_index(shout))
 
     async def perform_index(self, shout):
         """Actually perform the indexing operation"""
-        if not self.is_ready():
-            # If embeddings not ready, wait for initialization
-            if self._initialization_future and not self._initialization_future.done():
-                try:
-                    # Wait for initialization to complete with timeout
-                    await asyncio.get_event_loop().run_in_executor(
-                        None, lambda: self._initialization_future.result(timeout=30))
-                except Exception as e:
-                    logger.error(f"Embeddings initialization failed: {e}")
-                    return
-            
-            if not self.is_ready():
-                logger.error(f"Cannot index shout {shout.id}: embeddings not ready")
-                return
+        if not self.available:
+            return
         
         try:
             # Combine all text fields
@@ -114,12 +69,13 @@ class SearchService:
                 shout.media or ""
             ]))
             
-            # Use upsert for individual documents
-            await asyncio.get_event_loop().run_in_executor(
-                None, 
-                lambda: self.embeddings.upsert([(str(shout.id), text, None)])
+            # Send to txtai service
+            response = await self.client.post(
+                "/index",
+                json={"id": str(shout.id), "text": text}
             )
-            logger.info(f"Пост {shout.id} успешно индексирован")
+            response.raise_for_status()
+            logger.info(f"Post {shout.id} successfully indexed")
         except Exception as e:
             logger.error(f"Indexing error for shout {shout.id}: {e}")
 
@@ -127,20 +83,6 @@ class SearchService:
         """Index multiple documents at once"""
         if not self.available or not shouts:
             return
-            
-        if not self.is_ready():
-            # Wait for initialization if needed
-            if self._initialization_future and not self._initialization_future.done():
-                try:
-                    await asyncio.get_event_loop().run_in_executor(
-                        None, lambda: self._initialization_future.result(timeout=30))
-                except Exception as e:
-                    logger.error(f"Embeddings initialization failed: {e}")
-                    return
-            
-            if not self.is_ready():
-                logger.error("Cannot perform bulk indexing: embeddings not ready")
-                return
                 
         documents = []
         for shout in shouts:
@@ -151,11 +93,14 @@ class SearchService:
                 shout.body or "",
                 shout.media or ""
             ]))
-            documents.append((str(shout.id), text, None))
+            documents.append({"id": str(shout.id), "text": text})
             
         try:
-            await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self.embeddings.upsert(documents))
+            response = await self.client.post(
+                "/bulk-index",
+                json={"documents": documents}
+            )
+            response.raise_for_status()
             logger.info(f"Bulk indexed {len(documents)} documents")
         except Exception as e:
             logger.error(f"Bulk indexing error: {e}")
@@ -171,31 +116,16 @@ class SearchService:
         if cached:
             return json.loads(cached)
             
-        logger.info(f"Ищем: {text} {offset}+{limit}")
-        
-        if not self.is_ready():
-            # Wait for initialization if needed
-            if self._initialization_future and not self._initialization_future.done():
-                try:
-                    await asyncio.get_event_loop().run_in_executor(
-                        None, lambda: self._initialization_future.result(timeout=30))
-                except Exception as e:
-                    logger.error(f"Embeddings initialization failed: {e}")
-                    return []
-            
-            if not self.is_ready():
-                logger.error("Cannot search: embeddings not ready")
-                return []
+        logger.info(f"Searching: {text} {offset}+{limit}")
         
         try:
-            # Search with txtai (need to request more to handle offset)
-            total = offset + limit
-            results = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self.embeddings.search(text, total))
-            
-            # Apply offset and convert to the expected format
-            results = results[offset:offset+limit]
-            formatted_results = [{"id": doc_id, "score": float(score)} for score, doc_id in results]
+            response = await self.client.post(
+                "/search",
+                json={"text": text, "limit": limit, "offset": offset}
+            )
+            response.raise_for_status()
+            result = response.json()
+            formatted_results = result.get("results", [])
             
             # Cache results
             if formatted_results:

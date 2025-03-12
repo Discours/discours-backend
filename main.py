@@ -35,6 +35,14 @@ async def start():
                 f.write(str(os.getpid()))
     print(f"[main] process started in {MODE} mode")
 
+async def check_search_service():
+    """Check if search service is available and log result"""
+    info = await search_service.info()
+    if info.get("status") in ["error", "unavailable"]:
+        print(f"[WARNING] Search service unavailable: {info.get('message', 'unknown reason')}")
+    else:
+        print(f"[INFO] Search service is available: {info}")
+
 
 async def lifespan(_app):
     try:
@@ -44,7 +52,7 @@ async def lifespan(_app):
             precache_data(),
             ViewedStorage.init(),
             create_webhook_endpoint(),
-            search_service.info(),
+            check_search_service(),
             start(),
             revalidation_manager.start(),
         )
