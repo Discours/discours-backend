@@ -1,3 +1,4 @@
+from operator import or_
 import time
 
 from sqlalchemy.sql import and_
@@ -55,7 +56,9 @@ async def load_drafts(_, info):
         return {"error": "User ID and author ID are required"}
 
     with local_session() as session:
-        drafts = session.query(Draft).filter(Draft.authors.any(Author.id == author_id)).all()
+        drafts = session.query(Draft).filter(or_(
+            Draft.authors.any(Author.id == author_id), 
+            Draft.created_by == author_id)).all()
     return {"drafts": drafts}
 
 
