@@ -85,7 +85,7 @@ class ViewedStorage:
                 logger.warn(f" * {viewfile_path} is too old: {self.start_date}")
 
             with open(viewfile_path, "r") as file:
-                precounted_views = orjson.load(file)
+                precounted_views = orjson.loads(file.read())
                 self.precounted_by_slug.update(precounted_views)
                 logger.info(f" * {len(precounted_views)} shouts with views was loaded.")
 
