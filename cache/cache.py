@@ -1,6 +1,8 @@
 import asyncio
+import json
 from typing import List
 
+import jsonschema
 import orjson
 from sqlalchemy import and_, join, select
 
@@ -35,7 +37,7 @@ CACHE_KEYS = {
 
 # Cache topic data
 async def cache_topic(topic: dict):
-    payload = orjson.dumps(topic, cls=CustomJSONEncoder)
+    payload = json.dumps(topic, cls=CustomJSONEncoder)
     await asyncio.gather(
         redis_operation("SET", f"topic:id:{topic['id']}", payload),
         redis_operation("SET", f"topic:slug:{topic['slug']}", payload),
@@ -44,7 +46,7 @@ async def cache_topic(topic: dict):
 
 # Cache author data
 async def cache_author(author: dict):
-    payload = orjson.dumps(author, cls=CustomJSONEncoder)
+    payload = json.dumps(author, cls=CustomJSONEncoder)
     await asyncio.gather(
         redis_operation("SET", f"author:user:{author['user'].strip()}", str(author["id"])),
         redis_operation("SET", f"author:id:{author['id']}", payload),
@@ -61,7 +63,7 @@ async def cache_follows(follower_id: int, entity_type: str, entity_id: int, is_i
             follows.append(entity_id)
     else:
         follows = [eid for eid in follows if eid != entity_id]
-    await redis_operation("SET", key, orjson.dumps(follows, cls=CustomJSONEncoder))
+    await redis_operation("SET", key, json.dumps(follows, cls=CustomJSONEncoder))
     await update_follower_stat(follower_id, entity_type, len(follows))
 
 
@@ -112,7 +114,7 @@ async def get_cached_topic(topic_id: int):
         topic = session.execute(select(Topic).where(Topic.id == topic_id)).scalar_one_or_none()
         if topic:
             topic_dict = topic.dict()
-            await redis_operation("SET", topic_key, orjson.dumps(topic_dict, cls=CustomJSONEncoder))
+            await redis_operation("SET", topic_key, json.dumps(topic_dict, cls=CustomJSONEncoder))
             return topic_dict
 
     return None
@@ -378,7 +380,7 @@ async def invalidate_shouts_cache(cache_keys: List[str]):
 async def cache_topic_shouts(topic_id: int, shouts: List[dict]):
     """Кэширует список публикаций для темы"""
     key = f"topic_shouts_{topic_id}"
-    payload = orjson.dumps(shouts, cls=CustomJSONEncoder)
+    payload = json.dumps(shouts, cls=CustomJSONEncoder)
     await redis_operation("SETEX", key, value=payload, ttl=CACHE_TTL)
 
 

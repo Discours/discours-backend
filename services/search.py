@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 
@@ -210,7 +211,7 @@ class SearchService:
                     "SETEX",
                     redis_key,
                     REDIS_TTL,
-                    orjson.dumps(results, cls=CustomJSONEncoder),
+                    json.dumps(results, cls=CustomJSONEncoder),
                 )
             return results
         return []

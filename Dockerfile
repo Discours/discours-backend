@@ -13,4 +13,7 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-CMD ["python", "-m", "granian", "main:app", "--interface", "asgi", "--host", "0.0.0.0", "--port", "8000"]
+ENV PORT=8000
+EXPOSE $PORT
+
+CMD ["python", "-m", "granian", "main:app", "--interface", "asgi", "--host", "0.0.0.0", "--port", "$PORT"]

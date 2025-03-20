@@ -6,6 +6,7 @@
 import functools
 import hashlib
 import inspect
+import json
 import logging
 import pickle
 from typing import Callable, Optional
@@ -77,7 +78,7 @@ class RedisCache:
                 # Сохранение результата в кеш
                 try:
                     # Пытаемся сериализовать как JSON
-                    serialized = orjson.dumps(result, cls=CustomJSONEncoder)
+                    serialized = json.dumps(result, cls=CustomJSONEncoder)
                 except (TypeError, ValueError):
                     # Если не удалось, используем pickle
                     serialized = pickle.dumps(result).decode()
@@ -98,7 +99,7 @@ class RedisCache:
                 try:
                     import asyncio
 
-                    serialized = orjson.dumps(result, cls=CustomJSONEncoder)
+                    serialized = json.dumps(result, cls=CustomJSONEncoder)
                     asyncio.create_task(redis.set(key, serialized, ex=self.ttl))
                 except Exception as e:
                     logger.error(f"Ошибка при кешировании результата: {e}")
