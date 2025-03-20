@@ -1,6 +1,6 @@
 import asyncio
-import json
 
+import orjson
 from sqlalchemy import and_, join, select
 
 from cache.cache import cache_author, cache_topic
@@ -21,7 +21,7 @@ async def precache_authors_followers(author_id, session):
     result = session.execute(followers_query)
     authors_followers.update(row[0] for row in result if row[0])
 
-    followers_payload = json.dumps(list(authors_followers), cls=CustomJSONEncoder)
+    followers_payload = orjson.dumps(list(authors_followers), cls=CustomJSONEncoder)
     await redis.execute("SET", f"author:followers:{author_id}", followers_payload)
 
 
@@ -35,9 +35,9 @@ async def precache_authors_follows(author_id, session):
     follows_authors = {row[0] for row in session.execute(follows_authors_query) if row[0]}
     follows_shouts = {row[0] for row in session.execute(follows_shouts_query) if row[0]}
 
-    topics_payload = json.dumps(list(follows_topics), cls=CustomJSONEncoder)
-    authors_payload = json.dumps(list(follows_authors), cls=CustomJSONEncoder)
-    shouts_payload = json.dumps(list(follows_shouts), cls=CustomJSONEncoder)
+    topics_payload = orjson.dumps(list(follows_topics), cls=CustomJSONEncoder)
+    authors_payload = orjson.dumps(list(follows_authors), cls=CustomJSONEncoder)
+    shouts_payload = orjson.dumps(list(follows_shouts), cls=CustomJSONEncoder)
 
     await asyncio.gather(
         redis.execute("SET", f"author:follows-topics:{author_id}", topics_payload),
@@ -62,7 +62,7 @@ async def precache_topics_authors(topic_id: int, session):
     )
     topic_authors = {row[0] for row in session.execute(topic_authors_query) if row[0]}
 
-    authors_payload = json.dumps(list(topic_authors), cls=CustomJSONEncoder)
+    authors_payload = orjson.dumps(list(topic_authors), cls=CustomJSONEncoder)
     await redis.execute("SET", f"topic:authors:{topic_id}", authors_payload)
 
 
@@ -71,7 +71,7 @@ async def precache_topics_followers(topic_id: int, session):
     followers_query = select(TopicFollower.follower).where(TopicFollower.topic == topic_id)
     topic_followers = {row[0] for row in session.execute(followers_query) if row[0]}
 
-    followers_payload = json.dumps(list(topic_followers), cls=CustomJSONEncoder)
+    followers_payload = orjson.dumps(list(topic_followers), cls=CustomJSONEncoder)
     await redis.execute("SET", f"topic:followers:{topic_id}", followers_payload)
 
 

@@ -2,7 +2,6 @@
 bcrypt
 authlib
 passlib
-
 opensearch-py
 google-analytics-data
 colorlog
@@ -14,5 +13,5 @@ starlette
 gql
 ariadne
 granian
-
+orjson
 pydantic

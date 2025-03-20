@@ -1,5 +1,4 @@
-import json
-
+import orjson
 from graphql import GraphQLResolveInfo
 from sqlalchemy import and_, nulls_last, text
 from sqlalchemy.orm import aliased
@@ -222,7 +221,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                         if has_field(info, "stat"):
                             stat = {}
                             if isinstance(row.stat, str):
-                                stat = json.loads(row.stat)
+                                stat = orjson.loads(row.stat)
                             elif isinstance(row.stat, dict):
                                 stat = row.stat
                             viewed = ViewedStorage.get_shout(shout_id=shout_id) or 0
@@ -231,7 +230,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                         # Обработка main_topic и topics
                         topics = None
                         if has_field(info, "topics") and hasattr(row, "topics"):
-                            topics = json.loads(row.topics) if isinstance(row.topics, str) else row.topics
+                            topics = orjson.loads(row.topics) if isinstance(row.topics, str) else row.topics
                             # logger.debug(f"Shout#{shout_id} topics: {topics}")
                             shout_dict["topics"] = topics
 
@@ -240,7 +239,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                             if hasattr(row, "main_topic"):
                                 # logger.debug(f"Raw main_topic for shout#{shout_id}: {row.main_topic}")
                                 main_topic = (
-                                    json.loads(row.main_topic) if isinstance(row.main_topic, str) else row.main_topic
+                                    orjson.loads(row.main_topic) if isinstance(row.main_topic, str) else row.main_topic
                                 )
                                 # logger.debug(f"Parsed main_topic for shout#{shout_id}: {main_topic}")
 
@@ -260,7 +259,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
 
                         if has_field(info, "authors") and hasattr(row, "authors"):
                             shout_dict["authors"] = (
-                                json.loads(row.authors) if isinstance(row.authors, str) else row.authors
+                                orjson.loads(row.authors) if isinstance(row.authors, str) else row.authors
                             )
 
                         if has_field(info, "media") and shout.media:
@@ -268,8 +267,8 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                             media_data = shout.media
                             if isinstance(media_data, str):
                                 try:
-                                    media_data = json.loads(media_data)
-                                except json.JSONDecodeError:
+                                    media_data = orjson.loads(media_data)
+                                except orjson.JSONDecodeError:
                                     media_data = []
                             shout_dict["media"] = [media_data] if isinstance(media_data, dict) else media_data
 

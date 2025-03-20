@@ -1,4 +1,4 @@
-import json
+import orjson
 
 from orm.notification import Notification
 from services.db import local_session
@@ -18,7 +18,7 @@ async def notify_reaction(reaction, action: str = "create"):
     data = {"payload": reaction, "action": action}
     try:
         save_notification(action, channel_name, data.get("payload"))
-        await redis.publish(channel_name, json.dumps(data))
+        await redis.publish(channel_name, orjson.dumps(data))
     except Exception as e:
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
 
@@ -28,7 +28,7 @@ async def notify_shout(shout, action: str = "update"):
     data = {"payload": shout, "action": action}
     try:
         save_notification(action, channel_name, data.get("payload"))
-        await redis.publish(channel_name, json.dumps(data))
+        await redis.publish(channel_name, orjson.dumps(data))
     except Exception as e:
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
 
@@ -43,7 +43,7 @@ async def notify_follower(follower: dict, author_id: int, action: str = "follow"
         save_notification(action, channel_name, data.get("payload"))
 
         # Convert data to JSON string
-        json_data = json.dumps(data)
+        json_data = orjson.dumps(data)
 
         # Ensure the data is not empty before publishing
         if json_data:

@@ -1,5 +1,7 @@
-#### [0.4.12] - 2025-02-12
+#### [0.4.12] - 2025-03-19
 - `delete_reaction` detects comments and uses `deleted_at` update
+- `check_to_unfeature` etc. update
+- dogpile dep in `services/memorycache.py` optimized
 
 #### [0.4.11] - 2025-02-12
 - `create_draft` resolver requires draft_id fixed

@@ -1,8 +1,8 @@
 import asyncio
-import json
 import logging
 import os
 
+import orjson
 from opensearchpy import OpenSearch
 
 from services.redis import redis
@@ -142,7 +142,7 @@ class SearchService:
                 # Проверка и обновление структуры индекса, если необходимо
                 result = self.client.indices.get_mapping(index=self.index_name)
                 if isinstance(result, str):
-                    result = json.loads(result)
+                    result = orjson.loads(result)
                 if isinstance(result, dict):
                     mapping = result.get(self.index_name, {}).get("mappings")
                     logger.info(f"Найдена структура индексации: {mapping['properties'].keys()}")
@@ -210,7 +210,7 @@ class SearchService:
                     "SETEX",
                     redis_key,
                     REDIS_TTL,
-                    json.dumps(results, cls=CustomJSONEncoder),
+                    orjson.dumps(results, cls=CustomJSONEncoder),
                 )
             return results
         return []

@@ -1,10 +1,10 @@
-import json
 import math
 import time
 import traceback
 import warnings
 from typing import Any, Callable, Dict, TypeVar
 
+import orjson
 import sqlalchemy
 from sqlalchemy import (
     JSON,
@@ -84,8 +84,8 @@ class Base(declarative_base()):
                 # Check if the value is JSON and decode it if necessary
                 if isinstance(value, (str, bytes)) and isinstance(self.__table__.columns[column_name].type, JSON):
                     try:
-                        data[column_name] = json.loads(value)
-                    except (TypeError, json.JSONDecodeError) as e:
+                        data[column_name] = orjson.loads(value)
+                    except (TypeError, orjson.JSONDecodeError) as e:
                         logger.error(f"Error decoding JSON for column '{column_name}': {e}")
                         data[column_name] = value
                 else:
