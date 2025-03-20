@@ -2,7 +2,6 @@ import asyncio
 import json
 from typing import List
 
-import jsonschema
 import orjson
 from sqlalchemy import and_, join, select
 
