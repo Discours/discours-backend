@@ -1,5 +1,5 @@
-from operator import or_
 import time
+from operator import or_
 
 from sqlalchemy.sql import and_
 
@@ -56,9 +56,11 @@ async def load_drafts(_, info):
         return {"error": "User ID and author ID are required"}
 
     with local_session() as session:
-        drafts = session.query(Draft).filter(or_(
-            Draft.authors.any(Author.id == author_id), 
-            Draft.created_by == author_id)).all()
+        drafts = (
+            session.query(Draft)
+            .filter(or_(Draft.authors.any(Author.id == author_id), Draft.created_by == author_id))
+            .all()
+        )
     return {"drafts": drafts}
 
 
@@ -99,7 +101,7 @@ async def create_draft(_, info, draft_input):
     # Проверяем обязательные поля
     if "body" not in draft_input or not draft_input["body"]:
         draft_input["body"] = ""  # Пустая строка вместо NULL
-        
+
     if "title" not in draft_input or not draft_input["title"]:
         draft_input["title"] = ""  # Пустая строка вместо NULL
 
@@ -123,23 +125,29 @@ async def create_draft(_, info, draft_input):
 
 @mutation.field("update_draft")
 @login_required
-async def update_draft(_, info, draft_input):
+async def update_draft(_, info, draft_id: int, draft_input):
+    """Обновляет черновик публикации.
+
+    Args:
+        draft_id: ID черновика для обновления
+        draft_input: Данные для обновления черновика
+
+    Returns:
+        dict: Обновленный черновик или сообщение об ошибке
+    """
     user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
-    draft_id = draft_input.get("id")
-    if not draft_id:
-        return {"error": "Draft ID is required"}
+
     if not user_id or not author_id:
         return {"error": "Author ID are required"}
 
     with local_session() as session:
         draft = session.query(Draft).filter(Draft.id == draft_id).first()
-        del draft_input["id"]
-        Draft.update(draft, {**draft_input})
         if not draft:
             return {"error": "Draft not found"}
 
+        Draft.update(draft, draft_input)
         draft.updated_at = int(time.time())
         session.commit()
         return {"draft": draft}

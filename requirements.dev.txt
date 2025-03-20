@@ -1,0 +1,6 @@
+fakeredis
+pytest
+pytest-asyncio
+pytest-cov
+mypy
+ruff

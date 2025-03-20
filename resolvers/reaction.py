@@ -133,21 +133,18 @@ def check_to_feature(session, approver_id, reaction) -> bool:
     return False
 
 
-def check_to_unfeature(session, rejecter_id, reaction) -> bool:
+def check_to_unfeature(session, reaction) -> bool:
     """
     Unfeature a shout if 20% of reactions are negative.
 
     :param session: Database session.
-    :param rejecter_id: Rejecter author ID.
     :param reaction: Reaction object.
     :return: True if shout should be unfeatured, else False.
     """
     if not reaction.reply_to and is_negative(reaction.kind):
         total_reactions = (
             session.query(Reaction)
-            .filter(
-                Reaction.shout == reaction.shout, Reaction.kind.in_(RATING_REACTIONS), Reaction.deleted_at.is_(None)
-            )
+            .filter(Reaction.shout == reaction.shout, Reaction.reply_to.is_(None), Reaction.kind.in_(RATING_REACTIONS))
             .count()
         )
 
@@ -217,7 +214,7 @@ async def _create_reaction(session, shout_id: int, is_author: bool, author_id: i
 
     # Handle rating
     if r.kind in RATING_REACTIONS:
-        if check_to_unfeature(session, author_id, r):
+        if check_to_unfeature(session, r):
             set_unfeatured(session, shout_id)
         elif check_to_feature(session, author_id, r):
             await set_featured(session, shout_id)
@@ -354,7 +351,7 @@ async def update_reaction(_, info, reaction):
 
             result = session.execute(reaction_query).unique().first()
             if result:
-                r, author, shout, commented_stat, rating_stat = result
+                r, author, _shout, commented_stat, rating_stat = result
                 if not r or not author:
                     return {"error": "Invalid reaction ID or unauthorized"}
 
@@ -406,15 +403,24 @@ async def delete_reaction(_, info, reaction_id: int):
             if r.created_by != author_id and "editor" not in roles:
                 return {"error": "Access denied"}
 
-            logger.debug(f"{user_id} user removing his #{reaction_id} reaction")
-            reaction_dict = r.dict()
-            session.delete(r)
-            session.commit()
-
-            # Update author stat
             if r.kind == ReactionKind.COMMENT.value:
+                r.deleted_at = int(time.time())
                 update_author_stat(author.id)
+                session.add(r)
+                session.commit()
+            elif r.kind == ReactionKind.PROPOSE.value:
+                r.deleted_at = int(time.time())
+                session.add(r)
+                session.commit()
+                # TODO: add more reaction types here
+            else:
+                logger.debug(f"{user_id} user removing his #{reaction_id} reaction")
+                session.delete(r)
+                session.commit()
+                if check_to_unfeature(session, r):
+                    set_unfeatured(session, r.shout)
 
+            reaction_dict = r.dict()
             await notify_reaction(reaction_dict, "delete")
 
             return {"error": None, "reaction": reaction_dict}
