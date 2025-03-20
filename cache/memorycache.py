@@ -99,10 +99,21 @@ class RedisCache:
                 try:
                     import asyncio
 
-                    serialized = json.dumps(result, cls=CustomJSONEncoder)
+                    # Попытка сериализовать результат в JSON
+                    try:
+                        serialized = json.dumps(result, cls=CustomJSONEncoder)
+                    except (TypeError, ValueError) as e:
+                        logger.debug(f"JSON сериализация не удалась, используем pickle: {e}")
+                        # Если не удалось сериализовать как JSON, используем pickle
+                        serialized = pickle.dumps(result).decode()
+
                     asyncio.create_task(redis.set(key, serialized, ex=self.ttl))
                 except Exception as e:
                     logger.error(f"Ошибка при кешировании результата: {e}")
+                    # Для отладки добавляем информацию о типе объекта
+                    logger.debug(f"Тип результата: {type(result)}")
+                    if hasattr(result, "__class__"):
+                        logger.debug(f"Класс результата: {result.__class__.__name__}")
 
                 return result
 

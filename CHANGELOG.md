@@ -1,3 +1,8 @@
+#### [0.4.13] - 2025-03-20
+- Fixed Topic objects serialization error in cache/memorycache.py
+- Improved CustomJSONEncoder to support SQLAlchemy models with dict() method
+- Enhanced error handling in cache_on_arguments decorator
+
 #### [0.4.12] - 2025-03-19
 - `delete_reaction` detects comments and uses `deleted_at` update
 - `check_to_unfeature` etc. update
