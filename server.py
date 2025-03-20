@@ -3,7 +3,7 @@ from pathlib import Path
 
 from granian.constants import Interfaces
 from granian.log import LogLevels
-from granian.server import Granian
+from granian import Granian
 
 from settings import PORT
 from utils.logger import root_logger as logger
