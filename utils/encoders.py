@@ -1,9 +1,9 @@
 from decimal import Decimal
 
-import orjson
+from json import JSONEncoder
 
 
-class CustomJSONEncoder(orjson.JSONEncoder):
+class CustomJSONEncoder(JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
             return str(obj)
