@@ -3,6 +3,7 @@ bcrypt
 authlib
 passlib
 
+opensearch-py
 google-analytics-data
 colorlog
 psycopg2-binary
