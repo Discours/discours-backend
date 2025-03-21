@@ -161,6 +161,19 @@ class SearchService:
                     "/bulk-index",
                     json={"documents": documents}
                 )
+                # Error Handling
+                if response.status_code == 422:
+                    error_detail = response.json()
+                    logger.error(f"Validation error from search service: {error_detail}")
+                    
+                    # Try to identify problematic documents
+                    for doc in documents:
+                        if len(doc['text']) > 10000:  # Adjust threshold as needed
+                            logger.warning(f"Document {doc['id']} has very long text: {len(doc['text'])} chars")
+                    
+                    # Continue with next batch instead of failing completely
+                    continue
+            
                 response.raise_for_status()
                 result = response.json()
                 logger.info(f"Batch {i//batch_size + 1} indexed successfully: {result}")
