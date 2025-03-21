@@ -97,20 +97,23 @@ def get_reactions_with_stat(q, limit, offset):
 
 def is_featured_author(session, author_id) -> bool:
     """
-    Check if an author has at least one featured article.
+    Check if an author has at least one non-deleted featured article.
 
     :param session: Database session.
     :param author_id: Author ID.
     :return: True if the author has a featured article, else False.
     """
     return session.query(
-        session.query(Shout).where(Shout.authors.any(id=author_id)).filter(Shout.featured_at.is_not(None)).exists()
+        session.query(Shout)
+        .where(Shout.authors.any(id=author_id))
+        .filter(Shout.featured_at.is_not(None), Shout.deleted_at.is_(None))
+        .exists()
     ).scalar()
 
 
 def check_to_feature(session, approver_id, reaction) -> bool:
     """
-    Make a shout featured if it receives more than 4 votes.
+    Make a shout featured if it receives more than 4 votes from authors.
 
     :param session: Database session.
     :param approver_id: Approver author ID.
@@ -118,18 +121,37 @@ def check_to_feature(session, approver_id, reaction) -> bool:
     :return: True if shout should be featured, else False.
     """
     if not reaction.reply_to and is_positive(reaction.kind):
-        approvers = {approver_id}
-        # Count the number of approvers
+        # Проверяем, не содержит ли пост более 20% дизлайков
+        # Если да, то не должен быть featured независимо от количества лайков
+        if check_to_unfeature(session, reaction):
+            return False
+
+        # Собираем всех авторов, поставивших лайк
+        author_approvers = set()
         reacted_readers = (
             session.query(Reaction.created_by)
-            .filter(Reaction.shout == reaction.shout, is_positive(Reaction.kind), Reaction.deleted_at.is_(None))
+            .filter(
+                Reaction.shout == reaction.shout,
+                is_positive(Reaction.kind),
+                # Рейтинги (LIKE, DISLIKE) физически удаляются, поэтому фильтр deleted_at не нужен
+            )
             .distinct()
+            .all()
         )
 
-        for reader_id in reacted_readers:
+        # Добавляем текущего одобряющего
+        approver = session.query(Author).filter(Author.id == approver_id).first()
+        if approver and is_featured_author(session, approver_id):
+            author_approvers.add(approver_id)
+
+        # Проверяем, есть ли у реагировавших авторов featured публикации
+        for (reader_id,) in reacted_readers:
             if is_featured_author(session, reader_id):
-                approvers.add(reader_id)
-        return len(approvers) > 4
+                author_approvers.add(reader_id)
+
+        # Публикация становится featured при наличии более 4 лайков от авторов
+        logger.debug(f"Публикация {reaction.shout} имеет {len(author_approvers)} лайков от авторов")
+        return len(author_approvers) > 4
     return False
 
 
@@ -141,20 +163,36 @@ def check_to_unfeature(session, reaction) -> bool:
     :param reaction: Reaction object.
     :return: True if shout should be unfeatured, else False.
     """
-    if not reaction.reply_to and is_negative(reaction.kind):
+    if not reaction.reply_to:
+        # Проверяем соотношение дизлайков, даже если текущая реакция не дизлайк
         total_reactions = (
             session.query(Reaction)
-            .filter(Reaction.shout == reaction.shout, Reaction.reply_to.is_(None), Reaction.kind.in_(RATING_REACTIONS))
+            .filter(
+                Reaction.shout == reaction.shout,
+                Reaction.reply_to.is_(None),
+                Reaction.kind.in_(RATING_REACTIONS),
+                # Рейтинги физически удаляются при удалении, поэтому фильтр deleted_at не нужен
+            )
             .count()
         )
 
         negative_reactions = (
             session.query(Reaction)
-            .filter(Reaction.shout == reaction.shout, is_negative(Reaction.kind), Reaction.deleted_at.is_(None))
+            .filter(
+                Reaction.shout == reaction.shout,
+                is_negative(Reaction.kind),
+                Reaction.reply_to.is_(None),
+                # Рейтинги физически удаляются при удалении, поэтому фильтр deleted_at не нужен
+            )
             .count()
         )
 
-        return total_reactions > 0 and (negative_reactions / total_reactions) >= 0.2
+        # Проверяем, составляют ли отрицательные реакции 20% или более от всех реакций
+        negative_ratio = negative_reactions / total_reactions if total_reactions > 0 else 0
+        logger.debug(
+            f"Публикация {reaction.shout}: {negative_reactions}/{total_reactions} отрицательных реакций ({negative_ratio:.2%})"
+        )
+        return total_reactions > 0 and negative_ratio >= 0.2
     return False
 
 
@@ -193,8 +231,8 @@ async def _create_reaction(session, shout_id: int, is_author: bool, author_id: i
     Create a new reaction and perform related actions such as updating counters and notification.
 
     :param session: Database session.
-    :param info: GraphQL context info.
-    :param shout: Shout object.
+    :param shout_id: Shout ID.
+    :param is_author: Flag indicating if the user is the author of the shout.
     :param author_id: Author ID.
     :param reaction: Dictionary with reaction data.
     :return: Dictionary with created reaction data.
@@ -214,10 +252,14 @@ async def _create_reaction(session, shout_id: int, is_author: bool, author_id: i
 
     # Handle rating
     if r.kind in RATING_REACTIONS:
+        # Проверяем сначала условие для unfeature (дизлайки имеют приоритет)
         if check_to_unfeature(session, r):
             set_unfeatured(session, shout_id)
+            logger.info(f"Публикация {shout_id} потеряла статус featured из-за высокого процента дизлайков")
+        # Только если не было unfeature, проверяем условие для feature
         elif check_to_feature(session, author_id, r):
             await set_featured(session, shout_id)
+            logger.info(f"Публикация {shout_id} получила статус featured благодаря лайкам от авторов")
 
     # Notify creation
     await notify_reaction(rdict, "create")
@@ -491,7 +533,9 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     # Add statistics and apply filters
     q = add_reaction_stat_columns(q)
     q = apply_reaction_filters(by, q)
-    q = q.where(Reaction.deleted_at.is_(None))
+
+    # Include reactions with deleted_at for building comment trees
+    # q = q.where(Reaction.deleted_at.is_(None))
 
     # Group and sort
     q = q.group_by(Reaction.id, Author.id, Shout.id)

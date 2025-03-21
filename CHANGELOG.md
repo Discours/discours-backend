@@ -2,6 +2,12 @@
 - Fixed Topic objects serialization error in cache/memorycache.py
 - Improved CustomJSONEncoder to support SQLAlchemy models with dict() method
 - Enhanced error handling in cache_on_arguments decorator
+- Modified `load_reactions_by` to include deleted reactions when `include_deleted=true` for proper comment tree building
+- Fixed featured/unfeatured logic in reaction processing:
+  - Dislike reactions now properly take precedence over likes
+  - Featured status now requires more than 4 likes from users with featured articles
+  - Removed unnecessary filters for deleted reactions since rating reactions are physically deleted
+  - Author's featured status now based on having non-deleted articles with featured_at
 
 #### [0.4.12] - 2025-03-19
 - `delete_reaction` detects comments and uses `deleted_at` update
