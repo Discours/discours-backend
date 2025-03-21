@@ -169,12 +169,32 @@ class SearchService:
                 logger.info(f"Sending batch of {len(documents)} documents to search service")
                 response = await self.index_client.post(
                     "/bulk-index",
-                    json={"documents": documents}
+                    json=documents
                 )
                 # Error Handling
                 if response.status_code == 422:
                     error_detail = response.json()
-                    logger.error(f"Validation error from search service: {error_detail}")
+                    
+                    # Create a truncated version of the error detail for logging
+                    truncated_detail = error_detail.copy() if isinstance(error_detail, dict) else error_detail
+                    
+                    # If it's a validation error with details list
+                    if isinstance(truncated_detail, dict) and 'detail' in truncated_detail and isinstance(truncated_detail['detail'], list):
+                        for i, item in enumerate(truncated_detail['detail']):
+                            # Handle case where input contains document text
+                            if isinstance(item, dict) and 'input' in item:
+                                if isinstance(item['input'], dict) and any(k in item['input'] for k in ['documents', 'text']):
+                                    # Check for documents list
+                                    if 'documents' in item['input'] and isinstance(item['input']['documents'], list):
+                                        for j, doc in enumerate(item['input']['documents']):
+                                            if 'text' in doc and isinstance(doc['text'], str) and len(doc['text']) > 100:
+                                                item['input']['documents'][j]['text'] = f"{doc['text'][:100]}... [truncated, total {len(doc['text'])} chars]"
+                                    
+                                    # Check for direct text field
+                                    if 'text' in item['input'] and isinstance(item['input']['text'], str) and len(item['input']['text']) > 100:
+                                        item['input']['text'] = f"{item['input']['text'][:100]}... [truncated, total {len(item['input']['text'])} chars]"
+                    
+                    logger.error(f"Validation error from search service: {truncated_detail}")
                     
                     # Try to identify problematic documents
                     for doc in documents:
