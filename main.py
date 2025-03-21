@@ -44,6 +44,11 @@ async def check_search_service():
         print(f"[INFO] Search service is available: {info}")
 
 
+# indexing DB data
+# async def indexing():
+#     from services.db import fetch_all_shouts
+#     all_shouts = await fetch_all_shouts()
+#     await initialize_search_index(all_shouts)
 async def lifespan(_app):
     try:
         create_all_tables()
@@ -59,7 +64,7 @@ async def lifespan(_app):
 
         # After basic initialization is complete, fetch shouts and initialize search
         from services.db import fetch_all_shouts  # Import your database access function
-        all_shouts = await fetch_all_shouts()  # Replace with your actual function
+        all_shouts = await fetch_all_shouts()
         await initialize_search_index(all_shouts)
 
         yield
