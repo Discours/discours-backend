@@ -96,7 +96,7 @@ class SearchService:
         start_time = time.time()
         logger.info(f"Starting bulk indexing of {len(shouts)} documents")
 
-        MAX_TEXT_LENGTH = 4000  # Maximum text length to send in a single request
+        MAX_TEXT_LENGTH = 8000  # Maximum text length to send in a single request
         max_batch_size = MAX_BATCH_SIZE
         total_indexed = 0
         total_skipped = 0
@@ -176,17 +176,17 @@ class SearchService:
         
         # Process small documents (larger batches)
         if small_docs:
-            batch_size = min(max_batch_size, 15)
+            batch_size = min(max_batch_size, 25)
             await self._process_document_batches(small_docs, batch_size, "small")
             
         # Process medium documents (medium batches)
         if medium_docs:
-            batch_size = min(max_batch_size, 10)
+            batch_size = min(max_batch_size, 15)
             await self._process_document_batches(medium_docs, batch_size, "medium")
             
         # Process large documents (small batches)
         if large_docs:
-            batch_size = min(max_batch_size, 3)
+            batch_size = min(max_batch_size, 5)
             await self._process_document_batches(large_docs, batch_size, "large")
         
         elapsed = time.time() - start_time
