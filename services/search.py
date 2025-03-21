@@ -94,11 +94,14 @@ class SearchService:
         
         start_time = time.time()
         logger.info(f"Starting bulk indexing of {len(shouts)} documents")
-                
+
+        MAX_TEXT_LENGTH = 8000  # Maximum text length to send in a single request
         batch_size = MAX_BATCH_SIZE
         total_indexed = 0
         total_skipped = 0
+        total_truncated = 0
         i = 0
+
         for i in range(0, len(shouts), batch_size):
             batch = shouts[i:i+batch_size]
             logger.info(f"Processing batch {i//batch_size + 1} of {(len(shouts)-1)//batch_size + 1}, size {len(batch)}")
@@ -136,6 +139,13 @@ class SearchService:
                         logger.debug(f"Skipping shout {shout.id}: no text content")
                         total_skipped += 1
                         continue
+
+                    # Truncate text if it exceeds the maximum length
+                    original_length = len(text)
+                    if original_length > MAX_TEXT_LENGTH:
+                        text = text[:MAX_TEXT_LENGTH]
+                        logger.info(f"Truncated document {shout.id} from {original_length} to {MAX_TEXT_LENGTH} chars")
+                        total_truncated += 1                   
                         
                     documents.append({
                         "id": str(shout.id),
