@@ -51,6 +51,7 @@ async def check_search_service():
 #     await initialize_search_index(all_shouts)
 async def lifespan(_app):
     try:
+        print("[lifespan] Starting application initialization")
         create_all_tables()
         await asyncio.gather(
             redis.connect(),
@@ -61,18 +62,24 @@ async def lifespan(_app):
             start(),
             revalidation_manager.start(),
         )
+        print("[lifespan] Basic initialization complete")
 
         # After basic initialization is complete, fetch shouts and initialize search
+        print("[lifespan] Starting search indexing process")
         from services.db import fetch_all_shouts  # Import your database access function
         all_shouts = await fetch_all_shouts()
+        print(f"[lifespan] Fetched {len(all_shouts) if all_shouts else 0} shouts for indexing")
+        
+        print("[lifespan] Initializing search index...")
         await initialize_search_index(all_shouts)
+        print("[lifespan] Search index initialization complete")
 
         yield
     finally:
+        print("[lifespan] Shutting down application services")
         tasks = [redis.disconnect(), ViewedStorage.stop(), revalidation_manager.stop()]
         await asyncio.gather(*tasks, return_exceptions=True)
-
-
+        print("[lifespan] Shutdown complete")
 # Создаем экземпляр GraphQL
 graphql_app = GraphQL(schema, debug=True)
 
