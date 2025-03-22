@@ -55,6 +55,7 @@ type Reaction {
   stat: Stat
   oid: String
   # old_thread: String
+  first_replies: [Reaction]
 }
 
 type MediaItem {
