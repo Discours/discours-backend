@@ -41,8 +41,7 @@
   - Implemented persistent Redis caching for author queries without TTL (invalidated only on changes)
   - Optimized author retrieval with separate endpoints:
     - `get_authors_all` - returns all non-deleted authors without statistics
-    - `get_authors_paginated` - returns authors with statistics and pagination support
-    - `load_authors_by` - optimized to use caching and efficient sorting
+    - `load_authors_by` - optimized to use caching and efficient sorting and pagination
   - Improved SQL queries with optimized JOIN conditions and efficient filtering
   - Added pre-aggregation of statistics (shouts count, followers count) in single efficient queries
   - Implemented robust cache invalidation on author updates

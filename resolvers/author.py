@@ -232,22 +232,6 @@ async def get_authors_all(_, _info):
     return await get_all_authors()
 
 
-@query.field("get_authors_paginated")
-async def get_authors_paginated(_, _info, limit=50, offset=0, by=None):
-    """
-    Получает список авторов с пагинацией и статистикой.
-
-    Args:
-        limit: Максимальное количество возвращаемых авторов
-        offset: Смещение для пагинации
-        by: Параметр сортировки (new/active)
-
-    Returns:
-        list: Список авторов с их статистикой
-    """
-    return await get_authors_with_stats(limit, offset, by)
-
-
 @query.field("get_author")
 async def get_author(_, _info, slug="", author_id=0):
     author_dict = None
