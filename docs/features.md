@@ -6,11 +6,7 @@
 
 ## Мультидоменная авторизация
 
-- Поддержка авторизации для разных доменов:
-  - *.dscrs.site (включая testing.dscrs.site)
-  - localhost[:port]
-  - testingdiscoursio-git-*-discoursio.vercel.app
-  - *.discours.io
+- Поддержка авторизации для разных доменов
 - Автоматическое определение сервера авторизации
 - Корректная обработка CORS для всех поддерживаемых доменов
 
@@ -35,10 +31,6 @@
 
 ## CORS Configuration
 
-- Поддерживаются домены:
-  - *.dscrs.site (включая testing.dscrs.site, core.dscrs.site)
-  - *.discours.io (включая testing.discours.io)
-  - localhost (включая порты)
 - Поддерживаемые методы: GET, POST, OPTIONS
 - Настроена поддержка credentials
 - Разрешенные заголовки: Authorization, Content-Type, X-Requested-With, DNT, Cache-Control

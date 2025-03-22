@@ -17,7 +17,7 @@ from sqlalchemy import (
     exc,
     func,
     inspect,
-    text
+    text,
 )
 from sqlalchemy.orm import Session, configure_mappers, declarative_base
 from sqlalchemy.sql.schema import Table
