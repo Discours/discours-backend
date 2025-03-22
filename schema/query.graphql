@@ -26,6 +26,9 @@ type Query {
   load_shout_ratings(shout: Int!, limit: Int, offset: Int): [Reaction]
   load_comment_ratings(comment: Int!, limit: Int, offset: Int): [Reaction]
 
+  # branched comments pagination
+  load_comments_branch(shout: Int!, parent_id: Int, limit: Int, offset: Int, sort: ReactionSort, children_limit: Int, children_offset: Int): [Reaction]
+
   # reader
   get_shout(slug: String, shout_id: Int): Shout
   load_shouts_by(options: LoadShoutsOptions): [Shout]

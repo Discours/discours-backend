@@ -612,24 +612,22 @@ async def load_shout_comments(_, info, shout: int, limit=50, offset=0):
 @query.field("load_comment_ratings")
 async def load_comment_ratings(_, info, comment: int, limit=50, offset=0):
     """
-    Load ratings for a specified comment with pagination and statistics.
+    Load ratings for a specified comment with pagination.
 
     :param info: GraphQL context info.
     :param comment: Comment ID.
     :param limit: Number of ratings to load.
     :param offset: Pagination offset.
-    :return: List of reactions.
+    :return: List of ratings.
     """
     q = query_reactions()
-
-    q = add_reaction_stat_columns(q)
 
     # Filter, group, sort, limit, offset
     q = q.filter(
         and_(
             Reaction.deleted_at.is_(None),
             Reaction.reply_to == comment,
-            Reaction.kind == ReactionKind.COMMENT.value,
+            Reaction.kind.in_(RATING_REACTIONS),
         )
     )
     q = q.group_by(Reaction.id, Author.id, Shout.id)
@@ -637,3 +635,186 @@ async def load_comment_ratings(_, info, comment: int, limit=50, offset=0):
 
     # Retrieve and return reactions
     return get_reactions_with_stat(q, limit, offset)
+
+
+@query.field("load_comments_branch")
+async def load_comments_branch(
+    _,
+    _info,
+    shout: int,
+    parent_id: int | None = None,
+    limit=10,
+    offset=0,
+    sort="newest",
+    children_limit=3,
+    children_offset=0,
+):
+    """
+    Загружает иерархические комментарии с возможностью пагинации корневых и дочерних.
+
+    :param info: GraphQL context info.
+    :param shout: ID статьи.
+    :param parent_id: ID родительского комментария (None для корневых).
+    :param limit: Количество комментариев для загрузки.
+    :param offset: Смещение для пагинации.
+    :param sort: Порядок сортировки ('newest', 'oldest', 'like').
+    :param children_limit: Максимальное количество дочерних комментариев.
+    :param children_offset: Смещение для дочерних комментариев.
+    :return: Список комментариев с дочерними.
+    """
+    # Создаем базовый запрос
+    q = query_reactions()
+    q = add_reaction_stat_columns(q)
+
+    # Фильтруем по статье и типу (комментарии)
+    q = q.filter(
+        and_(
+            Reaction.deleted_at.is_(None),
+            Reaction.shout == shout,
+            Reaction.kind == ReactionKind.COMMENT.value,
+        )
+    )
+
+    # Фильтруем по родительскому ID
+    if parent_id is None:
+        # Загружаем только корневые комментарии
+        q = q.filter(Reaction.reply_to.is_(None))
+    else:
+        # Загружаем только прямые ответы на указанный комментарий
+        q = q.filter(Reaction.reply_to == parent_id)
+
+    # Сортировка и группировка
+    q = q.group_by(Reaction.id, Author.id, Shout.id)
+
+    # Определяем сортировку
+    order_by_stmt = None
+    if sort.lower() == "oldest":
+        order_by_stmt = asc(Reaction.created_at)
+    elif sort.lower() == "like":
+        order_by_stmt = desc("rating_stat")
+    else:  # "newest" по умолчанию
+        order_by_stmt = desc(Reaction.created_at)
+
+    q = q.order_by(order_by_stmt)
+
+    # Выполняем запрос для получения комментариев
+    comments = get_reactions_with_stat(q, limit, offset)
+
+    # Если комментарии найдены, загружаем дочерние и количество ответов
+    if comments:
+        # Загружаем количество ответов для каждого комментария
+        await load_replies_count(comments)
+
+        # Загружаем дочерние комментарии
+        await load_first_replies(comments, children_limit, children_offset, sort)
+
+    return comments
+
+
+async def load_replies_count(comments):
+    """
+    Загружает количество ответов для списка комментариев и обновляет поле stat.commented.
+
+    :param comments: Список комментариев, для которых нужно загрузить количество ответов.
+    """
+    if not comments:
+        return
+
+    comment_ids = [comment["id"] for comment in comments]
+
+    # Запрос для подсчета количества ответов
+    q = (
+        select(Reaction.reply_to.label("parent_id"), func.count().label("count"))
+        .where(
+            and_(
+                Reaction.reply_to.in_(comment_ids),
+                Reaction.deleted_at.is_(None),
+                Reaction.kind == ReactionKind.COMMENT.value,
+            )
+        )
+        .group_by(Reaction.reply_to)
+    )
+
+    # Выполняем запрос
+    with local_session() as session:
+        result = session.execute(q).fetchall()
+
+    # Создаем словарь {parent_id: count}
+    replies_count = {row[0]: row[1] for row in result}
+
+    # Добавляем значения в комментарии
+    for comment in comments:
+        if "stat" not in comment:
+            comment["stat"] = {}
+
+        # Обновляем счетчик комментариев в stat
+        comment["stat"]["commented"] = replies_count.get(comment["id"], 0)
+
+
+async def load_first_replies(comments, limit, offset, sort="newest"):
+    """
+    Загружает первые N ответов для каждого комментария.
+
+    :param comments: Список комментариев, для которых нужно загрузить ответы.
+    :param limit: Максимальное количество ответов для каждого комментария.
+    :param offset: Смещение для пагинации дочерних комментариев.
+    :param sort: Порядок сортировки ответов.
+    """
+    if not comments or limit <= 0:
+        return
+
+    # Собираем ID комментариев
+    comment_ids = [comment["id"] for comment in comments]
+
+    # Базовый запрос для загрузки ответов
+    q = query_reactions()
+    q = add_reaction_stat_columns(q)
+
+    # Фильтрация: только ответы на указанные комментарии
+    q = q.filter(
+        and_(
+            Reaction.reply_to.in_(comment_ids),
+            Reaction.deleted_at.is_(None),
+            Reaction.kind == ReactionKind.COMMENT.value,
+        )
+    )
+
+    # Группировка
+    q = q.group_by(Reaction.id, Author.id, Shout.id)
+
+    # Определяем сортировку
+    order_by_stmt = None
+    if sort.lower() == "oldest":
+        order_by_stmt = asc(Reaction.created_at)
+    elif sort.lower() == "like":
+        order_by_stmt = desc("rating_stat")
+    else:  # "newest" по умолчанию
+        order_by_stmt = desc(Reaction.created_at)
+
+    q = q.order_by(order_by_stmt, Reaction.reply_to)
+
+    # Выполняем запрос
+    replies = get_reactions_with_stat(q)
+
+    # Группируем ответы по родительским ID
+    replies_by_parent = {}
+    for reply in replies:
+        parent_id = reply.get("reply_to")
+        if parent_id not in replies_by_parent:
+            replies_by_parent[parent_id] = []
+        replies_by_parent[parent_id].append(reply)
+
+    # Добавляем ответы к соответствующим комментариям с учетом смещения и лимита
+    for comment in comments:
+        comment_id = comment["id"]
+        if comment_id in replies_by_parent:
+            parent_replies = replies_by_parent[comment_id]
+            # Применяем смещение и лимит
+            comment["first_replies"] = parent_replies[offset : offset + limit]
+        else:
+            comment["first_replies"] = []
+
+    # Загружаем количество ответов для дочерних комментариев
+    all_replies = [reply for replies in replies_by_parent.values() for reply in replies]
+    if all_replies:
+        await load_replies_count(all_replies)

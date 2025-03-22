@@ -1,3 +1,13 @@
+#### [0.4.16] - 2025-03-22
+- Added hierarchical comments pagination:
+  - Created new GraphQL query `load_comments_branch` for efficient loading of hierarchical comments
+  - Ability to load root comments with their first N replies
+  - Added pagination for both root and child comments
+  - Using existing `commented` field in `Stat` type to display number of replies
+  - Added special `first_replies` field to store first replies to a comment
+  - Optimized SQL queries for efficient loading of comment hierarchies
+  - Implemented flexible comment sorting system (by time, rating)
+
 #### [0.4.15] - 2025-03-22
 - Upgraded caching system described `docs/caching.md`
 - Module `cache/memorycache.py` removed
