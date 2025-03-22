@@ -202,23 +202,6 @@ async def get_topics_all(_, _info):
     return await get_all_topics()
 
 
-# Запрос на получение тем с пагинацией и статистикой
-@query.field("get_topics_paginated")
-async def get_topics_paginated(_, _info, limit=100, offset=0, by=None):
-    """
-    Получает список тем с пагинацией и статистикой.
-
-    Args:
-        limit: Максимальное количество возвращаемых тем
-        offset: Смещение для пагинации
-        by: Опциональные параметры сортировки
-
-    Returns:
-        list: Список тем с их статистикой
-    """
-    return await get_topics_with_stats(limit, offset, None, by)
-
-
 # Запрос на получение тем по сообществу
 @query.field("get_topics_by_community")
 async def get_topics_by_community(_, _info, community_id: int, limit=100, offset=0, by=None):

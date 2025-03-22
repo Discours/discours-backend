@@ -60,7 +60,7 @@ type Query {
   get_topic(slug: String!): Topic
   get_topics_all: [Topic]
   get_topics_by_author(slug: String, user: String, author_id: Int): [Topic]
-  get_topics_by_community(slug: String, community_id: Int): [Topic]
+  get_topics_by_community(community_id: Int!, limit: Int, offset: Int): [Topic]
 
   # notifier
   load_notifications(after: Int!, limit: Int, offset: Int): NotificationsResult!

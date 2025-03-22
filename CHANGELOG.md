@@ -53,7 +53,6 @@
   - Implemented persistent Redis caching for topic queries (no TTL, invalidated only on changes)
   - Optimized topic retrieval with separate endpoints for different use cases:
     - `get_topics_all` - returns all topics without statistics for lightweight listing
-    - `get_topics_paginated` - returns topics with statistics and pagination support
     - `get_topics_by_community` - adds pagination and optimized filtering by community
   - Added SQLAlchemy-managed indexes directly in ORM models for automatic schema maintenance
   - Created `sync_indexes()` function for automatic index synchronization during app startup
