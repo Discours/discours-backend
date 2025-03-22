@@ -10,12 +10,14 @@ from sqlalchemy import (
     JSON,
     Column,
     Engine,
+    Index,
     Integer,
     create_engine,
     event,
     exc,
     func,
     inspect,
+    text
 )
 from sqlalchemy.orm import Session, configure_mappers, declarative_base
 from sqlalchemy.sql.schema import Table
@@ -54,6 +56,82 @@ def create_table_if_not_exists(engine, table):
         logger.info(f"Table '{table.__tablename__}' created.")
     else:
         logger.info(f"Table '{table.__tablename__}' ok.")
+
+
+def sync_indexes():
+    """
+    Синхронизирует индексы в БД с индексами, определенными в моделях SQLAlchemy.
+    Создает недостающие индексы, если они определены в моделях, но отсутствуют в БД.
+
+    Использует pg_catalog для PostgreSQL для получения списка существующих индексов.
+    """
+    if not DB_URL.startswith("postgres"):
+        logger.warning("Функция sync_indexes поддерживается только для PostgreSQL.")
+        return
+
+    logger.info("Начинаем синхронизацию индексов в базе данных...")
+
+    # Получаем все существующие индексы в БД
+    with local_session() as session:
+        existing_indexes_query = text("""
+            SELECT 
+                t.relname AS table_name,
+                i.relname AS index_name
+            FROM 
+                pg_catalog.pg_class i
+            JOIN 
+                pg_catalog.pg_index ix ON ix.indexrelid = i.oid
+            JOIN 
+                pg_catalog.pg_class t ON t.oid = ix.indrelid
+            JOIN 
+                pg_catalog.pg_namespace n ON n.oid = i.relnamespace
+            WHERE 
+                i.relkind = 'i'
+                AND n.nspname = 'public'
+                AND t.relkind = 'r'
+            ORDER BY 
+                t.relname, i.relname;
+        """)
+
+        existing_indexes = {row[1].lower() for row in session.execute(existing_indexes_query)}
+        logger.debug(f"Найдено {len(existing_indexes)} существующих индексов в БД")
+
+        # Проверяем каждую модель и её индексы
+        for _model_name, model_class in REGISTRY.items():
+            if hasattr(model_class, "__table__") and hasattr(model_class, "__table_args__"):
+                table_args = model_class.__table_args__
+
+                # Если table_args - это кортеж, ищем в нём объекты Index
+                if isinstance(table_args, tuple):
+                    for arg in table_args:
+                        if isinstance(arg, Index):
+                            index_name = arg.name.lower()
+
+                            # Проверяем, существует ли индекс в БД
+                            if index_name not in existing_indexes:
+                                logger.info(
+                                    f"Создаем отсутствующий индекс {index_name} для таблицы {model_class.__tablename__}"
+                                )
+
+                                # Создаем индекс если он отсутствует
+                                try:
+                                    arg.create(engine)
+                                    logger.info(f"Индекс {index_name} успешно создан")
+                                except Exception as e:
+                                    logger.error(f"Ошибка при создании индекса {index_name}: {e}")
+                            else:
+                                logger.debug(f"Индекс {index_name} уже существует")
+
+        # Анализируем таблицы для оптимизации запросов
+        for model_name, model_class in REGISTRY.items():
+            if hasattr(model_class, "__tablename__"):
+                try:
+                    session.execute(text(f"ANALYZE {model_class.__tablename__}"))
+                    logger.debug(f"Таблица {model_class.__tablename__} проанализирована")
+                except Exception as e:
+                    logger.error(f"Ошибка при анализе таблицы {model_class.__tablename__}: {e}")
+
+    logger.info("Синхронизация индексов завершена.")
 
 
 # noinspection PyUnusedLocal

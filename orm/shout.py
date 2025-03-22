@@ -1,6 +1,6 @@
 import time
 
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from orm.author import Author
@@ -10,12 +10,27 @@ from services.db import Base
 
 
 class ShoutTopic(Base):
+    """
+    Связь между публикацией и темой.
+
+    Attributes:
+        shout (int): ID публикации
+        topic (int): ID темы
+        main (bool): Признак основной темы
+    """
+
     __tablename__ = "shout_topic"
 
     id = None  # type: ignore
     shout = Column(ForeignKey("shout.id"), primary_key=True, index=True)
     topic = Column(ForeignKey("topic.id"), primary_key=True, index=True)
     main = Column(Boolean, nullable=True)
+
+    # Определяем дополнительные индексы
+    __table_args__ = (
+        # Оптимизированный составной индекс для запросов, которые ищут публикации по теме
+        Index("idx_shout_topic_topic_shout", "topic", "shout"),
+    )
 
 
 class ShoutReactionsFollower(Base):
@@ -30,6 +45,15 @@ class ShoutReactionsFollower(Base):
 
 
 class ShoutAuthor(Base):
+    """
+    Связь между публикацией и автором.
+
+    Attributes:
+        shout (int): ID публикации
+        author (int): ID автора
+        caption (str): Подпись автора
+    """
+
     __tablename__ = "shout_author"
 
     id = None  # type: ignore
@@ -37,8 +61,18 @@ class ShoutAuthor(Base):
     author = Column(ForeignKey("author.id"), primary_key=True, index=True)
     caption = Column(String, nullable=True, default="")
 
+    # Определяем дополнительные индексы
+    __table_args__ = (
+        # Оптимизированный индекс для запросов, которые ищут публикации по автору
+        Index("idx_shout_author_author_shout", "author", "shout"),
+    )
+
 
 class Shout(Base):
+    """
+    Публикация в системе.
+    """
+
     __tablename__ = "shout"
 
     created_at: int = Column(Integer, nullable=False, default=lambda: int(time.time()))
@@ -74,3 +108,20 @@ class Shout(Base):
     seo: str | None = Column(String, nullable=True)  # JSON
 
     draft: int | None = Column(ForeignKey("draft.id"), nullable=True)
+
+    # Определяем индексы
+    __table_args__ = (
+        # Индекс для быстрого поиска неудаленных публикаций
+        Index("idx_shout_deleted_at", "deleted_at", postgresql_where=deleted_at.is_(None)),
+        # Индекс для быстрой фильтрации по community
+        Index("idx_shout_community", "community"),
+        # Индекс для быстрого поиска по slug
+        Index("idx_shout_slug", "slug"),
+        # Составной индекс для фильтрации опубликованных неудаленных публикаций
+        Index(
+            "idx_shout_published_deleted",
+            "published_at",
+            "deleted_at",
+            postgresql_where=published_at.is_not(None) & deleted_at.is_(None),
+        ),
+    )
