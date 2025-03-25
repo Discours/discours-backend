@@ -415,6 +415,30 @@ class SearchService:
         except Exception as e:
             logger.error(f"Search error for '{text}': {e}", exc_info=True)
             return []
+    
+    async def check_index_status(self):
+        """Get detailed statistics about the search index health"""
+        if not self.available:
+            return {"status": "disabled"}
+            
+        try:
+            response = await self.client.get("/index-status")
+            response.raise_for_status()
+            result = response.json()
+            logger.info(f"Index status check: {result['status']}, {result['documents_count']} documents, {result['embeddings_count']} embeddings")
+            
+            # Log warnings for any inconsistencies
+            if result["consistency"]["status"] != "ok":
+                if result["consistency"]["missing_embeddings_count"] > 0:
+                    logger.warning(f"Found {result['consistency']['missing_embeddings_count']} documents without embeddings. Sample IDs: {result['consistency']['missing_embeddings_sample']}")
+                
+                if result["consistency"]["null_embeddings_count"] > 0:
+                    logger.warning(f"Found {result['consistency']['null_embeddings_count']} documents with NULL embeddings. Sample IDs: {result['consistency']['null_embeddings_sample']}")
+                    
+            return result
+        except Exception as e:
+            logger.error(f"Failed to check index status: {e}")
+            return {"status": "error", "message": str(e)}
 
 
 # Create the search service singleton
@@ -450,6 +474,24 @@ async def initialize_search_index(shouts_data):
     # Check if index has approximately right number of documents
     index_stats = info.get("index_stats", {})
     indexed_doc_count = index_stats.get("document_count", 0)
+
+    # Add a more detailed status check
+    index_status = await search_service.check_index_status()
+    if index_status.get("status") == "healthy":
+        logger.info("Index status check passed")
+    elif index_status.get("status") == "inconsistent":
+        logger.warning("Index status check found inconsistencies")
+        
+        # Get both missing documents and documents with null embeddings
+        problem_ids = []
+        problem_ids.extend(index_status.get("consistency", {}).get("missing_embeddings_sample", []))
+        problem_ids.extend(index_status.get("consistency", {}).get("null_embeddings_sample", []))
+        
+        if problem_ids:
+            logger.info(f"Repairing {len(problem_ids)} problem documents")
+            problem_docs = [shout for shout in shouts_data if str(shout.id) in problem_ids]
+            if problem_docs:
+                await search_service.bulk_index(problem_docs)
     
     # Log database document summary
     db_ids = [str(shout.id) for shout in shouts_data]
