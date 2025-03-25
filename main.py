@@ -64,15 +64,12 @@ async def lifespan(_app):
         )
         print("[lifespan] Basic initialization complete")
 
-        # After basic initialization is complete, fetch shouts and initialize search
-        print("[lifespan] Starting search indexing process")
-        from services.db import fetch_all_shouts  # Import your database access function
-        all_shouts = await fetch_all_shouts()
-        print(f"[lifespan] Fetched {len(all_shouts) if all_shouts else 0} shouts for indexing")
-        
-        print("[lifespan] Initializing search index...")
-        await initialize_search_index(all_shouts)
-        print("[lifespan] Search index initialization complete")
+        # Add a delay before starting the intensive search indexing
+        print("[lifespan] Waiting for system stabilization before search indexing...")
+        await asyncio.sleep(10)  # 10-second delay to let the system stabilize
+
+        # Start search indexing as a background task with lower priority
+        asyncio.create_task(initialize_search_index_background())
 
         yield
     finally:
@@ -80,6 +77,26 @@ async def lifespan(_app):
         tasks = [redis.disconnect(), ViewedStorage.stop(), revalidation_manager.stop()]
         await asyncio.gather(*tasks, return_exceptions=True)
         print("[lifespan] Shutdown complete")
+
+# Initialize search index in the background
+async def initialize_search_index_background():
+    """Run search indexing as a background task with low priority"""
+    try:
+        print("[search] Starting background search indexing process")
+        from services.db import fetch_all_shouts
+        
+        # Get total count first (optional)
+        all_shouts = await fetch_all_shouts()
+        total_count = len(all_shouts) if all_shouts else 0
+        print(f"[search] Fetched {total_count} shouts for background indexing")
+        
+        # Start the indexing process with the fetched shouts
+        print("[search] Beginning background search index initialization...")
+        await initialize_search_index(all_shouts)
+        print("[search] Background search index initialization complete")
+    except Exception as e:
+        print(f"[search] Error in background search indexing: {str(e)}")
+
 # Создаем экземпляр GraphQL
 graphql_app = GraphQL(schema, debug=True)
 
