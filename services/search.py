@@ -45,6 +45,30 @@ class SearchService:
     def is_ready(self):
         """Check if service is available"""
         return self.available
+    
+    async def verify_docs(self, doc_ids):
+        """Verify which documents exist in the search index"""
+        if not self.available:
+            return {"status": "disabled"}
+            
+        try:
+            logger.info(f"Verifying {len(doc_ids)} documents in search index")
+            response = await self.client.post(
+                "/verify-docs",
+                json={"doc_ids": doc_ids},
+                timeout=60.0  # Longer timeout for potentially large ID lists
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            # Log summary of verification results
+            missing_count = len(result.get("missing", []))
+            logger.info(f"Document verification complete: {missing_count} missing out of {len(doc_ids)} total")
+            
+            return result
+        except Exception as e:
+            logger.error(f"Document verification error: {e}")
+            return {"status": "error", "message": str(e)}
 
     def index(self, shout):
         """Index a single document"""
@@ -407,30 +431,60 @@ async def search_text(text: str, limit: int = 50, offset: int = 0):
 
 async def initialize_search_index(shouts_data):
     """Initialize search index with existing data during application startup"""
-    if SEARCH_ENABLED:
-        if not shouts_data:
-            logger.warning("No shouts data provided for search indexing")
-            return
-            
-        logger.info(f"Initializing search index with {len(shouts_data)} documents")
-        
-        info = await search_service.info()
-        if info.get("status") in ["error", "unavailable", "disabled"]:
-            logger.error(f"Cannot initialize search index: {info}")
-            return
-        
-        await search_service.bulk_index(shouts_data)
-        
-        try:
-            test_query = "test"
-            logger.info(f"Verifying search index with query: '{test_query}'")
-            test_results = await search_text(test_query, 5)
-            
-            if test_results:
-                logger.info(f"Search verification successful: found {len(test_results)} results")
-            else:
-                logger.warning("Search verification returned no results. Index may be empty or not working.")
-        except Exception as e:
-            logger.error(f"Error verifying search index: {e}")
-    else:
+    if not SEARCH_ENABLED:
         logger.info("Search indexing skipped (SEARCH_ENABLED=False)")
+        return
+        
+    if not shouts_data:
+        logger.warning("No shouts data provided for search indexing")
+        return
+        
+    logger.info(f"Checking search index status for {len(shouts_data)} documents")
+    
+    # Get the current index info
+    info = await search_service.info()
+    if info.get("status") in ["error", "unavailable", "disabled"]:
+        logger.error(f"Cannot initialize search index: {info}")
+        return
+    
+    # Check if index has approximately right number of documents
+    index_stats = info.get("index_stats", {})
+    indexed_doc_count = index_stats.get("document_count", 0)
+    
+    # If counts are significantly different, do verification
+    if abs(indexed_doc_count - len(shouts_data)) > 10:
+        logger.info(f"Document count mismatch: {indexed_doc_count} in index vs {len(shouts_data)} in database. Verifying...")
+        
+        # Get all document IDs from your database
+        doc_ids = [str(shout.id) for shout in shouts_data]
+        
+        # Verify which ones are missing from the index
+        verification = await search_service.verify_docs(doc_ids)
+        
+        if verification.get("status") == "error":
+            logger.error(f"Document verification failed: {verification.get('message')}")
+            return
+            
+        # Index only missing documents
+        missing_ids = verification.get("missing", [])
+        if missing_ids:
+            logger.info(f"Found {len(missing_ids)} documents missing from index. Indexing them...")
+            missing_docs = [shout for shout in shouts_data if str(shout.id) in missing_ids]
+            await search_service.bulk_index(missing_docs)
+        else:
+            logger.info("All documents are already indexed.")
+    else:
+        logger.info(f"Search index appears to be in sync ({indexed_doc_count} documents indexed).")
+    
+    # Verify with test query
+    try:
+        test_query = "test"
+        logger.info(f"Verifying search index with query: '{test_query}'")
+        test_results = await search_text(test_query, 5)
+        
+        if test_results:
+            logger.info(f"Search verification successful: found {len(test_results)} results")
+        else:
+            logger.warning("Search verification returned no results. Index may be empty or not working.")
+    except Exception as e:
+        logger.error(f"Error verifying search index: {e}")
