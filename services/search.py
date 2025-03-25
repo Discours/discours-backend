@@ -451,6 +451,24 @@ async def initialize_search_index(shouts_data):
     index_stats = info.get("index_stats", {})
     indexed_doc_count = index_stats.get("document_count", 0)
     
+    # Log database document summary
+    db_ids = [str(shout.id) for shout in shouts_data]
+    logger.info(f"Database contains {len(shouts_data)} documents. Sample IDs: {', '.join(db_ids[:5])}...")
+    
+    # Calculate summary by ID range to understand the coverage
+    try:
+        # Parse numeric IDs where possible to analyze coverage
+        numeric_ids = [int(sid) for sid in db_ids if sid.isdigit()]
+        if numeric_ids:
+            min_id = min(numeric_ids)
+            max_id = max(numeric_ids)
+            id_range = max_id - min_id + 1
+            coverage_pct = (len(numeric_ids) / id_range) * 100 if id_range > 0 else 0
+            logger.info(f"ID range analysis: min_id={min_id}, max_id={max_id}, range={id_range}, " 
+                        f"coverage={coverage_pct:.1f}% ({len(numeric_ids)}/{id_range})")
+    except Exception as e:
+        logger.warning(f"Could not analyze ID ranges: {e}")
+    
     # If counts are significantly different, do verification
     if abs(indexed_doc_count - len(shouts_data)) > 10:
         logger.info(f"Document count mismatch: {indexed_doc_count} in index vs {len(shouts_data)} in database. Verifying...")
@@ -469,12 +487,29 @@ async def initialize_search_index(shouts_data):
         missing_ids = verification.get("missing", [])
         if missing_ids:
             logger.info(f"Found {len(missing_ids)} documents missing from index. Indexing them...")
+            logger.info(f"Sample missing IDs: {', '.join(missing_ids[:10])}...")
             missing_docs = [shout for shout in shouts_data if str(shout.id) in missing_ids]
             await search_service.bulk_index(missing_docs)
         else:
             logger.info("All documents are already indexed.")
     else:
         logger.info(f"Search index appears to be in sync ({indexed_doc_count} documents indexed).")
+        
+        # Optional sample verification (can be slow with large document sets)
+        # Uncomment if you want to periodically check a random sample even when counts match
+        """
+        sample_size = 10
+        if len(db_ids) > sample_size:
+            sample_ids = random.sample(db_ids, sample_size)
+            logger.info(f"Performing random sample verification on {sample_size} documents...")
+            verification = await search_service.verify_docs(sample_ids)
+            if verification.get("missing"):
+                missing_count = len(verification.get("missing", []))
+                logger.warning(f"Random verification found {missing_count}/{sample_size} missing docs " 
+                              f"despite count match. Consider full verification.")
+            else:
+                logger.info("Random document sample verification passed.")
+        """
     
     # Verify with test query
     try:
@@ -484,6 +519,15 @@ async def initialize_search_index(shouts_data):
         
         if test_results:
             logger.info(f"Search verification successful: found {len(test_results)} results")
+            # Log categories covered by search results
+            categories = set()
+            for result in test_results:
+                result_id = result.get("id")
+                matching_shouts = [s for s in shouts_data if str(s.id) == result_id]
+                if matching_shouts and hasattr(matching_shouts[0], 'category'):
+                    categories.add(getattr(matching_shouts[0], 'category', 'unknown'))
+            if categories:
+                logger.info(f"Search results cover categories: {', '.join(categories)}")
         else:
             logger.warning("Search verification returned no results. Index may be empty or not working.")
     except Exception as e:
