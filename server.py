@@ -17,7 +17,7 @@ if __name__ == "__main__":
             address="0.0.0.0",
             port=PORT,
             interface=Interfaces.ASGI,
-            workers=1,
+            workers=4,
             websockets=False,
             log_level=LogLevels.debug,
             backlog=2048,
