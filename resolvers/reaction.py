@@ -67,14 +67,17 @@ def add_reaction_stat_columns(q):
     return q
 
 
-def get_reactions_with_stat(q, limit, offset):
+def get_reactions_with_stat(q, limit=10, offset=0):
     """
     Execute the reaction query and retrieve reactions with statistics.
 
     :param q: Query with reactions and statistics.
     :param limit: Number of reactions to load.
     :param offset: Pagination offset.
-    :return: List of reactions.
+    :return: List of reactions as dictionaries.
+
+    >>> get_reactions_with_stat(q, 10, 0)  # doctest: +SKIP
+    [{'id': 1, 'body': 'Текст комментария', 'stat': {'rating': 5, 'comments_count': 3}, ...}]
     """
     q = q.limit(limit).offset(offset)
     reactions = []
@@ -87,10 +90,12 @@ def get_reactions_with_stat(q, limit, offset):
                 logger.error(f"Пропущена реакция из-за отсутствия shout или author: {reaction.dict()}")
                 continue
 
-            reaction.created_by = author.dict()
-            reaction.shout = shout.dict()
-            reaction.stat = {"rating": rating_stat, "comments_count": comments_count}
-            reactions.append(reaction)
+            # Преобразуем Reaction в словарь для доступа по ключу
+            reaction_dict = reaction.dict()
+            reaction_dict["created_by"] = author.dict()
+            reaction_dict["shout"] = shout.dict()
+            reaction_dict["stat"] = {"rating": rating_stat, "comments_count": comments_count}
+            reactions.append(reaction_dict)
 
     return reactions
 
@@ -793,8 +798,9 @@ async def load_first_replies(comments, limit, offset, sort="newest"):
 
     q = q.order_by(order_by_stmt, Reaction.reply_to)
 
-    # Выполняем запрос
-    replies = get_reactions_with_stat(q)
+    # Выполняем запрос - указываем limit для неограниченного количества ответов
+    # но не более 100 на родительский комментарий
+    replies = get_reactions_with_stat(q, limit=100, offset=0)
 
     # Группируем ответы по родительским ID
     replies_by_parent = {}

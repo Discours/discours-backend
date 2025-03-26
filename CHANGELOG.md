@@ -1,3 +1,11 @@
+#### [0.4.17] - 2025-03-26
+- Fixed `'Reaction' object is not subscriptable` error in hierarchical comments:
+  - Modified `get_reactions_with_stat()` to convert Reaction objects to dictionaries
+  - Added default values for limit/offset parameters
+  - Fixed `load_first_replies()` implementation with proper parameter passing
+  - Added doctest with example usage
+  - Limited child comments to 100 per parent for performance
+
 #### [0.4.16] - 2025-03-22
 - Added hierarchical comments pagination:
   - Created new GraphQL query `load_comments_branch` for efficient loading of hierarchical comments
