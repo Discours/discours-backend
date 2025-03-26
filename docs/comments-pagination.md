@@ -45,7 +45,7 @@ query LoadCommentsBranch(
     reply_to
     stat {
       rating
-      commented
+      comments_count
     }
     first_replies {
       id
@@ -61,7 +61,7 @@ query LoadCommentsBranch(
       reply_to
       stat {
         rating
-        commented
+        comments_count
       }
     }
   }
@@ -92,7 +92,7 @@ query LoadCommentsBranch(
 - `reply_to`: ID родительского комментария (null для корневых)
 - `first_replies`: Первые N дочерних комментариев
 - `stat`: Статистика комментария, включающая:
-  - `commented`: Количество ответов на комментарий
+  - `comments_count`: Количество ответов на комментарий
   - `rating`: Рейтинг комментария
 
 ## Примеры использования
@@ -150,7 +150,7 @@ const { data } = await client.query({
 1. Для эффективной работы со сложными ветками обсуждений рекомендуется:
 
    - Сначала загружать только корневые комментарии с первыми N ответами
-   - При наличии дополнительных ответов (когда `stat.commented > first_replies.length`) 
+   - При наличии дополнительных ответов (когда `stat.comments_count > first_replies.length`) 
      добавить кнопку "Показать все ответы"
    - При нажатии на кнопку загружать дополнительные ответы с помощью запроса с указанным `parentId`
 

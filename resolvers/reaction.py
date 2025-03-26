@@ -81,7 +81,7 @@ def get_reactions_with_stat(q, limit, offset):
 
     with local_session() as session:
         result_rows = session.execute(q)
-        for reaction, author, shout, commented_stat, rating_stat in result_rows:
+        for reaction, author, shout, comments_count, rating_stat in result_rows:
             # Пропускаем реакции с отсутствующими shout или author
             if not shout or not author:
                 logger.error(f"Пропущена реакция из-за отсутствия shout или author: {reaction.dict()}")
@@ -89,7 +89,7 @@ def get_reactions_with_stat(q, limit, offset):
 
             reaction.created_by = author.dict()
             reaction.shout = shout.dict()
-            reaction.stat = {"rating": rating_stat, "comments": commented_stat}
+            reaction.stat = {"rating": rating_stat, "comments_count": comments_count}
             reactions.append(reaction)
 
     return reactions
@@ -393,7 +393,7 @@ async def update_reaction(_, info, reaction):
 
             result = session.execute(reaction_query).unique().first()
             if result:
-                r, author, _shout, commented_stat, rating_stat = result
+                r, author, _shout, comments_count, rating_stat = result
                 if not r or not author:
                     return {"error": "Invalid reaction ID or unauthorized"}
 
@@ -408,7 +408,7 @@ async def update_reaction(_, info, reaction):
                 session.commit()
 
                 r.stat = {
-                    "commented": commented_stat,
+                    "comments_count": comments_count,
                     "rating": rating_stat,
                 }
 
@@ -713,7 +713,7 @@ async def load_comments_branch(
 
 async def load_replies_count(comments):
     """
-    Загружает количество ответов для списка комментариев и обновляет поле stat.commented.
+    Загружает количество ответов для списка комментариев и обновляет поле stat.comments_count.
 
     :param comments: Список комментариев, для которых нужно загрузить количество ответов.
     """
@@ -748,7 +748,7 @@ async def load_replies_count(comments):
             comment["stat"] = {}
 
         # Обновляем счетчик комментариев в stat
-        comment["stat"]["commented"] = replies_count.get(comment["id"], 0)
+        comment["stat"]["comments_count"] = replies_count.get(comment["id"], 0)
 
 
 async def load_first_replies(comments, limit, offset, sort="newest"):

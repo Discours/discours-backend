@@ -225,7 +225,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                             elif isinstance(row.stat, dict):
                                 stat = row.stat
                             viewed = ViewedStorage.get_shout(shout_id=shout_id) or 0
-                            shout_dict["stat"] = {**stat, "viewed": viewed, "commented": stat.get("comments_count", 0)}
+                            shout_dict["stat"] = {**stat, "viewed": viewed}
 
                         # Обработка main_topic и topics
                         topics = None

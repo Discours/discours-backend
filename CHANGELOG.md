@@ -3,7 +3,7 @@
   - Created new GraphQL query `load_comments_branch` for efficient loading of hierarchical comments
   - Ability to load root comments with their first N replies
   - Added pagination for both root and child comments
-  - Using existing `commented` field in `Stat` type to display number of replies
+  - Using existing `comments_count` field in `Stat` type to display number of replies
   - Added special `first_replies` field to store first replies to a comment
   - Optimized SQL queries for efficient loading of comment hierarchies
   - Implemented flexible comment sorting system (by time, rating)
@@ -150,7 +150,7 @@
 #### [0.4.4]
 - `followers_stat` removed for shout
 - sqlite3 support added
-- `rating_stat` and `commented_stat` fixes
+- `rating_stat` and `comments_count` fixes
 
 #### [0.4.3]
 - cache reimplemented

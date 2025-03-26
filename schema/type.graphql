@@ -137,7 +137,7 @@ type Draft {
 
 type Stat {
   rating: Int
-  commented: Int
+  comments_count: Int
   viewed: Int
   last_commented_at: Int
 }
