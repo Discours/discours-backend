@@ -413,11 +413,13 @@ async def load_shouts_search(_, info, text, options):
                 scores[shout_id] = sr.get("score")
                 hits_ids.append(shout_id)
 
-        q = (
+        """ q = (
             query_with_stat(info)
             if has_field(info, "stat")
             else select(Shout).filter(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
-        )
+        ) """
+        q = query_with_stat(info)
+
         q = q.filter(Shout.id.in_(hits_ids))
         q = apply_filters(q, options)
 
@@ -427,7 +429,6 @@ async def load_shouts_search(_, info, text, options):
         q = q.outerjoin(topic_join, topic_join.shout == Shout.id)
         q = q.outerjoin(topic, topic.id == topic_join.topic)
 
-        q = apply_sorting(q, options)
         shouts = get_shouts_with_links(info, q, limit, offset)
         for shout in shouts:
             shout["score"] = scores[f"{shout['id']}"]
