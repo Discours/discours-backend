@@ -423,8 +423,8 @@ async def load_shouts_search(_, info, text, options):
         q = apply_sorting(q, options)
         shouts = get_shouts_with_links(info, q, limit, offset)
         for shout in shouts:
-            shout.score = scores[f"{shout.id}"]
-        shouts.sort(key=lambda x: x.score, reverse=True)
+            shout["score"] = scores[f"{shout['id']}"]
+        shouts.sort(key=lambda x: x["score"], reverse=True)
         return shouts
     return []
 
