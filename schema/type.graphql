@@ -207,6 +207,7 @@ type CommonResult {
 }
 
 type SearchResult {
+    id: Int!
     slug: String!
     title: String!
     cover: String
