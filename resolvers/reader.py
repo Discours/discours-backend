@@ -413,11 +413,6 @@ async def load_shouts_search(_, info, text, options):
                 scores[shout_id] = sr.get("score")
                 hits_ids.append(shout_id)
 
-        """ q = (
-            query_with_stat(info)
-            if has_field(info, "stat")
-            else select(Shout).filter(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
-        ) """
         q = query_with_stat(info)
 
         q = q.filter(Shout.id.in_(hits_ids))
