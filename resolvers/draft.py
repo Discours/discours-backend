@@ -148,7 +148,11 @@ async def update_draft(_, info, draft_id: int, draft_input):
             return {"error": "Draft not found"}
 
         Draft.update(draft, draft_input)
-        draft.updated_at = int(time.time())
+        # Set updated_at and updated_by from the authenticated user
+        current_time = int(time.time())
+        draft.updated_at = current_time
+        draft.updated_by = author_id
+        
         session.commit()
         return {"draft": draft}
 
