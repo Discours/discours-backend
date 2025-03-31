@@ -86,11 +86,15 @@ async def precache_data():
 
         # Преобразуем словарь в список аргументов для HSET
         if value:
-            flattened = []
-            for field, val in value.items():
-                flattened.extend([field, val])
-
-            await redis.execute("HSET", key, *flattened)
+            # Если значение - словарь, преобразуем его в плоский список для HSET
+            if isinstance(value, dict):
+                flattened = []
+                for field, val in value.items():
+                    flattened.extend([field, val])
+                await redis.execute("HSET", key, *flattened)
+            else:
+                # Предполагаем, что значение уже содержит список
+                await redis.execute("HSET", key, *value)
             logger.info(f"redis hash '{key}' was restored")
 
         with local_session() as session:

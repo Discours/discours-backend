@@ -26,6 +26,9 @@ type Query {
   load_shout_ratings(shout: Int!, limit: Int, offset: Int): [Reaction]
   load_comment_ratings(comment: Int!, limit: Int, offset: Int): [Reaction]
 
+  # branched comments pagination
+  load_comments_branch(shout: Int!, parent_id: Int, limit: Int, offset: Int, sort: ReactionSort, children_limit: Int, children_offset: Int): [Reaction]
+
   # reader
   get_shout(slug: String, shout_id: Int): Shout
   load_shouts_by(options: LoadShoutsOptions): [Shout]
@@ -57,7 +60,7 @@ type Query {
   get_topic(slug: String!): Topic
   get_topics_all: [Topic]
   get_topics_by_author(slug: String, user: String, author_id: Int): [Topic]
-  get_topics_by_community(slug: String, community_id: Int): [Topic]
+  get_topics_by_community(community_id: Int!, limit: Int, offset: Int): [Topic]
 
   # notifier
   load_notifications(after: Int!, limit: Int, offset: Int): NotificationsResult!

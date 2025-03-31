@@ -1,9 +1,10 @@
 import asyncio
-import json
 import os
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict
+
+import orjson
 
 # ga
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
@@ -84,7 +85,7 @@ class ViewedStorage:
                 logger.warn(f" * {viewfile_path} is too old: {self.start_date}")
 
             with open(viewfile_path, "r") as file:
-                precounted_views = json.load(file)
+                precounted_views = orjson.loads(file.read())
                 self.precounted_by_slug.update(precounted_views)
                 logger.info(f" * {len(precounted_views)} shouts with views was loaded.")
 

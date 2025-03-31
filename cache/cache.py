@@ -1,7 +1,37 @@
+"""
+Caching system for the Discours platform
+----------------------------------------
+
+This module provides a comprehensive caching solution with these key components:
+
+1. KEY NAMING CONVENTIONS:
+   - Entity-based keys: "entity:property:value" (e.g., "author:id:123")
+   - Collection keys: "entity:collection:params" (e.g., "authors:stats:limit=10:offset=0")
+   - Special case keys: Maintained for backwards compatibility (e.g., "topic_shouts_123")
+
+2. CORE FUNCTIONS:
+   - cached_query(): High-level function for retrieving cached data or executing queries
+
+3. ENTITY-SPECIFIC FUNCTIONS:
+   - cache_author(), cache_topic(): Cache entity data
+   - get_cached_author(), get_cached_topic(): Retrieve entity data from cache
+   - invalidate_cache_by_prefix(): Invalidate all keys with a specific prefix
+
+4. CACHE INVALIDATION STRATEGY:
+   - Direct invalidation via invalidate_* functions for immediate changes
+   - Delayed invalidation via revalidation_manager for background processing
+   - Event-based triggers for automatic cache updates (see triggers.py)
+
+To maintain consistency with the existing codebase, this module preserves
+the original key naming patterns while providing a more structured approach
+for new cache operations.
+"""
+
 import asyncio
 import json
-from typing import List
+from typing import Any, Dict, List, Optional, Union
 
+import orjson
 from sqlalchemy import and_, join, select
 
 from orm.author import Author, AuthorFollower
@@ -19,8 +49,10 @@ DEFAULT_FOLLOWS = {
     "communities": [{"id": 1, "name": "Дискурс", "slug": "discours", "pic": ""}],
 }
 
-CACHE_TTL = 300  # 5 минут
+CACHE_TTL = 300  # 5 minutes
 
+# Key templates for common entity types
+# These are used throughout the codebase and should be maintained for compatibility
 CACHE_KEYS = {
     "TOPIC_ID": "topic:id:{}",
     "TOPIC_SLUG": "topic:slug:{}",
@@ -37,8 +69,8 @@ CACHE_KEYS = {
 async def cache_topic(topic: dict):
     payload = json.dumps(topic, cls=CustomJSONEncoder)
     await asyncio.gather(
-        redis_operation("SET", f"topic:id:{topic['id']}", payload),
-        redis_operation("SET", f"topic:slug:{topic['slug']}", payload),
+        redis.execute("SET", f"topic:id:{topic['id']}", payload),
+        redis.execute("SET", f"topic:slug:{topic['slug']}", payload),
     )
 
 
@@ -46,30 +78,30 @@ async def cache_topic(topic: dict):
 async def cache_author(author: dict):
     payload = json.dumps(author, cls=CustomJSONEncoder)
     await asyncio.gather(
-        redis_operation("SET", f"author:user:{author['user'].strip()}", str(author["id"])),
-        redis_operation("SET", f"author:id:{author['id']}", payload),
+        redis.execute("SET", f"author:user:{author['user'].strip()}", str(author["id"])),
+        redis.execute("SET", f"author:id:{author['id']}", payload),
     )
 
 
 # Cache follows data
 async def cache_follows(follower_id: int, entity_type: str, entity_id: int, is_insert=True):
     key = f"author:follows-{entity_type}s:{follower_id}"
-    follows_str = await redis_operation("GET", key)
-    follows = json.loads(follows_str) if follows_str else DEFAULT_FOLLOWS[entity_type]
+    follows_str = await redis.execute("GET", key)
+    follows = orjson.loads(follows_str) if follows_str else DEFAULT_FOLLOWS[entity_type]
     if is_insert:
         if entity_id not in follows:
             follows.append(entity_id)
     else:
         follows = [eid for eid in follows if eid != entity_id]
-    await redis_operation("SET", key, json.dumps(follows, cls=CustomJSONEncoder))
+    await redis.execute("SET", key, json.dumps(follows, cls=CustomJSONEncoder))
     await update_follower_stat(follower_id, entity_type, len(follows))
 
 
 # Update follower statistics
 async def update_follower_stat(follower_id, entity_type, count):
     follower_key = f"author:id:{follower_id}"
-    follower_str = await redis_operation("GET", follower_key)
-    follower = json.loads(follower_str) if follower_str else None
+    follower_str = await redis.execute("GET", follower_key)
+    follower = orjson.loads(follower_str) if follower_str else None
     if follower:
         follower["stat"] = {f"{entity_type}s": count}
         await cache_author(follower)
@@ -78,9 +110,9 @@ async def update_follower_stat(follower_id, entity_type, count):
 # Get author from cache
 async def get_cached_author(author_id: int, get_with_stat):
     author_key = f"author:id:{author_id}"
-    result = await redis_operation("GET", author_key)
+    result = await redis.execute("GET", author_key)
     if result:
-        return json.loads(result)
+        return orjson.loads(result)
     # Load from database if not found in cache
     q = select(Author).where(Author.id == author_id)
     authors = get_with_stat(q)
@@ -103,16 +135,16 @@ async def get_cached_topic(topic_id: int):
         dict: Topic data or None if not found.
     """
     topic_key = f"topic:id:{topic_id}"
-    cached_topic = await redis_operation("GET", topic_key)
+    cached_topic = await redis.execute("GET", topic_key)
     if cached_topic:
-        return json.loads(cached_topic)
+        return orjson.loads(cached_topic)
 
     # If not in cache, fetch from the database
     with local_session() as session:
         topic = session.execute(select(Topic).where(Topic.id == topic_id)).scalar_one_or_none()
         if topic:
             topic_dict = topic.dict()
-            await redis_operation("SET", topic_key, json.dumps(topic_dict, cls=CustomJSONEncoder))
+            await redis.execute("SET", topic_key, json.dumps(topic_dict, cls=CustomJSONEncoder))
             return topic_dict
 
     return None
@@ -121,9 +153,9 @@ async def get_cached_topic(topic_id: int):
 # Get topic by slug from cache
 async def get_cached_topic_by_slug(slug: str, get_with_stat):
     topic_key = f"topic:slug:{slug}"
-    result = await redis_operation("GET", topic_key)
+    result = await redis.execute("GET", topic_key)
     if result:
-        return json.loads(result)
+        return orjson.loads(result)
     # Load from database if not found in cache
     topic_query = select(Topic).where(Topic.slug == slug)
     topics = get_with_stat(topic_query)
@@ -138,8 +170,8 @@ async def get_cached_topic_by_slug(slug: str, get_with_stat):
 async def get_cached_authors_by_ids(author_ids: List[int]) -> List[dict]:
     # Fetch all author data concurrently
     keys = [f"author:id:{author_id}" for author_id in author_ids]
-    results = await asyncio.gather(*(redis_operation("GET", key) for key in keys))
-    authors = [json.loads(result) if result else None for result in results]
+    results = await asyncio.gather(*(redis.execute("GET", key) for key in keys))
+    authors = [orjson.loads(result) if result else None for result in results]
     # Load missing authors from database and cache
     missing_indices = [index for index, author in enumerate(authors) if author is None]
     if missing_indices:
@@ -165,10 +197,10 @@ async def get_cached_topic_followers(topic_id: int):
     """
     try:
         cache_key = CACHE_KEYS["TOPIC_FOLLOWERS"].format(topic_id)
-        cached = await redis_operation("GET", cache_key)
+        cached = await redis.execute("GET", cache_key)
 
         if cached:
-            followers_ids = json.loads(cached)
+            followers_ids = orjson.loads(cached)
             logger.debug(f"Found {len(followers_ids)} cached followers for topic #{topic_id}")
             return await get_cached_authors_by_ids(followers_ids)
 
@@ -181,7 +213,7 @@ async def get_cached_topic_followers(topic_id: int):
                 .all()
             ]
 
-            await redis_operation("SETEX", cache_key, value=json.dumps(followers_ids), ttl=CACHE_TTL)
+            await redis.execute("SETEX", cache_key, CACHE_TTL, orjson.dumps(followers_ids))
             followers = await get_cached_authors_by_ids(followers_ids)
             logger.debug(f"Cached {len(followers)} followers for topic #{topic_id}")
             return followers
@@ -194,9 +226,9 @@ async def get_cached_topic_followers(topic_id: int):
 # Get cached author followers
 async def get_cached_author_followers(author_id: int):
     # Check cache for data
-    cached = await redis_operation("GET", f"author:followers:{author_id}")
+    cached = await redis.execute("GET", f"author:followers:{author_id}")
     if cached:
-        followers_ids = json.loads(cached)
+        followers_ids = orjson.loads(cached)
         followers = await get_cached_authors_by_ids(followers_ids)
         logger.debug(f"Cached followers for author #{author_id}: {len(followers)}")
         return followers
@@ -210,7 +242,7 @@ async def get_cached_author_followers(author_id: int):
             .filter(AuthorFollower.author == author_id, Author.id != author_id)
             .all()
         ]
-        await redis_operation("SET", f"author:followers:{author_id}", json.dumps(followers_ids))
+        await redis.execute("SET", f"author:followers:{author_id}", orjson.dumps(followers_ids))
         followers = await get_cached_authors_by_ids(followers_ids)
         return followers
 
@@ -218,9 +250,9 @@ async def get_cached_author_followers(author_id: int):
 # Get cached follower authors
 async def get_cached_follower_authors(author_id: int):
     # Attempt to retrieve authors from cache
-    cached = await redis_operation("GET", f"author:follows-authors:{author_id}")
+    cached = await redis.execute("GET", f"author:follows-authors:{author_id}")
     if cached:
-        authors_ids = json.loads(cached)
+        authors_ids = orjson.loads(cached)
     else:
         # Query authors from database
         with local_session() as session:
@@ -232,7 +264,7 @@ async def get_cached_follower_authors(author_id: int):
                     .where(AuthorFollower.follower == author_id)
                 ).all()
             ]
-            await redis_operation("SET", f"author:follows-authors:{author_id}", json.dumps(authors_ids))
+            await redis.execute("SET", f"author:follows-authors:{author_id}", orjson.dumps(authors_ids))
 
     authors = await get_cached_authors_by_ids(authors_ids)
     return authors
@@ -241,9 +273,9 @@ async def get_cached_follower_authors(author_id: int):
 # Get cached follower topics
 async def get_cached_follower_topics(author_id: int):
     # Attempt to retrieve topics from cache
-    cached = await redis_operation("GET", f"author:follows-topics:{author_id}")
+    cached = await redis.execute("GET", f"author:follows-topics:{author_id}")
     if cached:
-        topics_ids = json.loads(cached)
+        topics_ids = orjson.loads(cached)
     else:
         # Load topics from database and cache them
         with local_session() as session:
@@ -254,13 +286,13 @@ async def get_cached_follower_topics(author_id: int):
                 .where(TopicFollower.follower == author_id)
                 .all()
             ]
-            await redis_operation("SET", f"author:follows-topics:{author_id}", json.dumps(topics_ids))
+            await redis.execute("SET", f"author:follows-topics:{author_id}", orjson.dumps(topics_ids))
 
     topics = []
     for topic_id in topics_ids:
-        topic_str = await redis_operation("GET", f"topic:id:{topic_id}")
+        topic_str = await redis.execute("GET", f"topic:id:{topic_id}")
         if topic_str:
-            topic = json.loads(topic_str)
+            topic = orjson.loads(topic_str)
             if topic and topic not in topics:
                 topics.append(topic)
 
@@ -280,12 +312,12 @@ async def get_cached_author_by_user_id(user_id: str, get_with_stat):
         dict: Dictionary with author data or None if not found.
     """
     # Attempt to find author ID by user_id in Redis cache
-    author_id = await redis_operation("GET", f"author:user:{user_id.strip()}")
+    author_id = await redis.execute("GET", f"author:user:{user_id.strip()}")
     if author_id:
         # If ID is found, get full author data by ID
-        author_data = await redis_operation("GET", f"author:id:{author_id}")
+        author_data = await redis.execute("GET", f"author:id:{author_id}")
         if author_data:
-            return json.loads(author_data)
+            return orjson.loads(author_data)
 
     # If data is not found in cache, query the database
     author_query = select(Author).where(Author.user == user_id)
@@ -295,8 +327,8 @@ async def get_cached_author_by_user_id(user_id: str, get_with_stat):
         author = authors[0]
         author_dict = author.dict()
         await asyncio.gather(
-            redis_operation("SET", f"author:user:{user_id.strip()}", str(author.id)),
-            redis_operation("SET", f"author:id:{author.id}", json.dumps(author_dict)),
+            redis.execute("SET", f"author:user:{user_id.strip()}", str(author.id)),
+            redis.execute("SET", f"author:id:{author.id}", orjson.dumps(author_dict)),
         )
         return author_dict
 
@@ -317,9 +349,9 @@ async def get_cached_topic_authors(topic_id: int):
     """
     # Attempt to get a list of author IDs from cache
     rkey = f"topic:authors:{topic_id}"
-    cached_authors_ids = await redis_operation("GET", rkey)
+    cached_authors_ids = await redis.execute("GET", rkey)
     if cached_authors_ids:
-        authors_ids = json.loads(cached_authors_ids)
+        authors_ids = orjson.loads(cached_authors_ids)
     else:
         # If cache is empty, get data from the database
         with local_session() as session:
@@ -331,7 +363,7 @@ async def get_cached_topic_authors(topic_id: int):
             )
             authors_ids = [author_id for (author_id,) in session.execute(query).all()]
             # Cache the retrieved author IDs
-            await redis_operation("SET", rkey, json.dumps(authors_ids))
+            await redis.execute("SET", rkey, orjson.dumps(authors_ids))
 
     # Retrieve full author details from cached IDs
     if authors_ids:
@@ -352,11 +384,11 @@ async def invalidate_shouts_cache(cache_keys: List[str]):
             cache_key = f"shouts:{key}"
 
             # Удаляем основной кэш
-            await redis_operation("DEL", cache_key)
+            await redis.execute("DEL", cache_key)
             logger.debug(f"Invalidated cache key: {cache_key}")
 
             # Добавляем ключ в список инвалидированных с TTL
-            await redis_operation("SETEX", f"{cache_key}:invalidated", value="1", ttl=CACHE_TTL)
+            await redis.execute("SETEX", f"{cache_key}:invalidated", CACHE_TTL, "1")
 
             # Если это кэш темы, инвалидируем также связанные ключи
             if key.startswith("topic_"):
@@ -368,7 +400,7 @@ async def invalidate_shouts_cache(cache_keys: List[str]):
                     f"topic:stats:{topic_id}",
                 ]
                 for related_key in related_keys:
-                    await redis_operation("DEL", related_key)
+                    await redis.execute("DEL", related_key)
                     logger.debug(f"Invalidated related key: {related_key}")
 
         except Exception as e:
@@ -379,15 +411,15 @@ async def cache_topic_shouts(topic_id: int, shouts: List[dict]):
     """Кэширует список публикаций для темы"""
     key = f"topic_shouts_{topic_id}"
     payload = json.dumps(shouts, cls=CustomJSONEncoder)
-    await redis_operation("SETEX", key, value=payload, ttl=CACHE_TTL)
+    await redis.execute("SETEX", key, CACHE_TTL, payload)
 
 
 async def get_cached_topic_shouts(topic_id: int) -> List[dict]:
     """Получает кэшированный список публикаций для темы"""
     key = f"topic_shouts_{topic_id}"
-    cached = await redis_operation("GET", key)
+    cached = await redis.execute("GET", key)
     if cached:
-        return json.loads(cached)
+        return orjson.loads(cached)
     return None
 
 
@@ -431,27 +463,7 @@ async def invalidate_shout_related_cache(shout: Shout, author_id: int):
     await invalidate_shouts_cache(list(cache_keys))
 
 
-async def redis_operation(operation: str, key: str, value=None, ttl=None):
-    """
-    Унифицированная функция для работы с Redis
-
-    Args:
-        operation: 'GET', 'SET', 'DEL', 'SETEX'
-        key: ключ
-        value: значение (для SET/SETEX)
-        ttl: время жизни в секундах (для SETEX)
-    """
-    try:
-        if operation == "GET":
-            return await redis.execute("GET", key)
-        elif operation == "SET":
-            await redis.execute("SET", key, value)
-        elif operation == "SETEX":
-            await redis.execute("SETEX", key, ttl or CACHE_TTL, value)
-        elif operation == "DEL":
-            await redis.execute("DEL", key)
-    except Exception as e:
-        logger.error(f"Redis {operation} error for key {key}: {e}")
+# Function removed - direct Redis calls used throughout the module instead
 
 
 async def get_cached_entity(entity_type: str, entity_id: int, get_method, cache_method):
@@ -465,9 +477,9 @@ async def get_cached_entity(entity_type: str, entity_id: int, get_method, cache_
         cache_method: метод кэширования
     """
     key = f"{entity_type}:id:{entity_id}"
-    cached = await redis_operation("GET", key)
+    cached = await redis.execute("GET", key)
     if cached:
-        return json.loads(cached)
+        return orjson.loads(cached)
 
     entity = await get_method(entity_id)
     if entity:
@@ -496,3 +508,120 @@ async def cache_by_id(entity, entity_id: int, cache_method):
     d = x.dict()
     await cache_method(d)
     return d
+
+
+# Универсальная функция для сохранения данных в кеш
+async def cache_data(key: str, data: Any, ttl: Optional[int] = None) -> None:
+    """
+    Сохраняет данные в кеш по указанному ключу.
+
+    Args:
+        key: Ключ кеша
+        data: Данные для сохранения
+        ttl: Время жизни кеша в секундах (None - бессрочно)
+    """
+    try:
+        payload = json.dumps(data, cls=CustomJSONEncoder)
+        if ttl:
+            await redis.execute("SETEX", key, ttl, payload)
+        else:
+            await redis.execute("SET", key, payload)
+        logger.debug(f"Данные сохранены в кеш по ключу {key}")
+    except Exception as e:
+        logger.error(f"Ошибка при сохранении данных в кеш: {e}")
+
+
+# Универсальная функция для получения данных из кеша
+async def get_cached_data(key: str) -> Optional[Any]:
+    """
+    Получает данные из кеша по указанному ключу.
+
+    Args:
+        key: Ключ кеша
+
+    Returns:
+        Any: Данные из кеша или None, если данных нет
+    """
+    try:
+        cached_data = await redis.execute("GET", key)
+        if cached_data:
+            logger.debug(f"Данные получены из кеша по ключу {key}")
+            return orjson.loads(cached_data)
+        return None
+    except Exception as e:
+        logger.error(f"Ошибка при получении данных из кеша: {e}")
+        return None
+
+
+# Универсальная функция для инвалидации кеша по префиксу
+async def invalidate_cache_by_prefix(prefix: str) -> None:
+    """
+    Инвалидирует все ключи кеша с указанным префиксом.
+
+    Args:
+        prefix: Префикс ключей кеша для инвалидации
+    """
+    try:
+        keys = await redis.execute("KEYS", f"{prefix}:*")
+        if keys:
+            await redis.execute("DEL", *keys)
+            logger.debug(f"Удалено {len(keys)} ключей кеша с префиксом {prefix}")
+    except Exception as e:
+        logger.error(f"Ошибка при инвалидации кеша: {e}")
+
+
+# Универсальная функция для получения и кеширования данных
+async def cached_query(
+    cache_key: str,
+    query_func: callable,
+    ttl: Optional[int] = None,
+    force_refresh: bool = False,
+    use_key_format: bool = True,
+    **query_params,
+) -> Any:
+    """
+    Gets data from cache or executes query and saves result to cache.
+    Supports existing key formats for compatibility.
+
+    Args:
+        cache_key: Cache key or key template from CACHE_KEYS
+        query_func: Function to execute the query
+        ttl: Cache TTL in seconds (None - indefinite)
+        force_refresh: Force cache refresh
+        use_key_format: Whether to check if cache_key matches a key template in CACHE_KEYS
+        **query_params: Parameters to pass to the query function
+
+    Returns:
+        Any: Data from cache or query result
+    """
+    # Check if cache_key matches a pattern in CACHE_KEYS
+    actual_key = cache_key
+    if use_key_format and "{}" in cache_key:
+        # Look for a template match in CACHE_KEYS
+        for key_name, key_format in CACHE_KEYS.items():
+            if cache_key == key_format:
+                # We have a match, now look for the id or value to format with
+                for param_name, param_value in query_params.items():
+                    if param_name in ["id", "slug", "user", "topic_id", "author_id"]:
+                        actual_key = cache_key.format(param_value)
+                        break
+
+    # If not forcing refresh, try to get data from cache
+    if not force_refresh:
+        cached_result = await get_cached_data(actual_key)
+        if cached_result is not None:
+            return cached_result
+
+    # If data not in cache or refresh required, execute query
+    try:
+        result = await query_func(**query_params)
+        if result is not None:
+            # Save result to cache
+            await cache_data(actual_key, result, ttl)
+        return result
+    except Exception as e:
+        logger.error(f"Error executing query for caching: {e}")
+        # In case of error, return data from cache if not forcing refresh
+        if not force_refresh:
+            return await get_cached_data(actual_key)
+        raise

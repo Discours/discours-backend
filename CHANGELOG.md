@@ -1,3 +1,89 @@
+#### [0.4.17] - 2025-03-26
+- Fixed `'Reaction' object is not subscriptable` error in hierarchical comments:
+  - Modified `get_reactions_with_stat()` to convert Reaction objects to dictionaries
+  - Added default values for limit/offset parameters
+  - Fixed `load_first_replies()` implementation with proper parameter passing
+  - Added doctest with example usage
+  - Limited child comments to 100 per parent for performance
+
+#### [0.4.16] - 2025-03-22
+- Added hierarchical comments pagination:
+  - Created new GraphQL query `load_comments_branch` for efficient loading of hierarchical comments
+  - Ability to load root comments with their first N replies
+  - Added pagination for both root and child comments
+  - Using existing `comments_count` field in `Stat` type to display number of replies
+  - Added special `first_replies` field to store first replies to a comment
+  - Optimized SQL queries for efficient loading of comment hierarchies
+  - Implemented flexible comment sorting system (by time, rating)
+
+#### [0.4.15] - 2025-03-22
+- Upgraded caching system described `docs/caching.md`
+- Module `cache/memorycache.py` removed
+- Enhanced caching system with backward compatibility:
+  - Unified cache key generation with support for existing naming patterns
+  - Improved Redis operation function with better error handling
+  - Updated precache module to use consistent Redis interface
+  - Integrated revalidator with the invalidation system for better performance
+  - Added comprehensive documentation for the caching system
+  - Enhanced cached_query to support template-based cache keys
+  - Standardized error handling across all cache operations
+- Optimized cache invalidation system:
+  - Added targeted invalidation for individual entities (authors, topics)
+  - Improved revalidation manager with individual object processing
+  - Implemented batched processing for high-volume invalidations
+  - Reduced Redis operations by using precise key invalidation instead of prefix-based wipes
+  - Added special handling for slug changes in topics
+- Unified caching system for all models:
+  - Implemented abstract functions `cache_data`, `get_cached_data` and `invalidate_cache_by_prefix`
+  - Added `cached_query` function for unified approach to query caching
+  - Updated resolvers `author.py` and `topic.py` to use the new caching API
+  - Improved logging for cache operations to simplify debugging
+  - Optimized Redis memory usage through key format unification
+- Improved caching and sorting in Topic and Author modules:
+  - Added support for dictionary sorting parameters in `by` for both modules
+  - Optimized cache key generation for stable behavior with various parameters
+  - Enhanced sorting logic with direction support and arbitrary fields
+  - Added `by` parameter support in the API for getting topics by community
+- Performance optimizations for author-related queries:
+  - Added SQLAlchemy-managed indexes to `Author`, `AuthorFollower`, `AuthorRating` and `AuthorBookmark` models
+  - Implemented persistent Redis caching for author queries without TTL (invalidated only on changes)
+  - Optimized author retrieval with separate endpoints:
+    - `get_authors_all` - returns all non-deleted authors without statistics
+    - `load_authors_by` - optimized to use caching and efficient sorting and pagination
+  - Improved SQL queries with optimized JOIN conditions and efficient filtering
+  - Added pre-aggregation of statistics (shouts count, followers count) in single efficient queries
+  - Implemented robust cache invalidation on author updates
+  - Created necessary indexes for author lookups by user ID, slug, and timestamps
+
+#### [0.4.14] - 2025-03-21
+- Significant performance improvements for topic queries:
+  - Added database indexes to optimize JOIN operations
+  - Implemented persistent Redis caching for topic queries (no TTL, invalidated only on changes)
+  - Optimized topic retrieval with separate endpoints for different use cases:
+    - `get_topics_all` - returns all topics without statistics for lightweight listing
+    - `get_topics_by_community` - adds pagination and optimized filtering by community
+  - Added SQLAlchemy-managed indexes directly in ORM models for automatic schema maintenance
+  - Created `sync_indexes()` function for automatic index synchronization during app startup
+  - Reduced database load by pre-aggregating statistics in optimized SQL queries
+  - Added robust cache invalidation on topic create/update/delete operations
+  - Improved query optimization with proper JOIN conditions and specific partial indexes
+
+#### [0.4.13] - 2025-03-20
+- Fixed Topic objects serialization error in cache/memorycache.py
+- Improved CustomJSONEncoder to support SQLAlchemy models with dict() method
+- Enhanced error handling in cache_on_arguments decorator
+- Modified `load_reactions_by` to include deleted reactions when `include_deleted=true` for proper comment tree building
+- Fixed featured/unfeatured logic in reaction processing:
+  - Dislike reactions now properly take precedence over likes
+  - Featured status now requires more than 4 likes from users with featured articles
+  - Removed unnecessary filters for deleted reactions since rating reactions are physically deleted
+  - Author's featured status now based on having non-deleted articles with featured_at
+
+#### [0.4.12] - 2025-03-19
+- `delete_reaction` detects comments and uses `deleted_at` update
+- `check_to_unfeature` etc. update
+- dogpile dep in `services/memorycache.py` optimized
+
 #### [0.4.11] - 2025-02-12
 - `create_draft` resolver requires draft_id fixed
 - `create_draft` resolver defaults body and title fields to empty string
@@ -72,7 +158,7 @@
 #### [0.4.4]
 - `followers_stat` removed for shout
 - sqlite3 support added
-- `rating_stat` and `commented_stat` fixes
+- `rating_stat` and `comments_count` fixes
 
 #### [0.4.3]
 - cache reimplemented
@@ -228,22 +314,4 @@
 
 
 #### [0.2.7]
-- `loadFollowedReactions` now with `login_required`
-- notifier service api draft
-- added `shout` visibility kind in schema
-- community isolated from author in orm
-
-
-#### [0.2.6]
-- redis connection pool
-- auth context fixes
-- communities orm, resolvers, schema
-
-
-#### [0.2.5]
-- restructured
-- all users have their profiles as authors in core
-- `gittask`, `inbox` and `auth` logics removed
-- `settings` moved to base and now smaller
-- new outside auth schema
-- removed `gittask`, `auth`, `inbox`, `migration`
+- `loadFollowedReactions` now with `

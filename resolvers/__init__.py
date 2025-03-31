@@ -37,6 +37,7 @@ from resolvers.reaction import (
     create_reaction,
     delete_reaction,
     load_comment_ratings,
+    load_comments_branch,
     load_reactions_by,
     load_shout_comments,
     load_shout_ratings,
@@ -107,6 +108,7 @@ __all__ = [
     "load_shout_comments",
     "load_shout_ratings",
     "load_comment_ratings",
+    "load_comments_branch",
     # notifier
     "load_notifications",
     "notifications_seen_thread",

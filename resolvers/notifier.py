@@ -1,7 +1,7 @@
-import json
 import time
 from typing import List, Tuple
 
+import orjson
 from sqlalchemy import and_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
@@ -115,7 +115,7 @@ def get_notifications_grouped(author_id: int, after: int = 0, limit: int = 10, o
         if (groups_amount + offset) >= limit:
             break
 
-        payload = json.loads(str(notification.payload))
+        payload = orjson.loads(str(notification.payload))
 
         if str(notification.entity) == NotificationEntity.SHOUT.value:
             shout = payload
@@ -177,7 +177,7 @@ def get_notifications_grouped(author_id: int, after: int = 0, limit: int = 10, o
 
             elif str(notification.entity) == "follower":
                 thread_id = "followers"
-                follower = json.loads(payload)
+                follower = orjson.loads(payload)
                 group = groups_by_thread.get(thread_id)
                 if group:
                     if str(notification.action) == "follow":
@@ -293,11 +293,11 @@ async def notifications_seen_thread(_, info, thread: str, after: int):
             )
             exclude = set()
             for nr in removed_reaction_notifications:
-                reaction = json.loads(str(nr.payload))
+                reaction = orjson.loads(str(nr.payload))
                 reaction_id = reaction.get("id")
                 exclude.add(reaction_id)
             for n in new_reaction_notifications:
-                reaction = json.loads(str(n.payload))
+                reaction = orjson.loads(str(n.payload))
                 reaction_id = reaction.get("id")
                 if (
                     reaction_id not in exclude

@@ -13,7 +13,7 @@ def filter(record: logging.LogRecord):
     record.emoji = (
         "🔍"
         if record.levelno == logging.DEBUG
-        else "🖊️"
+        else "ℹ︎"
         if record.levelno == logging.INFO
         else "🚧"
         if record.levelno == logging.WARNING

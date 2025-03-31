@@ -1,6 +1,6 @@
-import json
 import time
 
+import orjson
 from sqlalchemy import and_, desc, select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.functions import coalesce
@@ -106,7 +106,7 @@ async def get_my_shout(_, info, shout_id: int):
         if hasattr(shout, "media") and shout.media:
             if isinstance(shout.media, str):
                 try:
-                    shout.media = json.loads(shout.media)
+                    shout.media = orjson.loads(shout.media)
                 except Exception as e:
                     logger.error(f"Error parsing shout media: {e}")
                     shout.media = []
