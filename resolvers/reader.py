@@ -417,12 +417,6 @@ async def load_shouts_search(_, info, text, options):
         q = q.filter(Shout.id.in_(hits_ids))
         q = apply_filters(q, options)
 
-        # added this to join topics
-        topic_join = aliased(ShoutTopic)
-        topic = aliased(Topic)
-        q = q.outerjoin(topic_join, topic_join.shout == Shout.id)
-        q = q.outerjoin(topic, topic.id == topic_join.topic)
-
         shouts = get_shouts_with_links(info, q, limit, offset)
         for shout in shouts:
             shout["score"] = scores[f"{shout['id']}"]
