@@ -4,7 +4,8 @@ import logging
 import os
 import httpx
 import time
-import random
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 # Set up proper logging
 logger = logging.getLogger("search")
@@ -15,6 +16,168 @@ SEARCH_ENABLED = bool(os.environ.get("SEARCH_ENABLED", "true").lower() in ["true
 TXTAI_SERVICE_URL = os.environ.get("TXTAI_SERVICE_URL", "none")
 MAX_BATCH_SIZE = int(os.environ.get("SEARCH_MAX_BATCH_SIZE", "25"))
 
+# Search cache configuration
+SEARCH_CACHE_ENABLED = bool(os.environ.get("SEARCH_CACHE_ENABLED", "true").lower() in ["true", "1", "yes"])
+SEARCH_CACHE_TTL_SECONDS = int(os.environ.get("SEARCH_CACHE_TTL_SECONDS", "900"))  # Default: 15 minutes
+SEARCH_MIN_SCORE = float(os.environ.get("SEARCH_MIN_SCORE", "0.1"))
+SEARCH_PREFETCH_SIZE = int(os.environ.get("SEARCH_PREFETCH_SIZE", "200"))
+SEARCH_USE_REDIS = bool(os.environ.get("SEARCH_USE_REDIS", "true").lower() in ["true", "1", "yes"])
+
+# Import Redis client if Redis caching is enabled
+if SEARCH_USE_REDIS:
+    try:
+        from services.redis import redis
+        logger.info("Redis client imported for search caching")
+    except ImportError:
+        logger.warning("Redis client import failed, falling back to memory cache")
+        SEARCH_USE_REDIS = False
+
+class SearchCache:
+    """Cache for search results to enable efficient pagination"""
+    
+    def __init__(self, ttl_seconds=SEARCH_CACHE_TTL_SECONDS, max_items=100):
+        self.cache = {}  # Maps search query to list of results
+        self.last_accessed = {}  # Maps search query to last access timestamp
+        self.ttl = ttl_seconds
+        self.max_items = max_items
+        self._redis_prefix = "search_cache:"
+    
+    async def store(self, query, results):
+        """Store search results for a query"""
+        normalized_query = self._normalize_query(query)
+        
+        if SEARCH_USE_REDIS:
+            try:
+                serialized_results = json.dumps(results)
+                await redis.set(
+                    f"{self._redis_prefix}{normalized_query}", 
+                    serialized_results,
+                    ex=self.ttl
+                )
+                logger.info(f"Stored {len(results)} search results for query '{query}' in Redis")
+                return True
+            except Exception as e:
+                logger.error(f"Error storing search results in Redis: {e}")
+                # Fall back to memory cache if Redis fails
+        
+        # First cleanup if needed for memory cache
+        if len(self.cache) >= self.max_items:
+            self._cleanup()
+            
+        # Store results and update timestamp
+        self.cache[normalized_query] = results
+        self.last_accessed[normalized_query] = time.time()
+        logger.info(f"Cached {len(results)} search results for query '{query}' in memory")
+        return True
+    
+    async def get(self, query, limit=10, offset=0):
+        """Get paginated results for a query"""
+        normalized_query = self._normalize_query(query)
+        all_results = None
+
+        # Try to get from Redis first
+        if SEARCH_USE_REDIS:
+            try:
+                cached_data = await redis.get(f"{self._redis_prefix}{normalized_query}")
+                if cached_data:
+                    all_results = json.loads(cached_data)
+                    logger.info(f"Retrieved search results for '{query}' from Redis")
+                    # Redis TTL is auto-extended when setting the key with expiry
+            except Exception as e:
+                logger.error(f"Error retrieving search results from Redis: {e}")
+        
+        # Fall back to memory cache if not in Redis
+        if all_results is None and normalized_query in self.cache:
+            all_results = self.cache[normalized_query]
+            self.last_accessed[normalized_query] = time.time()
+            logger.info(f"Retrieved search results for '{query}' from memory cache")
+        
+        # If not found in any cache
+        if all_results is None:
+            logger.debug(f"Cache miss for query '{query}'")
+            return None
+        
+        # Return paginated subset
+        end_idx = min(offset + limit, len(all_results))
+        if offset >= len(all_results):
+            logger.warning(f"Requested offset {offset} exceeds result count {len(all_results)}")
+            return []
+            
+        logger.info(f"Cache hit for '{query}': serving {offset}:{end_idx} of {len(all_results)} results")
+        return all_results[offset:end_idx]
+    
+    async def has_query(self, query):
+        """Check if query exists in cache"""
+        normalized_query = self._normalize_query(query)
+        
+        # Check Redis first
+        if SEARCH_USE_REDIS:
+            try:
+                exists = await redis.get(f"{self._redis_prefix}{normalized_query}")
+                if exists:
+                    return True
+            except Exception as e:
+                logger.error(f"Error checking Redis for query existence: {e}")
+        
+        # Fall back to memory cache
+        return normalized_query in self.cache
+    
+    async def get_total_count(self, query):
+        """Get total count of results for a query"""
+        normalized_query = self._normalize_query(query)
+        
+        # Check Redis first
+        if SEARCH_USE_REDIS:
+            try:
+                cached_data = await redis.get(f"{self._redis_prefix}{normalized_query}")
+                if cached_data:
+                    all_results = json.loads(cached_data)
+                    return len(all_results)
+            except Exception as e:
+                logger.error(f"Error getting result count from Redis: {e}")
+        
+        # Fall back to memory cache
+        if normalized_query in self.cache:
+            return len(self.cache[normalized_query])
+            
+        return 0
+    
+    def _normalize_query(self, query):
+        """Normalize query string for cache key"""
+        if not query:
+            return ""
+        # Simple normalization - lowercase and strip whitespace
+        return query.lower().strip()
+    
+    def _cleanup(self):
+        """Remove oldest entries if memory cache is full"""
+        now = time.time()
+        # First remove expired entries
+        expired_keys = [
+            key for key, last_access in self.last_accessed.items() 
+            if now - last_access > self.ttl
+        ]
+        
+        for key in expired_keys:
+            if key in self.cache:
+                del self.cache[key]
+            if key in self.last_accessed:
+                del self.last_accessed[key]
+        
+        logger.info(f"Cleaned up {len(expired_keys)} expired search cache entries")
+        
+        # If still above max size, remove oldest entries
+        if len(self.cache) >= self.max_items:
+            # Sort by last access time
+            sorted_items = sorted(self.last_accessed.items(), key=lambda x: x[1])
+            # Remove oldest 20%
+            remove_count = max(1, int(len(sorted_items) * 0.2))
+            for key, _ in sorted_items[:remove_count]:
+                if key in self.cache:
+                    del self.cache[key]
+                if key in self.last_accessed:
+                    del self.last_accessed[key]
+            logger.info(f"Removed {remove_count} oldest search cache entries")
 
 class SearchService:
     def __init__(self):
@@ -23,15 +186,21 @@ class SearchService:
         # Use different timeout settings for indexing and search requests
         self.client = httpx.AsyncClient(timeout=30.0, base_url=TXTAI_SERVICE_URL)
         self.index_client = httpx.AsyncClient(timeout=120.0, base_url=TXTAI_SERVICE_URL)
-
+        # Initialize search cache
+        self.cache = SearchCache() if SEARCH_CACHE_ENABLED else None
+        
         if not self.available:
             logger.info("Search disabled (SEARCH_ENABLED = False)")
+        
+        if SEARCH_CACHE_ENABLED:
+            cache_location = "Redis" if SEARCH_USE_REDIS else "Memory"
+            logger.info(f"Search caching enabled using {cache_location} cache with TTL={SEARCH_CACHE_TTL_SECONDS}s")
+            logger.info(f"Minimum score filter: {SEARCH_MIN_SCORE}, prefetch size: {SEARCH_PREFETCH_SIZE}")
             
     async def info(self):
         """Return information about search service"""
         if not self.available:
             return {"status": "disabled"}
-
         try:
             response = await self.client.get("/info")
             response.raise_for_status()
@@ -41,7 +210,7 @@ class SearchService:
         except Exception as e:
             logger.error(f"Failed to get search info: {e}")
             return {"status": "error", "message": str(e)}
-
+    
     def is_ready(self):
         """Check if service is available"""
         return self.available
@@ -69,12 +238,11 @@ class SearchService:
         except Exception as e:
             logger.error(f"Document verification error: {e}")
             return {"status": "error", "message": str(e)}
-
+    
     def index(self, shout):
         """Index a single document"""
         if not self.available:
             return
-
         logger.info(f"Indexing post {shout.id}")
         # Start in background to not block
         asyncio.create_task(self.perform_index(shout))
@@ -390,12 +558,30 @@ class SearchService:
             return []
             
         logger.info(f"Searching for: '{text}' (limit={limit}, offset={offset})")
-            
+        
+        # Check if we can serve from cache
+        if SEARCH_CACHE_ENABLED:
+            has_cache = await self.cache.has_query(text)
+            if has_cache:
+                cached_results = await self.cache.get(text, limit, offset)
+                if cached_results is not None:
+                    logger.info(f"Serving search results for '{text}' from cache (offset={offset}, limit={limit})")
+                    return cached_results
+        
+        # Not in cache or cache disabled, perform new search
         try:
-            logger.info(f"Sending search request: text='{text}', limit={limit}, offset={offset}")
+            search_limit = limit
+            search_offset = offset
+            
+            # If cache is enabled, prefetch more results to store in cache
+            if SEARCH_CACHE_ENABLED and offset == 0:
+                search_limit = SEARCH_PREFETCH_SIZE  # Fetch more results to cache
+                search_offset = 0  # Always start from beginning for cache
+                
+            logger.info(f"Sending search request: text='{text}', limit={search_limit}, offset={search_offset}")
             response = await self.client.post(
                 "/search",
-                json={"text": text, "limit": limit, "offset": offset}
+                json={"text": text, "limit": search_limit, "offset": search_offset}
             )
             response.raise_for_status()
             
@@ -404,13 +590,46 @@ class SearchService:
             logger.info(f"Parsed search response: {result}")
             
             formatted_results = result.get("results", [])
-            logger.info(f"Search for '{text}' returned {len(formatted_results)} results")
+            
+            # Filter out non-numeric IDs to prevent database errors
+            valid_results = []
+            for item in formatted_results:
+                doc_id = item.get("id")
+                if doc_id and doc_id.isdigit():
+                    valid_results.append(item)
+                else:
+                    logger.warning(f"Filtered out non-numeric document ID: {doc_id}")
+            
+            if len(valid_results) != len(formatted_results):
+                logger.info(f"Filtered {len(formatted_results) - len(valid_results)} results with non-numeric IDs")
+                formatted_results = valid_results
+                
+            # Filter out low-score results
+            if SEARCH_MIN_SCORE > 0:
+                initial_count = len(formatted_results)
+                formatted_results = [r for r in formatted_results if r.get("score", 0) >= SEARCH_MIN_SCORE]
+                if len(formatted_results) != initial_count:
+                    logger.info(f"Filtered {initial_count - len(formatted_results)} results with score < {SEARCH_MIN_SCORE}")
+            
+            logger.info(f"Search for '{text}' returned {len(formatted_results)} valid results")
             
             if formatted_results:
                 logger.info(f"Sample result: {formatted_results[0]}")
             else:
                 logger.warning(f"No results found for '{text}'")
             
+            # Store full results in cache if caching is enabled
+            if SEARCH_CACHE_ENABLED and offset == 0:
+                # Store normal sorted results
+                await self.cache.store(text, formatted_results)
+                
+                # Return only the requested page
+                if limit < len(formatted_results):
+                    page_results = formatted_results[:limit]
+                    logger.info(f"Returning first page of {len(page_results)} results " +
+                                f"(out of {len(formatted_results)} total)")
+                    return page_results
+                    
             return formatted_results
         except Exception as e:
             logger.error(f"Search error for '{text}': {e}", exc_info=True)
@@ -438,10 +657,8 @@ class SearchService:
             logger.error(f"Failed to check index status: {e}")
             return {"status": "error", "message": str(e)}
 
-
 # Create the search service singleton
 search_service = SearchService()
-
 
 # API-compatible function to perform a search
 async def search_text(text: str, limit: int = 50, offset: int = 0):
@@ -450,6 +667,14 @@ async def search_text(text: str, limit: int = 50, offset: int = 0):
         payload = await search_service.search(text, limit, offset)
     return payload
 
+async def get_search_count(text: str):
+    """Get total count of results for a query without fetching all results"""
+    if search_service.available and SEARCH_CACHE_ENABLED:
+        if await search_service.cache.has_query(text):
+            return await search_service.cache.get_total_count(text)
+    # If not cached, we'll need to perform the full search once
+    results = await search_text(text, SEARCH_PREFETCH_SIZE, 0)
+    return len(results)
 
 async def initialize_search_index(shouts_data):
     """Initialize search index with existing data during application startup"""

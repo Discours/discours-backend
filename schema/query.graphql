@@ -33,6 +33,7 @@ type Query {
   get_shout(slug: String, shout_id: Int): Shout
   load_shouts_by(options: LoadShoutsOptions): [Shout]
   load_shouts_search(text: String!, options: LoadShoutsOptions): [SearchResult]
+  get_search_results_count(text: String!): CountResult!
   load_shouts_bookmarked(options: LoadShoutsOptions): [Shout]
 
   # rating

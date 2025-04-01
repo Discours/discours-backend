@@ -10,7 +10,7 @@ from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from services.db import json_array_builder, json_builder, local_session
 from services.schema import query
-from services.search import search_text
+from services.search import search_text, get_search_count
 from services.viewed import ViewedStorage
 from utils.logger import root_logger as logger
 
@@ -401,8 +401,17 @@ async def load_shouts_search(_, info, text, options):
     """
     limit = options.get("limit", 10)
     offset = options.get("offset", 0)
+    
     if isinstance(text, str) and len(text) > 2:
+        # Get search results with pagination
         results = await search_text(text, limit, offset)
+        
+        # If no results, return empty list
+        if not results:
+            logger.info(f"No search results found for '{text}'")
+            return []
+            
+        # Build a map of document IDs to their search scores
         scores = {}
         hits_ids = []
         for sr in results:
@@ -412,17 +421,43 @@ async def load_shouts_search(_, info, text, options):
                 scores[shout_id] = sr.get("score")
                 hits_ids.append(shout_id)
 
+        # Build query to fetch shout details
         q = query_with_stat(info)
-
         q = q.filter(Shout.id.in_(hits_ids))
-        q = apply_filters(q, options)
+        q = apply_filters(q, options.get("filters", {}))
 
+        # Fetch shout details
         shouts = get_shouts_with_links(info, q, limit, offset)
+        
+        # Populate search scores in results and sort by score
         for shout in shouts:
-            shout["score"] = scores[f"{shout['id']}"]
+            shout_id = str(shout['id'])
+            if shout_id in scores:
+                shout["score"] = scores[shout_id]
+            else:
+                shout["score"] = 0  # Default score if not found in search results
+                
+        # Sort by score (highest first)
         shouts.sort(key=lambda x: x["score"], reverse=True)
+        
         return shouts
     return []
+
+
+@query.field("get_search_results_count")
+async def get_search_results_count(_, info, text):
+    """
+    Returns the total count of search results for a search query.
+    
+    :param _: Root query object (unused)
+    :param info: GraphQL context information
+    :param text: Search query text
+    :return: Total count of results
+    """
+    if isinstance(text, str) and len(text) > 2:
+        count = await get_search_count(text)
+        return {"count": count}
+    return {"count": 0}
 
 
 @query.field("load_shouts_unrated")

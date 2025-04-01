@@ -276,3 +276,7 @@ type MyRateComment {
   my_rate: ReactionKind
 }
 
+type CountResult {
+  count: Int!
+}
+
