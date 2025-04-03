@@ -421,7 +421,7 @@ async def load_shouts_search(_, info, text, options):
                 scores[shout_id] = sr.get("score")
                 hits_ids.append(shout_id)
 
-        # Build query to fetch shout details
+        # Query DB for only the IDs in the current page
         q = query_with_stat(info)
         q = q.filter(Shout.id.in_(hits_ids))
         q = apply_filters(q, options.get("filters", {}))
@@ -429,12 +429,13 @@ async def load_shouts_search(_, info, text, options):
         #
         shouts = get_shouts_with_links(info, q, len(hits_ids), 0)
         
-        # Add scores and sort
+        # Add scores from search results
         for shout in shouts:
             shout_id = str(shout['id'])
             shout["score"] = scores.get(shout_id, 0)
-                
-        shouts.sort(key=lambda x: x["score"], reverse=True)
+
+        # Re-sort by search score to maintain ranking
+        shouts.sort(key=lambda x: scores.get(str(x['id']), 0), reverse=True)
         
         return shouts
     return []
