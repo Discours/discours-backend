@@ -23,6 +23,8 @@ SEARCH_MIN_SCORE = float(os.environ.get("SEARCH_MIN_SCORE", "0.1"))
 SEARCH_PREFETCH_SIZE = int(os.environ.get("SEARCH_PREFETCH_SIZE", "200"))
 SEARCH_USE_REDIS = bool(os.environ.get("SEARCH_USE_REDIS", "true").lower() in ["true", "1", "yes"])
 
+search_offset = 0
+
 # Import Redis client if Redis caching is enabled
 if SEARCH_USE_REDIS:
     try:
@@ -573,10 +575,13 @@ class SearchService:
             search_limit = limit
             search_offset = offset
             
-            # If cache is enabled, prefetch more results to store in cache
-            if SEARCH_CACHE_ENABLED and offset == 0:
-                search_limit = SEARCH_PREFETCH_SIZE  # Fetch more results to cache
-                search_offset = 0  # Always start from beginning for cache
+            # Always prefetch full results when caching is enabled
+            if SEARCH_CACHE_ENABLED:
+                search_limit = SEARCH_PREFETCH_SIZE  # Always fetch a large set
+                search_offset = 0  # Always start from beginning
+            else:
+                search_limit = limit
+                search_offset = offset
                 
             logger.info(f"Sending search request: text='{text}', limit={search_limit}, offset={search_offset}")
             response = await self.client.post(
@@ -585,7 +590,7 @@ class SearchService:
             )
             response.raise_for_status()
             
-            logger.info(f"Raw search response: {response.text}")
+            # logger.info(f"Raw search response: {response.text}")
             result = response.json()
             logger.info(f"Parsed search response: {result}")
             
@@ -617,18 +622,15 @@ class SearchService:
                 logger.info(f"Sample result: {formatted_results[0]}")
             else:
                 logger.warning(f"No results found for '{text}'")
+
             
-            # Store full results in cache if caching is enabled
-            if SEARCH_CACHE_ENABLED and offset == 0:
-                # Store normal sorted results
-                await self.cache.store(text, formatted_results)
-                
-                # Return only the requested page
-                if limit < len(formatted_results):
-                    page_results = formatted_results[:limit]
-                    logger.info(f"Returning first page of {len(page_results)} results " +
-                                f"(out of {len(formatted_results)} total)")
-                    return page_results
+            if SEARCH_CACHE_ENABLED:
+                logger.info(f"Storing {len(formatted_results)} results in cache for query '{text}'")
+                await self.cache.store(text, formatted_results) # Return the proper page slice from the full results stored in cache end_idx = offset + limit
+                end_idx = offset + limit
+                page_results = formatted_results[offset:end_idx]
+                logger.info(f"Returning results from {offset} to {end_idx} (of {len(formatted_results)} total)")
+                return page_results
                     
             return formatted_results
         except Exception as e:
