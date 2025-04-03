@@ -574,7 +574,7 @@ class SearchService:
         try:
             search_limit = limit
             search_offset = offset
-            
+
             # Always prefetch full results when caching is enabled
             if SEARCH_CACHE_ENABLED:
                 search_limit = SEARCH_PREFETCH_SIZE  # Always fetch a large set
@@ -592,7 +592,7 @@ class SearchService:
             
             # logger.info(f"Raw search response: {response.text}")
             result = response.json()
-            logger.info(f"Parsed search response: {result}")
+            # logger.info(f"Parsed search response: {result}")
             
             formatted_results = result.get("results", [])
             

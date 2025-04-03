@@ -410,8 +410,8 @@ async def load_shouts_search(_, info, text, options):
         if not results:
             logger.info(f"No search results found for '{text}'")
             return []
-            
-        # Build a map of document IDs to their search scores
+        
+        # Extract IDs and scores
         scores = {}
         hits_ids = []
         for sr in results:
@@ -426,18 +426,14 @@ async def load_shouts_search(_, info, text, options):
         q = q.filter(Shout.id.in_(hits_ids))
         q = apply_filters(q, options.get("filters", {}))
 
-        # Fetch shout details
-        shouts = get_shouts_with_links(info, q, limit, offset)
+        #
+        shouts = get_shouts_with_links(info, q, len(hits_ids), 0)
         
-        # Populate search scores in results and sort by score
+        # Add scores and sort
         for shout in shouts:
             shout_id = str(shout['id'])
-            if shout_id in scores:
-                shout["score"] = scores[shout_id]
-            else:
-                shout["score"] = 0  # Default score if not found in search results
+            shout["score"] = scores.get(shout_id, 0)
                 
-        # Sort by score (highest first)
         shouts.sort(key=lambda x: x["score"], reverse=True)
         
         return shouts
