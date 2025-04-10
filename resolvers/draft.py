@@ -104,6 +104,11 @@ async def create_draft(_, info, draft_input):
 
     if "title" not in draft_input or not draft_input["title"]:
         draft_input["title"] = ""  # Пустая строка вместо NULL
+        
+    # Проверяем slug - он должен быть или не пустым, или не передаваться вообще
+    if "slug" in draft_input and (draft_input["slug"] is None or draft_input["slug"] == ""):
+        # При создании черновика удаляем пустой slug из входных данных
+        del draft_input["slug"]
 
     try:
         with local_session() as session:
@@ -141,6 +146,15 @@ async def update_draft(_, info, draft_id: int, draft_input):
 
     if not user_id or not author_id:
         return {"error": "Author ID are required"}
+
+    # Проверяем slug - он должен быть или не пустым, или не передаваться вообще
+    if "slug" in draft_input and (draft_input["slug"] is None or draft_input["slug"] == ""):
+        # Если slug пустой, либо удаляем его из входных данных, либо генерируем временный уникальный
+        # Вариант 1: просто удаляем ключ из входных данных, чтобы оставить старое значение
+        del draft_input["slug"]
+        # Вариант 2 (если нужно обновить): генерируем временный уникальный slug
+        # import uuid
+        # draft_input["slug"] = f"draft-{uuid.uuid4().hex[:8]}"
 
     with local_session() as session:
         draft = session.query(Draft).filter(Draft.id == draft_id).first()

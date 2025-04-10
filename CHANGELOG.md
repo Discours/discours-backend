@@ -1,3 +1,10 @@
+#### [0.4.18] - 2025-04-10
+- Fixed unique constraint violation for empty slug values:
+  - Modified `update_draft` resolver to handle empty slug values
+  - Modified `create_draft` resolver to prevent empty slug values
+  - Added validation to prevent inserting or updating drafts with empty slug
+  - Fixed database error "duplicate key value violates unique constraint draft_slug_key"
+
 #### [0.4.17] - 2025-03-26
 - Fixed `'Reaction' object is not subscriptable` error in hierarchical comments:
   - Modified `get_reactions_with_stat()` to convert Reaction objects to dictionaries
