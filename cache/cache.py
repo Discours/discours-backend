@@ -545,7 +545,7 @@ async def get_cached_data(key: str) -> Optional[Any]:
     try:
         cached_data = await redis.execute("GET", key)
         if cached_data:
-            logger.debug(f"Данные получены из кеша по ключу {key}")
+            logger.debug(f"Данные получены из кеша по ключу {key}: {len(cached_data)} записей")
             return orjson.loads(cached_data)
         return None
     except Exception as e:

@@ -6,7 +6,7 @@ from cache.cache import (
     get_cached_topic_authors,
     get_cached_topic_by_slug,
     get_cached_topic_followers,
-    invalidate_cache_by_prefix,
+    invalidate_cache_by_prefix
 )
 from orm.author import Author
 from orm.topic import Topic
@@ -126,6 +126,17 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             GROUP BY topic
             """
             followers_stats = {row[0]: row[1] for row in session.execute(text(followers_stats_query))}
+            
+            # Запрос на получение статистики авторов для выбранных тем
+            authors_stats_query = f"""
+            SELECT st.topic, COUNT(DISTINCT sa.author) as authors_count
+            FROM shout_topic st
+            JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
+            JOIN shout_author sa ON sa.shout = s.id
+            WHERE st.topic IN ({",".join(map(str, topic_ids))})
+            GROUP BY st.topic
+            """
+            authors_stats = {row[0]: row[1] for row in session.execute(text(authors_stats_query))}
 
             # Формируем результат с добавлением статистики
             result = []
@@ -134,6 +145,7 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
                 topic_dict["stat"] = {
                     "shouts": shouts_stats.get(topic.id, 0),
                     "followers": followers_stats.get(topic.id, 0),
+                    "authors": authors_stats.get(topic.id, 0)
                 }
                 result.append(topic_dict)
 
