@@ -138,6 +138,18 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             """
             authors_stats = {row[0]: row[1] for row in session.execute(text(authors_stats_query))}
 
+            # Запрос на получение статистики комментариев для выбранных тем
+            comments_stats_query = f"""
+            SELECT st.topic, COUNT(DISTINCT r.id) as comments_count
+            FROM shout_topic st
+            JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
+            JOIN reaction r ON r.shout = s.id
+            WHERE st.topic IN ({",".join(map(str, topic_ids))})
+            GROUP BY st.topic
+            """
+            comments_stats = {row[0]: row[1] for row in session.execute(text(comments_stats_query))}
+
+
             # Формируем результат с добавлением статистики
             result = []
             for topic in topics:
@@ -145,7 +157,8 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
                 topic_dict["stat"] = {
                     "shouts": shouts_stats.get(topic.id, 0),
                     "followers": followers_stats.get(topic.id, 0),
-                    "authors": authors_stats.get(topic.id, 0)
+                    "authors": authors_stats.get(topic.id, 0),
+                    "comments": comments_stats.get(topic.id, 0)
                 }
                 result.append(topic_dict)
 
