@@ -1,4 +1,5 @@
 #### [0.4.18] - 2025-04-10
+- Fixed `Topic.stat.authors` and `Topic.stat.comments`
 - Fixed unique constraint violation for empty slug values:
   - Modified `update_draft` resolver to handle empty slug values
   - Modified `create_draft` resolver to prevent empty slug values

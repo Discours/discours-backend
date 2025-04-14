@@ -31,7 +31,8 @@ class Draft(Base):
     # required
     created_at: int = Column(Integer, nullable=False, default=lambda: int(time.time()))
     created_by: int = Column(ForeignKey("author.id"), nullable=False)
-
+    community: int = Column(ForeignKey("community.id"), nullable=False, default=1)
+    
     # optional
     layout: str = Column(String, nullable=True, default="article")
     slug: str = Column(String, unique=True)

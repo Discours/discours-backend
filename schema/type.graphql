@@ -111,13 +111,12 @@ type Draft {
   id: Int!
   created_at: Int!
   created_by: Author!
-
+  community: Community!
   layout: String
   slug: String
   title: String
   subtitle: String
   lead: String
-  description: String
   body: String
   media: [MediaItem]
   cover: String
