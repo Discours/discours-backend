@@ -91,7 +91,6 @@ class Shout(Base):
     cover: str | None = Column(String, nullable=True, comment="Cover image url")
     cover_caption: str | None = Column(String, nullable=True, comment="Cover image alt caption")
     lead: str | None = Column(String, nullable=True)
-    description: str | None = Column(String, nullable=True)
     title: str = Column(String, nullable=False)
     subtitle: str | None = Column(String, nullable=True)
     layout: str = Column(String, nullable=False, default="article")

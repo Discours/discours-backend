@@ -33,7 +33,6 @@ input DraftInput {
   main_topic_id: Int  # Changed from main_topic: Topic
   media: [MediaItemInput]  # Changed to use MediaItemInput
   lead: String
-  description: String
   subtitle: String
   lang: String
   seo: String

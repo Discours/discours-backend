@@ -1,3 +1,7 @@
+#### [0.4.19] - 2025-04-14
+- dropped `Shout.description` and `Draft.description` to be UX-generated
+- use redis to init views counters after migrator
+
 #### [0.4.18] - 2025-04-10
 - Fixed `Topic.stat.authors` and `Topic.stat.comments`
 - Fixed unique constraint violation for empty slug values:

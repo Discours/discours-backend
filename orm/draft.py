@@ -39,7 +39,6 @@ class Draft(Base):
     title: str = Column(String, nullable=True)
     subtitle: str | None = Column(String, nullable=True)
     lead: str | None = Column(String, nullable=True)
-    description: str | None = Column(String, nullable=True)
     body: str = Column(String, nullable=False, comment="Body")
     media: dict | None = Column(JSON, nullable=True)
     cover: str | None = Column(String, nullable=True, comment="Cover image url")

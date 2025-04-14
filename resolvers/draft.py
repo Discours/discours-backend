@@ -30,7 +30,6 @@ def create_shout_from_draft(session, draft, author_id):
         cover=draft.cover,
         cover_caption=draft.cover_caption,
         lead=draft.lead,
-        description=draft.description,
         title=draft.title,
         subtitle=draft.subtitle,
         layout=draft.layout,
@@ -267,7 +266,6 @@ async def publish_shout(_, info, shout_id: int):
                 shout.cover = draft.cover
                 shout.cover_caption = draft.cover_caption
                 shout.lead = draft.lead
-                shout.description = draft.description
                 shout.layout = draft.layout
                 shout.media = draft.media
                 shout.lang = draft.lang

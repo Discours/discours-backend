@@ -80,7 +80,6 @@ type Shout {
   layout: String!
 
   lead: String
-  description: String
   subtitle: String
   lang: String
   cover: String
