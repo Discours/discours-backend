@@ -2,6 +2,7 @@ import time
 from operator import or_
 
 from sqlalchemy.sql import and_
+import trafilatura
 
 from cache.cache import (
     cache_author,
@@ -163,6 +164,14 @@ async def update_draft(_, info, draft_id: int, draft_input):
         draft = session.query(Draft).filter(Draft.id == draft_id).first()
         if not draft:
             return {"error": "Draft not found"}
+        
+        if "seo" not in draft_input and not draft.seo:
+            body_src = draft_input["body"] if "body" in draft_input else draft.body
+            body_text = trafilatura.extract(body_src)
+            lead_src = draft_input["lead"] if "lead" in draft_input else draft.lead
+            lead_text = trafilatura.extract(lead_src)
+            body_teaser = body_text[:300].split('. ')[:-1].join(".\n")
+            draft_input["seo"] = lead_text or body_teaser
 
         Draft.update(draft, draft_input)
         # Set updated_at and updated_by from the authenticated user
