@@ -30,6 +30,7 @@ class ViewedStorage:
     Класс для хранения и доступа к данным о просмотрах.
     Использует Redis в качестве основного хранилища и Google Analytics для сбора новых данных.
     """
+
     lock = asyncio.Lock()
     views_by_shout = {}
     shouts_by_topic = {}
@@ -68,42 +69,42 @@ class ViewedStorage:
     async def load_views_from_redis():
         """Загрузка предварительно подсчитанных просмотров из Redis"""
         self = ViewedStorage
-        
+
         # Подключаемся к Redis если соединение не установлено
         if not redis._client:
             await redis.connect()
-        
+
         # Получаем список всех ключей migrated_views_* и находим самый последний
         keys = await redis.execute("KEYS", "migrated_views_*")
         if not keys:
             logger.warning(" * No migrated_views keys found in Redis")
             return
-        
+
         # Фильтруем только ключи timestamp формата (исключаем migrated_views_slugs)
         timestamp_keys = [k for k in keys if k != "migrated_views_slugs"]
         if not timestamp_keys:
             logger.warning(" * No migrated_views timestamp keys found in Redis")
             return
-            
+
         # Сортируем по времени создания (в названии ключа) и берем последний
         timestamp_keys.sort()
         latest_key = timestamp_keys[-1]
         self.redis_views_key = latest_key
-        
+
         # Получаем метку времени создания для установки start_date
         timestamp = await redis.execute("HGET", latest_key, "_timestamp")
         if timestamp:
             self.last_update_timestamp = int(timestamp)
             timestamp_dt = datetime.fromtimestamp(int(timestamp))
             self.start_date = timestamp_dt.strftime("%Y-%m-%d")
-            
+
             # Если данные сегодняшние, считаем их актуальными
             now_date = datetime.now().strftime("%Y-%m-%d")
             if now_date == self.start_date:
                 logger.info(" * Views data is up to date!")
             else:
                 logger.warning(f" * Views data is from {self.start_date}, may need update")
-                
+
         # Выводим информацию о количестве загруженных записей
         total_entries = await redis.execute("HGET", latest_key, "_total")
         if total_entries:
@@ -160,33 +161,33 @@ class ViewedStorage:
     async def get_shout(shout_slug="", shout_id=0) -> int:
         """
         Получение метрики просмотров shout по slug или id.
-        
+
         Args:
             shout_slug: Slug публикации
             shout_id: ID публикации
-            
+
         Returns:
             int: Количество просмотров
         """
         self = ViewedStorage
-        
+
         # Получаем данные из Redis для новой схемы хранения
         if not redis._client:
             await redis.connect()
-            
+
         fresh_views = self.views_by_shout.get(shout_slug, 0)
-        
+
         # Если есть id, пытаемся получить данные из Redis по ключу migrated_views_<timestamp>
         if shout_id and self.redis_views_key:
             precounted_views = await redis.execute("HGET", self.redis_views_key, str(shout_id))
             if precounted_views:
                 return fresh_views + int(precounted_views)
-                
+
         # Если нет id или данных, пытаемся получить по slug из отдельного хеша
         precounted_views = await redis.execute("HGET", "migrated_views_slugs", shout_slug)
         if precounted_views:
             return fresh_views + int(precounted_views)
-            
+
         return fresh_views
 
     @staticmethod
@@ -316,4 +317,4 @@ class ViewedStorage:
 
         except Exception as e:
             logger.error(f"Google Analytics API Error: {e}")
-            return 0 
+            return 0
