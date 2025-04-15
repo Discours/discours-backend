@@ -1,6 +1,7 @@
 import time
 from operator import or_
 
+import trafilatura
 from sqlalchemy.sql import and_
 
 from cache.cache import (
@@ -30,7 +31,6 @@ def create_shout_from_draft(session, draft, author_id):
         cover=draft.cover,
         cover_caption=draft.cover_caption,
         lead=draft.lead,
-        description=draft.description,
         title=draft.title,
         subtitle=draft.subtitle,
         layout=draft.layout,
@@ -104,7 +104,7 @@ async def create_draft(_, info, draft_input):
 
     if "title" not in draft_input or not draft_input["title"]:
         draft_input["title"] = ""  # Пустая строка вместо NULL
-        
+
     # Проверяем slug - он должен быть или не пустым, или не передаваться вообще
     if "slug" in draft_input and (draft_input["slug"] is None or draft_input["slug"] == ""):
         # При создании черновика удаляем пустой slug из входных данных
@@ -115,6 +115,10 @@ async def create_draft(_, info, draft_input):
             # Remove id from input if present since it's auto-generated
             if "id" in draft_input:
                 del draft_input["id"]
+
+            if "seo" not in draft_input and not draft_input["seo"]:
+                body_teaser = draft_input.get("body", "")[:300].split("\n")[:-1].join("\n")
+                draft_input["seo"] = draft_input.get("lead", body_teaser)
 
             # Добавляем текущее время создания
             draft_input["created_at"] = int(time.time())
@@ -161,12 +165,20 @@ async def update_draft(_, info, draft_id: int, draft_input):
         if not draft:
             return {"error": "Draft not found"}
 
+        if "seo" not in draft_input and not draft.seo:
+            body_src = draft_input["body"] if "body" in draft_input else draft.body
+            body_text = trafilatura.extract(body_src)
+            lead_src = draft_input["lead"] if "lead" in draft_input else draft.lead
+            lead_text = trafilatura.extract(lead_src)
+            body_teaser = body_text[:300].split(". ")[:-1].join(".\n")
+            draft_input["seo"] = lead_text or body_teaser
+
         Draft.update(draft, draft_input)
         # Set updated_at and updated_by from the authenticated user
         current_time = int(time.time())
         draft.updated_at = current_time
         draft.updated_by = author_id
-        
+
         session.commit()
         return {"draft": draft}
 
@@ -267,7 +279,6 @@ async def publish_shout(_, info, shout_id: int):
                 shout.cover = draft.cover
                 shout.cover_caption = draft.cover_caption
                 shout.lead = draft.lead
-                shout.description = draft.description
                 shout.layout = draft.layout
                 shout.media = draft.media
                 shout.lang = draft.lang

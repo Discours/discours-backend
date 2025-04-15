@@ -31,6 +31,7 @@ class Draft(Base):
     # required
     created_at: int = Column(Integer, nullable=False, default=lambda: int(time.time()))
     created_by: int = Column(ForeignKey("author.id"), nullable=False)
+    community: int = Column(ForeignKey("community.id"), nullable=False, default=1)
 
     # optional
     layout: str = Column(String, nullable=True, default="article")
@@ -38,7 +39,6 @@ class Draft(Base):
     title: str = Column(String, nullable=True)
     subtitle: str | None = Column(String, nullable=True)
     lead: str | None = Column(String, nullable=True)
-    description: str | None = Column(String, nullable=True)
     body: str = Column(String, nullable=False, comment="Body")
     media: dict | None = Column(JSON, nullable=True)
     cover: str | None = Column(String, nullable=True, comment="Cover image url")
