@@ -99,6 +99,7 @@ type Shout {
   featured_at: Int
   deleted_at: Int
 
+  seo: String # generated if not set
   version_of: Shout  # TODO: use version_of somewhere
   draft: Draft
   media: [MediaItem]

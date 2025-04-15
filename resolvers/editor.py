@@ -22,6 +22,7 @@ from services.notify import notify_shout
 from services.schema import query
 from services.search import search_service
 from utils.logger import root_logger as logger
+import trafilatura
 
 
 async def cache_by_id(entity, entity_id: int, cache_method):
@@ -176,9 +177,16 @@ async def create_shout(_, info, inp):
 
                 logger.info(f"Creating shout with input: {inp}")
                 # Создаем публикацию без topics
+                body = inp.get("body", "")
+                lead = inp.get("lead", "")
+                body_text = trafilatura.extract(body)
+                lead_text = trafilatura.extract(lead)
+                seo = inp.get("seo", lead_text or body_text[:300].split('. ')[:-1].join(". "))
                 new_shout = Shout(
                     slug=slug,
-                    body=inp.get("body", ""),
+                    body=body,
+                    seo=seo,
+                    lead=lead,
                     layout=inp.get("layout", "article"),
                     title=inp.get("title", ""),
                     created_by=author_id,
@@ -380,7 +388,7 @@ def patch_topics(session, shout, topics_input):
 # @login_required
 async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
     logger.info(f"Starting update_shout with id={shout_id}, publish={publish}")
-    logger.debug(f"Full shout_input: {shout_input}")
+    logger.debug(f"Full shout_input: {shout_input}") # DraftInput
 
     user_id = info.context.get("user_id")
     roles = info.context.get("roles", [])

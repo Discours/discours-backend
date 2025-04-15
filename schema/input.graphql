@@ -41,6 +41,7 @@ input DraftInput {
   slug: String
   cover: String
   cover_caption: String
+  seo: String
 }
 
 input ProfileInput {
