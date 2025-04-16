@@ -115,11 +115,7 @@ async def create_draft(_, info, draft_input):
             # Remove id from input if present since it's auto-generated
             if "id" in draft_input:
                 del draft_input["id"]
-
-            if "seo" not in draft_input and not draft_input.get("seo"):
-                body_teaser = draft_input.get("body", "")[:300].split("\n")[:-1].join("\n")
-                draft_input["seo"] = draft_input.get("lead", body_teaser)
-
+                
             # Добавляем текущее время создания
             draft_input["created_at"] = int(time.time())
 
