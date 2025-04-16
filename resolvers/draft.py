@@ -166,7 +166,7 @@ async def update_draft(_, info, draft_id: int, draft_input):
             body_text = trafilatura.extract(body_src)
             lead_src = draft_input["lead"] if "lead" in draft_input else draft.lead
             lead_text = trafilatura.extract(lead_src)
-            body_teaser = body_text[:300].split(". ")[:-1].join(".\n")
+            body_teaser = ". ".join(body_text[:300].split(". ")[:-1])
             draft_input["seo"] = lead_text or body_teaser
 
         Draft.update(draft, draft_input)
