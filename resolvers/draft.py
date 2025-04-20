@@ -115,11 +115,7 @@ async def create_draft(_, info, draft_input):
             # Remove id from input if present since it's auto-generated
             if "id" in draft_input:
                 del draft_input["id"]
-
-            if "seo" not in draft_input and not draft_input["seo"]:
-                body_teaser = draft_input.get("body", "")[:300].split("\n")[:-1].join("\n")
-                draft_input["seo"] = draft_input.get("lead", body_teaser)
-
+                
             # Добавляем текущее время создания
             draft_input["created_at"] = int(time.time())
 
@@ -130,6 +126,11 @@ async def create_draft(_, info, draft_input):
     except Exception as e:
         logger.error(f"Failed to create draft: {e}", exc_info=True)
         return {"error": f"Failed to create draft: {str(e)}"}
+
+def generate_teaser(body, limit=300):
+    body_text = trafilatura.extract(body, include_comments=False, include_tables=False)
+    body_teaser = ". ".join(body_text[:limit].split(". ")[:-1])
+    return body_teaser
 
 
 @mutation.field("update_draft")
@@ -165,21 +166,51 @@ async def update_draft(_, info, draft_id: int, draft_input):
         if not draft:
             return {"error": "Draft not found"}
 
+        # Generate SEO description if not provided and not already set
         if "seo" not in draft_input and not draft.seo:
-            body_src = draft_input["body"] if "body" in draft_input else draft.body
-            body_text = trafilatura.extract(body_src)
-            lead_src = draft_input["lead"] if "lead" in draft_input else draft.lead
-            lead_text = trafilatura.extract(lead_src)
-            body_teaser = body_text[:300].split(". ")[:-1].join(".\n")
-            draft_input["seo"] = lead_text or body_teaser
+            body_src = draft_input.get("body") if "body" in draft_input else draft.body
+            lead_src = draft_input.get("lead") if "lead" in draft_input else draft.lead
 
+            body_text = None
+            if body_src:
+                try:
+                    # Extract text, excluding comments and tables
+                    body_text = trafilatura.extract(body_src, include_comments=False, include_tables=False)
+                except Exception as e:
+                    logger.warning(f"Trafilatura failed to extract body text for draft {draft_id}: {e}")
+
+            lead_text = None
+            if lead_src:
+                try:
+                    # Extract text from lead
+                    lead_text = trafilatura.extract(lead_src, include_comments=False, include_tables=False)
+                except Exception as e:
+                    logger.warning(f"Trafilatura failed to extract lead text for draft {draft_id}: {e}")
+
+            # Generate body teaser only if body_text was successfully extracted
+            body_teaser = generate_teaser(body_text, 300) if body_text else ""
+
+            # Prioritize lead_text for SEO, fallback to body_teaser. Ensure it's a string.
+            generated_seo = lead_text if lead_text else body_teaser
+            draft_input["seo"] = generated_seo if generated_seo else ""
+
+        # Update the draft object with new data from draft_input
+        # Assuming Draft.update is a helper that iterates keys or similar.
+        # A more standard SQLAlchemy approach would be:
+        # for key, value in draft_input.items():
+        #     if hasattr(draft, key):
+        #         setattr(draft, key, value)
+        # But we stick to the existing pattern for now.
         Draft.update(draft, draft_input)
-        # Set updated_at and updated_by from the authenticated user
+
+        # Set updated timestamp and author
         current_time = int(time.time())
         draft.updated_at = current_time
-        draft.updated_by = author_id
+        draft.updated_by = author_id # Assuming author_id is correctly fetched context
 
         session.commit()
+        # Invalidate cache related to this draft if necessary (consider adding)
+        # await invalidate_draft_cache(draft_id)
         return {"draft": draft}
 
 
