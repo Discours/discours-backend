@@ -19,7 +19,7 @@ from sqlalchemy import (
     inspect,
     text,
 )
-from sqlalchemy.orm import Session, configure_mappers, declarative_base
+from sqlalchemy.orm import Session, configure_mappers, declarative_base, joinedload
 from sqlalchemy.sql.schema import Table
 
 from settings import DB_URL
@@ -260,8 +260,11 @@ def get_json_builder():
 # Используем их в коде
 json_builder, json_array_builder, json_cast = get_json_builder()
 
+# Fetch all shouts, with authors preloaded
+# This function is used for search indexing
+
 async def fetch_all_shouts(session=None):
-    """Fetch all published shouts for search indexing"""
+    """Fetch all published shouts for search indexing with authors preloaded"""
     from orm.shout import Shout
     
     close_session = False
@@ -270,8 +273,10 @@ async def fetch_all_shouts(session=None):
         close_session = True
     
     try:
-        # Fetch only published and non-deleted shouts
-        query = session.query(Shout).filter(
+        # Fetch only published and non-deleted shouts with authors preloaded
+        query = session.query(Shout).options(
+            joinedload(Shout.authors)
+        ).filter(
             Shout.published_at.is_not(None),
             Shout.deleted_at.is_(None)
         )
