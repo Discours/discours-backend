@@ -613,69 +613,131 @@ class SearchService:
         
         return truncated_detail
 
-    async def search(self, text, limit, offset):
-        """Search documents"""
-        if not self.available:
-            return []
-        
-        if not isinstance(text, str) or not text.strip():
+
+    #*******************
+    # Specialized search methods for titles, bodies, and authors
+    
+    async def search_titles(self, text, limit=10, offset=0):
+        """Search only in titles using the specialized endpoint"""
+        if not self.available or not text.strip():
             return []
             
-        logger.info(f"Searching for: '{text}' (limit={limit}, offset={offset})")
+        cache_key = f"title:{text}"
         
-        # Check if we can serve from cache
+        # Try cache first if enabled
         if SEARCH_CACHE_ENABLED:
-            has_cache = await self.cache.has_query(text)
-            if has_cache:
-                cached_results = await self.cache.get(text, limit, offset)
-                if cached_results is not None:
-                    return cached_results
+            if await self.cache.has_query(cache_key):
+                return await self.cache.get(cache_key, limit, offset)
         
-        # Not in cache or cache disabled, perform new search
         try:
-            search_limit = limit
-            search_offset = offset
-
-            if SEARCH_CACHE_ENABLED:
-                search_limit = SEARCH_PREFETCH_SIZE
-                search_offset = 0
-            else:
-                search_limit = limit
-                search_offset = offset
-                
+            logger.info(f"Searching titles for: '{text}' (limit={limit}, offset={offset})")
             response = await self.client.post(
-                "/search",
-                json={"text": text, "limit": search_limit, "offset": search_offset}
+                "/search-title",
+                json={"text": text, "limit": limit + offset}
             )
             response.raise_for_status()
             
             result = response.json()
+            title_results = result.get("results", [])
             
-            formatted_results = result.get("results", [])
-            
-            valid_results = []
-            for item in formatted_results:
-                doc_id = item.get("id")
-                if doc_id and doc_id.isdigit():
-                    valid_results.append(item)
-            
-            if len(valid_results) != len(formatted_results):
-                formatted_results = valid_results
-                
+            # Apply score filtering if needed
             if SEARCH_MIN_SCORE > 0:
-                initial_count = len(formatted_results)
-                formatted_results = [r for r in formatted_results if r.get("score", 0) >= SEARCH_MIN_SCORE]
-            
+                title_results = [r for r in title_results if r.get("score", 0) >= SEARCH_MIN_SCORE]
+                
+            # Store in cache if enabled
             if SEARCH_CACHE_ENABLED:
-                await self.cache.store(text, formatted_results)
-                end_idx = offset + limit
-                page_results = formatted_results[offset:end_idx]
-                return page_results
-                    
-            return formatted_results
+                await self.cache.store(cache_key, title_results)
+                
+            # Apply offset/limit (API might not support it directly)
+            return title_results[offset:offset+limit]
+            
         except Exception as e:
-            logger.error(f"Search error for '{text}': {e}", exc_info=True)
+            logger.error(f"Error searching titles for '{text}': {e}")
             return []
+    
+    async def search_bodies(self, text, limit=10, offset=0):
+        """Search only in document bodies using the specialized endpoint"""
+        if not self.available or not text.strip():
+            return []
+            
+        cache_key = f"body:{text}"
+        
+        # Try cache first if enabled
+        if SEARCH_CACHE_ENABLED:
+            if await self.cache.has_query(cache_key):
+                return await self.cache.get(cache_key, limit, offset)
+        
+        try:
+            logger.info(f"Searching bodies for: '{text}' (limit={limit}, offset={offset})")
+            response = await self.client.post(
+                "/search-body",
+                json={"text": text, "limit": limit + offset}
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            body_results = result.get("results", [])
+            
+            # Apply score filtering if needed
+            if SEARCH_MIN_SCORE > 0:
+                body_results = [r for r in body_results if r.get("score", 0) >= SEARCH_MIN_SCORE]
+                
+            # Store in cache if enabled
+            if SEARCH_CACHE_ENABLED:
+                await self.cache.store(cache_key, body_results)
+                
+            # Apply offset/limit
+            return body_results[offset:offset+limit]
+            
+        except Exception as e:
+            logger.error(f"Error searching bodies for '{text}': {e}")
+            return []
+    
+    async def search_authors(self, text, limit=10, offset=0):
+        """Search only for authors using the specialized endpoint"""
+        if not self.available or not text.strip():
+            return []
+            
+        cache_key = f"author:{text}"
+        
+        # Try cache first if enabled
+        if SEARCH_CACHE_ENABLED:
+            if await self.cache.has_query(cache_key):
+                return await self.cache.get(cache_key, limit, offset)
+        
+        try:
+            logger.info(f"Searching authors for: '{text}' (limit={limit}, offset={offset})")
+            response = await self.client.post(
+                "/search-author",
+                json={"text": text, "limit": limit + offset}
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            author_results = result.get("results", [])
+            
+            # Apply score filtering if needed
+            if SEARCH_MIN_SCORE > 0:
+                author_results = [r for r in author_results if r.get("score", 0) >= SEARCH_MIN_SCORE]
+                
+            # Store in cache if enabled
+            if SEARCH_CACHE_ENABLED:
+                await self.cache.store(cache_key, author_results)
+                
+            # Apply offset/limit
+            return author_results[offset:offset+limit]
+            
+        except Exception as e:
+            logger.error(f"Error searching authors for '{text}': {e}")
+            return []
+    
+    async def search(self, text, limit, offset):
+        """
+        Legacy search method that searches only bodies for backward compatibility.
+        Consider using the specialized search methods instead.
+        """
+        logger.warning("Using deprecated search() method - consider using search_bodies(), search_titles(), or search_authors()")
+        return await self.search_bodies(text, limit, offset)
     
     async def check_index_status(self):
         """Get detailed statistics about the search index health"""
@@ -701,19 +763,63 @@ class SearchService:
 search_service = SearchService()
 
 # API-compatible function to perform a search
-async def search_text(text: str, limit: int = 50, offset: int = 0):
-    payload = []
-    if search_service.available:
-        payload = await search_service.search(text, limit, offset)
-    return payload
 
-async def get_search_count(text: str):
-    """Get total count of results for a query without fetching all results"""
-    if search_service.available and SEARCH_CACHE_ENABLED:
-        if await search_service.cache.has_query(text):
-            return await search_service.cache.get_total_count(text)
-    results = await search_text(text, SEARCH_PREFETCH_SIZE, 0)
-    return len(results)
+async def search_title_text(text: str, limit: int = 10, offset: int = 0):
+    """Search titles API helper function"""
+    if search_service.available:
+        return await search_service.search_titles(text, limit, offset)
+    return []
+
+async def search_body_text(text: str, limit: int = 10, offset: int = 0):
+    """Search bodies API helper function"""
+    if search_service.available:
+        return await search_service.search_bodies(text, limit, offset)
+    return []
+
+async def search_author_text(text: str, limit: int = 10, offset: int = 0):
+    """Search authors API helper function"""
+    if search_service.available:
+        return await search_service.search_authors(text, limit, offset)
+    return []
+
+async def get_title_search_count(text: str):
+    """Get count of title search results"""
+    if not search_service.available:
+        return 0
+        
+    if SEARCH_CACHE_ENABLED:
+        cache_key = f"title:{text}"
+        if await search_service.cache.has_query(cache_key):
+            return await search_service.cache.get_total_count(cache_key)
+    
+    # If not found in cache, fetch from endpoint
+    return len(await search_title_text(text, SEARCH_PREFETCH_SIZE, 0))
+
+async def get_body_search_count(text: str):
+    """Get count of body search results"""
+    if not search_service.available:
+        return 0
+        
+    if SEARCH_CACHE_ENABLED:
+        cache_key = f"body:{text}"
+        if await search_service.cache.has_query(cache_key):
+            return await search_service.cache.get_total_count(cache_key)
+    
+    # If not found in cache, fetch from endpoint
+    return len(await search_body_text(text, SEARCH_PREFETCH_SIZE, 0))
+
+async def get_author_search_count(text: str):
+    """Get count of author search results"""
+    if not search_service.available:
+        return 0
+        
+    if SEARCH_CACHE_ENABLED:
+        cache_key = f"author:{text}"
+        if await search_service.cache.has_query(cache_key):
+            return await search_service.cache.get_total_count(cache_key)
+    
+    # If not found in cache, fetch from endpoint
+    return len(await search_author_text(text, SEARCH_PREFETCH_SIZE, 0))
 
 async def initialize_search_index(shouts_data):
     """Initialize search index with existing data during application startup"""
@@ -767,7 +873,8 @@ async def initialize_search_index(shouts_data):
         
     try:
         test_query = "test"
-        test_results = await search_text(test_query, 5)
+        # Use body search since that's most likely to return results
+        test_results = await search_body_text(test_query, 5)
         
         if test_results:
             categories = set()
