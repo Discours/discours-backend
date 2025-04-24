@@ -612,11 +612,6 @@ class SearchService:
                             item['input']['text'] = f"{item['input']['text'][:100]}... [truncated, total {len(item['input']['text'])} chars]"
         
         return truncated_detail
-
-
-    #*******************
-    # Specialized search methods for shouts and authors
-    #*******************
     
     async def search(self, text, limit, offset):
         """Search documents"""
@@ -753,17 +748,11 @@ search_service = SearchService()
 
 # API-compatible function to perform a search
 
-async def search_title_text(text: str, limit: int = 10, offset: int = 0):
-    """Search titles API helper function"""
+async def search_text(text: str, limit: int = 50, offset: int = 0):
+    payload = []
     if search_service.available:
-        return await search_service.search_titles(text, limit, offset)
-    return []
-
-async def search_body_text(text: str, limit: int = 10, offset: int = 0):
-    """Search bodies API helper function"""
-    if search_service.available:
-        return await search_service.search_bodies(text, limit, offset)
-    return []
+        payload = await search_service.search(text, limit, offset)
+    return payload
 
 async def search_author_text(text: str, limit: int = 10, offset: int = 0):
     """Search authors API helper function"""
@@ -771,7 +760,7 @@ async def search_author_text(text: str, limit: int = 10, offset: int = 0):
         return await search_service.search_authors(text, limit, offset)
     return []
 
-async def get_title_search_count(text: str):
+async def get_search_count(text: str):
     """Get count of title search results"""
     if not search_service.available:
         return 0
@@ -782,20 +771,7 @@ async def get_title_search_count(text: str):
             return await search_service.cache.get_total_count(cache_key)
     
     # If not found in cache, fetch from endpoint
-    return len(await search_title_text(text, SEARCH_PREFETCH_SIZE, 0))
-
-async def get_body_search_count(text: str):
-    """Get count of body search results"""
-    if not search_service.available:
-        return 0
-        
-    if SEARCH_CACHE_ENABLED:
-        cache_key = f"body:{text}"
-        if await search_service.cache.has_query(cache_key):
-            return await search_service.cache.get_total_count(cache_key)
-    
-    # If not found in cache, fetch from endpoint
-    return len(await search_body_text(text, SEARCH_PREFETCH_SIZE, 0))
+    return len(await search_text(text, SEARCH_PREFETCH_SIZE, 0))
 
 async def get_author_search_count(text: str):
     """Get count of author search results"""
@@ -863,7 +839,7 @@ async def initialize_search_index(shouts_data):
     try:
         test_query = "test"
         # Use body search since that's most likely to return results
-        test_results = await search_body_text(test_query, 5)
+        test_results = await search_text(test_query, 5)
         
         if test_results:
             categories = set()
