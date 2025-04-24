@@ -10,7 +10,7 @@ from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from services.db import json_array_builder, json_builder, local_session
 from services.schema import query
-from services.search import search_text, get_search_count
+from services.search import search_body_text, search_title_text, search_author_text, get_body_search_count, get_title_search_count, get_author_search_count
 from services.viewed import ViewedStorage
 from utils.logger import root_logger as logger
 
@@ -393,8 +393,51 @@ async def load_shouts_search(_, info, text, options):
     offset = options.get("offset", 0)
     
     if isinstance(text, str) and len(text) > 2:
-        # Get search results with pagination
-        results = await search_text(text, limit, offset)
+        # Search in titles, bodies and combine results
+        title_results = await search_title_text(text, limit * 2, 0)
+        body_results = await search_body_text(text, limit * 2, 0)
+        
+        # Also get author search results if requested
+        include_authors = options.get("include_authors", False)
+        author_results = []
+        if include_authors:
+            author_results = await search_author_text(text, limit, 0)
+            # Process author results differently if needed
+        
+        # Combine results and deduplicate by ID
+        combined_results = {}
+        
+        # Process title results first (typically more relevant)
+        for result in title_results:
+            shout_id = result.get("id")
+            if shout_id:
+                combined_results[shout_id] = {
+                    "id": shout_id,
+                    "score": result.get("score", 0) * 1.2  # Slightly boost title matches
+                }
+        
+        # Process body results, keeping higher scores if already present
+        for result in body_results:
+            shout_id = result.get("id")
+            if shout_id:
+                if shout_id in combined_results:
+                    # Keep the higher score
+                    combined_results[shout_id]["score"] = max(
+                        combined_results[shout_id]["score"], 
+                        result.get("score", 0)
+                    )
+                else:
+                    combined_results[shout_id] = {
+                        "id": shout_id,
+                        "score": result.get("score", 0)
+                    }
+        
+        # Convert to list and sort by score
+        results = list(combined_results.values())
+        results.sort(key=lambda x: x.get("score", 0), reverse=True)
+        
+        # Apply pagination
+        results = results[offset:offset+limit]
         
         # If no results, return empty list
         if not results:
@@ -416,7 +459,6 @@ async def load_shouts_search(_, info, text, options):
         q = q.filter(Shout.id.in_(hits_ids))
         q = apply_filters(q, options.get("filters", {}))
 
-        #
         shouts = get_shouts_with_links(info, q, len(hits_ids), 0)
         
         # Add scores from search results
@@ -427,8 +469,27 @@ async def load_shouts_search(_, info, text, options):
         # Re-sort by search score to maintain ranking
         shouts.sort(key=lambda x: scores.get(str(x['id']), 0), reverse=True)
         
+        # Add author search results to the response if requested
+        if include_authors and author_results:
+            # Format author results according to your schema
+            formatted_authors = []
+            for author in author_results:
+                formatted_authors.append({
+                    "id": author.get("id"),
+                    "name": author.get("name", ""),
+                    "score": author.get("score", 0),
+                    "bio": author.get("bio", "")
+                })
+            
+            # Return combined results
+            return {
+                "shouts": shouts,
+                "authors": formatted_authors
+            }
+        
         return shouts
     return []
+
 
 
 @query.field("get_search_results_count")
@@ -442,9 +503,21 @@ async def get_search_results_count(_, info, text):
     :return: Total count of results
     """
     if isinstance(text, str) and len(text) > 2:
-        count = await get_search_count(text)
-        return {"count": count}
-    return {"count": 0}
+        # Get counts from both title and body searches
+        body_count = await get_body_search_count(text)
+        title_count = await get_title_search_count(text)
+        author_count = await get_author_search_count(text)
+        
+        # Return combined counts
+        return {
+            "count": body_count + title_count,  # Total document count
+            "details": {
+                "body_count": body_count,
+                "title_count": title_count,
+                "author_count": author_count
+            }
+        }
+    return {"count": 0, "details": {"body_count": 0, "title_count": 0, "author_count": 0}}
 
 
 @query.field("load_shouts_unrated")

@@ -615,82 +615,71 @@ class SearchService:
 
 
     #*******************
-    # Specialized search methods for titles, bodies, and authors
+    # Specialized search methods for shouts and authors
+    #*******************
     
-    async def search_titles(self, text, limit=10, offset=0):
-        """Search only in titles using the specialized endpoint"""
-        if not self.available or not text.strip():
+    async def search(self, text, limit, offset):
+        """Search documents"""
+        if not self.available:
+            return []
+        
+        if not isinstance(text, str) or not text.strip():
             return []
             
-        cache_key = f"title:{text}"
+        logger.info(f"Searching for: '{text}' (limit={limit}, offset={offset})")
         
-        # Try cache first if enabled
+        # Check if we can serve from cache
         if SEARCH_CACHE_ENABLED:
-            if await self.cache.has_query(cache_key):
-                return await self.cache.get(cache_key, limit, offset)
+            has_cache = await self.cache.has_query(text)
+            if has_cache:
+                cached_results = await self.cache.get(text, limit, offset)
+                if cached_results is not None:
+                    return cached_results
         
+        # Not in cache or cache disabled, perform new search
         try:
-            logger.info(f"Searching titles for: '{text}' (limit={limit}, offset={offset})")
+            search_limit = limit
+            search_offset = offset
+
+            if SEARCH_CACHE_ENABLED:
+                search_limit = SEARCH_PREFETCH_SIZE
+                search_offset = 0
+            else:
+                search_limit = limit
+                search_offset = offset
+                
             response = await self.client.post(
-                "/search-title",
-                json={"text": text, "limit": limit + offset}
+                "/search-combined",
+                json={"text": text, "limit": search_limit, "offset": search_offset}
             )
             response.raise_for_status()
             
             result = response.json()
-            title_results = result.get("results", [])
             
-            # Apply score filtering if needed
+            formatted_results = result.get("results", [])
+            
+            valid_results = []
+            for item in formatted_results:
+                doc_id = item.get("id")
+                if doc_id and doc_id.isdigit():
+                    valid_results.append(item)
+            
+            if len(valid_results) != len(formatted_results):
+                formatted_results = valid_results
+                
             if SEARCH_MIN_SCORE > 0:
-                title_results = [r for r in title_results if r.get("score", 0) >= SEARCH_MIN_SCORE]
-                
-            # Store in cache if enabled
+                initial_count = len(formatted_results)
+                formatted_results = [r for r in formatted_results if r.get("score", 0) >= SEARCH_MIN_SCORE]
+            
             if SEARCH_CACHE_ENABLED:
-                await self.cache.store(cache_key, title_results)
-                
-            # Apply offset/limit (API might not support it directly)
-            return title_results[offset:offset+limit]
-            
+                await self.cache.store(text, formatted_results)
+                end_idx = offset + limit
+                page_results = formatted_results[offset:end_idx]
+                return page_results
+                    
+            return formatted_results
         except Exception as e:
-            logger.error(f"Error searching titles for '{text}': {e}")
-            return []
-    
-    async def search_bodies(self, text, limit=10, offset=0):
-        """Search only in document bodies using the specialized endpoint"""
-        if not self.available or not text.strip():
-            return []
-            
-        cache_key = f"body:{text}"
-        
-        # Try cache first if enabled
-        if SEARCH_CACHE_ENABLED:
-            if await self.cache.has_query(cache_key):
-                return await self.cache.get(cache_key, limit, offset)
-        
-        try:
-            logger.info(f"Searching bodies for: '{text}' (limit={limit}, offset={offset})")
-            response = await self.client.post(
-                "/search-body",
-                json={"text": text, "limit": limit + offset}
-            )
-            response.raise_for_status()
-            
-            result = response.json()
-            body_results = result.get("results", [])
-            
-            # Apply score filtering if needed
-            if SEARCH_MIN_SCORE > 0:
-                body_results = [r for r in body_results if r.get("score", 0) >= SEARCH_MIN_SCORE]
-                
-            # Store in cache if enabled
-            if SEARCH_CACHE_ENABLED:
-                await self.cache.store(cache_key, body_results)
-                
-            # Apply offset/limit
-            return body_results[offset:offset+limit]
-            
-        except Exception as e:
-            logger.error(f"Error searching bodies for '{text}': {e}")
+            logger.error(f"Search error for '{text}': {e}", exc_info=True)
             return []
     
     async def search_authors(self, text, limit=10, offset=0):
