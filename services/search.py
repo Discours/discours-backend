@@ -563,7 +563,6 @@ class SearchService:
             
             while not success and retry_count < max_retries:
                 try:
-                    logger.info(f"Sending batch {batch_id} ({len(batch)} docs) to {endpoint}")
                     response = await self.index_client.post(
                         endpoint,
                         json=batch,
@@ -577,14 +576,12 @@ class SearchService:
                         
                     response.raise_for_status()
                     success = True
-                    logger.info(f"Successfully indexed batch {batch_id}")
                     
                 except Exception as e:
                     retry_count += 1
                     if retry_count >= max_retries:
                         if len(batch) > 1:
                             mid = len(batch) // 2
-                            logger.warning(f"Splitting batch {batch_id} into smaller batches for retry")
                             await self._process_batches(batch[:mid], batch_size // 2, endpoint, f"{batch_prefix}-{i//batch_size}-A")
                             await self._process_batches(batch[mid:], batch_size // 2, endpoint, f"{batch_prefix}-{i//batch_size}-B")
                         else:
@@ -592,7 +589,6 @@ class SearchService:
                         break
                     
                     wait_time = (2 ** retry_count) + (random.random() * 0.5)
-                    logger.warning(f"Retrying batch {batch_id} in {wait_time:.1f}s... (attempt {retry_count+1}/{max_retries})")
                     await asyncio.sleep(wait_time)
 
     def _truncate_error_detail(self, error_detail):
@@ -714,14 +710,6 @@ class SearchService:
         except Exception as e:
             logger.error(f"Error searching authors for '{text}': {e}")
             return []
-    
-    async def search(self, text, limit, offset):
-        """
-        Legacy search method that searches only bodies for backward compatibility.
-        Consider using the specialized search methods instead.
-        """
-        logger.warning("Using deprecated search() method - consider using search_bodies(), search_titles(), or search_authors()")
-        return await self.search_bodies(text, limit, offset)
     
     async def check_index_status(self):
         """Get detailed statistics about the search index health"""
