@@ -53,3 +53,66 @@ async def notify_follower(follower: dict, author_id: int, action: str = "follow"
     except Exception as e:
         # Log the error and re-raise it
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
+
+
+async def notify_draft(draft_data, action: str = "publish"):
+    """
+    Отправляет уведомление о публикации или обновлении черновика.
+    
+    Функция гарантирует, что данные черновика сериализуются корректно, включая
+    связанные атрибуты (topics, authors).
+    
+    Args:
+        draft_data (dict): Словарь с данными черновика. Должен содержать минимум id и title
+        action (str, optional): Действие ("publish", "update"). По умолчанию "publish"
+    
+    Returns:
+        None
+    
+    Examples:
+        >>> draft = {"id": 1, "title": "Тестовый черновик", "slug": "test-draft"}
+        >>> await notify_draft(draft, "publish")
+    """
+    channel_name = "draft"
+    try:
+        # Убеждаемся, что все необходимые данные присутствуют
+        # и объект не требует доступа к отсоединенным атрибутам
+        if isinstance(draft_data, dict):
+            draft_payload = draft_data
+        else:
+            # Если это ORM объект, преобразуем его в словарь с нужными атрибутами
+            draft_payload = {
+                "id": getattr(draft_data, "id", None),
+                "slug": getattr(draft_data, "slug", None),
+                "title": getattr(draft_data, "title", None),
+                "subtitle": getattr(draft_data, "subtitle", None),
+                "media": getattr(draft_data, "media", None),
+                "created_at": getattr(draft_data, "created_at", None),
+                "updated_at": getattr(draft_data, "updated_at", None)
+            }
+            
+            # Если переданы связанные атрибуты, добавим их
+            if hasattr(draft_data, "topics") and draft_data.topics is not None:
+                draft_payload["topics"] = [
+                    {"id": t.id, "name": t.name, "slug": t.slug} 
+                    for t in draft_data.topics
+                ]
+            
+            if hasattr(draft_data, "authors") and draft_data.authors is not None:
+                draft_payload["authors"] = [
+                    {"id": a.id, "name": a.name, "slug": a.slug, "pic": getattr(a, "pic", None)} 
+                    for a in draft_data.authors
+                ]
+                
+        data = {"payload": draft_payload, "action": action}
+        
+        # Сохраняем уведомление
+        save_notification(action, channel_name, data.get("payload"))
+        
+        # Публикуем в Redis
+        json_data = orjson.dumps(data)
+        if json_data:
+            await redis.publish(channel_name, json_data)
+            
+    except Exception as e:
+        logger.error(f"Failed to publish to channel {channel_name}: {e}")
