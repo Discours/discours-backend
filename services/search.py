@@ -10,6 +10,9 @@ from datetime import datetime, timedelta
 # Set up proper logging
 logger = logging.getLogger("search")
 logger.setLevel(logging.INFO)  # Change to INFO to see more details
+# Disable noise HTTP client logging
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # Configuration for search service
 SEARCH_ENABLED = bool(os.environ.get("SEARCH_ENABLED", "true").lower() in ["true", "1", "yes"])
@@ -798,28 +801,37 @@ async def initialize_search_index(shouts_data):
             if problem_docs:
                 await search_service.bulk_index(problem_docs)
     
-    db_ids = [str(shout.id) for shout in shouts_data]
-    
-    try:
-        numeric_ids = [int(sid) for sid in db_ids if sid.isdigit()]
-        if numeric_ids:
-            min_id = min(numeric_ids)
-            max_id = max(numeric_ids)
-            id_range = max_id - min_id + 1
-    except Exception as e:
-        pass
-    
+    # Only consider shouts with body content for body verification
+    def has_body_content(shout):
+        for field in ['subtitle', 'lead', 'body']:
+            if getattr(shout, field, None) and isinstance(getattr(shout, field, None), str) and getattr(shout, field).strip():
+                return True
+        media = getattr(shout, 'media', None)
+        if media:
+            if isinstance(media, str):
+                try:
+                    media_json = json.loads(media)
+                    if isinstance(media_json, dict) and (media_json.get('title') or media_json.get('body')):
+                        return True
+                except Exception:
+                    return True
+            elif isinstance(media, dict):
+                if media.get('title') or media.get('body'):
+                    return True
+        return False
+
+    shouts_with_body = [shout for shout in shouts_data if has_body_content(shout)]
+    body_ids = [str(shout.id) for shout in shouts_with_body]
+
     if abs(indexed_doc_count - len(shouts_data)) > 10:
         doc_ids = [str(shout.id) for shout in shouts_data]
-        
         verification = await search_service.verify_docs(doc_ids)
-        
         if verification.get("status") == "error":
             return
-            
-        missing_ids = verification.get("missing", [])
+        # Only reindex missing docs that actually have body content
+        missing_ids = [mid for mid in verification.get("missing", []) if mid in body_ids]
         if missing_ids:
-            missing_docs = [shout for shout in shouts_data if str(shout.id) in missing_ids]
+            missing_docs = [shout for shout in shouts_with_body if str(shout.id) in missing_ids]
             await search_service.bulk_index(missing_docs)
     else:
         pass
