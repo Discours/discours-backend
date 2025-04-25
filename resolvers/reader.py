@@ -396,38 +396,25 @@ async def load_shouts_search(_, info, text, options):
         # Get search results with pagination
         results = await search_text(text, limit, offset)
         
-        # If no results, return empty list
         if not results:
             logger.info(f"No search results found for '{text}'")
             return []
         
-        # Extract IDs and scores
-        scores = {}
-        hits_ids = []
-        for sr in results:
-            shout_id = sr.get("id")
-            if shout_id:
-                shout_id = str(shout_id)
-                scores[shout_id] = sr.get("score")
-                hits_ids.append(shout_id)
+        # Extract IDs in the order from the search engine
+        hits_ids = [str(sr.get("id")) for sr in results if sr.get("id")]
 
         # Query DB for only the IDs in the current page
         q = query_with_stat(info)
         q = q.filter(Shout.id.in_(hits_ids))
         q = apply_filters(q, options.get("filters", {}))
 
-        #
         shouts = get_shouts_with_links(info, q, len(hits_ids), 0)
-        
-        # Add scores from search results
-        for shout in shouts:
-            shout_id = str(shout['id'])
-            shout["score"] = scores.get(shout_id, 0)
 
-        # Re-sort by search score to maintain ranking
-        shouts.sort(key=lambda x: scores.get(str(x['id']), 0), reverse=True)
-        
-        return shouts
+        # Reorder shouts to match the order from hits_ids
+        shouts_dict = {str(shout['id']): shout for shout in shouts}
+        ordered_shouts = [shouts_dict[shout_id] for shout_id in hits_ids if shout_id in shouts_dict]
+
+        return ordered_shouts
     return []
 
 

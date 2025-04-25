@@ -26,9 +26,8 @@ SEARCH_CACHE_ENABLED = bool(
     os.environ.get("SEARCH_CACHE_ENABLED", "true").lower() in ["true", "1", "yes"]
 )
 SEARCH_CACHE_TTL_SECONDS = int(
-    os.environ.get("SEARCH_CACHE_TTL_SECONDS", "900")
+    os.environ.get("SEARCH_CACHE_TTL_SECONDS", "300")
 )  # Default: 15 minutes
-SEARCH_MIN_SCORE = float(os.environ.get("SEARCH_MIN_SCORE", "0.1"))
 SEARCH_PREFETCH_SIZE = int(os.environ.get("SEARCH_PREFETCH_SIZE", "200"))
 SEARCH_USE_REDIS = bool(
     os.environ.get("SEARCH_USE_REDIS", "true").lower() in ["true", "1", "yes"]
@@ -220,9 +219,6 @@ class SearchService:
             cache_location = "Redis" if SEARCH_USE_REDIS else "Memory"
             logger.info(
                 f"Search caching enabled using {cache_location} cache with TTL={SEARCH_CACHE_TTL_SECONDS}s"
-            )
-            logger.info(
-                f"Minimum score filter: {SEARCH_MIN_SCORE}, prefetch size: {SEARCH_PREFETCH_SIZE}"
             )
 
     async def info(self):
@@ -712,47 +708,32 @@ class SearchService:
         # Not in cache or cache disabled, perform new search
         try:
             search_limit = limit
-            search_offset = offset
 
             if SEARCH_CACHE_ENABLED:
                 search_limit = SEARCH_PREFETCH_SIZE
-                search_offset = 0
             else:
                 search_limit = limit
-                search_offset = offset
 
             response = await self.client.post(
                 "/search-combined",
-                json={"text": text, "limit": search_limit, "offset": search_offset},
+                json={"text": text, "limit": search_limit},
             )
             response.raise_for_status()
-
             result = response.json()
-
             formatted_results = result.get("results", [])
 
-            valid_results = []
-            for item in formatted_results:
-                doc_id = item.get("id")
-                if doc_id and doc_id.isdigit():
-                    valid_results.append(item)
+            # filter out non‑numeric IDs
+            valid_results = [r for r in formatted_results if r.get("id", "").isdigit()]
+            if len(valid_results) != len(formatted_results):
+                formatted_results = valid_results
 
             if len(valid_results) != len(formatted_results):
                 formatted_results = valid_results
 
-            if SEARCH_MIN_SCORE > 0:
-                initial_count = len(formatted_results)
-                formatted_results = [
-                    r
-                    for r in formatted_results
-                    if r.get("score", 0) >= SEARCH_MIN_SCORE
-                ]
-
             if SEARCH_CACHE_ENABLED:
+                # Store the full prefetch batch, then page it
                 await self.cache.store(text, formatted_results)
-                end_idx = offset + limit
-                page_results = formatted_results[offset:end_idx]
-                return page_results
+                return await self.cache.get(text, limit, offset)
 
             return formatted_results
         except Exception as e:
@@ -782,12 +763,6 @@ class SearchService:
 
             result = response.json()
             author_results = result.get("results", [])
-
-            # Apply score filtering if needed
-            if SEARCH_MIN_SCORE > 0:
-                author_results = [
-                    r for r in author_results if r.get("score", 0) >= SEARCH_MIN_SCORE
-                ]
 
             # Store in cache if enabled
             if SEARCH_CACHE_ENABLED:
@@ -829,7 +804,7 @@ search_service = SearchService()
 # API-compatible function to perform a search
 
 
-async def search_text(text: str, limit: int = 50, offset: int = 0):
+async def search_text(text: str, limit: int = 200, offset: int = 0):
     payload = []
     if search_service.available:
         payload = await search_service.search(text, limit, offset)
@@ -848,10 +823,8 @@ async def get_search_count(text: str):
     if not search_service.available:
         return 0
 
-    if SEARCH_CACHE_ENABLED:
-        cache_key = f"title:{text}"
-        if await search_service.cache.has_query(cache_key):
-            return await search_service.cache.get_total_count(cache_key)
+    if SEARCH_CACHE_ENABLED and await search_service.cache.has_query(text):
+        return await search_service.cache.get_total_count(text)
 
     # If not found in cache, fetch from endpoint
     return len(await search_text(text, SEARCH_PREFETCH_SIZE, 0))
