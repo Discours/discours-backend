@@ -31,7 +31,7 @@ class Draft(Base):
     __tablename__ = "draft"
     # required
     created_at: int = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    # Переименовываем колонки ID, чтобы избежать конфликта имен с relationship
+    # Колонки для связей с автором
     created_by: int = Column("created_by", ForeignKey("author.id"), nullable=False)
     community: int = Column("community", ForeignKey("community.id"), nullable=False, default=1)
 
@@ -51,13 +51,11 @@ class Draft(Base):
     # auto
     updated_at: int | None = Column(Integer, nullable=True, index=True)
     deleted_at: int | None = Column(Integer, nullable=True, index=True)
-
     updated_by: int | None = Column("updated_by", ForeignKey("author.id"), nullable=True)
     deleted_by: int | None = Column("deleted_by", ForeignKey("author.id"), nullable=True)
     
     # --- Relationships --- 
-
-    # Оставляем lazy="select" (по умолчанию) для коллекций, будем загружать их через joinedload в запросах
+    # Только many-to-many связи через вспомогательные таблицы
     authors = relationship(Author, secondary="draft_author", lazy="select")
     topics = relationship(Topic, secondary="draft_topic", lazy="select")
     

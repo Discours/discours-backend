@@ -74,7 +74,7 @@ async def load_drafts(_, info):
                 joinedload(Draft.authors)
             )
             # Фильтруем по ID автора (создатель или соавтор)
-            .filter(or_(Draft.authors.any(Author.id == author_id), Draft.created_by_id == author_id))
+            .filter(or_(Draft.authors.any(Author.id == author_id), Draft.created_by == author_id))
             .all()
         )
             
@@ -133,10 +133,10 @@ async def create_draft(_, info, draft_input):
             if "id" in draft_input:
                 del draft_input["id"]
                 
-            # Добавляем текущее время создания
+            # Добавляем текущее время создания и ID автора
             draft_input["created_at"] = int(time.time())
-            author = session.query(Author).filter(Author.id == author_id).first()
-            draft = Draft(created_by=author, **draft_input)
+            draft_input["created_by"] = author_id
+            draft = Draft(**draft_input)
             session.add(draft)
             session.commit()
             return {"draft": draft}
@@ -223,7 +223,7 @@ async def update_draft(_, info, draft_id: int, draft_input):
         # Set updated timestamp and author
         current_time = int(time.time())
         draft.updated_at = current_time
-        draft.updated_by = author_id # Assuming author_id is correctly fetched context
+        draft.updated_by = author_id # Используем ID напрямую
 
         session.commit()
         # Invalidate cache related to this draft if necessary (consider adding)
