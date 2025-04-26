@@ -314,6 +314,41 @@ async def delete_draft(_, info, draft_id: int):
         return {"draft": draft}
 
 
+def validate_html_content(html_content: str) -> tuple[bool, str]:
+    """
+    Проверяет валидность HTML контента через trafilatura.
+    
+    Args:
+        html_content: HTML строка для проверки
+        
+    Returns:
+        tuple[bool, str]: (валидность, сообщение об ошибке)
+        
+    Example:
+        >>> is_valid, error = validate_html_content("<p>Valid HTML</p>")
+        >>> is_valid
+        True
+        >>> error
+        ''
+        >>> is_valid, error = validate_html_content("Invalid < HTML")
+        >>> is_valid
+        False
+        >>> 'Invalid HTML' in error
+        True
+    """
+    if not html_content or not html_content.strip():
+        return False, "Content is empty"
+        
+    try:
+        extracted = trafilatura.extract(html_content)
+        if not extracted:
+            return False, "Invalid HTML structure or empty content"
+        return True, ""
+    except Exception as e:
+        logger.error(f"HTML validation error: {e}", exc_info=True)
+        return False, f"Invalid HTML content: {str(e)}"
+
+
 @mutation.field("publish_draft")
 @login_required
 async def publish_draft(_, info, draft_id: int):
@@ -343,9 +378,10 @@ async def publish_draft(_, info, draft_id: int):
             if not draft:
                 return {"error": "Draft not found"}
 
-            # Проверка на пустой body
-            if not draft.body or not draft.body.strip():
-                return {"error": "Draft body is empty, cannot publish."}
+            # Проверка валидности HTML в body
+            is_valid, error = validate_html_content(draft.body)
+            if not is_valid:
+                return {"error": f"Cannot publish draft: {error}"}
 
             # Ищем существующий shout для этого черновика
             shout = session.query(Shout).filter(Shout.draft == draft_id).first()
