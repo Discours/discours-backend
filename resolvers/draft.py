@@ -24,6 +24,28 @@ from services.search import search_service
 from utils.logger import root_logger as logger
 
 def create_shout_from_draft(session, draft, author_id):
+    """
+    Создаёт новый объект публикации (Shout) на основе черновика.
+
+    Args:
+        session: SQLAlchemy сессия (не используется, для совместимости)
+        draft (Draft): Объект черновика
+        author_id (int): ID автора публикации
+
+    Returns:
+        Shout: Новый объект публикации (не сохранённый в базе)
+
+    Пример:
+        >>> from orm.draft import Draft
+        >>> draft = Draft(id=1, title='Заголовок', body='Текст', slug='slug', created_by=1)
+        >>> shout = create_shout_from_draft(None, draft, 1)
+        >>> shout.title
+        'Заголовок'
+        >>> shout.body
+        'Текст'
+        >>> shout.created_by
+        1
+    """
     # Создаем новую публикацию
     shout = Shout(
         body=draft.body,
@@ -328,6 +350,7 @@ async def publish_draft(_, info, draft_id: int):
             if not shout:
                 # Создаем новый shout если не существует
                 shout = create_shout_from_draft(session, draft, author_id)
+                shout.published_at = now
             else:
                 # Обновляем существующую публикацию
                 shout.draft = draft.id
@@ -342,34 +365,37 @@ async def publish_draft(_, info, draft_id: int):
                 shout.media = draft.media
                 shout.lang = draft.lang
                 shout.seo = draft.seo
-
-                draft.updated_at = now
                 shout.updated_at = now
-
+                
                 # Устанавливаем published_at только если была ранее снята с публикации
                 if not was_published:
                     shout.published_at = now
 
-            # Обрабатываем связи с авторами
-            if (
-                not session.query(ShoutAuthor)
-                .filter(and_(ShoutAuthor.shout == shout.id, ShoutAuthor.author == author_id))
-                .first()
-            ):
-                sa = ShoutAuthor(shout=shout.id, author=author_id)
-                session.add(sa)
+            # Сохраняем shout перед созданием связей
+            session.add(shout)
+            session.flush()
 
-            # Обрабатываем темы
+            # Очищаем существующие связи
+            session.query(ShoutAuthor).filter(ShoutAuthor.shout == shout.id).delete()
+            session.query(ShoutTopic).filter(ShoutTopic.shout == shout.id).delete()
+
+            # Добавляем автора
+            sa = ShoutAuthor(shout=shout.id, author=author_id)
+            session.add(sa)
+
+            # Добавляем темы если есть
             if draft.topics:
                 for topic in draft.topics:
                     st = ShoutTopic(
-                        topic=topic.id, shout=shout.id, main=topic.main if hasattr(topic, "main") else False
+                        topic=topic.id, 
+                        shout=shout.id, 
+                        main=topic.main if hasattr(topic, "main") else False
                     )
                     session.add(st)
 
-            session.add(shout)
+            # Обновляем черновик
+            draft.updated_at = now
             session.add(draft)
-            session.flush()
 
             # Инвалидируем кэш только если это новая публикация или была снята с публикации
             if not was_published:
