@@ -343,6 +343,10 @@ async def publish_draft(_, info, draft_id: int):
             if not draft:
                 return {"error": "Draft not found"}
 
+            # Проверка на пустой body
+            if not draft.body or not draft.body.strip():
+                return {"error": "Draft body is empty, cannot publish."}
+
             # Ищем существующий shout для этого черновика
             shout = session.query(Shout).filter(Shout.draft == draft_id).first()
             was_published = shout.published_at if shout else None
