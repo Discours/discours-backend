@@ -135,8 +135,8 @@ async def create_draft(_, info, draft_input):
                 
             # Добавляем текущее время создания
             draft_input["created_at"] = int(time.time())
-
-            draft = Draft(created_by=author_id, **draft_input)
+            author = session.query(Author).filter(Author.id == author_id).first()
+            draft = Draft(created_by=author, **draft_input)
             session.add(draft)
             session.commit()
             return {"draft": draft}
