@@ -289,7 +289,9 @@ async def update_draft(_, info, draft_id: int, draft_input):
             draft_dict = draft.dict()
             draft_dict["topics"] = [topic.dict() for topic in draft.topics]
             draft_dict["authors"] = [author.dict() for author in draft.authors]
-            draft_dict["updated_by"] = author_id
+            # Добавляем объект автора в updated_by
+            draft_dict["updated_by"] = author_dict
+            
             return {"draft": draft_dict}
 
     except Exception as e:
@@ -466,7 +468,8 @@ async def publish_draft(_, info, draft_id: int):
 
             session.commit()
             shout_dict = shout.dict()
-            shout_dict["updated_by"] = author_id
+            # Добавляем объект автора в updated_by
+            shout_dict["updated_by"] = author_dict
             return {"shout": shout_dict}
 
     except Exception as e:
