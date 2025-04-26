@@ -64,21 +64,32 @@ async def load_drafts(_, info):
     if not user_id or not author_id:
         return {"error": "User ID and author ID are required"}
 
-    with local_session() as session:
-        # Предзагружаем authors и topics, т.к. они lazy='select' в модели
-        # created_by, updated_by, deleted_by загрузятся автоматически (lazy='joined')
-        drafts = (
-            session.query(Draft)
-            .options(
-                joinedload(Draft.topics),
-                joinedload(Draft.authors)
+    try:
+        with local_session() as session:
+            # Предзагружаем authors и topics
+            drafts = (
+                session.query(Draft)
+                .options(
+                    joinedload(Draft.topics),
+                    joinedload(Draft.authors)
+                )
+                # Фильтруем по ID автора (создатель или соавтор)
+                .filter(or_(Draft.authors.any(Author.id == author_id), Draft.created_by == author_id))
+                .all()
             )
-            # Фильтруем по ID автора (создатель или соавтор)
-            .filter(or_(Draft.authors.any(Author.id == author_id), Draft.created_by == author_id))
-            .all()
-        )
             
-    return {"drafts": drafts}
+            # Преобразуем объекты в словари, пока они в контексте сессии
+            drafts_data = []
+            for draft in drafts:
+                draft_dict = draft.dict()
+                draft_dict["topics"] = [topic.dict() for topic in draft.topics]
+                draft_dict["authors"] = [author.dict() for author in draft.authors]
+                drafts_data.append(draft_dict)
+                
+            return {"drafts": drafts_data}
+    except Exception as e:
+        logger.error(f"Failed to load drafts: {e}", exc_info=True)
+        return {"error": f"Failed to load drafts: {str(e)}"}
 
 
 @mutation.field("create_draft")
@@ -272,17 +283,17 @@ async def publish_draft(_, info, draft_id: int):
     
     try:
         with local_session() as session:
-            shout_id = session.query(Draft.shout).filter(Draft.id == draft_id).first()
-            shout = session.query(Shout).filter(Shout.id == shout_id).first()
-            if not shout:
-                return {"error": "Shout not found"}
-            was_published = shout.published_at is not None
-            draft = session.query(Draft).where(Draft.id == shout.draft).first()
+            # Сначала находим черновик
+            draft = session.query(Draft).filter(Draft.id == draft_id).first()
             if not draft:
                 return {"error": "Draft not found"}
-            # Находим черновик если не передан
+
+            # Ищем существующий shout для этого черновика
+            shout = session.query(Shout).filter(Shout.draft == draft_id).first()
+            was_published = shout.published_at if shout else None
 
             if not shout:
+                # Создаем новый shout если не существует
                 shout = create_shout_from_draft(session, draft, author_id)
             else:
                 # Обновляем существующую публикацию
