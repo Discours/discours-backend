@@ -1,14 +1,15 @@
 from asyncio.log import logger
 
 import httpx
-from ariadne import MutationType, QueryType
+from ariadne import MutationType, ObjectType, QueryType
 
 from services.db import create_table_if_not_exists, local_session
 from settings import AUTH_URL
 
 query = QueryType()
 mutation = MutationType()
-resolvers = [query, mutation]
+type_draft = ObjectType("Draft")
+resolvers = [query, mutation, type_draft]
 
 
 async def request_graphql_data(gql, url=AUTH_URL, headers=None):

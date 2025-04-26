@@ -19,10 +19,9 @@ from orm.topic import Topic
 from services.auth import login_required
 from services.db import local_session
 from services.notify import notify_shout, notify_draft
-from services.schema import mutation, query
+from services.schema import mutation, query, type_draft
 from services.search import search_service
 from utils.logger import root_logger as logger
-
 
 def create_shout_from_draft(session, draft, author_id):
     # Создаем новую публикацию
@@ -49,6 +48,15 @@ def create_shout_from_draft(session, draft, author_id):
 @query.field("load_drafts")
 @login_required
 async def load_drafts(_, info):
+    """
+    Загружает все черновики, доступные текущему пользователю.
+    
+    Предварительно загружает связанные объекты (topics, authors), чтобы избежать
+    ошибок с отсоединенными объектами при сериализации.
+    
+    Returns:
+        dict: Список черновиков или сообщение об ошибке
+    """
     user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
@@ -59,9 +67,14 @@ async def load_drafts(_, info):
     with local_session() as session:
         drafts = (
             session.query(Draft)
+            .options(
+                joinedload(Draft.topics),
+                joinedload(Draft.authors)
+            )
             .filter(or_(Draft.authors.any(Author.id == author_id), Draft.created_by == author_id))
             .all()
         )
+            
     return {"drafts": drafts}
 
 
@@ -515,3 +528,77 @@ async def unpublish_shout(_, info, shout_id: int):
             return {"error": "Failed to unpublish shout"}
 
     return {"shout": shout}
+
+# Добавляем резолверы для полей типа Draft
+@type_draft.field("authors")
+def resolve_draft_authors(draft, info):
+    """
+    Резолвер для поля authors типа Draft.
+    
+    Безопасно загружает связанные объекты authors для объекта Draft,
+    используя новую сессию для предотвращения ошибок с отсоединенными объектами.
+    
+    Args:
+        draft: Объект Draft
+        info: Контекст GraphQL запроса
+        
+    Returns:
+        list: Список авторов или пустой список в случае ошибки
+    """
+    try:
+        # Пробуем использовать уже загруженные авторы, если есть
+        if draft.authors and not isinstance(draft.authors, property):
+            return draft.authors
+            
+        # Загружаем с новой сессией
+        with local_session() as session:
+            loaded_draft = (
+                session.query(Draft)
+                .options(joinedload(Draft.authors))
+                .filter(Draft.id == draft.id)
+                .first()
+            )
+            return loaded_draft.authors if loaded_draft else []
+                
+    except Exception as e:
+        logger.error(f"Error resolving draft authors: {e}")
+    
+    # Возвращаем пустой список в случае ошибки
+    return []
+    
+    
+@type_draft.field("topics")
+def resolve_draft_topics(draft, info):
+    """
+    Резолвер для поля topics типа Draft.
+    
+    Безопасно загружает связанные объекты topics для объекта Draft,
+    используя новую сессию для предотвращения ошибок с отсоединенными объектами.
+    
+    Args:
+        draft: Объект Draft
+        info: Контекст GraphQL запроса
+        
+    Returns:
+        list: Список тем или пустой список в случае ошибки
+    """
+    try:
+        # Пробуем использовать уже загруженные темы, если есть
+        if draft.topics and not isinstance(draft.topics, property):
+            return draft.topics
+            
+        # Загружаем с новой сессией
+        with local_session() as session:
+            loaded_draft = (
+                session.query(Draft)
+                .options(joinedload(Draft.topics))
+                .filter(Draft.id == draft.id)
+                .first()
+            )
+            return loaded_draft.topics if loaded_draft else []
+                
+    except Exception as e:
+        logger.error(f"Error resolving draft topics: {e}")
+    
+    # Возвращаем пустой список в случае ошибки
+    return []
