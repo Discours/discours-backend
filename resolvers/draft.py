@@ -13,7 +13,7 @@ from cache.cache import (
     invalidate_shouts_cache,
 )
 from orm.author import Author
-from orm.draft import Draft
+from orm.draft import Draft, DraftAuthor, DraftTopic
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from services.auth import login_required
@@ -168,7 +168,21 @@ async def update_draft(_, info, draft_id: int, draft_input):
 
     Args:
         draft_id: ID черновика для обновления
-        draft_input: Данные для обновления черновика
+        draft_input: Данные для обновления черновика согласно схеме DraftInput:
+            - layout: String
+            - author_ids: [Int!]
+            - topic_ids: [Int!]
+            - main_topic_id: Int
+            - media: [MediaItemInput]
+            - lead: String
+            - subtitle: String
+            - lang: String
+            - seo: String
+            - body: String
+            - title: String
+            - slug: String
+            - cover: String
+            - cover_caption: String
 
     Returns:
         dict: Обновленный черновик или сообщение об ошибке
@@ -180,66 +194,85 @@ async def update_draft(_, info, draft_id: int, draft_input):
     if not user_id or not author_id:
         return {"error": "Author ID are required"}
 
-    # Проверяем slug - он должен быть или не пустым, или не передаваться вообще
-    if "slug" in draft_input and (draft_input["slug"] is None or draft_input["slug"] == ""):
-        # Если slug пустой, либо удаляем его из входных данных, либо генерируем временный уникальный
-        # Вариант 1: просто удаляем ключ из входных данных, чтобы оставить старое значение
-        del draft_input["slug"]
-        # Вариант 2 (если нужно обновить): генерируем временный уникальный slug
-        # import uuid
-        # draft_input["slug"] = f"draft-{uuid.uuid4().hex[:8]}"
+    try:
+        with local_session() as session:
+            draft = session.query(Draft).filter(Draft.id == draft_id).first()
+            if not draft:
+                return {"error": "Draft not found"}
 
-    with local_session() as session:
-        draft = session.query(Draft).filter(Draft.id == draft_id).first()
-        if not draft:
-            return {"error": "Draft not found"}
+            # Фильтруем входные данные, оставляя только разрешенные поля
+            allowed_fields = {
+                "layout", "author_ids", "topic_ids", "main_topic_id", 
+                "media", "lead", "subtitle", "lang", "seo", "body", 
+                "title", "slug", "cover", "cover_caption"
+            }
+            filtered_input = {k: v for k, v in draft_input.items() if k in allowed_fields}
 
-        # Generate SEO description if not provided and not already set
-        if "seo" not in draft_input and not draft.seo:
-            body_src = draft_input.get("body") if "body" in draft_input else draft.body
-            lead_src = draft_input.get("lead") if "lead" in draft_input else draft.lead
+            # Проверяем slug
+            if "slug" in filtered_input and not filtered_input["slug"]:
+                del filtered_input["slug"]
 
-            body_text = None
-            if body_src:
+            # Обновляем связи с авторами если переданы
+            if "author_ids" in filtered_input:
+                author_ids = filtered_input.pop("author_ids")
+                if author_ids:
+                    # Очищаем текущие связи
+                    session.query(DraftAuthor).filter(DraftAuthor.shout == draft_id).delete()
+                    # Добавляем новые связи
+                    for aid in author_ids:
+                        da = DraftAuthor(shout=draft_id, author=aid)
+                        session.add(da)
+
+            # Обновляем связи с темами если переданы
+            if "topic_ids" in filtered_input:
+                topic_ids = filtered_input.pop("topic_ids")
+                main_topic_id = filtered_input.pop("main_topic_id", None)
+                if topic_ids:
+                    # Очищаем текущие связи
+                    session.query(DraftTopic).filter(DraftTopic.shout == draft_id).delete()
+                    # Добавляем новые связи
+                    for tid in topic_ids:
+                        dt = DraftTopic(
+                            shout=draft_id, 
+                            topic=tid,
+                            main=(tid == main_topic_id) if main_topic_id else False
+                        )
+                        session.add(dt)
+
+            # Генерируем SEO если не предоставлено
+            if "seo" not in filtered_input and not draft.seo:
+                body_src = filtered_input.get("body", draft.body)
+                lead_src = filtered_input.get("lead", draft.lead)
+                
                 try:
-                    # Extract text, excluding comments and tables
-                    body_text = trafilatura.extract(body_src, include_comments=False, include_tables=False)
+                    body_text = trafilatura.extract(body_src, include_comments=False, include_tables=False) if body_src else None
+                    lead_text = trafilatura.extract(lead_src, include_comments=False, include_tables=False) if lead_src else None
+                    
+                    body_teaser = generate_teaser(body_text, 300) if body_text else ""
+                    filtered_input["seo"] = lead_text if lead_text else body_teaser
                 except Exception as e:
-                    logger.warning(f"Trafilatura failed to extract body text for draft {draft_id}: {e}")
+                    logger.warning(f"Failed to generate SEO for draft {draft_id}: {e}")
 
-            lead_text = None
-            if lead_src:
-                try:
-                    # Extract text from lead
-                    lead_text = trafilatura.extract(lead_src, include_comments=False, include_tables=False)
-                except Exception as e:
-                    logger.warning(f"Trafilatura failed to extract lead text for draft {draft_id}: {e}")
+            # Обновляем основные поля черновика
+            for key, value in filtered_input.items():
+                setattr(draft, key, value)
 
-            # Generate body teaser only if body_text was successfully extracted
-            body_teaser = generate_teaser(body_text, 300) if body_text else ""
+            # Обновляем метаданные
+            draft.updated_at = int(time.time())
+            draft.updated_by = author_id
 
-            # Prioritize lead_text for SEO, fallback to body_teaser. Ensure it's a string.
-            generated_seo = lead_text if lead_text else body_teaser
-            draft_input["seo"] = generated_seo if generated_seo else ""
+            session.commit()
+            
+            # Преобразуем объект в словарь для ответа
+            draft_dict = draft.dict()
+            draft_dict["topics"] = [topic.dict() for topic in draft.topics]
+            draft_dict["authors"] = [author.dict() for author in draft.authors]
+            
+            return {"draft": draft_dict}
 
-        # Update the draft object with new data from draft_input
-        # Assuming Draft.update is a helper that iterates keys or similar.
-        # A more standard SQLAlchemy approach would be:
-        # for key, value in draft_input.items():
-        #     if hasattr(draft, key):
-        #         setattr(draft, key, value)
-        # But we stick to the existing pattern for now.
-        Draft.update(draft, draft_input)
-
-        # Set updated timestamp and author
-        current_time = int(time.time())
-        draft.updated_at = current_time
-        draft.updated_by = author_id # Используем ID напрямую
-
-        session.commit()
-        # Invalidate cache related to this draft if necessary (consider adding)
-        # await invalidate_draft_cache(draft_id)
-        return {"draft": draft}
+    except Exception as e:
+        logger.error(f"Failed to update draft: {e}", exc_info=True)
+        return {"error": f"Failed to update draft: {str(e)}"}
 
 
 @mutation.field("delete_draft")
