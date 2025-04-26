@@ -3,6 +3,7 @@ from operator import or_
 
 import trafilatura
 from sqlalchemy.sql import and_
+from sqlalchemy.orm import joinedload
 
 from cache.cache import (
     cache_author,
@@ -17,7 +18,7 @@ from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from services.auth import login_required
 from services.db import local_session
-from services.notify import notify_shout
+from services.notify import notify_shout, notify_draft
 from services.schema import mutation, query
 from services.search import search_service
 from utils.logger import root_logger as logger
@@ -234,6 +235,17 @@ async def delete_draft(_, info, draft_id: int):
 @mutation.field("publish_draft")
 @login_required
 async def publish_draft(_, info, draft_id: int):
+    """Публикует черновик в виде публикации (shout).
+    
+    Загружает связанные объекты (topics, authors) заранее, чтобы избежать ошибок
+    с отсоединенными объектами при сериализации.
+    
+    Args:
+        draft_id: ID черновика для публикации
+        
+    Returns:
+        dict: Опубликованная публикация и черновик или сообщение об ошибке
+    """
     user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
@@ -241,18 +253,78 @@ async def publish_draft(_, info, draft_id: int):
         return {"error": "User ID and author ID are required"}
 
     with local_session() as session:
-        draft = session.query(Draft).filter(Draft.id == draft_id).first()
+        # Загружаем черновик со связанными объектами (topics, authors)
+        draft = (
+            session.query(Draft)
+            .options(
+                joinedload(Draft.topics),
+                joinedload(Draft.authors)
+            )
+            .filter(Draft.id == draft_id)
+            .first()
+        )
+        
         if not draft:
             return {"error": "Draft not found"}
+            
+        # Создаем публикацию из черновика
         shout = create_shout_from_draft(session, draft, author_id)
         session.add(shout)
+        
+        # Добавляем авторов публикации
+        sa = ShoutAuthor(shout=shout.id, author=author_id)
+        session.add(sa)
+        
+        # Добавляем темы публикации, если они есть
+        if draft.topics:
+            for topic in draft.topics:
+                st = ShoutTopic(
+                    topic=topic.id, 
+                    shout=shout.id, 
+                    main=getattr(topic, "main", False)
+                )
+                session.add(st)
+                
+        # Фиксируем изменения
+        session.flush()
+        
+        # Отправляем уведомления
+        try:
+            # Преобразуем черновик в словарь для уведомления
+            draft_dict = draft.__dict__.copy()
+            # Удаляем служебные поля SQLAlchemy
+            draft_dict.pop('_sa_instance_state', None)
+            # Отправляем уведомление
+            await notify_draft(draft_dict, action="publish")
+        except Exception as e:
+            logger.error(f"Failed to send notification for draft {draft_id}: {e}")
+            
         session.commit()
+        
+        # Инвалидируем кэш после публикации
+        try:
+            await invalidate_shouts_cache()
+            await invalidate_shout_related_cache(shout.slug)
+        except Exception as e:
+            logger.error(f"Failed to invalidate cache: {e}")
+            
         return {"shout": shout, "draft": draft}
 
 
 @mutation.field("unpublish_draft")
 @login_required
 async def unpublish_draft(_, info, draft_id: int):
+    """Снимает черновик с публикации.
+    
+    Загружает связанные объекты заранее, чтобы избежать ошибок с отсоединенными
+    объектами при сериализации.
+    
+    Args:
+        draft_id: ID черновика
+        
+    Returns:
+        dict: Снятый с публикации черновик и публикация или сообщение об ошибке
+    """
     user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
@@ -260,14 +332,47 @@ async def unpublish_draft(_, info, draft_id: int):
         return {"error": "User ID and author ID are required"}
 
     with local_session() as session:
-        draft = session.query(Draft).filter(Draft.id == draft_id).first()
+        # Загружаем черновик со связанными объектами
+        draft = (
+            session.query(Draft)
+            .options(
+                joinedload(Draft.topics),
+                joinedload(Draft.authors)
+            )
+            .filter(Draft.id == draft_id)
+            .first()
+        )
+        
         if not draft:
             return {"error": "Draft not found"}
+            
         shout = session.query(Shout).filter(Shout.draft == draft.id).first()
         if shout:
             shout.published_at = None
+            
+            # Отправляем уведомления
+            try:
+                # Преобразуем черновик в словарь для уведомления
+                draft_dict = draft.__dict__.copy()
+                # Удаляем служебные поля SQLAlchemy
+                draft_dict.pop('_sa_instance_state', None)
+                # Отправляем уведомление
+                await notify_draft(draft_dict, action="unpublish")
+            except Exception as e:
+                logger.error(f"Failed to send notification for draft {draft_id}: {e}")
+                
             session.commit()
+            
+            # Инвалидируем кэш после снятия с публикации
+            try:
+                await invalidate_shouts_cache()
+                if shout.slug:
+                    await invalidate_shout_related_cache(shout.slug)
+            except Exception as e:
+                logger.error(f"Failed to invalidate cache: {e}")
+                
             return {"shout": shout, "draft": draft}
+            
         return {"error": "Failed to unpublish draft"}
 
 
