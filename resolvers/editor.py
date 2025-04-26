@@ -13,6 +13,7 @@ from cache.cache import (
     invalidate_shouts_cache,
 )
 from orm.author import Author
+from orm.draft import Draft
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from resolvers.follower import follow, unfollow
