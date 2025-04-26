@@ -16,8 +16,10 @@ from resolvers.draft import (
     delete_draft,
     load_drafts,
     publish_draft,
-    unpublish_draft,
     update_draft,
+)
+from resolvers.editor import (
+    unpublish_shout,
 )
 from resolvers.feed import (
     load_shouts_coauthored,

@@ -26,12 +26,14 @@ class DraftAuthor(Base):
     caption = Column(String, nullable=True, default="")
 
 
+
 class Draft(Base):
     __tablename__ = "draft"
     # required
     created_at: int = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    created_by: int = Column(ForeignKey("author.id"), nullable=False)
-    community: int = Column(ForeignKey("community.id"), nullable=False, default=1)
+    # Переименовываем колонки ID, чтобы избежать конфликта имен с relationship
+    created_by: int = Column("created_by", ForeignKey("author.id"), nullable=False)
+    community: int = Column("community", ForeignKey("community.id"), nullable=False, default=1)
 
     # optional
     layout: str = Column(String, nullable=True, default="article")
@@ -49,7 +51,20 @@ class Draft(Base):
     # auto
     updated_at: int | None = Column(Integer, nullable=True, index=True)
     deleted_at: int | None = Column(Integer, nullable=True, index=True)
-    updated_by: int | None = Column(ForeignKey("author.id"), nullable=True)
-    deleted_by: int | None = Column(ForeignKey("author.id"), nullable=True)
-    authors = relationship(Author, secondary="draft_author")
-    topics = relationship(Topic, secondary="draft_topic")
+    # Переименовываем колонки ID
+    updated_by: int | None = Column("updated_by", ForeignKey("author.id"), nullable=True)
+    deleted_by: int | None = Column("deleted_by", ForeignKey("author.id"), nullable=True)
+    
+    # --- Relationships --- 
+    # Загружаем этих авторов сразу, т.к. они часто нужны и их немного (обычно 1)
+    created_by = relationship("Author", foreign_keys=[created_by], lazy="joined", innerjoin=True)
+    updated_by = relationship("Author", foreign_keys=[updated_by], lazy="joined")
+    deleted_by = relationship("Author", foreign_keys=[deleted_by], lazy="joined")
+    
+    # Оставляем lazy="select" (по умолчанию) для коллекций, будем загружать их через joinedload в запросах
+    authors = relationship(Author, secondary="draft_author", lazy="select")
+    topics = relationship(Topic, secondary="draft_topic", lazy="select")
+    
+    # Связь с Community (если нужна как объект, а не ID)
+    # community = relationship("Community", foreign_keys=[community_id], lazy="joined")
+    # Пока оставляем community_id как ID

@@ -20,7 +20,7 @@ from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session
 from services.notify import notify_shout
-from services.schema import query
+from services.schema import mutation, query
 from services.search import search_service
 from utils.logger import root_logger as logger
 
@@ -681,3 +681,77 @@ def get_main_topic(topics):
 
     logger.warning("No valid topics found, returning default")
     return {"slug": "notopic", "title": "no topic", "id": 0, "is_main": True}
+
+
+
+@mutation.field("unpublish_shout")
+@login_required
+async def unpublish_shout(_, info, shout_id: int):
+    """Снимает публикацию (shout) с публикации.
+
+    Предзагружает связанный черновик (draft) и его авторов/темы, чтобы избежать
+    ошибок при последующем доступе к ним в GraphQL.
+
+    Args:
+        shout_id: ID публикации для снятия с публикации
+
+    Returns:
+        dict: Снятая с публикации публикация или сообщение об ошибке
+    """
+    author_dict = info.context.get("author", {})
+    author_id = author_dict.get("id")
+    if not author_id:
+        # В идеале нужна проверка прав, имеет ли автор право снимать публикацию
+        return {"error": "Author ID is required"}
+
+    shout = None
+    with local_session() as session:
+        try:
+            # Загружаем Shout с предзагрузкой draft и его связей authors/topics
+            # Используем selectinload для коллекций authors/topics внутри draft - 
+            # это может быть эффективнее joinedload, если draft один.
+            shout = (
+                session.query(Shout)
+                .options(
+                    joinedload(Shout.draft) # Загружаем сам черновик
+                    .selectinload(Draft.authors), # Загружаем авторов черновика через отдельный запрос
+                    joinedload(Shout.draft) 
+                    .selectinload(Draft.topics)   # Загружаем темы черновика через отдельный запрос
+                    # Также предзагружаем авторов самой публикации, если они нужны для проверки прав или возврата
+                    # selectinload(Shout.authors) 
+                )
+                .filter(Shout.id == shout_id)
+                .first()
+            )
+            
+            if not shout:
+                 logger.warning(f"Shout not found for unpublish: ID {shout_id}")
+                 return {"error": "Shout not found"} 
+
+            # TODO: Добавить проверку прав доступа, если необходимо
+            # if author_id not in [a.id for a in shout.authors]: # Требует selectinload(Shout.authors) выше
+            #    logger.warning(f"Author {author_id} denied unpublishing shout {shout_id}")
+            #    return {"error": "Access denied"}
+
+            shout.published_at = None
+            session.commit()
+
+            # Инвалидация кэша
+            try:
+                # Передаем slug или ID, если slug нет
+                cache_key = shout.slug if shout.slug else shout.id
+                await invalidate_shout_related_cache(cache_key) 
+                await invalidate_shouts_cache()
+                logger.info(f"Cache invalidated after unpublishing shout {shout_id}")
+            except Exception as cache_err:
+                 logger.error(f"Failed to invalidate cache for unpublish shout {shout_id}: {cache_err}")
+
+
+        except Exception as e: 
+            session.rollback()
+            logger.error(f"Failed to unpublish shout {shout_id}: {e}", exc_info=True) 
+            return {"error": "Failed to unpublish shout"}
+
+    # Возвращаем объект shout с предзагруженным draft и его связями
+    logger.info(f"Shout {shout_id} unpublished successfully by author {author_id}")
+    return {"shout": shout}
