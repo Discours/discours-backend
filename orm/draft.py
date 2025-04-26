@@ -51,16 +51,12 @@ class Draft(Base):
     # auto
     updated_at: int | None = Column(Integer, nullable=True, index=True)
     deleted_at: int | None = Column(Integer, nullable=True, index=True)
-    # Переименовываем колонки ID
+
     updated_by: int | None = Column("updated_by", ForeignKey("author.id"), nullable=True)
     deleted_by: int | None = Column("deleted_by", ForeignKey("author.id"), nullable=True)
     
     # --- Relationships --- 
-    # Загружаем этих авторов сразу, т.к. они часто нужны и их немного (обычно 1)
-    created_by = relationship("Author", foreign_keys=[created_by], lazy="joined", innerjoin=True)
-    updated_by = relationship("Author", foreign_keys=[updated_by], lazy="joined")
-    deleted_by = relationship("Author", foreign_keys=[deleted_by], lazy="joined")
-    
+
     # Оставляем lazy="select" (по умолчанию) для коллекций, будем загружать их через joinedload в запросах
     authors = relationship(Author, secondary="draft_author", lazy="select")
     topics = relationship(Topic, secondary="draft_topic", lazy="select")
