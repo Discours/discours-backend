@@ -21,6 +21,7 @@ from services.db import local_session
 from services.notify import notify_shout
 from services.schema import mutation, query
 from services.search import search_service
+from utils.html_wrapper import wrap_html_fragment
 from utils.logger import root_logger as logger
 
 def create_shout_from_draft(session, draft, author_id):
@@ -183,7 +184,8 @@ async def create_draft(_, info, draft_input):
         return {"error": f"Failed to create draft: {str(e)}"}
 
 def generate_teaser(body, limit=300):
-    body_text = trafilatura.extract(body, include_comments=False, include_tables=False)
+    body_html = wrap_html_fragment(body)
+    body_text = trafilatura.extract(body_html, include_comments=False, include_tables=False)
     body_teaser = ". ".join(body_text[:limit].split(". ")[:-1])
     return body_teaser
 
@@ -270,10 +272,12 @@ async def update_draft(_, info, draft_id: int, draft_input):
             if "seo" not in filtered_input and not draft.seo:
                 body_src = filtered_input.get("body", draft.body)
                 lead_src = filtered_input.get("lead", draft.lead)
+                body_html = wrap_html_fragment(body_src)
+                lead_html = wrap_html_fragment(lead_src)
                 
                 try:
-                    body_text = trafilatura.extract(body_src, include_comments=False, include_tables=False) if body_src else None
-                    lead_text = trafilatura.extract(lead_src, include_comments=False, include_tables=False) if lead_src else None
+                    body_text = trafilatura.extract(body_html, include_comments=False, include_tables=False) if body_src else None
+                    lead_text = trafilatura.extract(lead_html, include_comments=False, include_tables=False) if lead_src else None
                     
                     body_teaser = generate_teaser(body_text, 300) if body_text else ""
                     filtered_input["seo"] = lead_text if lead_text else body_teaser
@@ -347,6 +351,7 @@ def validate_html_content(html_content: str) -> tuple[bool, str]:
         return False, "Content is empty"
         
     try:
+        html_content = wrap_html_fragment(html_content)
         extracted = trafilatura.extract(html_content)
         if not extracted:
             return False, "Invalid HTML structure or empty content"

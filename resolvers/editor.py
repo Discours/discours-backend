@@ -23,6 +23,7 @@ from services.db import local_session
 from services.notify import notify_shout
 from services.schema import mutation, query
 from services.search import search_service
+from utils.html_wrapper import wrap_html_fragment
 from utils.logger import root_logger as logger
 
 
@@ -180,9 +181,11 @@ async def create_shout(_, info, inp):
                 # Создаем публикацию без topics
                 body = inp.get("body", "")
                 lead = inp.get("lead", "")
-                body_text = trafilatura.extract(body)
-                lead_text = trafilatura.extract(lead)
-                seo = inp.get("seo", lead_text or body_text[:300].split(". ")[:-1].join(". "))
+                body_html = wrap_html_fragment(body)
+                lead_html = wrap_html_fragment(lead)
+                body_text = trafilatura.extract(body_html)
+                lead_text = trafilatura.extract(lead_html)
+                seo = inp.get("seo", lead_text.strip() or body_text.strip()[:300].split(". ")[:-1].join(". "))
                 new_shout = Shout(
                     slug=slug,
                     body=body,
