@@ -95,8 +95,7 @@ async def load_drafts(_, info):
                     joinedload(Draft.topics),
                     joinedload(Draft.authors)
                 )
-                # Фильтруем по ID автора (создатель или соавтор)
-                .filter(or_(Draft.authors.any(Author.id == author_id), Draft.created_by == author_id))
+                .filter(Draft.authors.any(Author.id == author_id))
                 .all()
             )
             
@@ -171,6 +170,12 @@ async def create_draft(_, info, draft_input):
             draft_input["created_by"] = author_id
             draft = Draft(**draft_input)
             session.add(draft)
+            session.flush()
+            
+            # Добавляем создателя как автора
+            da = DraftAuthor(shout=draft.id, author=author_id)
+            session.add(da)
+            
             session.commit()
             return {"draft": draft}
     except Exception as e:
