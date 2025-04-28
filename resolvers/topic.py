@@ -10,6 +10,7 @@ from cache.cache import (
 )
 from orm.author import Author
 from orm.topic import Topic
+from orm.reaction import ReactionKind
 from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session
@@ -143,7 +144,7 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             SELECT st.topic, COUNT(DISTINCT r.id) as comments_count
             FROM shout_topic st
             JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
-            JOIN reaction r ON r.shout = s.id
+            JOIN reaction r ON r.shout = s.id AND r.kind = '{ReactionKind.COMMENT.value}' AND r.deleted_at IS NULL
             WHERE st.topic IN ({",".join(map(str, topic_ids))})
             GROUP BY st.topic
             """
