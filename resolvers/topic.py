@@ -145,6 +145,7 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             FROM shout_topic st
             JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
             JOIN reaction r ON r.shout = s.id AND r.kind = '{ReactionKind.COMMENT.value}' AND r.deleted_at IS NULL
+            JOIN author a ON r.created_by = a.id AND a.deleted_at IS NULL
             WHERE st.topic IN ({",".join(map(str, topic_ids))})
             GROUP BY st.topic
             """
