@@ -1,8 +1,5 @@
 import time
-from operator import or_
-
 import trafilatura
-from sqlalchemy.sql import and_
 from sqlalchemy.orm import joinedload
 
 from cache.cache import (
@@ -385,7 +382,10 @@ async def publish_draft(_, info, draft_id: int):
         draft_id: ID черновика для публикации
         
     Returns:
-        dict: Опубликованная публикация и черновик или сообщение об ошибке
+        dict: Содержит одно из полей:
+          - error: Сообщение об ошибке, если публикация не удалась
+          - shout: Опубликованный объект Shout
+          - draft: Черновик (передается в ответе для совместимости с GraphQL схемой)
     """
     user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
@@ -488,13 +488,39 @@ async def publish_draft(_, info, draft_id: int):
                 # Для уже опубликованных материалов просто отправляем уведомление об обновлении
                 await notify_shout(shout.dict(), "update")
 
-            session.commit()
-            shout_dict = shout.dict()
-            # Добавляем объект автора в updated_by
-            shout_dict["updated_by"] = author_dict
-            return {"shout": shout_dict}
+            try:
+                # Фиксируем изменения
+                session.commit()
+                
+                # После коммита преобразуем в словари для ответа
+                try:
+                    # Важно: для GraphQL схемы возвращаем как shout, так и draft 
+                    # (поскольку в CommonResult определены оба поля)
+                    shout_dict = shout.dict()
+                    draft_dict = draft.dict()
+                    
+                    # Логирование для отладки
+                    logger.info(f"Successfully published shout #{shout.id} from draft #{draft.id}")
+                    logger.debug(f"Shout data: {shout_dict}")
+                    
+                    # Важно: возвращаем draft для CommonResult.draft и shout для CommonResult.shout
+                    return {
+                        "shout": shout_dict,
+                        "draft": draft_dict,
+                        "error": None
+                    }
+                except Exception as serialize_error:
+                    # Если случилась ошибка при сериализации
+                    logger.error(f"Error serializing result: {serialize_error}", exc_info=True)
+                    return {"error": f"Published successfully but failed to return result: {str(serialize_error)}"}
+            except Exception as commit_error:
+                # Ошибка при коммите
+                session.rollback()
+                logger.error(f"Commit error: {commit_error}", exc_info=True)
+                return {"error": f"Failed to save changes: {str(commit_error)}"}
 
     except Exception as e:
+        # Общая ошибка обработки
         logger.error(f"Failed to publish shout: {e}", exc_info=True)
         if "session" in locals():
             session.rollback()
