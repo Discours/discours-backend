@@ -113,7 +113,7 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             shouts_stats_query = f"""
             SELECT st.topic, COUNT(DISTINCT s.id) as shouts_count
             FROM shout_topic st
-            JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL
+            JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
             WHERE st.topic IN ({",".join(map(str, topic_ids))})
             GROUP BY st.topic
             """
@@ -122,7 +122,8 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             # Запрос на получение статистики по подписчикам для выбранных тем
             followers_stats_query = f"""
             SELECT topic, COUNT(DISTINCT follower) as followers_count
-            FROM topic_followers
+            FROM topic_followers tf
+            JOIN shout s ON tf.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
             WHERE topic IN ({",".join(map(str, topic_ids))})
             GROUP BY topic
             """
