@@ -123,7 +123,6 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             followers_stats_query = f"""
             SELECT topic, COUNT(DISTINCT follower) as followers_count
             FROM topic_followers tf
-            JOIN shout s ON tf.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
             WHERE topic IN ({",".join(map(str, topic_ids))})
             GROUP BY topic
             """
