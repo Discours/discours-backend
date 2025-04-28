@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 from orm.author import Author
 from orm.topic import Topic
 from services.db import Base
+from orm.shout import Shout
 
 
 class DraftTopic(Base):
@@ -62,3 +63,14 @@ class Draft(Base):
     # Связь с Community (если нужна как объект, а не ID)
     # community = relationship("Community", foreign_keys=[community_id], lazy="joined")
     # Пока оставляем community_id как ID
+
+    # Связь с публикацией (один-к-одному или один-к-нулю)
+    # Загружается через joinedload в резолвере
+    publication = relationship(
+        "Shout", 
+        primaryjoin="Draft.id == Shout.draft", 
+        foreign_keys="Shout.draft", 
+        uselist=False, 
+        lazy="noload", # Не грузим по умолчанию, только через options
+        viewonly=True # Указываем, что это связь только для чтения
+    )

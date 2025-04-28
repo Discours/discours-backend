@@ -74,8 +74,8 @@ async def load_drafts(_, info):
     """
     Загружает все черновики, доступные текущему пользователю.
     
-    Предварительно загружает связанные объекты (topics, authors), чтобы избежать
-    ошибок с отсоединенными объектами при сериализации.
+    Предварительно загружает связанные объекты (topics, authors, publication),
+    чтобы избежать ошибок с отсоединенными объектами при сериализации.
     
     Returns:
         dict: Список черновиков или сообщение об ошибке
@@ -89,16 +89,17 @@ async def load_drafts(_, info):
 
     try:
         with local_session() as session:
-            # Предзагружаем authors и topics
-            drafts = (
+            # Предзагружаем authors, topics и связанную publication
+            drafts_query = (
                 session.query(Draft)
                 .options(
                     joinedload(Draft.topics),
-                    joinedload(Draft.authors)
+                    joinedload(Draft.authors),
+                    joinedload(Draft.publication) # Загружаем связанную публикацию
                 )
                 .filter(Draft.authors.any(Author.id == author_id))
-                .all()
             )
+            drafts = drafts_query.all()
             
             # Преобразуем объекты в словари, пока они в контексте сессии
             drafts_data = []
@@ -106,6 +107,17 @@ async def load_drafts(_, info):
                 draft_dict = draft.dict()
                 draft_dict["topics"] = [topic.dict() for topic in draft.topics]
                 draft_dict["authors"] = [author.dict() for author in draft.authors]
+                
+                # Добавляем информацию о публикации, если она есть
+                if draft.publication:
+                    draft_dict["publication"] = {
+                        "id": draft.publication.id,
+                        "slug": draft.publication.slug,
+                        "published_at": draft.publication.published_at
+                    }
+                else:
+                     draft_dict["publication"] = None
+                     
                 drafts_data.append(draft_dict)
                 
             return {"drafts": drafts_data}
