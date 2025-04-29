@@ -514,7 +514,7 @@ class SearchService:
 
         # Convert author dict to list
         author_docs_list = list(author_docs.values())
-        
+
         # Log indexing started message
         logger.info("indexing started...")
 
