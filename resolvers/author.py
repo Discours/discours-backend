@@ -303,7 +303,7 @@ async def load_authors_by(_, _info, by, limit, offset):
 
 
 @query.field("load_authors_search")
-async def load_authors_search_resolver(_, info, text: str, limit: int = 10, offset: int = 0):
+async def load_authors_search(_, info, text: str, limit: int = 10, offset: int = 0):
     """
     Resolver for searching authors by text. Works with txt-ai search endpony.
     Args:
