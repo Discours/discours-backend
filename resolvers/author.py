@@ -21,7 +21,7 @@ from services.db import local_session
 from services.redis import redis
 from services.schema import mutation, query
 from services.search import search_service
-from utils.logger import logger, root_logger as root_logger
+from utils.logger import root_logger as logger
 
 DEFAULT_COMMUNITIES = [1]
 
