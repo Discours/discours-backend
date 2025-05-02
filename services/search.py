@@ -696,8 +696,6 @@ class SearchService:
         if not isinstance(text, str) or not text.strip():
             return []
 
-        logger.info(f"Searching for: '{text}' (limit={limit}, offset={offset})")
-
         # Check if we can serve from cache
         if SEARCH_CACHE_ENABLED:
             has_cache = await self.cache.has_query(text)
@@ -714,7 +712,9 @@ class SearchService:
                 search_limit = SEARCH_PREFETCH_SIZE
             else:
                 search_limit = limit
-
+                
+            logger.info(f"Searching for: '{text}' (limit={limit}, offset={offset}, search_limit={search_limit})")
+            
             response = await self.client.post(
                 "/search-combined",
                 json={"text": text, "limit": search_limit},
