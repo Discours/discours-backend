@@ -314,21 +314,15 @@ async def load_authors_search(_, info, text: str, limit: int = 10, offset: int =
         list: List of authors matching the search criteria
     """
     
-    logger.info(f"Executing load_authors_search for text: '{text}', limit: {limit}, offset: {offset}")
-
     # Get author IDs from search engine (already sorted by relevance)
     search_results = await search_service.search_authors(text, limit, offset)
 
     if not search_results:
-        logger.info(f"No authors found in search for '{text}'")
         return []
 
     author_ids = [result.get("id") for result in search_results if result.get("id")]
     if not author_ids:
-        logger.warning(f"Search for '{text}' returned results but no valid IDs.")
         return []
-
-    logger.info(f"Search returned {len(author_ids)} author IDs: {author_ids}")
 
     # Fetch full author objects from DB
     with local_session() as session:
@@ -337,7 +331,6 @@ async def load_authors_search(_, info, text: str, limit: int = 10, offset: int =
         db_authors = session.execute(authors_query).scalars().all()
     
     if not db_authors:
-        logger.warning(f"No authors found in DB for IDs: {author_ids}")
         return []
 
     # Create a dictionary for quick lookup
@@ -346,7 +339,6 @@ async def load_authors_search(_, info, text: str, limit: int = 10, offset: int =
     # Keep the order from search results (maintains the relevance sorting)
     ordered_authors = [authors_dict[author_id] for author_id in author_ids if author_id in authors_dict]
 
-    logger.info(f"Returning {len(ordered_authors)} authors matching search order.")
     return ordered_authors
 
 
