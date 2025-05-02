@@ -748,28 +748,44 @@ class SearchService:
 
         cache_key = f"author:{text}"
 
-        # Try cache first if enabled
+        # Check if we can serve from cache
         if SEARCH_CACHE_ENABLED:
-            if await self.cache.has_query(cache_key):
-                return await self.cache.get(cache_key, limit, offset)
+            has_cache = await self.cache.has_query(cache_key)
+            if has_cache:
+                cached_results = await self.cache.get(cache_key, limit, offset)
+                if cached_results is not None:
+                    return cached_results
 
+        # Not in cache or cache disabled, perform new search
         try:
+            search_limit = limit
+
+            if SEARCH_CACHE_ENABLED:
+                search_limit = SEARCH_PREFETCH_SIZE
+            else:
+                search_limit = limit
+
             logger.info(
-                f"Searching authors for: '{text}' (limit={limit}, offset={offset})"
+                f"Searching authors for: '{text}' (limit={limit}, offset={offset}, search_limit={search_limit})"
             )
             response = await self.client.post(
-                "/search-author", json={"text": text, "limit": limit + offset}
+                "/search-author", json={"text": text, "limit": search_limit}
             )
             response.raise_for_status()
 
             result = response.json()
             author_results = result.get("results", [])
 
-            # Store in cache if enabled
-            if SEARCH_CACHE_ENABLED:
-                await self.cache.store(cache_key, author_results)
+            # Filter out any invalid results if necessary
+            valid_results = [r for r in author_results if r.get("id", "").isdigit()]
+            if len(valid_results) != len(author_results):
+                author_results = valid_results
 
-            # Apply offset/limit
+            if SEARCH_CACHE_ENABLED:
+                # Store the full prefetch batch, then page it
+                await self.cache.store(cache_key, author_results)
+                return await self.cache.get(cache_key, limit, offset)
+                
             return author_results[offset : offset + limit]
 
         except Exception as e:
