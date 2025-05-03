@@ -327,7 +327,7 @@ async def delete_draft(_, info, draft_id: int):
         draft = session.query(Draft).filter(Draft.id == draft_id).first()
         if not draft:
             return {"error": "Draft not found"}
-        if author_id != draft.created_by.id and draft.authors.filter(Author.id == author_id).count() == 0:
+        if author_id != draft.created_by and draft.authors.filter(Author.id == author_id).count() == 0:
             return {"error": "You are not allowed to delete this draft"}
         session.delete(draft)
         session.commit()
