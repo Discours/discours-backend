@@ -711,8 +711,16 @@ async def unpublish_shout(_, info, shout_id: int):
     shout = None
     with local_session() as session:
         try:
-            # Сначала загружаем Shout без связей
-            shout = session.query(Shout).filter(Shout.id == shout_id).first()
+            # Загружаем Shout со всеми связями для правильного формирования ответа
+            shout = (
+                session.query(Shout)
+                .options(
+                    joinedload(Shout.authors),
+                    joinedload(Shout.topics).joinedload(ShoutTopic.topic)
+                )
+                .filter(Shout.id == shout_id)
+                .first()
+            )
             
             if not shout:
                  logger.warning(f"Shout not found for unpublish: ID {shout_id}")
@@ -740,8 +748,46 @@ async def unpublish_shout(_, info, shout_id: int):
             #    logger.warning(f"Author {author_id} denied unpublishing shout {shout_id}")
             #    return {"error": "Access denied"}
 
+            # Запоминаем старый slug и id для формирования поля publication
+            shout_slug = shout.slug
+            shout_id_for_publication = shout.id
+
+            # Снимаем с публикации (устанавливаем published_at в None)
             shout.published_at = None
             session.commit()
+            
+            # Формируем полноценный словарь для ответа
+            shout_dict = shout.dict()
+            
+            # Добавляем связанные данные
+            shout_dict["topics"] = (
+                [
+                    {"id": topic.topic.id, "slug": topic.topic.slug, "title": topic.topic.title}
+                    for topic in shout.topics if topic.topic
+                ]
+                if shout.topics
+                else []
+            )
+            
+            # Добавляем main_topic 
+            shout_dict["main_topic"] = get_main_topic(shout.topics)
+            
+            # Добавляем авторов
+            shout_dict["authors"] = (
+                [
+                    {"id": author.id, "name": author.name, "slug": author.slug}
+                    for author in shout.authors
+                ]
+                if shout.authors
+                else []
+            )
+            
+            # Важно! Обновляем поле publication, отражая состояние "снят с публикации"
+            shout_dict["publication"] = {
+                "id": shout_id_for_publication,
+                "slug": shout_slug,
+                "published_at": None  # Ключевое изменение - устанавливаем published_at в None
+            }
 
             # Инвалидация кэша
             try:
@@ -757,12 +803,11 @@ async def unpublish_shout(_, info, shout_id: int):
             except Exception as cache_err:
                  logger.error(f"Failed to invalidate cache for unpublish shout {shout_id}: {cache_err}")
 
-
         except Exception as e: 
             session.rollback()
             logger.error(f"Failed to unpublish shout {shout_id}: {e}", exc_info=True) 
             return {"error": f"Failed to unpublish shout: {str(e)}"}
 
-    # Возвращаем объект shout с предзагруженным draft и его связями
+    # Возвращаем сформированный словарь вместо объекта
     logger.info(f"Shout {shout_id} unpublished successfully by author {author_id}")
-    return {"shout": shout}
+    return {"shout": shout_dict}
