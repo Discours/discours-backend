@@ -3,7 +3,7 @@ import time
 import orjson
 import trafilatura
 from sqlalchemy import and_, desc, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.sql.functions import coalesce
 
 from cache.cache import (
@@ -711,26 +711,29 @@ async def unpublish_shout(_, info, shout_id: int):
     shout = None
     with local_session() as session:
         try:
-            # Загружаем Shout с предзагрузкой draft и его связей authors/topics
-            # Используем selectinload для коллекций authors/topics внутри draft - 
-            # это может быть эффективнее joinedload, если draft один.
-            shout = (
-                session.query(Shout)
-                .options(
-                    joinedload(Shout.draft) # Загружаем сам черновик
-                    .selectinload(Draft.authors), # Загружаем авторов черновика через отдельный запрос
-                    joinedload(Shout.draft) 
-                    .selectinload(Draft.topics)   # Загружаем темы черновика через отдельный запрос
-                    # Также предзагружаем авторов самой публикации, если они нужны для проверки прав или возврата
-                    # selectinload(Shout.authors) 
-                )
-                .filter(Shout.id == shout_id)
-                .first()
-            )
+            # Сначала загружаем Shout без связей
+            shout = session.query(Shout).filter(Shout.id == shout_id).first()
             
             if not shout:
                  logger.warning(f"Shout not found for unpublish: ID {shout_id}")
                  return {"error": "Shout not found"} 
+            
+            # Если у публикации есть связанный черновик, загружаем его с relationships
+            if shout.draft:
+                # Отдельно загружаем черновик с его связями
+                draft = (
+                    session.query(Draft)
+                    .options(
+                        selectinload(Draft.authors),
+                        selectinload(Draft.topics)
+                    )
+                    .filter(Draft.id == shout.draft)
+                    .first()
+                )
+                
+                # Связываем черновик с публикацией вручную для доступа через API
+                if draft:
+                    shout.draft_obj = draft
 
             # TODO: Добавить проверку прав доступа, если необходимо
             # if author_id not in [a.id for a in shout.authors]: # Требует selectinload(Shout.authors) выше
@@ -754,7 +757,7 @@ async def unpublish_shout(_, info, shout_id: int):
         except Exception as e: 
             session.rollback()
             logger.error(f"Failed to unpublish shout {shout_id}: {e}", exc_info=True) 
-            return {"error": "Failed to unpublish shout"}
+            return {"error": f"Failed to unpublish shout: {str(e)}"}
 
     # Возвращаем объект shout с предзагруженным draft и его связями
     logger.info(f"Shout {shout_id} unpublished successfully by author {author_id}")
