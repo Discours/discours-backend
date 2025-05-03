@@ -783,9 +783,7 @@ async def unpublish_shout(_, info, shout_id: int):
             )
             
             # Добавляем main_topic 
-            main_topic = get_main_topic(shout.topics)
-            if main_topic["id"]:
-                shout_dict["main_topic"] = main_topic
+            shout_dict["main_topic"] = get_main_topic(shout.topics)
             
             # Добавляем авторов
             shout_dict["authors"] = (
