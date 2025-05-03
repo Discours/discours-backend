@@ -649,44 +649,19 @@ def get_main_topic(topics):
     """Get the main topic from a list of ShoutTopic objects."""
     logger.info(f"Starting get_main_topic with {len(topics) if topics else 0} topics")
     logger.debug(
-        f"Topics data: {[(t.topic.slug if t.topic else 'no-topic', t.main) for t in topics] if topics else []}"
+        f"Topics data: {[(t.slug, getattr(t, 'main', False)) for t in topics] if topics else []}"
     )
-
     if not topics:
         logger.warning("No topics provided to get_main_topic")
-        return {"id": 0, "title": "no topic", "slug": "notopic", "is_main": True}
-
-    # Find first main topic in original order
-    main_topic_rel = next((st for st in topics if st.main), None)
-    logger.debug(
-        f"Found main topic relation: {main_topic_rel.topic.slug if main_topic_rel and main_topic_rel.topic else None}"
-    )
-
-    if main_topic_rel and main_topic_rel.topic:
-        result = {
-            "slug": main_topic_rel.topic.slug,
-            "title": main_topic_rel.topic.title,
-            "id": main_topic_rel.topic.id,
+        return
+    else:
+        logger.info(f"Using first topic as main: {topics[0].slug}")
+        return {
+            "slug": topics[0].slug,
+            "title": topics[0].title,
+            "id": topics[0].id,
             "is_main": True,
         }
-        logger.info(f"Returning main topic: {result}")
-        return result
-
-    # If no main found but topics exist, return first
-    if topics and topics[0].topic:
-        logger.info(f"No main topic found, using first topic: {topics[0].topic.slug}")
-        result = {
-            "slug": topics[0].topic.slug,
-            "title": topics[0].topic.title,
-            "id": topics[0].topic.id,
-            "is_main": True,
-        }
-        return result
-
-    logger.warning("No valid topics found, returning default")
-    return {"slug": "notopic", "title": "no topic", "id": 0, "is_main": True}
-
-
 
 @mutation.field("unpublish_shout")
 @login_required
@@ -716,7 +691,7 @@ async def unpublish_shout(_, info, shout_id: int):
                 session.query(Shout)
                 .options(
                     joinedload(Shout.authors),
-                    joinedload(Shout.topics).joinedload(ShoutTopic.topic)
+                    selectinload(Shout.topics)
                 )
                 .filter(Shout.id == shout_id)
                 .first()
@@ -762,8 +737,8 @@ async def unpublish_shout(_, info, shout_id: int):
             # Добавляем связанные данные
             shout_dict["topics"] = (
                 [
-                    {"id": topic.topic.id, "slug": topic.topic.slug, "title": topic.topic.title}
-                    for topic in shout.topics if topic.topic
+                    {"id": topic.id, "slug": topic.slug, "title": topic.title}
+                    for topic in shout.topics
                 ]
                 if shout.topics
                 else []
