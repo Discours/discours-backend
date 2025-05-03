@@ -745,8 +745,14 @@ async def unpublish_shout(_, info, shout_id: int):
 
             # Инвалидация кэша
             try:
+                cache_keys = [
+                    "feed",  # лента
+                    f"author_{author_id}",  # публикации автора
+                    "random_top",  # случайные топовые
+                    "unrated",  # неоцененные
+                ]
                 await invalidate_shout_related_cache(shout, author_id) 
-                await invalidate_shouts_cache()
+                await invalidate_shouts_cache(cache_keys)
                 logger.info(f"Cache invalidated after unpublishing shout {shout_id}")
             except Exception as cache_err:
                  logger.error(f"Failed to invalidate cache for unpublish shout {shout_id}: {cache_err}")
