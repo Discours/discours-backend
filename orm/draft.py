@@ -74,3 +74,33 @@ class Draft(Base):
         lazy="noload", # Не грузим по умолчанию, только через options
         viewonly=True # Указываем, что это связь только для чтения
     )
+
+    def dict(self):
+        """
+        Сериализует объект Draft в словарь.
+        Гарантирует, что поля topics и authors всегда будут списками.
+        """
+        return {
+            "id": self.id,
+            "created_at": self.created_at,
+            "created_by": self.created_by,
+            "community": self.community,
+            "layout": self.layout,
+            "slug": self.slug,
+            "title": self.title,
+            "subtitle": self.subtitle,
+            "lead": self.lead,
+            "body": self.body,
+            "media": self.media or [],
+            "cover": self.cover,
+            "cover_caption": self.cover_caption,
+            "lang": self.lang,
+            "seo": self.seo,
+            "updated_at": self.updated_at,
+            "deleted_at": self.deleted_at,
+            "updated_by": self.updated_by,
+            "deleted_by": self.deleted_by,
+            # Гарантируем, что topics и authors всегда будут списками
+            "topics": [topic.dict() for topic in (self.topics or [])],
+            "authors": [author.dict() for author in (self.authors or [])]
+        }

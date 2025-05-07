@@ -107,8 +107,9 @@ async def load_drafts(_, info):
             drafts_data = []
             for draft in drafts:
                 draft_dict = draft.dict()
-                draft_dict["topics"] = [topic.dict() for topic in draft.topics]
-                draft_dict["authors"] = [author.dict() for author in draft.authors]
+                # Всегда возвращаем массив для topics, даже если он пустой
+                draft_dict["topics"] = [topic.dict() for topic in (draft.topics or [])]
+                draft_dict["authors"] = [author.dict() for author in (draft.authors or [])]
                 
                 # Добавляем информацию о публикации, если она есть
                 if draft.publication:
@@ -378,32 +379,36 @@ def validate_html_content(html_content: str) -> tuple[bool, str]:
 @mutation.field("publish_draft")
 @login_required
 async def publish_draft(_, info, draft_id: int):
-    """Публикует черновик в виде публикации (shout).
-    
-    Загружает связанные объекты (topics, authors) заранее, чтобы избежать ошибок
-    с отсоединенными объектами при сериализации.
+    """
+    Публикует черновик, создавая новый Shout или обновляя существующий.
     
     Args:
-        draft_id: ID черновика для публикации
+        draft_id (int): ID черновика для публикации
         
     Returns:
-        dict: Содержит одно из полей:
-          - error: Сообщение об ошибке, если публикация не удалась
-          - shout: Опубликованный объект Shout
-          - draft: Черновик (передается в ответе для совместимости с GraphQL схемой)
+        dict: Результат публикации с shout или сообщением об ошибке
     """
     user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
+
     if not user_id or not author_id:
-        return {"error": "User ID and author ID are required"}
-    
-    now = int(time.time())
-    
+        return {"error": "Author ID is required"}
+
     try:
         with local_session() as session:
-            # Сначала находим черновик
-            draft = session.query(Draft).filter(Draft.id == draft_id).first()
+            # Загружаем черновик со всеми связями
+            draft = (
+                session.query(Draft)
+                .options(
+                    joinedload(Draft.topics),
+                    joinedload(Draft.authors),
+                    joinedload(Draft.publication)
+                )
+                .filter(Draft.id == draft_id)
+                .first()
+            )
+
             if not draft:
                 return {"error": "Draft not found"}
 
@@ -412,130 +417,59 @@ async def publish_draft(_, info, draft_id: int):
             if not is_valid:
                 return {"error": f"Cannot publish draft: {error}"}
 
-            # Ищем существующий shout для этого черновика
-            shout = session.query(Shout).filter(Shout.draft == draft_id).first()
-            was_published = shout.published_at if shout else None
-
-            if not shout:
-                # Создаем новый shout если не существует
-                shout = create_shout_from_draft(session, draft, author_id)
-                shout.published_at = now
-            else:
+            # Проверяем, есть ли уже публикация для этого черновика
+            if draft.publication:
+                shout = draft.publication
                 # Обновляем существующую публикацию
-                shout.draft = draft.id
-                shout.created_by = author_id
-                shout.title = draft.title
-                shout.subtitle = draft.subtitle
-                shout.body = draft.body
-                shout.cover = draft.cover
-                shout.cover_caption = draft.cover_caption
-                shout.lead = draft.lead
-                shout.layout = draft.layout
-                shout.media = draft.media
-                shout.lang = draft.lang
-                shout.seo = draft.seo
-                shout.updated_at = now
-                
-                # Устанавливаем published_at только если была ранее снята с публикации
-                if not was_published:
-                    shout.published_at = now
-
-            # Сохраняем shout перед созданием связей
-            session.add(shout)
-            session.flush()
+                for field in ["body", "title", "subtitle", "lead", "cover", "cover_caption", "media", "lang", "seo"]:
+                    if hasattr(draft, field):
+                        setattr(shout, field, getattr(draft, field))
+                shout.updated_at = int(time.time())
+                shout.updated_by = author_id
+            else:
+                # Создаем новую публикацию
+                shout = create_shout_from_draft(session, draft, author_id)
+                now = int(time.time())
+                shout.created_at = now
+                shout.published_at = now
+                session.add(shout)
+                session.flush()  # Получаем ID нового шаута
 
             # Очищаем существующие связи
             session.query(ShoutAuthor).filter(ShoutAuthor.shout == shout.id).delete()
             session.query(ShoutTopic).filter(ShoutTopic.shout == shout.id).delete()
 
-            # Добавляем автора
-            sa = ShoutAuthor(shout=shout.id, author=author_id)
-            session.add(sa)
+            # Добавляем авторов
+            for author in (draft.authors or []):
+                sa = ShoutAuthor(shout=shout.id, author=author.id)
+                session.add(sa)
 
-            # Добавляем темы если есть
-            if draft.topics:
-                for topic in draft.topics:
-                    st = ShoutTopic(
-                        topic=topic.id, 
-                        shout=shout.id, 
-                        main=topic.main if hasattr(topic, "main") else False
-                    )
-                    session.add(st)
-                    
-                # Загружаем темы для шаута после создания связей
-                shout.topics = [
-                    session.query(Topic).filter(Topic.id == topic.id).first()
-                    for topic in draft.topics
-                ]
-            else:
-                # Инициализируем пустой список тем если их нет
-                shout.topics = []
+            # Добавляем темы
+            for topic in (draft.topics or []):
+                st = ShoutTopic(
+                    topic=topic.id,
+                    shout=shout.id,
+                    main=topic.main if hasattr(topic, "main") else False
+                )
+                session.add(st)
 
-            # Обновляем черновик
-            draft.updated_at = now
-            session.add(draft)
+            session.commit()
 
-            # Инвалидируем кэш только если это новая публикация или была снята с публикации
-            if not was_published:
-                cache_keys = ["feed", f"author_{author_id}", "random_top", "unrated"]
+            # Инвалидируем кеш
+            invalidate_shouts_cache()
+            invalidate_shout_related_cache(shout.id)
 
-                # Добавляем ключи для тем
-                for topic in shout.topics:
-                    cache_keys.append(f"topic_{topic.id}")
-                    cache_keys.append(f"topic_shouts_{topic.id}")
-                    await cache_by_id(Topic, topic.id, cache_topic)
+            # Уведомляем о публикации
+            await notify_shout(shout.id)
 
-                # Инвалидируем кэш
-                await invalidate_shouts_cache(cache_keys)
-                await invalidate_shout_related_cache(shout, author_id)
+            # Обновляем поисковый индекс
+            search_service.index_shout(shout)
 
-                # Обновляем кэш авторов
-                for author in shout.authors:
-                    await cache_by_id(Author, author.id, cache_author)
+            logger.info(f"Successfully published shout #{shout.id} from draft #{draft_id}")
+            logger.debug(f"Shout data: {shout.dict()}")
 
-                # Отправляем уведомление о публикации
-                await notify_shout(shout.dict(), "published")
-
-                # Обновляем поисковый индекс
-                search_service.index(shout)
-            else:
-                # Для уже опубликованных материалов просто отправляем уведомление об обновлении
-                await notify_shout(shout.dict(), "update")
-
-            try:
-                # Фиксируем изменения
-                session.commit()
-                
-                # После коммита преобразуем в словари для ответа
-                try:
-                    # Важно: для GraphQL схемы возвращаем как shout, так и draft 
-                    # (поскольку в CommonResult определены оба поля)
-                    shout_dict = shout.dict()
-                    draft_dict = draft.dict()
-                    
-                    # Логирование для отладки
-                    logger.info(f"Successfully published shout #{shout.id} from draft #{draft.id}")
-                    logger.debug(f"Shout data: {shout_dict}")
-                    
-                    # Важно: возвращаем draft для CommonResult.draft и shout для CommonResult.shout
-                    return {
-                        "shout": shout_dict,
-                        "draft": draft_dict,
-                        "error": None
-                    }
-                except Exception as serialize_error:
-                    # Если случилась ошибка при сериализации
-                    logger.error(f"Error serializing result: {serialize_error}", exc_info=True)
-                    return {"error": f"Published successfully but failed to return result: {str(serialize_error)}"}
-            except Exception as commit_error:
-                # Ошибка при коммите
-                session.rollback()
-                logger.error(f"Commit error: {commit_error}", exc_info=True)
-                return {"error": f"Failed to save changes: {str(commit_error)}"}
+            return {"shout": shout}
 
     except Exception as e:
-        # Общая ошибка обработки
-        logger.error(f"Failed to publish shout: {e}", exc_info=True)
-        if "session" in locals():
-            session.rollback()
-        return {"error": f"Failed to publish shout: {str(e)}"}
+        logger.error(f"Failed to publish draft {draft_id}: {e}", exc_info=True)
+        return {"error": f"Failed to publish draft: {str(e)}"}
