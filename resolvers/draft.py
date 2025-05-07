@@ -46,22 +46,27 @@ def create_shout_from_draft(session, draft, author_id):
     """
     # Создаем новую публикацию
     shout = Shout(
-        body=draft.body,
+        body=draft.body or "",
         slug=draft.slug,
         cover=draft.cover,
         cover_caption=draft.cover_caption,
         lead=draft.lead,
-        title=draft.title,
+        title=draft.title or "",
         subtitle=draft.subtitle,
-        layout=draft.layout,
-        media=draft.media,
-        lang=draft.lang,
+        layout=draft.layout or "article",
+        media=draft.media or [],
+        lang=draft.lang or "ru",
         seo=draft.seo,
         created_by=author_id,
         community=draft.community,
         draft=draft.id,
         deleted_at=None,
     )
+    
+    # Инициализируем пустые массивы для связей
+    shout.topics = []
+    shout.authors = []
+    
     return shout
 
 
@@ -456,6 +461,15 @@ async def publish_draft(_, info, draft_id: int):
                         main=topic.main if hasattr(topic, "main") else False
                     )
                     session.add(st)
+                    
+                # Загружаем темы для шаута после создания связей
+                shout.topics = [
+                    session.query(Topic).filter(Topic.id == topic.id).first()
+                    for topic in draft.topics
+                ]
+            else:
+                # Инициализируем пустой список тем если их нет
+                shout.topics = []
 
             # Обновляем черновик
             draft.updated_at = now
