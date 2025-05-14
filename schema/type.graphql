@@ -107,6 +107,12 @@ type Shout {
   score: Float
 }
 
+type PublicationInfo {
+  id: Int!
+  slug: String!
+  published_at: Int
+}
+
 type Draft {
   id: Int!
   created_at: Int!
@@ -129,9 +135,9 @@ type Draft {
   deleted_at: Int
   updated_by: Author
   deleted_by: Author
-  authors: [Author]
-  topics: [Topic]
-
+  authors: [Author]!
+  topics: [Topic]!
+  publication: PublicationInfo
 }
 
 type Stat {

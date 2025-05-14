@@ -487,12 +487,16 @@ def apply_reaction_filters(by, q):
     shout_slug = by.get("shout")
     if shout_slug:
         q = q.filter(Shout.slug == shout_slug)
+    
+    shout_id = by.get("shout_id")
+    if shout_id:
+        q = q.filter(Shout.id == shout_id)
 
     shouts = by.get("shouts")
     if shouts:
         q = q.filter(Shout.slug.in_(shouts))
 
-    created_by = by.get("created_by")
+    created_by = by.get("created_by", by.get("author_id"))
     if created_by:
         q = q.filter(Author.id == created_by)
 

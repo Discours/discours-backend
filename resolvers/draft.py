@@ -1,8 +1,6 @@
 import time
-from operator import or_
-
 import trafilatura
-from sqlalchemy.sql import and_
+from sqlalchemy.orm import joinedload
 
 from cache.cache import (
     cache_author,
@@ -12,7 +10,7 @@ from cache.cache import (
     invalidate_shouts_cache,
 )
 from orm.author import Author
-from orm.draft import Draft
+from orm.draft import Draft, DraftAuthor, DraftTopic
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from services.auth import login_required
@@ -20,34 +18,70 @@ from services.db import local_session
 from services.notify import notify_shout
 from services.schema import mutation, query
 from services.search import search_service
+from utils.html_wrapper import wrap_html_fragment
 from utils.logger import root_logger as logger
 
-
 def create_shout_from_draft(session, draft, author_id):
+    """
+    Создаёт новый объект публикации (Shout) на основе черновика.
+
+    Args:
+        session: SQLAlchemy сессия (не используется, для совместимости)
+        draft (Draft): Объект черновика
+        author_id (int): ID автора публикации
+
+    Returns:
+        Shout: Новый объект публикации (не сохранённый в базе)
+
+    Пример:
+        >>> from orm.draft import Draft
+        >>> draft = Draft(id=1, title='Заголовок', body='Текст', slug='slug', created_by=1)
+        >>> shout = create_shout_from_draft(None, draft, 1)
+        >>> shout.title
+        'Заголовок'
+        >>> shout.body
+        'Текст'
+        >>> shout.created_by
+        1
+    """
     # Создаем новую публикацию
     shout = Shout(
-        body=draft.body,
+        body=draft.body or "",
         slug=draft.slug,
         cover=draft.cover,
         cover_caption=draft.cover_caption,
         lead=draft.lead,
-        title=draft.title,
+        title=draft.title or "",
         subtitle=draft.subtitle,
-        layout=draft.layout,
-        media=draft.media,
-        lang=draft.lang,
+        layout=draft.layout or "article",
+        media=draft.media or [],
+        lang=draft.lang or "ru",
         seo=draft.seo,
         created_by=author_id,
         community=draft.community,
         draft=draft.id,
         deleted_at=None,
     )
+    
+    # Инициализируем пустые массивы для связей
+    shout.topics = []
+    shout.authors = []
+    
     return shout
 
 
 @query.field("load_drafts")
 @login_required
 async def load_drafts(_, info):
+    """
+    Загружает все черновики, доступные текущему пользователю.
+    
+    Предварительно загружает связанные объекты (topics, authors, publication),
+    чтобы избежать ошибок с отсоединенными объектами при сериализации.
+    
+    Returns:
+        dict: Список черновиков или сообщение об ошибке
+    """
     user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
@@ -55,13 +89,44 @@ async def load_drafts(_, info):
     if not user_id or not author_id:
         return {"error": "User ID and author ID are required"}
 
-    with local_session() as session:
-        drafts = (
-            session.query(Draft)
-            .filter(or_(Draft.authors.any(Author.id == author_id), Draft.created_by == author_id))
-            .all()
-        )
-    return {"drafts": drafts}
+    try:
+        with local_session() as session:
+            # Предзагружаем authors, topics и связанную publication
+            drafts_query = (
+                session.query(Draft)
+                .options(
+                    joinedload(Draft.topics),
+                    joinedload(Draft.authors),
+                    joinedload(Draft.publication) # Загружаем связанную публикацию
+                )
+                .filter(Draft.authors.any(Author.id == author_id))
+            )
+            drafts = drafts_query.all()
+            
+            # Преобразуем объекты в словари, пока они в контексте сессии
+            drafts_data = []
+            for draft in drafts:
+                draft_dict = draft.dict()
+                # Всегда возвращаем массив для topics, даже если он пустой
+                draft_dict["topics"] = [topic.dict() for topic in (draft.topics or [])]
+                draft_dict["authors"] = [author.dict() for author in (draft.authors or [])]
+                
+                # Добавляем информацию о публикации, если она есть
+                if draft.publication:
+                    draft_dict["publication"] = {
+                        "id": draft.publication.id,
+                        "slug": draft.publication.slug,
+                        "published_at": draft.publication.published_at
+                    }
+                else:
+                     draft_dict["publication"] = None
+                     
+                drafts_data.append(draft_dict)
+                
+            return {"drafts": drafts_data}
+    except Exception as e:
+        logger.error(f"Failed to load drafts: {e}", exc_info=True)
+        return {"error": f"Failed to load drafts: {str(e)}"}
 
 
 @mutation.field("create_draft")
@@ -116,11 +181,17 @@ async def create_draft(_, info, draft_input):
             if "id" in draft_input:
                 del draft_input["id"]
                 
-            # Добавляем текущее время создания
+            # Добавляем текущее время создания и ID автора
             draft_input["created_at"] = int(time.time())
-
-            draft = Draft(created_by=author_id, **draft_input)
+            draft_input["created_by"] = author_id
+            draft = Draft(**draft_input)
             session.add(draft)
+            session.flush()
+            
+            # Добавляем создателя как автора
+            da = DraftAuthor(shout=draft.id, author=author_id)
+            session.add(da)
+            
             session.commit()
             return {"draft": draft}
     except Exception as e:
@@ -128,7 +199,8 @@ async def create_draft(_, info, draft_input):
         return {"error": f"Failed to create draft: {str(e)}"}
 
 def generate_teaser(body, limit=300):
-    body_text = trafilatura.extract(body, include_comments=False, include_tables=False)
+    body_html = wrap_html_fragment(body)
+    body_text = trafilatura.extract(body_html, include_comments=False, include_tables=False)
     body_teaser = ". ".join(body_text[:limit].split(". ")[:-1])
     return body_teaser
 
@@ -140,7 +212,21 @@ async def update_draft(_, info, draft_id: int, draft_input):
 
     Args:
         draft_id: ID черновика для обновления
-        draft_input: Данные для обновления черновика
+        draft_input: Данные для обновления черновика согласно схеме DraftInput:
+            - layout: String
+            - author_ids: [Int!]
+            - topic_ids: [Int!]
+            - main_topic_id: Int
+            - media: [MediaItemInput]
+            - lead: String
+            - subtitle: String
+            - lang: String
+            - seo: String
+            - body: String
+            - title: String
+            - slug: String
+            - cover: String
+            - cover_caption: String
 
     Returns:
         dict: Обновленный черновик или сообщение об ошибке
@@ -152,66 +238,89 @@ async def update_draft(_, info, draft_id: int, draft_input):
     if not user_id or not author_id:
         return {"error": "Author ID are required"}
 
-    # Проверяем slug - он должен быть или не пустым, или не передаваться вообще
-    if "slug" in draft_input and (draft_input["slug"] is None or draft_input["slug"] == ""):
-        # Если slug пустой, либо удаляем его из входных данных, либо генерируем временный уникальный
-        # Вариант 1: просто удаляем ключ из входных данных, чтобы оставить старое значение
-        del draft_input["slug"]
-        # Вариант 2 (если нужно обновить): генерируем временный уникальный slug
-        # import uuid
-        # draft_input["slug"] = f"draft-{uuid.uuid4().hex[:8]}"
+    try:
+        with local_session() as session:
+            draft = session.query(Draft).filter(Draft.id == draft_id).first()
+            if not draft:
+                return {"error": "Draft not found"}
 
-    with local_session() as session:
-        draft = session.query(Draft).filter(Draft.id == draft_id).first()
-        if not draft:
-            return {"error": "Draft not found"}
+            # Фильтруем входные данные, оставляя только разрешенные поля
+            allowed_fields = {
+                "layout", "author_ids", "topic_ids", "main_topic_id", 
+                "media", "lead", "subtitle", "lang", "seo", "body", 
+                "title", "slug", "cover", "cover_caption"
+            }
+            filtered_input = {k: v for k, v in draft_input.items() if k in allowed_fields}
 
-        # Generate SEO description if not provided and not already set
-        if "seo" not in draft_input and not draft.seo:
-            body_src = draft_input.get("body") if "body" in draft_input else draft.body
-            lead_src = draft_input.get("lead") if "lead" in draft_input else draft.lead
+            # Проверяем slug
+            if "slug" in filtered_input and not filtered_input["slug"]:
+                del filtered_input["slug"]
 
-            body_text = None
-            if body_src:
+            # Обновляем связи с авторами если переданы
+            if "author_ids" in filtered_input:
+                author_ids = filtered_input.pop("author_ids")
+                if author_ids:
+                    # Очищаем текущие связи
+                    session.query(DraftAuthor).filter(DraftAuthor.shout == draft_id).delete()
+                    # Добавляем новые связи
+                    for aid in author_ids:
+                        da = DraftAuthor(shout=draft_id, author=aid)
+                        session.add(da)
+
+            # Обновляем связи с темами если переданы
+            if "topic_ids" in filtered_input:
+                topic_ids = filtered_input.pop("topic_ids")
+                main_topic_id = filtered_input.pop("main_topic_id", None)
+                if topic_ids:
+                    # Очищаем текущие связи
+                    session.query(DraftTopic).filter(DraftTopic.shout == draft_id).delete()
+                    # Добавляем новые связи
+                    for tid in topic_ids:
+                        dt = DraftTopic(
+                            shout=draft_id, 
+                            topic=tid,
+                            main=(tid == main_topic_id) if main_topic_id else False
+                        )
+                        session.add(dt)
+
+            # Генерируем SEO если не предоставлено
+            if "seo" not in filtered_input and not draft.seo:
+                body_src = filtered_input.get("body", draft.body)
+                lead_src = filtered_input.get("lead", draft.lead)
+                body_html = wrap_html_fragment(body_src)
+                lead_html = wrap_html_fragment(lead_src)
+                
                 try:
-                    # Extract text, excluding comments and tables
-                    body_text = trafilatura.extract(body_src, include_comments=False, include_tables=False)
+                    body_text = trafilatura.extract(body_html, include_comments=False, include_tables=False) if body_src else None
+                    lead_text = trafilatura.extract(lead_html, include_comments=False, include_tables=False) if lead_src else None
+                    
+                    body_teaser = generate_teaser(body_text, 300) if body_text else ""
+                    filtered_input["seo"] = lead_text if lead_text else body_teaser
                 except Exception as e:
-                    logger.warning(f"Trafilatura failed to extract body text for draft {draft_id}: {e}")
+                    logger.warning(f"Failed to generate SEO for draft {draft_id}: {e}")
 
-            lead_text = None
-            if lead_src:
-                try:
-                    # Extract text from lead
-                    lead_text = trafilatura.extract(lead_src, include_comments=False, include_tables=False)
-                except Exception as e:
-                    logger.warning(f"Trafilatura failed to extract lead text for draft {draft_id}: {e}")
+            # Обновляем основные поля черновика
+            for key, value in filtered_input.items():
+                setattr(draft, key, value)
 
-            # Generate body teaser only if body_text was successfully extracted
-            body_teaser = generate_teaser(body_text, 300) if body_text else ""
+            # Обновляем метаданные
+            draft.updated_at = int(time.time())
+            draft.updated_by = author_id
 
-            # Prioritize lead_text for SEO, fallback to body_teaser. Ensure it's a string.
-            generated_seo = lead_text if lead_text else body_teaser
-            draft_input["seo"] = generated_seo if generated_seo else ""
+            session.commit()
+            
+            # Преобразуем объект в словарь для ответа
+            draft_dict = draft.dict()
+            draft_dict["topics"] = [topic.dict() for topic in draft.topics]
+            draft_dict["authors"] = [author.dict() for author in draft.authors]
+            # Добавляем объект автора в updated_by
+            draft_dict["updated_by"] = author_dict
+            
+            return {"draft": draft_dict}
 
-        # Update the draft object with new data from draft_input
-        # Assuming Draft.update is a helper that iterates keys or similar.
-        # A more standard SQLAlchemy approach would be:
-        # for key, value in draft_input.items():
-        #     if hasattr(draft, key):
-        #         setattr(draft, key, value)
-        # But we stick to the existing pattern for now.
-        Draft.update(draft, draft_input)
-
-        # Set updated timestamp and author
-        current_time = int(time.time())
-        draft.updated_at = current_time
-        draft.updated_by = author_id # Assuming author_id is correctly fetched context
-
-        session.commit()
-        # Invalidate cache related to this draft if necessary (consider adding)
-        # await invalidate_draft_cache(draft_id)
-        return {"draft": draft}
+    except Exception as e:
+        logger.error(f"Failed to update draft: {e}", exc_info=True)
+        return {"error": f"Failed to update draft: {str(e)}"}
 
 
 @mutation.field("delete_draft")
@@ -231,182 +340,136 @@ async def delete_draft(_, info, draft_id: int):
         return {"draft": draft}
 
 
+def validate_html_content(html_content: str) -> tuple[bool, str]:
+    """
+    Проверяет валидность HTML контента через trafilatura.
+    
+    Args:
+        html_content: HTML строка для проверки
+        
+    Returns:
+        tuple[bool, str]: (валидность, сообщение об ошибке)
+        
+    Example:
+        >>> is_valid, error = validate_html_content("<p>Valid HTML</p>")
+        >>> is_valid
+        True
+        >>> error
+        ''
+        >>> is_valid, error = validate_html_content("Invalid < HTML")
+        >>> is_valid
+        False
+        >>> 'Invalid HTML' in error
+        True
+    """
+    if not html_content or not html_content.strip():
+        return False, "Content is empty"
+        
+    try:
+        html_content = wrap_html_fragment(html_content)
+        extracted = trafilatura.extract(html_content)
+        if not extracted:
+            return False, "Invalid HTML structure or empty content"
+        return True, ""
+    except Exception as e:
+        logger.error(f"HTML validation error: {e}", exc_info=True)
+        return False, f"Invalid HTML content: {str(e)}"
+
+
 @mutation.field("publish_draft")
 @login_required
 async def publish_draft(_, info, draft_id: int):
-    user_id = info.context.get("user_id")
-    author_dict = info.context.get("author", {})
-    author_id = author_dict.get("id")
-    if not user_id or not author_id:
-        return {"error": "User ID and author ID are required"}
-
-    with local_session() as session:
-        draft = session.query(Draft).filter(Draft.id == draft_id).first()
-        if not draft:
-            return {"error": "Draft not found"}
-        shout = create_shout_from_draft(session, draft, author_id)
-        session.add(shout)
-        session.commit()
-        return {"shout": shout, "draft": draft}
-
-
-@mutation.field("unpublish_draft")
-@login_required
-async def unpublish_draft(_, info, draft_id: int):
-    user_id = info.context.get("user_id")
-    author_dict = info.context.get("author", {})
-    author_id = author_dict.get("id")
-    if not user_id or not author_id:
-        return {"error": "User ID and author ID are required"}
-
-    with local_session() as session:
-        draft = session.query(Draft).filter(Draft.id == draft_id).first()
-        if not draft:
-            return {"error": "Draft not found"}
-        shout = session.query(Shout).filter(Shout.draft == draft.id).first()
-        if shout:
-            shout.published_at = None
-            session.commit()
-            return {"shout": shout, "draft": draft}
-        return {"error": "Failed to unpublish draft"}
-
-
-@mutation.field("publish_shout")
-@login_required
-async def publish_shout(_, info, shout_id: int):
-    """Publish draft as a shout or update existing shout.
-
+    """
+    Публикует черновик, создавая новый Shout или обновляя существующий.
+    
     Args:
-        shout_id: ID существующей публикации или 0 для новой
-        draft: Объект черновика (опционально)
+        draft_id (int): ID черновика для публикации
+        
+    Returns:
+        dict: Результат публикации с shout или сообщением об ошибке
     """
     user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
-    now = int(time.time())
+
     if not user_id or not author_id:
-        return {"error": "User ID and author ID are required"}
+        return {"error": "Author ID is required"}
 
     try:
         with local_session() as session:
-            shout = session.query(Shout).filter(Shout.id == shout_id).first()
-            if not shout:
-                return {"error": "Shout not found"}
-            was_published = shout.published_at is not None
-            draft = session.query(Draft).where(Draft.id == shout.draft).first()
+            # Загружаем черновик со всеми связями
+            draft = (
+                session.query(Draft)
+                .options(
+                    joinedload(Draft.topics),
+                    joinedload(Draft.authors),
+                    joinedload(Draft.publication)
+                )
+                .filter(Draft.id == draft_id)
+                .first()
+            )
+
             if not draft:
                 return {"error": "Draft not found"}
-            # Находим черновик если не передан
 
-            if not shout:
-                shout = create_shout_from_draft(session, draft, author_id)
-            else:
+            # Проверка валидности HTML в body
+            is_valid, error = validate_html_content(draft.body)
+            if not is_valid:
+                return {"error": f"Cannot publish draft: {error}"}
+
+            # Проверяем, есть ли уже публикация для этого черновика
+            if draft.publication:
+                shout = draft.publication
                 # Обновляем существующую публикацию
-                shout.draft = draft.id
-                shout.created_by = author_id
-                shout.title = draft.title
-                shout.subtitle = draft.subtitle
-                shout.body = draft.body
-                shout.cover = draft.cover
-                shout.cover_caption = draft.cover_caption
-                shout.lead = draft.lead
-                shout.layout = draft.layout
-                shout.media = draft.media
-                shout.lang = draft.lang
-                shout.seo = draft.seo
+                for field in ["body", "title", "subtitle", "lead", "cover", "cover_caption", "media", "lang", "seo"]:
+                    if hasattr(draft, field):
+                        setattr(shout, field, getattr(draft, field))
+                shout.updated_at = int(time.time())
+                shout.updated_by = author_id
+            else:
+                # Создаем новую публикацию
+                shout = create_shout_from_draft(session, draft, author_id)
+                now = int(time.time())
+                shout.created_at = now
+                shout.published_at = now
+                session.add(shout)
+                session.flush()  # Получаем ID нового шаута
 
-                draft.updated_at = now
-                shout.updated_at = now
+            # Очищаем существующие связи
+            session.query(ShoutAuthor).filter(ShoutAuthor.shout == shout.id).delete()
+            session.query(ShoutTopic).filter(ShoutTopic.shout == shout.id).delete()
 
-                # Устанавливаем published_at только если была ранее снята с публикации
-                if not was_published:
-                    shout.published_at = now
-
-            # Обрабатываем связи с авторами
-            if (
-                not session.query(ShoutAuthor)
-                .filter(and_(ShoutAuthor.shout == shout.id, ShoutAuthor.author == author_id))
-                .first()
-            ):
-                sa = ShoutAuthor(shout=shout.id, author=author_id)
+            # Добавляем авторов
+            for author in (draft.authors or []):
+                sa = ShoutAuthor(shout=shout.id, author=author.id)
                 session.add(sa)
 
-            # Обрабатываем темы
-            if draft.topics:
-                for topic in draft.topics:
-                    st = ShoutTopic(
-                        topic=topic.id, shout=shout.id, main=topic.main if hasattr(topic, "main") else False
-                    )
-                    session.add(st)
-
-            session.add(shout)
-            session.add(draft)
-            session.flush()
-
-            # Инвалидируем кэш только если это новая публикация или была снята с публикации
-            if not was_published:
-                cache_keys = ["feed", f"author_{author_id}", "random_top", "unrated"]
-
-                # Добавляем ключи для тем
-                for topic in shout.topics:
-                    cache_keys.append(f"topic_{topic.id}")
-                    cache_keys.append(f"topic_shouts_{topic.id}")
-                    await cache_by_id(Topic, topic.id, cache_topic)
-
-                # Инвалидируем кэш
-                await invalidate_shouts_cache(cache_keys)
-                await invalidate_shout_related_cache(shout, author_id)
-
-                # Обновляем кэш авторов
-                for author in shout.authors:
-                    await cache_by_id(Author, author.id, cache_author)
-
-                # Отправляем уведомление о публикации
-                await notify_shout(shout.dict(), "published")
-
-                # Обновляем поисковый индекс
-                search_service.index(shout)
-            else:
-                # Для уже опубликованных материалов просто отправляем уведомление об обновлении
-                await notify_shout(shout.dict(), "update")
+            # Добавляем темы
+            for topic in (draft.topics or []):
+                st = ShoutTopic(
+                    topic=topic.id,
+                    shout=shout.id,
+                    main=topic.main if hasattr(topic, "main") else False
+                )
+                session.add(st)
 
             session.commit()
+
+            # Инвалидируем кеш
+            invalidate_shouts_cache()
+            invalidate_shout_related_cache(shout.id)
+
+            # Уведомляем о публикации
+            await notify_shout(shout.id)
+
+            # Обновляем поисковый индекс
+            search_service.index_shout(shout)
+
+            logger.info(f"Successfully published shout #{shout.id} from draft #{draft_id}")
+            logger.debug(f"Shout data: {shout.dict()}")
+
             return {"shout": shout}
 
     except Exception as e:
-        logger.error(f"Failed to publish shout: {e}", exc_info=True)
-        if "session" in locals():
-            session.rollback()
-        return {"error": f"Failed to publish shout: {str(e)}"}
-
-
-@mutation.field("unpublish_shout")
-@login_required
-async def unpublish_shout(_, info, shout_id: int):
-    """Unpublish a shout.
-
-    Args:
-        shout_id: The ID of the shout to unpublish
-
-    Returns:
-        dict: The unpublished shout or an error message
-    """
-    author_dict = info.context.get("author", {})
-    author_id = author_dict.get("id")
-    if not author_id:
-        return {"error": "Author ID is required"}
-
-    shout = None
-    with local_session() as session:
-        try:
-            shout = session.query(Shout).filter(Shout.id == shout_id).first()
-            shout.published_at = None
-            session.commit()
-            invalidate_shout_related_cache(shout)
-            invalidate_shouts_cache()
-
-        except Exception:
-            session.rollback()
-            return {"error": "Failed to unpublish shout"}
-
-    return {"shout": shout}
+        logger.error(f"Failed to publish draft {draft_id}: {e}", exc_info=True)
+        return {"error": f"Failed to publish draft: {str(e)}"}

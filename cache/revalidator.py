@@ -8,6 +8,7 @@ from cache.cache import (
     invalidate_cache_by_prefix,
 )
 from resolvers.stat import get_with_stat
+from services.redis import redis
 from utils.logger import root_logger as logger
 
 CACHE_REVALIDATION_INTERVAL = 300  # 5 minutes
@@ -21,9 +22,19 @@ class CacheRevalidationManager:
         self.lock = asyncio.Lock()
         self.running = True
         self.MAX_BATCH_SIZE = 10  # Максимальное количество элементов для поштучной обработки
+        self._redis = redis  # Добавлена инициализация _redis для доступа к Redis-клиенту
 
     async def start(self):
         """Запуск фонового воркера для ревалидации кэша."""
+        # Проверяем, что у нас есть соединение с Redis
+        if not self._redis._client:
+            logger.warning("Redis connection not established. Waiting for connection...")
+            try:
+                await self._redis.connect()
+                logger.info("Redis connection established for revalidation manager")
+            except Exception as e:
+                logger.error(f"Failed to connect to Redis: {e}")
+                
         self.task = asyncio.create_task(self.revalidate_cache())
 
     async def revalidate_cache(self):
@@ -39,6 +50,10 @@ class CacheRevalidationManager:
 
     async def process_revalidation(self):
         """Обновление кэша для всех сущностей, требующих ревалидации."""
+        # Проверяем соединение с Redis
+        if not self._redis._client:
+            return  # Выходим из метода, если не удалось подключиться
+                
         async with self.lock:
             # Ревалидация кэша авторов
             if self.items_to_revalidate["authors"]:

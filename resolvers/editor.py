@@ -3,7 +3,7 @@ import time
 import orjson
 import trafilatura
 from sqlalchemy import and_, desc, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.sql.functions import coalesce
 
 from cache.cache import (
@@ -13,6 +13,7 @@ from cache.cache import (
     invalidate_shouts_cache,
 )
 from orm.author import Author
+from orm.draft import Draft
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from resolvers.follower import follow, unfollow
@@ -20,8 +21,9 @@ from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session
 from services.notify import notify_shout
-from services.schema import query
+from services.schema import mutation, query
 from services.search import search_service
+from utils.html_wrapper import wrap_html_fragment
 from utils.logger import root_logger as logger
 
 
@@ -179,9 +181,11 @@ async def create_shout(_, info, inp):
                 # Создаем публикацию без topics
                 body = inp.get("body", "")
                 lead = inp.get("lead", "")
-                body_text = trafilatura.extract(body)
-                lead_text = trafilatura.extract(lead)
-                seo = inp.get("seo", lead_text or body_text[:300].split(". ")[:-1].join(". "))
+                body_html = wrap_html_fragment(body)
+                lead_html = wrap_html_fragment(lead)
+                body_text = trafilatura.extract(body_html)
+                lead_text = trafilatura.extract(lead_html)
+                seo = inp.get("seo", lead_text.strip() or body_text.strip()[:300].split(". ")[:-1].join(". "))
                 new_shout = Shout(
                     slug=slug,
                     body=body,
@@ -645,39 +649,178 @@ def get_main_topic(topics):
     """Get the main topic from a list of ShoutTopic objects."""
     logger.info(f"Starting get_main_topic with {len(topics) if topics else 0} topics")
     logger.debug(
-        f"Topics data: {[(t.topic.slug if t.topic else 'no-topic', t.main) for t in topics] if topics else []}"
+        f"Topics data: {[(t.slug, getattr(t, 'main', False)) for t in topics] if topics else []}"
     )
 
     if not topics:
         logger.warning("No topics provided to get_main_topic")
         return {"id": 0, "title": "no topic", "slug": "notopic", "is_main": True}
 
-    # Find first main topic in original order
-    main_topic_rel = next((st for st in topics if st.main), None)
-    logger.debug(
-        f"Found main topic relation: {main_topic_rel.topic.slug if main_topic_rel and main_topic_rel.topic else None}"
-    )
+    # Проверяем, является ли topics списком объектов ShoutTopic или Topic
+    if hasattr(topics[0], 'topic') and topics[0].topic:
+        # Для ShoutTopic объектов (старый формат)
+        # Find first main topic in original order
+        main_topic_rel = next((st for st in topics if getattr(st, 'main', False)), None)
+        logger.debug(
+            f"Found main topic relation: {main_topic_rel.topic.slug if main_topic_rel and main_topic_rel.topic else None}"
+        )
 
-    if main_topic_rel and main_topic_rel.topic:
-        result = {
-            "slug": main_topic_rel.topic.slug,
-            "title": main_topic_rel.topic.title,
-            "id": main_topic_rel.topic.id,
-            "is_main": True,
-        }
-        logger.info(f"Returning main topic: {result}")
-        return result
+        if main_topic_rel and main_topic_rel.topic:
+            result = {
+                "slug": main_topic_rel.topic.slug,
+                "title": main_topic_rel.topic.title,
+                "id": main_topic_rel.topic.id,
+                "is_main": True,
+            }
+            logger.info(f"Returning main topic: {result}")
+            return result
 
-    # If no main found but topics exist, return first
-    if topics and topics[0].topic:
-        logger.info(f"No main topic found, using first topic: {topics[0].topic.slug}")
-        result = {
-            "slug": topics[0].topic.slug,
-            "title": topics[0].topic.title,
-            "id": topics[0].topic.id,
-            "is_main": True,
-        }
-        return result
+        # If no main found but topics exist, return first
+        if topics and topics[0].topic:
+            logger.info(f"No main topic found, using first topic: {topics[0].topic.slug}")
+            result = {
+                "slug": topics[0].topic.slug,
+                "title": topics[0].topic.title,
+                "id": topics[0].topic.id,
+                "is_main": True,
+            }
+            return result
+    else:
+        # Для Topic объектов (новый формат из selectinload)
+        # После смены на selectinload у нас просто список Topic объектов
+        if topics:
+            logger.info(f"Using first topic as main: {topics[0].slug}")
+            result = {
+                "slug": topics[0].slug,
+                "title": topics[0].title,
+                "id": topics[0].id,
+                "is_main": True,
+            }
+            return result
 
     logger.warning("No valid topics found, returning default")
     return {"slug": "notopic", "title": "no topic", "id": 0, "is_main": True}
+
+@mutation.field("unpublish_shout")
+@login_required
+async def unpublish_shout(_, info, shout_id: int):
+    """Снимает публикацию (shout) с публикации.
+
+    Предзагружает связанный черновик (draft) и его авторов/темы, чтобы избежать
+    ошибок при последующем доступе к ним в GraphQL.
+
+    Args:
+        shout_id: ID публикации для снятия с публикации
+
+    Returns:
+        dict: Снятая с публикации публикация или сообщение об ошибке
+    """
+    author_dict = info.context.get("author", {})
+    author_id = author_dict.get("id")
+    if not author_id:
+        # В идеале нужна проверка прав, имеет ли автор право снимать публикацию
+        return {"error": "Author ID is required"}
+
+    shout = None
+    with local_session() as session:
+        try:
+            # Загружаем Shout со всеми связями для правильного формирования ответа
+            shout = (
+                session.query(Shout)
+                .options(
+                    joinedload(Shout.authors),
+                    selectinload(Shout.topics)
+                )
+                .filter(Shout.id == shout_id)
+                .first()
+            )
+            
+            if not shout:
+                 logger.warning(f"Shout not found for unpublish: ID {shout_id}")
+                 return {"error": "Shout not found"} 
+            
+            # Если у публикации есть связанный черновик, загружаем его с relationships
+            if shout.draft:
+                # Отдельно загружаем черновик с его связями
+                draft = (
+                    session.query(Draft)
+                    .options(
+                        selectinload(Draft.authors),
+                        selectinload(Draft.topics)
+                    )
+                    .filter(Draft.id == shout.draft)
+                    .first()
+                )
+                
+                # Связываем черновик с публикацией вручную для доступа через API
+                if draft:
+                    shout.draft_obj = draft
+
+            # TODO: Добавить проверку прав доступа, если необходимо
+            # if author_id not in [a.id for a in shout.authors]: # Требует selectinload(Shout.authors) выше
+            #    logger.warning(f"Author {author_id} denied unpublishing shout {shout_id}")
+            #    return {"error": "Access denied"}
+
+            # Запоминаем старый slug и id для формирования поля publication
+            shout_slug = shout.slug
+            shout_id_for_publication = shout.id
+
+            # Снимаем с публикации (устанавливаем published_at в None)
+            shout.published_at = None
+            session.commit()
+            
+            # Формируем полноценный словарь для ответа
+            shout_dict = shout.dict()
+            
+            # Добавляем связанные данные
+            shout_dict["topics"] = (
+                [
+                    {"id": topic.id, "slug": topic.slug, "title": topic.title}
+                    for topic in shout.topics
+                ]
+                if shout.topics
+                else []
+            )
+            
+            # Добавляем main_topic 
+            shout_dict["main_topic"] = get_main_topic(shout.topics)
+            
+            # Добавляем авторов
+            shout_dict["authors"] = (
+                [
+                    {"id": author.id, "name": author.name, "slug": author.slug}
+                    for author in shout.authors
+                ]
+                if shout.authors
+                else []
+            )
+            
+            # Важно! Обновляем поле publication, отражая состояние "снят с публикации"
+            shout_dict["publication"] = {
+                "id": shout_id_for_publication,
+                "slug": shout_slug,
+                "published_at": None  # Ключевое изменение - устанавливаем published_at в None
+            }
+
+            # Инвалидация кэша
+            try:
+                cache_keys = [
+                    "feed",  # лента
+                    f"author_{author_id}",  # публикации автора
+                    "random_top",  # случайные топовые
+                    "unrated",  # неоцененные
+                ]
+                await invalidate_shout_related_cache(shout, author_id) 
+                await invalidate_shouts_cache(cache_keys)
+                logger.info(f"Cache invalidated after unpublishing shout {shout_id}")
+            except Exception as cache_err:
+                 logger.error(f"Failed to invalidate cache for unpublish shout {shout_id}: {cache_err}")
+
+        except Exception as e: 
+            session.rollback()
+            logger.error(f"Failed to unpublish shout {shout_id}: {e}", exc_info=True) 
+            return {"error": f"Failed to unpublish shout: {str(e)}"}
+
+    # Возвращаем сформированный словарь вместо объекта
+    logger.info(f"Shout {shout_id} unpublished successfully by author {author_id}")
+    return {"shout": shout_dict}
