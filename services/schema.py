@@ -29,12 +29,19 @@ async def request_graphql_data(gql, url=AUTH_URL, headers=None):
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=gql, headers=headers)
             if response.status_code == 200:
-                data = response.json()
-                errors = data.get("errors")
-                if errors:
-                    logger.error(f"{url} response: {data}")
+                # Check if the response has content before parsing
+                if response.content and len(response.content.strip()) > 0:
+                    try:
+                        data = response.json()
+                        errors = data.get("errors")
+                        if errors:
+                            logger.error(f"{url} response: {data}")
+                        else:
+                            return data
+                    except Exception as json_err:
+                        logger.error(f"JSON decode error: {json_err}, Response content: {response.text[:100]}")
                 else:
-                    return data
+                    logger.error(f"{url}: Response is empty")
             else:
                 logger.error(f"{url}: {response.status_code} {response.text}")
     except Exception as _e:
