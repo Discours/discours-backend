@@ -3,36 +3,12 @@
  * @module api
  */
 
-/**
- * Базовый URL для API
- */
-// Всегда используем абсолютный путь к API
-const API_URL = window.location.origin + '/graphql'
-
-/**
- * Константа для имени ключа токена в localStorage
- */
-const AUTH_TOKEN_KEY = 'auth_token'
+import { AUTH_TOKEN_KEY, getAuthTokenFromCookie } from "./auth"
 
 /**
  * Тип для произвольных данных GraphQL
  */
 type GraphQLData = Record<string, unknown>
-
-/**
- * Получает токен авторизации из cookie
- * @returns Токен или пустую строку, если токен не найден
- */
-function getAuthTokenFromCookie(): string {
-  const cookieItems = document.cookie.split(';')
-  for (const item of cookieItems) {
-    const [name, value] = item.trim().split('=')
-    if (name === 'auth_token') {
-      return value
-    }
-  }
-  return ''
-}
 
 /**
  * Обрабатывает ошибки от API
@@ -74,13 +50,12 @@ async function handleApiError(response: Response): Promise<string> {
 function hasAuthErrors(errors: Array<{ message?: string; extensions?: { code?: string } }>): boolean {
   return errors.some(
     (error) =>
-      (error.message && (
-        error.message.toLowerCase().includes('unauthorized') ||
-        error.message.toLowerCase().includes('авторизации') ||
-        error.message.toLowerCase().includes('authentication') ||
-        error.message.toLowerCase().includes('unauthenticated') ||
-        error.message.toLowerCase().includes('token')
-      )) ||
+      (error.message &&
+        (error.message.toLowerCase().includes('unauthorized') ||
+          error.message.toLowerCase().includes('авторизации') ||
+          error.message.toLowerCase().includes('authentication') ||
+          error.message.toLowerCase().includes('unauthenticated') ||
+          error.message.toLowerCase().includes('token'))) ||
       error.extensions?.code === 'UNAUTHENTICATED' ||
       error.extensions?.code === 'FORBIDDEN'
   )
@@ -88,11 +63,13 @@ function hasAuthErrors(errors: Array<{ message?: string; extensions?: { code?: s
 
 /**
  * Выполняет GraphQL запрос
+ * @param url - URL для запроса
  * @param query - GraphQL запрос
  * @param variables - Переменные запроса
  * @returns Результат запроса
  */
 export async function query<T = GraphQLData>(
+  url: string,
   query: string,
   variables: Record<string, unknown> = {}
 ): Promise<T> {
@@ -103,13 +80,13 @@ export async function query<T = GraphQLData>(
 
     // Проверяем наличие токена в localStorage
     const localToken = localStorage.getItem(AUTH_TOKEN_KEY)
-    
+
     // Проверяем наличие токена в cookie
     const cookieToken = getAuthTokenFromCookie()
-    
+
     // Используем токен из localStorage или cookie
     const token = localToken || cookieToken
-    
+
     // Если есть токен, добавляем его в заголовок Authorization с префиксом Bearer
     if (token && token.length > 10) {
       // В соответствии с логами сервера, формат должен быть: Bearer <token>
@@ -118,7 +95,7 @@ export async function query<T = GraphQLData>(
       console.debug('Отправка запроса с токеном авторизации')
     }
 
-    const response = await fetch(API_URL, {
+    const response = await fetch(url, {
       method: 'POST',
       headers,
       // Важно: credentials: 'include' - для передачи cookies с запросом
@@ -141,7 +118,7 @@ export async function query<T = GraphQLData>(
       // Если получен 401 Unauthorized, перенаправляем на страницу входа
       if (response.status === 401) {
         localStorage.removeItem(AUTH_TOKEN_KEY)
-        window.location.href = '/login'
+        window.location.href = '/'
         throw new Error('Unauthorized')
       }
 
@@ -161,7 +138,7 @@ export async function query<T = GraphQLData>(
       // Проверяем ошибки на признаки проблем с авторизацией
       if (hasAuthErrors(result.errors)) {
         localStorage.removeItem(AUTH_TOKEN_KEY)
-        window.location.href = '/login'
+        window.location.href = '/'
         throw new Error('Unauthorized')
       }
 
@@ -177,13 +154,15 @@ export async function query<T = GraphQLData>(
 
 /**
  * Выполняет GraphQL мутацию
+ * @param url - URL для запроса
  * @param mutation - GraphQL мутация
  * @param variables - Переменные мутации
  * @returns Результат мутации
  */
 export function mutate<T = GraphQLData>(
+  url: string,
   mutation: string,
   variables: Record<string, unknown> = {}
 ): Promise<T> {
-  return query<T>(mutation, variables)
+  return query<T>(url, mutation, variables)
 }

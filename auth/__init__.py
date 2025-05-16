@@ -43,7 +43,7 @@ async def logout(request: Request):
             logger.error(f"[auth] logout: Ошибка при отзыве токена: {e}")
 
     # Создаем ответ с редиректом на страницу входа
-    response = RedirectResponse(url="/login")
+    response = RedirectResponse(url="/")
 
     # Удаляем cookie с токеном
     response.delete_cookie(SESSION_COOKIE_NAME)

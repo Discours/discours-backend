@@ -16,8 +16,7 @@
     "isolatedModules": true,
     "lib": ["DOM", "ESNext"],
     "paths": {
-      "~/*": ["panel/admin/*"],
-      "@/*": ["panel/auth/*"]
+      "~/*": ["./panel/*"]
     }
   },
   "exclude": []

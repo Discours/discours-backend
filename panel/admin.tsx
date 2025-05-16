@@ -3,10 +3,9 @@
  * @module AdminPage
  */
 
-import { useNavigate } from '@solidjs/router'
-import { Component, For, Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js'
+import { Component, For, Show, createSignal, onMount } from 'solid-js'
+import { logout } from './auth'
 import { query } from './graphql'
-import { isAuthenticated, logout } from './auth'
 
 /**
  * Интерфейс для данных пользователя
@@ -52,10 +51,15 @@ interface AdminGetRolesResponse {
   adminGetRoles: Role[]
 }
 
+// Интерфейс для пропсов AdminPage
+interface AdminPageProps {
+  onLogout?: () => void
+}
+
 /**
  * Компонент страницы администратора
  */
-const AdminPage: Component = () => {
+const AdminPage: Component<AdminPageProps> = (props) => {
   const [activeTab, setActiveTab] = createSignal('users')
   const [users, setUsers] = createSignal<User[]>([])
   const [roles, setRoles] = createSignal<Role[]>([])
@@ -81,8 +85,6 @@ const AdminPage: Component = () => {
   // Поиск
   const [searchQuery, setSearchQuery] = createSignal('')
 
-  const navigate = useNavigate()
-
   // Периодическая проверка авторизации
   onMount(() => {
     // Загружаем данные при монтировании
@@ -103,6 +105,7 @@ const AdminPage: Component = () => {
       const search = searchQuery().trim()
 
       const data = await query<AdminGetUsersResponse>(
+        `${location.origin}/graphql`,
         `
         query AdminGetUsers($limit: Int, $offset: Int, $search: String) {
           adminGetUsers(limit: $limit, offset: $offset, search: $search) {
@@ -160,7 +163,9 @@ const AdminPage: Component = () => {
    */
   async function loadRoles() {
     try {
-      const data = await query<AdminGetRolesResponse>(`
+      const data = await query<AdminGetRolesResponse>(
+        `${location.origin}/graphql`,
+        `
         query AdminGetRoles {
           adminGetRoles {
             id
@@ -168,7 +173,8 @@ const AdminPage: Component = () => {
             description
           }
         }
-      `)
+      `
+      )
 
       if (data?.adminGetRoles) {
         setRoles(data.adminGetRoles)
@@ -249,6 +255,7 @@ const AdminPage: Component = () => {
 
     try {
       await query(
+        `${location.origin}/graphql`,
         `
         mutation AdminToggleUserBlock($userId: Int!) {
           adminToggleUserBlock(userId: $userId) {
@@ -295,6 +302,7 @@ const AdminPage: Component = () => {
 
     try {
       await query(
+        `${location.origin}/graphql`,
         `
         mutation AdminToggleUserMute($userId: Int!) {
           adminToggleUserMute(userId: $userId) {
@@ -343,6 +351,7 @@ const AdminPage: Component = () => {
   async function updateUserRoles(userId: number, newRoles: string[]) {
     try {
       await query(
+        `${location.origin}/graphql`,
         `
         mutation AdminUpdateUser($userId: Int!, $input: AdminUserUpdateInput!) {
           adminUpdateUser(userId: $userId, input: $input) {
@@ -391,8 +400,10 @@ const AdminPage: Component = () => {
 
     // Затем выполняем выход
     logout(() => {
-      // Для гарантии перенаправления после выхода
-      window.location.href = '/login'
+      // Вызываем коллбэк для оповещения родителя о выходе
+      if (props.onLogout) {
+        props.onLogout()
+      }
     })
   }
 

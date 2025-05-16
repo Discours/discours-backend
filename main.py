@@ -105,8 +105,8 @@ async def admin_handler(request: Request):
     """
     # Проверяем авторизован ли пользователь
     if not request.user.is_authenticated:
-        # Если пользователь не авторизован, перенаправляем на страницу входа
-        return RedirectResponse(url="/login", status_code=303)
+        # Если пользователь не авторизован, перенаправляем на главную страницу
+        return RedirectResponse(url="/", status_code=303)
     
     # Проверяем является ли пользователь администратором
     auth = getattr(request, "auth", None)
@@ -199,10 +199,8 @@ async def shutdown():
 # Добавляем маршруты статических файлов, если директория существует
 routes = []
 if exists(DIST_DIR):
-    # Добавляем маршруты для статических ресурсов, если директория dist существует
-    routes.append(Mount("/assets", app=StaticFiles(directory=join(DIST_DIR, "assets"))))
-    routes.append(Mount("/chunks", app=StaticFiles(directory=join(DIST_DIR, "chunks"))))
-
+    routes.append(Mount("/", app=StaticFiles(directory=DIST_DIR, html=True)))
+    
 # Маршруты для API и веб-приложения
 routes.extend(
     [

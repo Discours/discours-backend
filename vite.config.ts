@@ -7,33 +7,11 @@ const isProd = process.env.NODE_ENV === 'production'
 
 export default defineConfig({
   plugins: [solidPlugin()],
-  base: '/',
-
   build: {
     target: 'esnext',
     outDir: 'dist',
     minify: isProd,
     sourcemap: !isProd,
-
-    rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'client/index.tsx')
-      },
-
-      output: {
-        // Настройка выходных файлов
-        entryFileNames: '[name].js',
-        chunkFileNames: 'chunks/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash][extname]',
-
-        // Настройка разделения кода
-        manualChunks: {
-          vendor: ['solid-js', '@solidjs/router'],
-          graphql: ['./client/graphql.ts'],
-          auth: ['./client/auth.ts']
-        }
-      }
-    },
 
     // Оптимизация сборки
     cssCodeSplit: true,
@@ -65,7 +43,7 @@ export default defineConfig({
   // Настройка алиасов для путей
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'client')
+      '~': resolve(__dirname, 'panel')
     }
   }
 })

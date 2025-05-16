@@ -3,30 +3,21 @@
  * @module LoginPage
  */
 
-import { useNavigate } from '@solidjs/router'
-import { Component, createSignal, onMount } from 'solid-js'
-import { login, isAuthenticated } from './auth'
+import { Component, createSignal } from 'solid-js'
+import { login } from './auth'
+
+interface LoginPageProps {
+  onLoginSuccess?: () => void
+}
 
 /**
  * Компонент страницы входа
  */
-const LoginPage: Component = () => {
+const LoginPage: Component<LoginPageProps> = (props) => {
   const [email, setEmail] = createSignal('')
   const [password, setPassword] = createSignal('')
   const [isLoading, setIsLoading] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
-  const navigate = useNavigate()
-
-  /**
-   * Проверка авторизации при загрузке компонента
-   * и перенаправление если пользователь уже авторизован
-   */
-  onMount(() => {
-    // Если пользователь уже авторизован, перенаправляем на админ-панель
-    if (isAuthenticated()) {
-      window.location.href = '/admin'
-    }
-  })
 
   /**
    * Обработчик отправки формы входа
@@ -54,8 +45,10 @@ const LoginPage: Component = () => {
       })
 
       if (loginSuccessful) {
-        // Используем прямое перенаправление для надежности
-        window.location.href = '/admin'
+        // Вызываем коллбэк для оповещения родителя об успешном входе
+        if (props.onLoginSuccess) {
+          props.onLoginSuccess()
+        }
       } else {
         throw new Error('Вход не выполнен')
       }

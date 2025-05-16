@@ -5,6 +5,28 @@
 
 import { query } from './graphql'
 
+
+// Константа для имени ключа токена в localStorage
+const AUTH_COOKIE_NAME = 'auth_token'
+
+// Константа для имени ключа токена в cookie
+export const AUTH_TOKEN_KEY = 'auth_token'
+
+/**
+ * Получает токен авторизации из cookie
+ * @returns Токен или пустую строку, если токен не найден
+ */
+export const getAuthTokenFromCookie = (): string => {
+  const cookieItems = document.cookie.split(';')
+  for (const item of cookieItems) {
+    const [name, value] = item.trim().split('=')
+    if (name === 'auth_token') {
+      return value
+    }
+  }
+  return ''
+}
+
 /**
  * Интерфейс для учетных данных
  */
@@ -27,31 +49,6 @@ export interface LoginResult {
  */
 interface LoginResponse {
   login: LoginResult
-}
-
-/**
- * Константа для имени ключа токена в localStorage
- */
-const AUTH_TOKEN_KEY = 'auth_token'
-
-/**
- * Константа для имени ключа токена в cookie
- */
-const AUTH_COOKIE_NAME = 'auth_token'
-
-/**
- * Получает токен авторизации из cookie
- * @returns Токен или пустую строку, если токен не найден
- */
-function getAuthTokenFromCookie(): string {
-  const cookieItems = document.cookie.split(';')
-  for (const item of cookieItems) {
-    const [name, value] = item.trim().split('=')
-    if (name === AUTH_COOKIE_NAME) {
-      return value
-    }
-  }
-  return ''
 }
 
 /**
@@ -84,10 +81,10 @@ export function logout(callback?: () => void): void {
 
   // Дополнительно пытаемся сделать запрос на сервер для удаления серверных сессий
   try {
-    fetch('/logout', { 
+    fetch('/logout', {
       method: 'GET',
       credentials: 'include'
-    }).catch(e => {
+    }).catch((e) => {
       console.error('Ошибка при запросе на выход:', e)
     })
   } catch (e) {
@@ -107,6 +104,7 @@ export async function login(credentials: Credentials): Promise<boolean> {
   try {
     // Используем query из graphql.ts для выполнения запроса
     const data = await query<LoginResponse>(
+      `${location.origin}/graphql`,
       `
       mutation Login($email: String!, $password: String!) {
         login(email: $email, password: $password) {
@@ -141,3 +139,4 @@ export async function login(credentials: Credentials): Promise<boolean> {
     throw error
   }
 }
+
