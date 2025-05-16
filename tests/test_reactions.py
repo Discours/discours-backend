@@ -53,7 +53,11 @@ async def test_create_reaction(test_client, db_session, test_setup):
             }
             """,
             "variables": {
-                "reaction": {"shout": test_setup["shout"].id, "kind": ReactionKind.LIKE.value, "body": "Great post!"}
+                "reaction": {
+                    "shout": test_setup["shout"].id,
+                    "kind": ReactionKind.LIKE.value,
+                    "body": "Great post!",
+                }
             },
         },
     )
@@ -61,4 +65,6 @@ async def test_create_reaction(test_client, db_session, test_setup):
     assert response.status_code == 200
     data = response.json()
     assert "error" not in data
-    assert data["data"]["create_reaction"]["reaction"]["kind"] == ReactionKind.LIKE.value
+    assert (
+        data["data"]["create_reaction"]["reaction"]["kind"] == ReactionKind.LIKE.value
+    )
