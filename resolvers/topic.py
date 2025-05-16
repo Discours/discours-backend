@@ -8,7 +8,7 @@ from cache.cache import (
     get_cached_topic_followers,
     invalidate_cache_by_prefix,
 )
-from orm.author import Author
+from auth.orm import Author
 from orm.topic import Topic
 from orm.reaction import ReactionKind
 from resolvers.stat import get_with_stat

@@ -50,10 +50,25 @@ FILTERED_FIELDS = ["_sa_instance_state", "search_vector"]
 
 
 def create_table_if_not_exists(engine, table):
+    """
+    Создает таблицу, если она не существует в базе данных.
+
+    Args:
+        engine: SQLAlchemy движок базы данных
+        table: Класс модели SQLAlchemy
+    """
     inspector = inspect(engine)
     if table and not inspector.has_table(table.__tablename__):
-        table.__table__.create(engine)
-        logger.info(f"Table '{table.__tablename__}' created.")
+        try:
+            table.__table__.create(engine)
+            logger.info(f"Table '{table.__tablename__}' created.")
+        except exc.OperationalError as e:
+            # Проверяем, содержит ли ошибка упоминание о том, что индекс уже существует
+            if "already exists" in str(e):
+                logger.warning(f"Skipping index creation for table '{table.__tablename__}': {e}")
+            else:
+                # Перевыбрасываем ошибку, если она не связана с дублированием
+                raise
     else:
         logger.info(f"Table '{table.__tablename__}' ok.")
 
@@ -154,21 +169,43 @@ class Base(declarative_base()):
         REGISTRY[cls.__name__] = cls
 
     def dict(self) -> Dict[str, Any]:
+        """
+        Конвертирует ORM объект в словарь.
+
+        Пропускает атрибуты, которые отсутствуют в объекте, но присутствуют в колонках таблицы.
+        Преобразует JSON поля в словари.
+        Добавляет синтетическое поле .stat, если оно существует.
+
+        Returns:
+            Dict[str, Any]: Словарь с атрибутами объекта
+        """
         column_names = filter(lambda x: x not in FILTERED_FIELDS, self.__table__.columns.keys())
         data = {}
         try:
             for column_name in column_names:
-                value = getattr(self, column_name)
-                # Check if the value is JSON and decode it if necessary
-                if isinstance(value, (str, bytes)) and isinstance(self.__table__.columns[column_name].type, JSON):
-                    try:
-                        data[column_name] = orjson.loads(value)
-                    except (TypeError, orjson.JSONDecodeError) as e:
-                        logger.error(f"Error decoding JSON for column '{column_name}': {e}")
-                        data[column_name] = value
-                else:
-                    data[column_name] = value
-            # Add synthetic field .stat if it exists
+                try:
+                    # Проверяем, существует ли атрибут в объекте
+                    if hasattr(self, column_name):
+                        value = getattr(self, column_name)
+                        # Проверяем, является ли значение JSON и декодируем его при необходимости
+                        if isinstance(value, (str, bytes)) and isinstance(
+                            self.__table__.columns[column_name].type, JSON
+                        ):
+                            try:
+                                data[column_name] = orjson.loads(value)
+                            except (TypeError, orjson.JSONDecodeError) as e:
+                                logger.error(f"Error decoding JSON for column '{column_name}': {e}")
+                                data[column_name] = value
+                        else:
+                            data[column_name] = value
+                    else:
+                        # Пропускаем атрибут, если его нет в объекте (может быть добавлен после миграции)
+                        logger.debug(
+                            f"Skipping missing attribute '{column_name}' for {self.__class__.__name__}"
+                        )
+                except AttributeError as e:
+                    logger.warning(f"Attribute error for column '{column_name}': {e}")
+            # Добавляем синтетическое поле .stat если оно существует
             if hasattr(self, "stat"):
                 data["stat"] = self.stat
         except Exception as e:
@@ -186,7 +223,9 @@ class Base(declarative_base()):
 
 
 # Функция для вывода полного трейсбека при предупреждениях
-def warning_with_traceback(message: Warning | str, category, filename: str, lineno: int, file=None, line=None):
+def warning_with_traceback(
+    message: Warning | str, category, filename: str, lineno: int, file=None, line=None
+):
     tb = traceback.format_stack()
     tb_str = "".join(tb)
     return f"{message} ({filename}, {lineno}): {category.__name__}\n{tb_str}"

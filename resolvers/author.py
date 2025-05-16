@@ -14,7 +14,7 @@ from cache.cache import (
     get_cached_follower_topics,
     invalidate_cache_by_prefix,
 )
-from orm.author import Author
+from auth.orm import Author
 from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session
@@ -70,7 +70,9 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None):
 
     # Функция для получения авторов из БД
     async def fetch_authors_with_stats():
-        logger.debug(f"Выполняем запрос на получение авторов со статистикой: limit={limit}, offset={offset}, by={by}")
+        logger.debug(
+            f"Выполняем запрос на получение авторов со статистикой: limit={limit}, offset={offset}, by={by}"
+        )
 
         with local_session() as session:
             # Базовый запрос для получения авторов
@@ -80,7 +82,7 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None):
             if by:
                 if isinstance(by, dict):
                     # Обработка словаря параметров сортировки
-                    from sqlalchemy import asc, desc
+                    from sqlalchemy import desc
 
                     for field, direction in by.items():
                         column = getattr(Author, field, None)

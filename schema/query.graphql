@@ -6,6 +6,14 @@ type Query {
   load_authors_by(by: AuthorsBy!, limit: Int, offset: Int): [Author]
   # search_authors(what: String!): [Author]
 
+  # Auth queries
+  signOut: AuthSuccess!
+  me: AuthResult!
+  isEmailUsed(email: String!): Boolean!
+  isAdmin: Boolean!
+  getOAuthProviders: [OAuthProvider!]!
+  getRoles: [RolesInfo!]!
+
   # community
   get_community: Community
   get_communities_all: [Community]

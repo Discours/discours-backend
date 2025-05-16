@@ -4,7 +4,7 @@ import json
 from sqlalchemy import and_, join, select
 
 from cache.cache import cache_author, cache_topic
-from orm.author import Author, AuthorFollower
+from auth.orm import Author, AuthorFollower
 from orm.shout import Shout, ShoutAuthor, ShoutReactionsFollower, ShoutTopic
 from orm.topic import Topic, TopicFollower
 from resolvers.stat import get_with_stat
@@ -29,7 +29,9 @@ async def precache_authors_followers(author_id, session):
 async def precache_authors_follows(author_id, session):
     follows_topics_query = select(TopicFollower.topic).where(TopicFollower.follower == author_id)
     follows_authors_query = select(AuthorFollower.author).where(AuthorFollower.follower == author_id)
-    follows_shouts_query = select(ShoutReactionsFollower.shout).where(ShoutReactionsFollower.follower == author_id)
+    follows_shouts_query = select(ShoutReactionsFollower.shout).where(
+        ShoutReactionsFollower.follower == author_id
+    )
 
     follows_topics = {row[0] for row in session.execute(follows_topics_query) if row[0]}
     follows_authors = {row[0] for row in session.execute(follows_authors_query) if row[0]}
@@ -111,17 +113,18 @@ async def precache_data():
             logger.info(f"{len(topics)} topics and their followings precached")
 
             # authors
-            authors = get_with_stat(select(Author).where(Author.user.is_not(None)))
-            logger.info(f"{len(authors)} authors found in database")
+            authors = get_with_stat(select(Author))
+            # logger.info(f"{len(authors)} authors found in database")
             for author in authors:
                 if isinstance(author, Author):
                     profile = author.dict()
                     author_id = profile.get("id")
-                    user_id = profile.get("user", "").strip()
-                    if author_id and user_id:
+                    # user_id = profile.get("user", "").strip()
+                    if author_id:  # and user_id:
                         await cache_author(profile)
                         await asyncio.gather(
-                            precache_authors_followers(author_id, session), precache_authors_follows(author_id, session)
+                            precache_authors_followers(author_id, session),
+                            precache_authors_follows(author_id, session),
                         )
                 else:
                     logger.error(f"fail caching {author}")

@@ -11,7 +11,7 @@ from settings import DB_URL
 config = context.config
 
 # override DB_URL
-config.set_section_option(config.config_ini_section, "DB_URL", DB_URL)
+config.set_main_option("sqlalchemy.url", DB_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

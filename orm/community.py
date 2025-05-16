@@ -4,7 +4,7 @@ import time
 from sqlalchemy import Column, ForeignKey, Integer, String, Text, distinct, func
 from sqlalchemy.ext.hybrid import hybrid_property
 
-from orm.author import Author
+from auth.orm import Author
 from services.db import Base
 
 
@@ -66,7 +66,11 @@ class CommunityStats:
     def shouts(self):
         from orm.shout import Shout
 
-        return self.community.session.query(func.count(Shout.id)).filter(Shout.community == self.community.id).scalar()
+        return (
+            self.community.session.query(func.count(Shout.id))
+            .filter(Shout.community == self.community.id)
+            .scalar()
+        )
 
     @property
     def followers(self):
@@ -84,7 +88,11 @@ class CommunityStats:
         return (
             self.community.session.query(func.count(distinct(Author.id)))
             .join(Shout)
-            .filter(Shout.community == self.community.id, Shout.featured_at.is_not(None), Author.id.in_(Shout.authors))
+            .filter(
+                Shout.community == self.community.id,
+                Shout.featured_at.is_not(None),
+                Author.id.in_(Shout.authors),
+            )
             .scalar()
         )
 

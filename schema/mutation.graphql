@@ -1,4 +1,14 @@
 type Mutation {
+  # Auth mutations
+  login(email: String!, password: String!): AuthResult!
+  registerUser(email: String!, password: String, name: String): AuthResult!
+  sendLink(email: String!, lang: String, template: String): Author!
+  confirmEmail(token: String!): AuthResult!
+  getSession: SessionInfo!
+  changePassword(oldPassword: String!, newPassword: String!): AuthSuccess!
+  resetPassword(token: String!, newPassword: String!): AuthSuccess!
+  requestPasswordReset(email: String!, lang: String): AuthSuccess!
+
   # author
   rate_author(rated_slug: String!, value: Int!): CommonResult!
   update_author(profile: ProfileInput!): CommonResult!

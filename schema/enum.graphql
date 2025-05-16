@@ -51,3 +51,18 @@ enum InviteStatus {
   ACCEPTED
   REJECTED
 }
+
+# Auth enums
+enum AuthAction {
+  LOGIN
+  REGISTER
+  CONFIRM_EMAIL
+  RESET_PASSWORD
+  CHANGE_PASSWORD
+}
+
+enum RoleType {
+  SYSTEM
+  COMMUNITY
+  CUSTOM
+}

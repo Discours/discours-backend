@@ -1,7 +1,6 @@
 import time
 
 import orjson
-import trafilatura
 from sqlalchemy import and_, desc, select
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.sql.functions import coalesce
@@ -12,7 +11,7 @@ from cache.cache import (
     invalidate_shout_related_cache,
     invalidate_shouts_cache,
 )
-from orm.author import Author
+from auth.orm import Author
 from orm.draft import Draft
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
@@ -23,7 +22,7 @@ from services.db import local_session
 from services.notify import notify_shout
 from services.schema import mutation, query
 from services.search import search_service
-from utils.html_wrapper import wrap_html_fragment
+from utils.extract_text import extract_text
 from utils.logger import root_logger as logger
 
 
@@ -181,11 +180,11 @@ async def create_shout(_, info, inp):
                 # Создаем публикацию без topics
                 body = inp.get("body", "")
                 lead = inp.get("lead", "")
-                body_html = wrap_html_fragment(body)
-                lead_html = wrap_html_fragment(lead)
-                body_text = trafilatura.extract(body_html)
-                lead_text = trafilatura.extract(lead_html)
-                seo = inp.get("seo", lead_text.strip() or body_text.strip()[:300].split(". ")[:-1].join(". "))
+                body_text = extract_text(body)
+                lead_text = extract_text(lead)
+                seo = inp.get(
+                    "seo", lead_text.strip() or body_text.strip()[:300].split(". ")[:-1].join(". ")
+                )
                 new_shout = Shout(
                     slug=slug,
                     body=body,
@@ -282,7 +281,9 @@ def patch_main_topic(session, main_topic_slug, shout):
     with session.begin():
         # Получаем текущий главный топик
         old_main = (
-            session.query(ShoutTopic).filter(and_(ShoutTopic.shout == shout.id, ShoutTopic.main.is_(True))).first()
+            session.query(ShoutTopic)
+            .filter(and_(ShoutTopic.shout == shout.id, ShoutTopic.main.is_(True)))
+            .first()
         )
         if old_main:
             logger.info(f"Found current main topic: {old_main.topic.slug}")
@@ -316,7 +317,9 @@ def patch_main_topic(session, main_topic_slug, shout):
             session.flush()
             logger.info(f"Main topic updated for shout#{shout.id}")
         else:
-            logger.warning(f"No changes needed for main topic (old={old_main is not None}, new={new_main is not None})")
+            logger.warning(
+                f"No changes needed for main topic (old={old_main is not None}, new={new_main is not None})"
+            )
 
 
 def patch_topics(session, shout, topics_input):
@@ -417,7 +420,9 @@ async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
                 logger.info(f"Processing update for shout#{shout_id} by author #{author_id}")
                 shout_by_id = (
                     session.query(Shout)
-                    .options(joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors))
+                    .options(
+                        joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors)
+                    )
                     .filter(Shout.id == shout_id)
                     .first()
                 )
@@ -446,7 +451,10 @@ async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
                     shout_input["slug"] = slug
                     logger.info(f"shout#{shout_id} slug patched")
 
-                if filter(lambda x: x.id == author_id, [x for x in shout_by_id.authors]) or "editor" in roles:
+                if (
+                    filter(lambda x: x.id == author_id, [x for x in shout_by_id.authors])
+                    or "editor" in roles
+                ):
                     logger.info(f"Author #{author_id} has permission to edit shout#{shout_id}")
 
                     # topics patch
@@ -560,7 +568,9 @@ async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
                     # Получаем полные данные шаута со связями
                     shout_with_relations = (
                         session.query(Shout)
-                        .options(joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors))
+                        .options(
+                            joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors)
+                        )
                         .filter(Shout.id == shout_id)
                         .first()
                     )
@@ -648,19 +658,17 @@ async def delete_shout(_, info, shout_id: int):
 def get_main_topic(topics):
     """Get the main topic from a list of ShoutTopic objects."""
     logger.info(f"Starting get_main_topic with {len(topics) if topics else 0} topics")
-    logger.debug(
-        f"Topics data: {[(t.slug, getattr(t, 'main', False)) for t in topics] if topics else []}"
-    )
+    logger.debug(f"Topics data: {[(t.slug, getattr(t, 'main', False)) for t in topics] if topics else []}")
 
     if not topics:
         logger.warning("No topics provided to get_main_topic")
         return {"id": 0, "title": "no topic", "slug": "notopic", "is_main": True}
 
     # Проверяем, является ли topics списком объектов ShoutTopic или Topic
-    if hasattr(topics[0], 'topic') and topics[0].topic:
+    if hasattr(topics[0], "topic") and topics[0].topic:
         # Для ShoutTopic объектов (старый формат)
         # Find first main topic in original order
-        main_topic_rel = next((st for st in topics if getattr(st, 'main', False)), None)
+        main_topic_rel = next((st for st in topics if getattr(st, "main", False)), None)
         logger.debug(
             f"Found main topic relation: {main_topic_rel.topic.slug if main_topic_rel and main_topic_rel.topic else None}"
         )
@@ -701,6 +709,7 @@ def get_main_topic(topics):
     logger.warning("No valid topics found, returning default")
     return {"slug": "notopic", "title": "no topic", "id": 0, "is_main": True}
 
+
 @mutation.field("unpublish_shout")
 @login_required
 async def unpublish_shout(_, info, shout_id: int):
@@ -727,31 +736,25 @@ async def unpublish_shout(_, info, shout_id: int):
             # Загружаем Shout со всеми связями для правильного формирования ответа
             shout = (
                 session.query(Shout)
-                .options(
-                    joinedload(Shout.authors),
-                    selectinload(Shout.topics)
-                )
+                .options(joinedload(Shout.authors), selectinload(Shout.topics))
                 .filter(Shout.id == shout_id)
                 .first()
             )
-            
+
             if not shout:
-                 logger.warning(f"Shout not found for unpublish: ID {shout_id}")
-                 return {"error": "Shout not found"} 
-            
+                logger.warning(f"Shout not found for unpublish: ID {shout_id}")
+                return {"error": "Shout not found"}
+
             # Если у публикации есть связанный черновик, загружаем его с relationships
             if shout.draft:
                 # Отдельно загружаем черновик с его связями
                 draft = (
                     session.query(Draft)
-                    .options(
-                        selectinload(Draft.authors),
-                        selectinload(Draft.topics)
-                    )
+                    .options(selectinload(Draft.authors), selectinload(Draft.topics))
                     .filter(Draft.id == shout.draft)
                     .first()
                 )
-                
+
                 # Связываем черновик с публикацией вручную для доступа через API
                 if draft:
                     shout.draft_obj = draft
@@ -768,38 +771,32 @@ async def unpublish_shout(_, info, shout_id: int):
             # Снимаем с публикации (устанавливаем published_at в None)
             shout.published_at = None
             session.commit()
-            
+
             # Формируем полноценный словарь для ответа
             shout_dict = shout.dict()
-            
+
             # Добавляем связанные данные
             shout_dict["topics"] = (
-                [
-                    {"id": topic.id, "slug": topic.slug, "title": topic.title}
-                    for topic in shout.topics
-                ]
+                [{"id": topic.id, "slug": topic.slug, "title": topic.title} for topic in shout.topics]
                 if shout.topics
                 else []
             )
-            
-            # Добавляем main_topic 
+
+            # Добавляем main_topic
             shout_dict["main_topic"] = get_main_topic(shout.topics)
-            
+
             # Добавляем авторов
             shout_dict["authors"] = (
-                [
-                    {"id": author.id, "name": author.name, "slug": author.slug}
-                    for author in shout.authors
-                ]
+                [{"id": author.id, "name": author.name, "slug": author.slug} for author in shout.authors]
                 if shout.authors
                 else []
             )
-            
+
             # Важно! Обновляем поле publication, отражая состояние "снят с публикации"
             shout_dict["publication"] = {
                 "id": shout_id_for_publication,
                 "slug": shout_slug,
-                "published_at": None  # Ключевое изменение - устанавливаем published_at в None
+                "published_at": None,  # Ключевое изменение - устанавливаем published_at в None
             }
 
             # Инвалидация кэша
@@ -810,15 +807,15 @@ async def unpublish_shout(_, info, shout_id: int):
                     "random_top",  # случайные топовые
                     "unrated",  # неоцененные
                 ]
-                await invalidate_shout_related_cache(shout, author_id) 
+                await invalidate_shout_related_cache(shout, author_id)
                 await invalidate_shouts_cache(cache_keys)
                 logger.info(f"Cache invalidated after unpublishing shout {shout_id}")
             except Exception as cache_err:
-                 logger.error(f"Failed to invalidate cache for unpublish shout {shout_id}: {cache_err}")
+                logger.error(f"Failed to invalidate cache for unpublish shout {shout_id}: {cache_err}")
 
-        except Exception as e: 
+        except Exception as e:
             session.rollback()
-            logger.error(f"Failed to unpublish shout {shout_id}: {e}", exc_info=True) 
+            logger.error(f"Failed to unpublish shout {shout_id}: {e}", exc_info=True)
             return {"error": f"Failed to unpublish shout: {str(e)}"}
 
     # Возвращаем сформированный словарь вместо объекта

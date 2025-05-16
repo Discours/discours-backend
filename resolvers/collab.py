@@ -1,4 +1,4 @@
-from orm.author import Author
+from auth.orm import Author
 from orm.invite import Invite, InviteStatus
 from orm.shout import Shout
 from services.auth import login_required

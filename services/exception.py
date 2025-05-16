@@ -14,4 +14,7 @@ class ExceptionHandlerMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as exc:
             logger.exception(exc)
-            return JSONResponse({"detail": "An error occurred. Please try again later."}, status_code=500)
+            return JSONResponse(
+                {"detail": "An error occurred. Please try again later."},
+                status_code=500,
+            )

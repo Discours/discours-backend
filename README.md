@@ -74,6 +74,9 @@ pytest
 
 # Type checking
 mypy .
+
+# dev run
+python -m granian main:app --interface asgi
 ```
 
 ### Code Style

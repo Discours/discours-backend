@@ -162,3 +162,5 @@ views.json
 *.crt
 *cache.json
 .cursor
+
+node_modules/

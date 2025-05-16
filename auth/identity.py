@@ -1,15 +1,20 @@
 from binascii import hexlify
 from hashlib import sha256
+from typing import Any, Dict, TypeVar, TYPE_CHECKING
 
 from passlib.hash import bcrypt
 
-from auth.exceptions import ExpiredToken, InvalidToken
+from auth.exceptions import ExpiredToken, InvalidToken, InvalidPassword
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-from orm.user import User
 
-# from base.exceptions import InvalidPassword, InvalidToken
 from services.db import local_session
+
+# Для типизации
+if TYPE_CHECKING:
+    from auth.orm import Author
+
+AuthorType = TypeVar("AuthorType", bound="Author")
 
 
 class Password:
@@ -24,6 +29,15 @@ class Password:
 
     @staticmethod
     def encode(password: str) -> str:
+        """
+        Кодирует пароль пользователя
+
+        Args:
+            password (str): Пароль пользователя
+
+        Returns:
+            str: Закодированный пароль
+        """
         password_sha256 = Password._get_sha256(password)
         return bcrypt.using(rounds=10).hash(password_sha256)
 
@@ -52,28 +66,93 @@ class Password:
 
 class Identity:
     @staticmethod
-    def password(orm_user: User, password: str) -> User:
-        user = User(**orm_user.dict())
-        if not user.password:
-            # raise InvalidPassword("User password is empty")
-            return {"error": "User password is empty"}
-        if not Password.verify(password, user.password):
-            # raise InvalidPassword("Wrong user password")
-            return {"error": "Wrong user password"}
-        return user
+    def password(orm_author: Any, password: str) -> Any:
+        """
+        Проверяет пароль пользователя
+
+        Args:
+            orm_author (Author): Объект пользователя
+            password (str): Пароль пользователя
+
+        Returns:
+            Author: Объект автора при успешной проверке
+
+        Raises:
+            InvalidPassword: Если пароль не соответствует хешу или отсутствует
+        """
+        # Импортируем внутри функции для избежания циклических импортов
+        from auth.orm import Author
+        from utils.logger import root_logger as logger
+
+        # Проверим исходный пароль в orm_author
+        if not orm_author.password:
+            logger.warning(
+                f"[auth.identity] Пароль в исходном объекте автора пуст: email={orm_author.email}"
+            )
+            raise InvalidPassword("Пароль не установлен для данного пользователя")
+
+        # Проверим словарь до создания нового объекта
+        author_dict = orm_author.dict()
+        if "password" not in author_dict or not author_dict["password"]:
+            logger.warning(
+                f"[auth.identity] Пароль отсутствует в dict() или пуст: email={orm_author.email}"
+            )
+            raise InvalidPassword("Пароль отсутствует в данных пользователя")
+
+        # Создаем новый объект автора
+        author = Author(**author_dict)
+        if not author.password:
+            logger.warning(
+                f"[auth.identity] Пароль в созданном объекте автора пуст: email={orm_author.email}"
+            )
+            raise InvalidPassword("Пароль не установлен для данного пользователя")
+
+        # Проверяем пароль
+        if not Password.verify(password, author.password):
+            logger.warning(f"[auth.identity] Неверный пароль для {orm_author.email}")
+            raise InvalidPassword("Неверный пароль пользователя")
+
+        # Возвращаем исходный объект, чтобы сохранить все связи
+        return orm_author
 
     @staticmethod
-    def oauth(inp) -> User:
+    def oauth(inp: Dict[str, Any]) -> Any:
+        """
+        Создает нового пользователя OAuth, если он не существует
+
+        Args:
+            inp (dict): Данные OAuth пользователя
+
+        Returns:
+            Author: Объект пользователя
+        """
+        # Импортируем внутри функции для избежания циклических импортов
+        from auth.orm import Author
+
         with local_session() as session:
-            user = session.query(User).filter(User.email == inp["email"]).first()
-            if not user:
-                user = User.create(**inp, emailConfirmed=True)
+            author = session.query(Author).filter(Author.email == inp["email"]).first()
+            if not author:
+                author = Author(**inp)
+                author.email_verified = True
+                session.add(author)
                 session.commit()
 
-        return user
+        return author
 
     @staticmethod
-    async def onetime(token: str) -> User:
+    async def onetime(token: str) -> Any:
+        """
+        Проверяет одноразовый токен
+
+        Args:
+            token (str): Одноразовый токен
+
+        Returns:
+            Author: Объект пользователя
+        """
+        # Импортируем внутри функции для избежания циклических импортов
+        from auth.orm import Author
+
         try:
             print("[auth.identity] using one time token")
             payload = JWTCodec.decode(token)
@@ -87,11 +166,11 @@ class Identity:
             # raise InvalidToken("token format error") from e
             return {"error": "Token format error"}
         with local_session() as session:
-            user = session.query(User).filter_by(id=payload.user_id).first()
-            if not user:
+            author = session.query(Author).filter_by(id=payload.user_id).first()
+            if not author:
                 # raise Exception("user not exist")
-                return {"error": "User does not exist"}
-            if not user.emailConfirmed:
-                user.emailConfirmed = True
+                return {"error": "Author does not exist"}
+            if not author.email_verified:
+                author.email_verified = True
                 session.commit()
-            return user
+            return author

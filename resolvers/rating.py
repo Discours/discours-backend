@@ -1,7 +1,7 @@
 from sqlalchemy import and_, case, func, select, true
 from sqlalchemy.orm import aliased
 
-from orm.author import Author, AuthorRating
+from auth.orm import Author, AuthorRating
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout
 from services.auth import login_required
@@ -187,7 +187,9 @@ def count_author_shouts_rating(session, author_id) -> int:
 
 def get_author_rating_old(session, author: Author):
     likes_count = (
-        session.query(AuthorRating).filter(and_(AuthorRating.author == author.id, AuthorRating.plus.is_(True))).count()
+        session.query(AuthorRating)
+        .filter(and_(AuthorRating.author == author.id, AuthorRating.plus.is_(True)))
+        .count()
     )
     dislikes_count = (
         session.query(AuthorRating)

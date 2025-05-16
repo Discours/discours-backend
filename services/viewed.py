@@ -14,7 +14,7 @@ from google.analytics.data_v1beta.types import (
 )
 from google.analytics.data_v1beta.types import Filter as GAFilter
 
-from orm.author import Author
+from auth.orm import Author
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from services.db import local_session
@@ -228,12 +228,20 @@ class ViewedStorage:
 
             # Обновление тем и авторов с использованием вспомогательной функции
             for [_st, topic] in (
-                session.query(ShoutTopic, Topic).join(Topic).join(Shout).where(Shout.slug == shout_slug).all()
+                session.query(ShoutTopic, Topic)
+                .join(Topic)
+                .join(Shout)
+                .where(Shout.slug == shout_slug)
+                .all()
             ):
                 update_groups(self.shouts_by_topic, topic.slug, shout_slug)
 
             for [_st, author] in (
-                session.query(ShoutAuthor, Author).join(Author).join(Shout).where(Shout.slug == shout_slug).all()
+                session.query(ShoutAuthor, Author)
+                .join(Author)
+                .join(Shout)
+                .where(Shout.slug == shout_slug)
+                .all()
             ):
                 update_groups(self.shouts_by_author, author.slug, shout_slug)
 
@@ -266,7 +274,9 @@ class ViewedStorage:
             if failed == 0:
                 when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
                 t = format(when.astimezone().isoformat())
-                logger.info("       ⎩ next update: %s" % (t.split("T")[0] + " " + t.split("T")[1].split(".")[0]))
+                logger.info(
+                    "       ⎩ next update: %s" % (t.split("T")[0] + " " + t.split("T")[1].split(".")[0])
+                )
                 await asyncio.sleep(self.period)
             else:
                 await asyncio.sleep(10)

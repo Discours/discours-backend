@@ -3,7 +3,7 @@ from operator import and_
 from graphql import GraphQLError
 from sqlalchemy import delete, insert
 
-from orm.author import AuthorBookmark
+from auth.orm import AuthorBookmark
 from orm.shout import Shout
 from resolvers.feed import apply_options
 from resolvers.reader import get_shouts_with_links, query_with_stat
@@ -72,7 +72,9 @@ def toggle_bookmark_shout(_, info, slug: str) -> CommonResult:
 
         if existing_bookmark:
             db.execute(
-                delete(AuthorBookmark).where(AuthorBookmark.author == author_id, AuthorBookmark.shout == shout.id)
+                delete(AuthorBookmark).where(
+                    AuthorBookmark.author == author_id, AuthorBookmark.shout == shout.id
+                )
             )
             result = False
         else:

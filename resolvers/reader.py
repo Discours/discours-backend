@@ -4,7 +4,7 @@ from sqlalchemy import and_, nulls_last, text
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import asc, case, desc, func, select
 
-from orm.author import Author
+from auth.orm import Author
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
@@ -93,7 +93,14 @@ def query_with_stat(info):
         q = q.join(main_topic, main_topic.id == main_topic_join.topic)
         q = q.add_columns(
             json_builder(
-                "id", main_topic.id, "title", main_topic.title, "slug", main_topic.slug, "is_main", main_topic_join.main
+                "id",
+                main_topic.id,
+                "title",
+                main_topic.title,
+                "slug",
+                main_topic.slug,
+                "is_main",
+                main_topic_join.main,
             ).label("main_topic")
         )
 
@@ -131,7 +138,9 @@ def query_with_stat(info):
             select(
                 ShoutTopic.shout,
                 json_array_builder(
-                    json_builder("id", Topic.id, "title", Topic.title, "slug", Topic.slug, "is_main", ShoutTopic.main)
+                    json_builder(
+                        "id", Topic.id, "title", Topic.title, "slug", Topic.slug, "is_main", ShoutTopic.main
+                    )
                 ).label("topics"),
             )
             .outerjoin(Topic, ShoutTopic.topic == Topic.id)
@@ -239,7 +248,9 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                             if hasattr(row, "main_topic"):
                                 # logger.debug(f"Raw main_topic for shout#{shout_id}: {row.main_topic}")
                                 main_topic = (
-                                    orjson.loads(row.main_topic) if isinstance(row.main_topic, str) else row.main_topic
+                                    orjson.loads(row.main_topic)
+                                    if isinstance(row.main_topic, str)
+                                    else row.main_topic
                                 )
                                 # logger.debug(f"Parsed main_topic for shout#{shout_id}: {main_topic}")
 
@@ -253,7 +264,12 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                                 }
                             elif not main_topic:
                                 logger.warning(f"No main_topic and no topics found for shout#{shout_id}")
-                                main_topic = {"id": 0, "title": "no topic", "slug": "notopic", "is_main": True}
+                                main_topic = {
+                                    "id": 0,
+                                    "title": "no topic",
+                                    "slug": "notopic",
+                                    "is_main": True,
+                                }
                             shout_dict["main_topic"] = main_topic
                             # logger.debug(f"Final main_topic for shout#{shout_id}: {main_topic}")
 
@@ -270,7 +286,9 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                                     media_data = orjson.loads(media_data)
                                 except orjson.JSONDecodeError:
                                     media_data = []
-                            shout_dict["media"] = [media_data] if isinstance(media_data, dict) else media_data
+                            shout_dict["media"] = (
+                                [media_data] if isinstance(media_data, dict) else media_data
+                            )
 
                         shouts.append(shout_dict)
 
@@ -358,7 +376,9 @@ def apply_sorting(q, options):
     """
     order_str = options.get("order_by")
     if order_str in ["rating", "comments_count", "last_commented_at"]:
-        query_order_by = desc(text(order_str)) if options.get("order_by_desc", True) else asc(text(order_str))
+        query_order_by = (
+            desc(text(order_str)) if options.get("order_by_desc", True) else asc(text(order_str))
+        )
         q = q.distinct(text(order_str), Shout.id).order_by(  # DISTINCT ON включает поле сортировки
             nulls_last(query_order_by), Shout.id
         )
@@ -442,7 +462,8 @@ async def load_shouts_unrated(_, info, options):
         select(Reaction.shout)
         .where(
             and_(
-                Reaction.deleted_at.is_(None), Reaction.kind.in_([ReactionKind.LIKE.value, ReactionKind.DISLIKE.value])
+                Reaction.deleted_at.is_(None),
+                Reaction.kind.in_([ReactionKind.LIKE.value, ReactionKind.DISLIKE.value]),
             )
         )
         .group_by(Reaction.shout)
@@ -453,11 +474,15 @@ async def load_shouts_unrated(_, info, options):
     q = select(Shout).where(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
     q = q.join(Author, Author.id == Shout.created_by)
     q = q.add_columns(
-        json_builder("id", Author.id, "name", Author.name, "slug", Author.slug, "pic", Author.pic).label("main_author")
+        json_builder("id", Author.id, "name", Author.name, "slug", Author.slug, "pic", Author.pic).label(
+            "main_author"
+        )
     )
     q = q.join(ShoutTopic, and_(ShoutTopic.shout == Shout.id, ShoutTopic.main.is_(True)))
     q = q.join(Topic, Topic.id == ShoutTopic.topic)
-    q = q.add_columns(json_builder("id", Topic.id, "title", Topic.title, "slug", Topic.slug).label("main_topic"))
+    q = q.add_columns(
+        json_builder("id", Topic.id, "title", Topic.title, "slug", Topic.slug).label("main_topic")
+    )
     q = q.where(Shout.id.not_in(rated_shouts))
     q = q.order_by(func.random())
 

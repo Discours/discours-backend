@@ -10,7 +10,7 @@ from cache.cache import (
     get_cached_follower_authors,
     get_cached_follower_topics,
 )
-from orm.author import Author, AuthorFollower
+from auth.orm import Author, AuthorFollower
 from orm.community import Community, CommunityFollower
 from orm.reaction import Reaction
 from orm.shout import Shout, ShoutReactionsFollower
@@ -71,11 +71,16 @@ async def follow(_, info, what, slug="", entity_id=0):
             with local_session() as session:
                 existing_sub = (
                     session.query(follower_class)
-                    .filter(follower_class.follower == follower_id, getattr(follower_class, entity_type) == entity_id)
+                    .filter(
+                        follower_class.follower == follower_id,
+                        getattr(follower_class, entity_type) == entity_id,
+                    )
                     .first()
                 )
                 if existing_sub:
-                    logger.info(f"Пользователь {follower_id} уже подписан на {what.lower()} с ID {entity_id}")
+                    logger.info(
+                        f"Пользователь {follower_id} уже подписан на {what.lower()} с ID {entity_id}"
+                    )
                 else:
                     logger.debug("Добавление новой записи в базу данных")
                     sub = follower_class(follower=follower_id, **{entity_type: entity_id})

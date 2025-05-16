@@ -28,13 +28,12 @@ class CacheRevalidationManager:
         """Запуск фонового воркера для ревалидации кэша."""
         # Проверяем, что у нас есть соединение с Redis
         if not self._redis._client:
-            logger.warning("Redis connection not established. Waiting for connection...")
             try:
                 await self._redis.connect()
                 logger.info("Redis connection established for revalidation manager")
             except Exception as e:
                 logger.error(f"Failed to connect to Redis: {e}")
-                
+
         self.task = asyncio.create_task(self.revalidate_cache())
 
     async def revalidate_cache(self):
@@ -53,7 +52,7 @@ class CacheRevalidationManager:
         # Проверяем соединение с Redis
         if not self._redis._client:
             return  # Выходим из метода, если не удалось подключиться
-                
+
         async with self.lock:
             # Ревалидация кэша авторов
             if self.items_to_revalidate["authors"]:

@@ -23,10 +23,14 @@ type Author {
   last_seen: Int
   updated_at: Int
   deleted_at: Int
+  email: String
   seo: String
   # synthetic
   stat: AuthorStat # ratings inside
   communities: [Community]
+  # Auth fields
+  roles: [String!]
+  email_verified: Boolean
 }
 
 type ReactionUpdating {
@@ -278,5 +282,41 @@ type MyRateComment {
   shout_id: Int
   comment_id: Int!
   my_rate: ReactionKind
+}
+
+# Auth types
+type AuthResult {
+  success: Boolean!
+  error: String
+  token: String
+  author: Author
+}
+
+type Permission {
+  resource: String!
+  action: String!
+  conditions: String
+}
+
+type SessionInfo {
+  token: String!
+  author: Author!
+}
+
+type AuthSuccess {
+  success: Boolean!
+}
+
+type OAuthProvider {
+  id: String!
+  name: String!
+  url: String!
+}
+
+type RolesInfo {
+  id: String!
+  name: String!
+  description: String
+  permissions: [Permission!]!
 }
 

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "files": {
+    "include": ["*.tsx", "*.ts", "*.js", "*.json"],
+    "ignore": ["./dist", "./node_modules", ".husky", "docs", "gen", "*.gen.ts", "*.d.ts"]
+  },
+  "vcs": {
+    "enabled": true,
+    "defaultBranch": "dev",
+    "useIgnoreFile": true,
+    "clientKind": "git"
+  },
+  "organizeImports": {
+    "enabled": true,
+    "ignore": ["./gen"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 108,
+    "ignore": ["./src/graphql/schema", "./gen"]
+  },
+  "javascript": {
+    "formatter": {
+      "enabled": true,
+      "semicolons": "asNeeded",
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "arrowParentheses": "always",
+      "trailingCommas": "none"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "ignore": ["*.scss", "*.md", ".DS_Store", "*.svg", "*.d.ts"],
+    "rules": {
+      "all": true,
+      "complexity": {
+        "noForEach": "off",
+        "useOptionalChain": "warn",
+        "useLiteralKeys": "off",
+        "noExcessiveCognitiveComplexity": "off",
+        "useSimplifiedLogicExpression": "off"
+      },
+      "correctness": {
+        "useHookAtTopLevel": "off",
+        "useImportExtensions": "off",
+        "noUndeclaredDependencies": "off",
+        "noNodejsModules": {
+          "level": "off"
+        }
+      },
+      "a11y": {
+        "useHeadingContent": "off",
+        "useKeyWithClickEvents": "off",
+        "useKeyWithMouseEvents": "off",
+        "useAnchorContent": "off",
+        "useValidAnchor": "off",
+        "useMediaCaption": "off",
+        "useAltText": "off",
+        "useButtonType": "off",
+        "noRedundantAlt": "off",
+        "noSvgWithoutTitle": "off",
+        "noLabelWithoutControl": "off"
+      },
+      "nursery": {
+        "useImportRestrictions": "off"
+      },
+      "performance": {
+        "noBarrelFile": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "noNamespaceImport": "warn",
+        "noUselessElse": "off",
+        "useBlockStatements": "off",
+        "noImplicitBoolean": "off",
+        "useNamingConvention": "off",
+        "useImportType": "off",
+        "noDefaultExport": "off",
+        "useFilenamingConvention": "off",
+        "useExplicitLengthCheck": "off",
+        "useNodejsImportProtocol": "off"
+      },
+      "suspicious": {
+        "noConsole": "off",
+        "noConsoleLog": "off",
+        "noAssignInExpressions": "off"
+      }
+    }
+  }
+}

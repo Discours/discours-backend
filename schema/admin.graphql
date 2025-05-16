@@ -1,0 +1,71 @@
+type EnvVariable {
+  key: String!
+  value: String!
+  description: String
+  type: String!
+  isSecret: Boolean
+}
+
+type EnvSection {
+  name: String!
+  description: String
+  variables: [EnvVariable!]!
+}
+
+input EnvVariableInput {
+  key: String!
+  value: String!
+  type: String!
+}
+
+# Типы для управления пользователями
+type AdminUserInfo {
+  id: Int!
+  email: String
+  name: String
+  slug: String
+  roles: [String!]
+  created_at: Int
+  last_seen: Int
+  muted: Boolean
+  is_active: Boolean
+}
+
+input AdminUserUpdateInput {
+  id: Int!
+  roles: [String!]
+  muted: Boolean
+  is_active: Boolean
+}
+
+type Role {
+  id: String!
+  name: String!
+  description: String
+}
+
+# Тип для пагинированного ответа пользователей
+type AdminUserListResponse {
+  users: [AdminUserInfo!]!
+  total: Int!
+  page: Int!
+  perPage: Int!
+  totalPages: Int!
+}
+
+extend type Query {
+  getEnvVariables: [EnvSection!]!
+  # Запросы для управления пользователями
+  adminGetUsers(limit: Int, offset: Int, search: String): AdminUserListResponse!
+  adminGetRoles: [Role!]!
+}
+
+extend type Mutation {
+  updateEnvVariable(key: String!, value: String!): Boolean!
+  updateEnvVariables(variables: [EnvVariableInput!]!): Boolean!
+  
+  # Мутации для управления пользователями
+  adminUpdateUser(user: AdminUserUpdateInput!): Boolean!
+  adminToggleUserBlock(userId: Int!): Boolean!
+  adminToggleUserMute(userId: Int!): Boolean!
+} 

@@ -116,3 +116,25 @@ input CommunityInput {
   desc: String
   pic: String
 }
+
+# Auth inputs
+input LoginCredentials {
+  email: String!
+  password: String!
+}
+
+input RegisterInput {
+  email: String!
+  password: String
+  name: String
+}
+
+input ChangePasswordInput {
+  oldPassword: String!
+  newPassword: String!
+}
+
+input ResetPasswordInput {
+  token: String!
+  newPassword: String!
+}

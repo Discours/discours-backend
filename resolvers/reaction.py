@@ -3,7 +3,7 @@ import time
 from sqlalchemy import and_, asc, case, desc, func, select
 from sqlalchemy.orm import aliased
 
-from orm.author import Author
+from auth.orm import Author
 from orm.rating import PROPOSAL_REACTIONS, RATING_REACTIONS, is_negative, is_positive
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor
@@ -334,7 +334,9 @@ async def create_reaction(_, info, reaction):
         with local_session() as session:
             authors = session.query(ShoutAuthor.author).filter(ShoutAuthor.shout == shout_id).scalar()
             is_author = (
-                bool(list(filter(lambda x: x == int(author_id), authors))) if isinstance(authors, list) else False
+                bool(list(filter(lambda x: x == int(author_id), authors)))
+                if isinstance(authors, list)
+                else False
             )
             reaction_input["created_by"] = author_id
             kind = reaction_input.get("kind")
@@ -487,7 +489,7 @@ def apply_reaction_filters(by, q):
     shout_slug = by.get("shout")
     if shout_slug:
         q = q.filter(Shout.slug == shout_slug)
-    
+
     shout_id = by.get("shout_id")
     if shout_id:
         q = q.filter(Shout.id == shout_id)

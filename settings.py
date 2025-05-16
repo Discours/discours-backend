@@ -1,3 +1,6 @@
+"""Настройки приложения"""
+
+import os
 import sys
 from os import environ
 
@@ -17,13 +20,50 @@ REDIS_URL = environ.get("REDIS_URL") or "redis://127.0.0.1"
 # debug
 GLITCHTIP_DSN = environ.get("GLITCHTIP_DSN")
 
-# authorizer.dev
-AUTH_URL = environ.get("AUTH_URL") or "https://auth.discours.io/graphql"
+# auth
 ADMIN_SECRET = environ.get("AUTH_SECRET") or "nothing"
-WEBHOOK_SECRET = environ.get("WEBHOOK_SECRET") or "nothing-else"
+ADMIN_EMAILS = environ.get("ADMIN_EMAILS") or "services@discours.io,guests@discours.io,welcome@discours.io"
 
 # own auth
-ONETIME_TOKEN_LIFE_SPAN = 60 * 60 * 24 * 3  # 3 days
-SESSION_TOKEN_LIFE_SPAN = 60 * 60 * 24 * 30  # 30 days
+ONETIME_TOKEN_LIFE_SPAN = 60 * 15  # 15 минут
+SESSION_TOKEN_LIFE_SPAN = 60 * 60 * 24 * 30  # 30 дней
+SESSION_TOKEN_HEADER = "Authorization"
 JWT_ALGORITHM = "HS256"
 JWT_SECRET_KEY = environ.get("JWT_SECRET") or "nothing-else-jwt-secret-matters"
+
+# URL фронтенда
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+# Настройки OAuth провайдеров
+OAUTH_CLIENTS = {
+    "GOOGLE": {
+        "id": os.getenv("GOOGLE_CLIENT_ID", ""),
+        "key": os.getenv("GOOGLE_CLIENT_SECRET", ""),
+    },
+    "GITHUB": {
+        "id": os.getenv("GITHUB_CLIENT_ID", ""),
+        "key": os.getenv("GITHUB_CLIENT_SECRET", ""),
+    },
+    "FACEBOOK": {
+        "id": os.getenv("FACEBOOK_CLIENT_ID", ""),
+        "key": os.getenv("FACEBOOK_CLIENT_SECRET", ""),
+    },
+}
+
+# Настройки базы данных
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/discours")
+
+# Настройки JWT
+JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = 30
+
+# Настройки сессии
+SESSION_COOKIE_NAME = "session_token"
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "lax"
+SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
+
+MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY", "")
+MAILGUN_DOMAIN = os.getenv("MAILGUN_DOMAIN", "discours.io")

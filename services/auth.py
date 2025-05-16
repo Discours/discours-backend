@@ -1,120 +1,90 @@
 from functools import wraps
+from typing import Tuple
 
 from cache.cache import get_cached_author_by_user_id
 from resolvers.stat import get_with_stat
-from services.schema import request_graphql_data
-from settings import ADMIN_SECRET, AUTH_URL
 from utils.logger import root_logger as logger
+from auth.internal import verify_internal_auth
+from sqlalchemy import exc
+from services.db import local_session
+from auth.orm import Author, Role
 
 # Список разрешенных заголовков
 ALLOWED_HEADERS = ["Authorization", "Content-Type"]
 
 
-async def check_auth(req):
+async def check_auth(req) -> Tuple[str, list[str]]:
     """
     Проверка авторизации пользователя.
 
-    Эта функция проверяет токен авторизации, переданный в заголовках запроса,
-    и возвращает идентификатор пользователя и его роли.
+    Проверяет токен и получает данные из локальной БД.
 
     Параметры:
     - req: Входящий GraphQL запрос, содержащий заголовок авторизации.
 
     Возвращает:
-    - user_id: str - Идентификатор пользователя.
-    - user_roles: list[str] - Список ролей пользователя.
+    - user_id: str - Идентификатор пользователя
+    - user_roles: list[str] - Список ролей пользователя
     """
+    # Проверяем наличие токена
     token = req.headers.get("Authorization")
+    if not token:
+        return "", []
 
-    host = req.headers.get("host", "")
-    logger.debug(f"check_auth: host={host}")
-    auth_url = AUTH_URL
-    if ".dscrs.site" in host or "localhost" in host:
-        auth_url = "https://auth.dscrs.site/graphql"
-    user_id = ""
-    user_roles = []
-    if token:
-        # Проверяем и очищаем токен от префикса Bearer если он есть
-        if token.startswith("Bearer "):
-            token = token.split("Bearer ")[-1].strip()
-        # Logging the authentication token
-        logger.debug(f"TOKEN: {token}")
-        query_name = "validate_jwt_token"
-        operation = "ValidateToken"
-        variables = {"params": {"token_type": "access_token", "token": token}}
+    # Очищаем токен от префикса Bearer если он есть
+    if token.startswith("Bearer "):
+        token = token.split("Bearer ")[-1].strip()
 
-        # Только необходимые заголовки для GraphQL запроса
-        headers = {"Content-Type": "application/json"}
+    logger.debug(f"Checking auth token: {token[:10]}...")
 
-        gql = {
-            "query": f"query {operation}($params: ValidateJWTTokenInput!)"
-            + "{"
-            + f"{query_name}(params: $params) {{ is_valid claims }} "
-            + "}",
-            "variables": variables,
-            "operationName": operation,
-        }
-        data = await request_graphql_data(gql, url=auth_url, headers=headers)
-        if data:
-            logger.debug(f"Auth response: {data}")
-            validation_result = data.get("data", {}).get(query_name, {})
-            logger.debug(f"Validation result: {validation_result}")
-            is_valid = validation_result.get("is_valid", False)
-            if not is_valid:
-                logger.error(f"Token validation failed: {validation_result}")
-                return "", []
-            user_data = validation_result.get("claims", {})
-            logger.debug(f"User claims: {user_data}")
-            user_id = user_data.get("sub", "")
-            user_roles = user_data.get("allowed_roles", [])
-    return user_id, user_roles
+    # Проверяем авторизацию внутренним механизмом
+    logger.debug("Using internal authentication")
+    return await verify_internal_auth(token)
 
 
-async def add_user_role(user_id):
+async def add_user_role(user_id: str, roles: list[str] = None):
     """
-    Добавление роли пользователя.
+    Добавление ролей пользователю в локальной БД.
 
-    Эта функция добавляет роли "author" и "reader" для указанного пользователя
-    в системе авторизации.
-
-    Параметры:
-    - user_id: str - Идентификатор пользователя, которому нужно добавить роли.
-
-    Возвращает:
-    - user_id: str - Идентификатор пользователя, если операция прошла успешно.
+    Args:
+        user_id: ID пользователя
+        roles: Список ролей для добавления. По умолчанию ["author", "reader"]
     """
-    logger.info(f"add author role for user_id: {user_id}")
-    query_name = "_update_user"
-    operation = "UpdateUserRoles"
-    headers = {
-        "Content-Type": "application/json",
-        "x-authorizer-admin-secret": ADMIN_SECRET,
-    }
-    variables = {"params": {"roles": "author, reader", "id": user_id}}
-    gql = {
-        "query": f"mutation {operation}($params: UpdateUserInput!) {{ {query_name}(params: $params) {{ id roles }} }}",
-        "variables": variables,
-        "operationName": operation,
-    }
-    data = await request_graphql_data(gql, headers=headers)
-    if data:
-        user_id = data.get("data", {}).get(query_name, {}).get("id")
-        return user_id
+    if not roles:
+        roles = ["author", "reader"]
+
+    logger.info(f"Adding roles {roles} to user {user_id}")
+
+    logger.debug("Using local authentication")
+    with local_session() as session:
+        try:
+            author = session.query(Author).filter(Author.id == user_id).one()
+
+            # Получаем существующие роли
+            existing_roles = set(role.name for role in author.roles)
+
+            # Добавляем новые роли
+            for role_name in roles:
+                if role_name not in existing_roles:
+                    # Получаем или создаем роль
+                    role = session.query(Role).filter(Role.name == role_name).first()
+                    if not role:
+                        role = Role(id=role_name, name=role_name)
+                        session.add(role)
+
+                    # Добавляем роль автору
+                    author.roles.append(role)
+
+            session.commit()
+            return user_id
+
+        except exc.NoResultFound:
+            logger.error(f"Author {user_id} not found")
+            return None
 
 
 def login_required(f):
-    """
-    Декоратор для проверки авторизации пользователя.
-
-    Этот декоратор проверяет, авторизован ли пользователь, �� добавляет
-    информацию о пользователе в контекст функции.
-
-    Параметры:
-    - f: Функция, которую нужно декорировать.
-
-    Возвращает:
-    - Обернутую функцию с добавленной проверкой авторизации.
-    """
+    """Декоратор для проверки авторизации пользователя."""
 
     @wraps(f)
     async def decorated_function(*args, **kwargs):
@@ -135,18 +105,7 @@ def login_required(f):
 
 
 def login_accepted(f):
-    """
-    Декоратор для добавления данных авторизации в контекст.
-
-    Этот декоратор добавляет данные авторизации в контекст, если они доступны,
-    но не блокирует доступ для неавторизованных пользователей.
-
-    Параметры:
-    - f: Функция, которую нужно декорировать.
-
-    Возвращает:
-    - Обернутую функцию с добавленной проверкой авторизации.
-    """
+    """Декоратор для добавления данных авторизации в контекст."""
 
     @wraps(f)
     async def decorated_function(*args, **kwargs):
@@ -166,12 +125,11 @@ def login_accepted(f):
             author = await get_cached_author_by_user_id(user_id, get_with_stat)
             if author:
                 logger.debug(f"login_accepted: Найден профиль автора: {author}")
-                # Предполагается, что `author` является объектом с атрибутом `id`
                 info.context["author"] = author.dict()
             else:
                 logger.error(
                     f"login_accepted: Профиль автора не найден для пользователя {user_id}. Используем базовые данные."
-                )  # Используем базовую информацию об автор
+                )
         else:
             logger.debug("login_accepted: Пользователь не авторизован. Очищаем контекст.")
             info.context["user_id"] = None

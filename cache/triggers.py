@@ -1,7 +1,7 @@
 from sqlalchemy import event
 
 from cache.revalidator import revalidation_manager
-from orm.author import Author, AuthorFollower
+from auth.orm import Author, AuthorFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutReactionsFollower
 from orm.topic import Topic, TopicFollower

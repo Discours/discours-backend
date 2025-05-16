@@ -20,7 +20,7 @@ class JWTCodec:
     def encode(user, exp: datetime) -> str:
         payload = {
             "user_id": user.id,
-            "username": user.email or user.phone,
+            "username": user.slug or user.email or user.phone or "",
             "exp": exp,
             "iat": datetime.now(tz=timezone.utc),
             "iss": "discours",
@@ -50,11 +50,13 @@ class JWTCodec:
             return r
         except jwt.InvalidIssuedAtError:
             print("[auth.jwtcodec] invalid issued at: %r" % payload)
-            raise ExpiredToken("check token issued time")
+            raise ExpiredToken("jwt check token issued time")
         except jwt.ExpiredSignatureError:
             print("[auth.jwtcodec] expired signature %r" % payload)
-            raise ExpiredToken("check token lifetime")
-        except jwt.InvalidTokenError:
-            raise InvalidToken("token is not valid")
+            raise ExpiredToken("jwt check token lifetime")
         except jwt.InvalidSignatureError:
-            raise InvalidToken("token is not valid")
+            raise InvalidToken("jwt check signature is not valid")
+        except jwt.InvalidTokenError:
+            raise InvalidToken("jwt check token is not valid")
+        except jwt.InvalidKeyError:
+            raise InvalidToken("jwt check key is not valid")

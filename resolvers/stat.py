@@ -4,7 +4,7 @@ from sqlalchemy import and_, distinct, func, join, select
 from sqlalchemy.orm import aliased
 
 from cache.cache import cache_author
-from orm.author import Author, AuthorFollower
+from auth.orm import Author, AuthorFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
@@ -177,7 +177,9 @@ def get_topic_comments_stat(topic_id: int) -> int:
         .subquery()
     )
     # Запрос для суммирования количества комментариев по теме
-    q = select(func.coalesce(func.sum(sub_comments.c.comments_count), 0)).filter(ShoutTopic.topic == topic_id)
+    q = select(func.coalesce(func.sum(sub_comments.c.comments_count), 0)).filter(
+        ShoutTopic.topic == topic_id
+    )
     q = q.outerjoin(sub_comments, ShoutTopic.shout == sub_comments.c.shout_id)
     with local_session() as session:
         result = session.execute(q).first()
@@ -237,7 +239,9 @@ def get_author_followers_stat(author_id: int) -> int:
     :return: Количество уникальных подписчиков автора.
     """
     aliased_followers = aliased(AuthorFollower)
-    q = select(func.count(distinct(aliased_followers.follower))).filter(aliased_followers.author == author_id)
+    q = select(func.count(distinct(aliased_followers.follower))).filter(
+        aliased_followers.author == author_id
+    )
     with local_session() as session:
         result = session.execute(q).first()
     return result[0] if result else 0
@@ -282,14 +286,16 @@ def get_with_stat(q):
             q = add_author_stat_columns(q) if is_author else add_topic_stat_columns(q)
 
             # Выполняем запрос
-            result = session.execute(q)
+            result = session.execute(q).unique()
             for cols in result:
                 entity = cols[0]
                 stat = dict()
                 stat["shouts"] = cols[1]  # Статистика по публикациям
                 stat["followers"] = cols[2]  # Статистика по подписчикам
                 if is_author:
-                    stat["authors"] = get_author_authors_stat(entity.id)  # Статистика по подпискам на авторов
+                    stat["authors"] = get_author_authors_stat(
+                        entity.id
+                    )  # Статистика по подпискам на авторов
                     stat["comments"] = get_author_comments_stat(entity.id)  # Статистика по комментариям
                 else:
                     stat["authors"] = get_topic_authors_stat(entity.id)  # Статистика по авторам темы

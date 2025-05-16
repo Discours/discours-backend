@@ -29,12 +29,12 @@ for new cache operations.
 
 import asyncio
 import json
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
 import orjson
 from sqlalchemy import and_, join, select
 
-from orm.author import Author, AuthorFollower
+from auth.orm import Author, AuthorFollower
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
 from services.db import local_session
@@ -78,7 +78,7 @@ async def cache_topic(topic: dict):
 async def cache_author(author: dict):
     payload = json.dumps(author, cls=CustomJSONEncoder)
     await asyncio.gather(
-        redis.execute("SET", f"author:user:{author['user'].strip()}", str(author["id"])),
+        redis.execute("SET", f"author:slug:{author['slug'].strip()}", str(author["id"])),
         redis.execute("SET", f"author:id:{author['id']}", payload),
     )
 
@@ -359,7 +359,13 @@ async def get_cached_topic_authors(topic_id: int):
                 select(ShoutAuthor.author)
                 .select_from(join(ShoutTopic, Shout, ShoutTopic.shout == Shout.id))
                 .join(ShoutAuthor, ShoutAuthor.shout == Shout.id)
-                .where(and_(ShoutTopic.topic == topic_id, Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
+                .where(
+                    and_(
+                        ShoutTopic.topic == topic_id,
+                        Shout.published_at.is_not(None),
+                        Shout.deleted_at.is_(None),
+                    )
+                )
             )
             authors_ids = [author_id for (author_id,) in session.execute(query).all()]
             # Cache the retrieved author IDs

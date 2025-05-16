@@ -1,54 +1,72 @@
 from functools import wraps
-from typing import Optional, Tuple
+from typing import Optional
 
 from graphql.type import GraphQLResolveInfo
-from sqlalchemy.orm import exc, joinedload
+from sqlalchemy.orm import exc
 from starlette.authentication import AuthenticationBackend
 from starlette.requests import HTTPConnection
 
-from auth.credentials import AuthCredentials, AuthUser
+from auth.credentials import AuthCredentials
 from auth.exceptions import OperationNotAllowed
-from auth.tokenstorage import SessionToken
-from auth.usermodel import Role, User
+from auth.sessions import SessionManager
+from auth.orm import Author
 from services.db import local_session
 from settings import SESSION_TOKEN_HEADER
 
 
 class JWTAuthenticate(AuthenticationBackend):
-    async def authenticate(self, request: HTTPConnection) -> Optional[Tuple[AuthCredentials, AuthUser]]:
+    async def authenticate(self, request: HTTPConnection) -> Optional[AuthCredentials]:
+        """
+        Аутентификация пользователя по JWT токену.
+
+        Args:
+            request: HTTP запрос
+
+        Returns:
+            AuthCredentials при успешной аутентификации или None при ошибке
+        """
         if SESSION_TOKEN_HEADER not in request.headers:
-            return AuthCredentials(scopes={}), AuthUser(user_id=None, username="")
+            return None
 
-        token = request.headers.get(SESSION_TOKEN_HEADER)
-        if not token:
+        auth_header = request.headers.get(SESSION_TOKEN_HEADER)
+        if not auth_header:
             print("[auth.authenticate] no token in header %s" % SESSION_TOKEN_HEADER)
-            return AuthCredentials(scopes={}, error_message=str("no token")), AuthUser(user_id=None, username="")
+            return None
 
-        if len(token.split(".")) > 1:
-            payload = await SessionToken.verify(token)
+        # Обработка формата "Bearer <token>"
+        token = auth_header
+        if auth_header.startswith("Bearer "):
+            token = auth_header.replace("Bearer ", "", 1).strip()
 
-            with local_session() as session:
-                try:
-                    user = (
-                        session.query(User)
-                        .options(
-                            joinedload(User.roles).options(joinedload(Role.permissions)),
-                            joinedload(User.ratings),
-                        )
-                        .filter(User.id == payload.user_id)
-                        .one()
-                    )
+        if not token:
+            print("[auth.authenticate] empty token after Bearer prefix removal")
+            return None
 
-                    scopes = {}  # TODO: integrate await user.get_permission()
+        # Проверяем сессию в Redis
+        payload = await SessionManager.verify_session(token)
+        if not payload:
+            return None
 
-                    return (
-                        AuthCredentials(user_id=payload.user_id, scopes=scopes, logged_in=True),
-                        AuthUser(user_id=user.id, username=""),
-                    )
-                except exc.NoResultFound:
-                    pass
+        with local_session() as session:
+            try:
+                author = (
+                    session.query(Author)
+                    .filter(Author.id == payload.user_id)
+                    .filter(Author.is_active == True)  # noqa
+                    .one()
+                )
 
-        return AuthCredentials(scopes={}, error_message=str("Invalid token")), AuthUser(user_id=None, username="")
+                if author.is_locked():
+                    return None
+
+                # Получаем разрешения из ролей
+                scopes = author.get_permissions()
+
+                return AuthCredentials(
+                    author_id=author.id, scopes=scopes, logged_in=True, email=author.email
+                )
+            except exc.NoResultFound:
+                return None
 
 
 def login_required(func):
@@ -62,15 +80,34 @@ def login_required(func):
     return wrap
 
 
-def permission_required(resource, operation, func):
+def permission_required(resource: str, operation: str, func):
+    """
+    Декоратор для проверки разрешений.
+
+    Args:
+        resource (str): Ресурс для проверки
+        operation (str): Операция для проверки
+        func: Декорируемая функция
+    """
+
     @wraps(func)
     async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
-        print("[auth.authenticate] permission_required for %r with info %r" % (func, info))  # debug only
         auth: AuthCredentials = info.context["request"].auth
         if not auth.logged_in:
             raise OperationNotAllowed(auth.error_message or "Please login")
 
-        # TODO: add actual check permission logix here
+        with local_session() as session:
+            author = session.query(Author).filter(Author.id == auth.author_id).one()
+
+            # Проверяем базовые условия
+            if not author.is_active:
+                raise OperationNotAllowed("Account is not active")
+            if author.is_locked():
+                raise OperationNotAllowed("Account is locked")
+
+            # Проверяем разрешение
+            if not author.has_permission(resource, operation):
+                raise OperationNotAllowed(f"No permission for {operation} on {resource}")
 
         return await func(parent, info, *args, **kwargs)
 
@@ -82,12 +119,12 @@ def login_accepted(func):
     async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
         auth: AuthCredentials = info.context["request"].auth
 
-        # Если есть авторизация, добавляем данные автора в контекст
         if auth and auth.logged_in:
-            info.context["author"] = auth.author
-            info.context["user_id"] = auth.author.get("id")
+            with local_session() as session:
+                author = session.query(Author).filter(Author.id == auth.author_id).one()
+                info.context["author"] = author.dict()
+                info.context["user_id"] = author.id
         else:
-            # Очищаем данные автора из контекста если авторизация отсутствует
             info.context["author"] = None
             info.context["user_id"] = None
 

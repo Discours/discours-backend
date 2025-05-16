@@ -40,6 +40,17 @@ class RedisService:
             except Exception as e:
                 logger.error(e)
 
+    def pipeline(self):
+        """
+        Возвращает пайплайн Redis для выполнения нескольких команд в одной транзакции.
+
+        Returns:
+            Pipeline: объект pipeline Redis
+        """
+        if self._client:
+            return self._client.pipeline()
+        raise Exception("Redis client is not initialized")
+
     async def subscribe(self, *channels):
         if self._client:
             async with self._client.pubsub() as pubsub:
@@ -74,6 +85,82 @@ class RedisService:
 
     async def get(self, key):
         return await self.execute("get", key)
+
+    async def delete(self, *keys):
+        """
+        Удаляет ключи из Redis.
+
+        Args:
+            *keys: Ключи для удаления
+
+        Returns:
+            int: Количество удаленных ключей
+        """
+        if not self._client or not keys:
+            return 0
+        return await self._client.delete(*keys)
+
+    async def hmset(self, key, mapping):
+        """
+        Устанавливает несколько полей хеша.
+
+        Args:
+            key: Ключ хеша
+            mapping: Словарь с полями и значениями
+        """
+        if not self._client:
+            return
+        await self._client.hset(key, mapping=mapping)
+
+    async def expire(self, key, seconds):
+        """
+        Устанавливает время жизни ключа.
+
+        Args:
+            key: Ключ
+            seconds: Время жизни в секундах
+        """
+        if not self._client:
+            return
+        await self._client.expire(key, seconds)
+
+    async def sadd(self, key, *values):
+        """
+        Добавляет значения в множество.
+
+        Args:
+            key: Ключ множества
+            *values: Значения для добавления
+        """
+        if not self._client:
+            return
+        await self._client.sadd(key, *values)
+
+    async def srem(self, key, *values):
+        """
+        Удаляет значения из множества.
+
+        Args:
+            key: Ключ множества
+            *values: Значения для удаления
+        """
+        if not self._client:
+            return
+        await self._client.srem(key, *values)
+
+    async def smembers(self, key):
+        """
+        Получает все элементы множества.
+
+        Args:
+            key: Ключ множества
+
+        Returns:
+            set: Множество элементов
+        """
+        if not self._client:
+            return set()
+        return await self._client.smembers(key)
 
 
 redis = RedisService()

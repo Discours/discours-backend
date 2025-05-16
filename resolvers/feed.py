@@ -2,7 +2,7 @@ from typing import List
 
 from sqlalchemy import and_, select
 
-from orm.author import Author, AuthorFollower
+from auth.orm import Author, AuthorFollower
 from orm.shout import Shout, ShoutAuthor, ShoutReactionsFollower, ShoutTopic
 from orm.topic import Topic, TopicFollower
 from resolvers.reader import (
@@ -71,7 +71,9 @@ def shouts_by_follower(info, follower_id: int, options):
     q = query_with_stat(info)
     reader_followed_authors = select(AuthorFollower.author).where(AuthorFollower.follower == follower_id)
     reader_followed_topics = select(TopicFollower.topic).where(TopicFollower.follower == follower_id)
-    reader_followed_shouts = select(ShoutReactionsFollower.shout).where(ShoutReactionsFollower.follower == follower_id)
+    reader_followed_shouts = select(ShoutReactionsFollower.shout).where(
+        ShoutReactionsFollower.follower == follower_id
+    )
     followed_subquery = (
         select(Shout.id)
         .join(ShoutAuthor, ShoutAuthor.shout == Shout.id)
@@ -140,7 +142,9 @@ async def load_shouts_authored_by(_, info, slug: str, options) -> List[Shout]:
                 q = (
                     query_with_stat(info)
                     if has_field(info, "stat")
-                    else select(Shout).filter(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
+                    else select(Shout).filter(
+                        and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None))
+                    )
                 )
                 q = q.filter(Shout.authors.any(id=author_id))
                 q, limit, offset = apply_options(q, options, author_id)
@@ -169,7 +173,9 @@ async def load_shouts_with_topic(_, info, slug: str, options) -> List[Shout]:
                 q = (
                     query_with_stat(info)
                     if has_field(info, "stat")
-                    else select(Shout).filter(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
+                    else select(Shout).filter(
+                        and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None))
+                    )
                 )
                 q = q.filter(Shout.topics.any(id=topic_id))
                 q, limit, offset = apply_options(q, options)

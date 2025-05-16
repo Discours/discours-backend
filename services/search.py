@@ -171,11 +171,16 @@ class SearchService:
             }
             asyncio.create_task(self.perform_index(shout, index_body))
 
+    def close(self):
+        if self.client:
+            self.client.close()
+
     async def perform_index(self, shout, index_body):
         if self.client:
             try:
                 await asyncio.wait_for(
-                    self.client.index(index=self.index_name, id=str(shout.id), body=index_body), timeout=40.0
+                    self.client.index(index=self.index_name, id=str(shout.id), body=index_body),
+                    timeout=40.0,
                 )
             except asyncio.TimeoutError:
                 logger.error(f"Indexing timeout for shout {shout.id}")
@@ -188,7 +193,9 @@ class SearchService:
 
         logger.info(f"Ищем: {text} {offset}+{limit}")
         search_body = {
-            "query": {"multi_match": {"query": text, "fields": ["title", "lead", "subtitle", "body", "media"]}}
+            "query": {
+                "multi_match": {"query": text, "fields": ["title", "lead", "subtitle", "body", "media"]}
+            }
         }
 
         if self.client:

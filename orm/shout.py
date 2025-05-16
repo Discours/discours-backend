@@ -3,7 +3,7 @@ import time
 from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
-from orm.author import Author
+from auth.orm import Author
 from orm.reaction import Reaction
 from orm.topic import Topic
 from services.db import Base
