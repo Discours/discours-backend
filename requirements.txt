@@ -9,10 +9,10 @@ psycopg2-binary
 httpx
 redis[hiredis]
 sentry-sdk[starlette,sqlalchemy]
-starlette==0.37.2
+starlette
 gql
-ariadne==0.22.0
-granian==1.4.2
+ariadne
+granian
 
 # NLP and search
 httpx
