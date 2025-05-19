@@ -61,9 +61,33 @@ from resolvers.topic import (
     get_topics_by_community,
 )
 
+from resolvers.auth import (
+    get_current_user,
+    confirm_email,
+    register_by_email,
+    send_link,
+    login,
+)
+
+from resolvers.admin import (
+    admin_get_users,
+    admin_get_roles,
+)
+
 events_register()
 
 __all__ = [
+    # auth
+    "get_current_user",
+    "confirm_email",
+    "register_by_email",
+    "send_link",
+    "login",
+    
+    # admin
+    "admin_get_users",
+    "admin_get_roles",
+    
     # author
     "get_author",
     "get_author_id",
@@ -74,10 +98,12 @@ __all__ = [
     "get_authors_all",
     "load_authors_by",
     "update_author",
-    ## "search_authors",
+    # "search_authors",
+    
     # community
     "get_community",
     "get_communities_all",
+    
     # topic
     "get_topic",
     "get_topics_all",
@@ -85,12 +111,14 @@ __all__ = [
     "get_topics_by_author",
     "get_topic_followers",
     "get_topic_authors",
+    
     # reader
     "get_shout",
     "load_shouts_by",
     "load_shouts_random_top",
     "load_shouts_search",
     "load_shouts_unrated",
+    
     # feed
     "load_shouts_feed",
     "load_shouts_coauthored",
@@ -98,10 +126,12 @@ __all__ = [
     "load_shouts_with_topic",
     "load_shouts_followed_by",
     "load_shouts_authored_by",
+    
     # follower
     "follow",
     "unfollow",
     "get_shout_followers",
+    
     # reaction
     "create_reaction",
     "update_reaction",
@@ -111,15 +141,18 @@ __all__ = [
     "load_shout_ratings",
     "load_comment_ratings",
     "load_comments_branch",
+    
     # notifier
     "load_notifications",
     "notifications_seen_thread",
     "notifications_seen_after",
     "notification_mark_seen",
+    
     # rating
     "rate_author",
     "get_my_rates_comments",
     "get_my_rates_shouts",
+    
     # draft
     "load_drafts",
     "create_draft",

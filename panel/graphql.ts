@@ -3,7 +3,7 @@
  * @module api
  */
 
-import { AUTH_TOKEN_KEY, getAuthTokenFromCookie } from "./auth"
+import { AUTH_TOKEN_KEY, CSRF_TOKEN_KEY, getAuthTokenFromCookie, getCsrfTokenFromCookie } from './auth'
 
 /**
  * Тип для произвольных данных GraphQL
@@ -62,6 +62,55 @@ function hasAuthErrors(errors: Array<{ message?: string; extensions?: { code?: s
 }
 
 /**
+ * Подготавливает URL для GraphQL запроса
+ * @param url - URL или путь для запроса
+ * @returns Полный URL для запроса
+ */
+function prepareUrl(url: string): string {
+  // Если это относительный путь, добавляем к нему origin
+  if (url.startsWith('/')) {
+    return `${location.origin}${url}`
+  }
+  // Если это уже полный URL, используем как есть
+  return url
+}
+
+/**
+ * Возвращает заголовки для GraphQL запроса с учетом авторизации и CSRF
+ * @returns Объект с заголовками
+ */
+function getRequestHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+
+  // Проверяем наличие токена в localStorage
+  const localToken = localStorage.getItem(AUTH_TOKEN_KEY)
+
+  // Проверяем наличие токена в cookie
+  const cookieToken = getAuthTokenFromCookie()
+
+  // Используем токен из localStorage или cookie
+  const token = localToken || cookieToken
+
+  // Если есть токен, добавляем его в заголовок Authorization с префиксом Bearer
+  if (token && token.length > 10) {
+    headers['Authorization'] = `Bearer ${token}`
+    console.debug('Отправка запроса с токеном авторизации')
+  }
+
+  // Добавляем CSRF-токен, если он есть
+  const csrfToken = getCsrfTokenFromCookie()
+  if (csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken
+    console.debug('Добавлен CSRF-токен в запрос')
+  }
+
+  return headers
+}
+
+/**
  * Выполняет GraphQL запрос
  * @param url - URL для запроса
  * @param query - GraphQL запрос
@@ -74,28 +123,14 @@ export async function query<T = GraphQLData>(
   variables: Record<string, unknown> = {}
 ): Promise<T> {
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    }
+    // Получаем все необходимые заголовки для запроса
+    const headers = getRequestHeaders()
 
-    // Проверяем наличие токена в localStorage
-    const localToken = localStorage.getItem(AUTH_TOKEN_KEY)
+    // Подготавливаем полный URL
+    const fullUrl = prepareUrl(url)
+    console.debug('Отправка GraphQL запроса на:', fullUrl)
 
-    // Проверяем наличие токена в cookie
-    const cookieToken = getAuthTokenFromCookie()
-
-    // Используем токен из localStorage или cookie
-    const token = localToken || cookieToken
-
-    // Если есть токен, добавляем его в заголовок Authorization с префиксом Bearer
-    if (token && token.length > 10) {
-      // В соответствии с логами сервера, формат должен быть: Bearer <token>
-      headers['Authorization'] = `Bearer ${token}`
-      // Для отладки
-      console.debug('Отправка запроса с токеном авторизации')
-    }
-
-    const response = await fetch(url, {
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers,
       // Важно: credentials: 'include' - для передачи cookies с запросом
@@ -115,8 +150,8 @@ export async function query<T = GraphQLData>(
         error: errorMessage
       })
 
-      // Если получен 401 Unauthorized, перенаправляем на страницу входа
-      if (response.status === 401) {
+      // Если получен 401 Unauthorized или 403 Forbidden, перенаправляем на страницу входа
+      if (response.status === 401 || response.status === 403) {
         localStorage.removeItem(AUTH_TOKEN_KEY)
         window.location.href = '/'
         throw new Error('Unauthorized')

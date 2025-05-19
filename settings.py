@@ -4,7 +4,6 @@ import os
 import sys
 from os import environ
 
-MODE = "development" if "dev" in sys.argv else "production"
 DEV_SERVER_PID_FILE_NAME = "dev-server.pid"
 
 PORT = environ.get("PORT") or 8000
@@ -59,7 +58,7 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 # Настройки сессии
-SESSION_COOKIE_NAME = "session_token"
+SESSION_COOKIE_NAME = "auth_token"
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "lax"

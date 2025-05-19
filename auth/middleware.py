@@ -8,17 +8,22 @@ from utils.logger import root_logger as logger
 from settings import SESSION_TOKEN_HEADER, SESSION_COOKIE_NAME
 
 
-class AuthorizationMiddleware:
+class AuthMiddleware:
     """
-    Middleware для обработки заголовка Authorization и cookie авторизации.
-    Извлекает Bearer токен из заголовка или cookie и добавляет его в заголовки
-    запроса для обработки стандартным AuthenticationMiddleware Starlette.
+    Универсальный middleware для обработки авторизации и управления cookies.
+    
+    Основные функции:
+    1. Извлечение Bearer токена из заголовка Authorization или cookie
+    2. Добавление токена в заголовки запроса для обработки AuthenticationMiddleware
+    3. Предоставление методов для установки/удаления cookies в GraphQL резолверах
     """
 
     def __init__(self, app: ASGIApp):
         self.app = app
-
+        self._context = None
+    
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        """Обработка ASGI запроса"""
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
@@ -70,24 +75,20 @@ class AuthorizationMiddleware:
                 scope["auth"] = {"type": "bearer", "token": token}
 
         await self.app(scope, receive, send)
-
-
-class GraphQLExtensionsMiddleware:
-    """
-    Утилиты для расширения контекста GraphQL запросов
-    """
-
+    
+    def set_context(self, context):
+        """Сохраняет ссылку на контекст GraphQL запроса"""
+        self._context = context
+    
     def set_cookie(self, key, value, **options):
         """Устанавливает cookie в ответе"""
-        context = getattr(self, "_context", None)
-        if context and "response" in context and hasattr(context["response"], "set_cookie"):
-            context["response"].set_cookie(key, value, **options)
+        if self._context and "response" in self._context and hasattr(self._context["response"], "set_cookie"):
+            self._context["response"].set_cookie(key, value, **options)
 
     def delete_cookie(self, key, **options):
         """Удаляет cookie из ответа"""
-        context = getattr(self, "_context", None)
-        if context and "response" in context and hasattr(context["response"], "delete_cookie"):
-            context["response"].delete_cookie(key, **options)
+        if self._context and "response" in self._context and hasattr(self._context["response"], "delete_cookie"):
+            self._context["response"].delete_cookie(key, **options)
 
     async def resolve(self, next, root, info, *args, **kwargs):
         """
@@ -97,14 +98,14 @@ class GraphQLExtensionsMiddleware:
         try:
             # Получаем доступ к контексту запроса
             context = info.context
-
+            
             # Сохраняем ссылку на контекст
-            self._context = context
-
+            self.set_context(context)
+            
             # Добавляем себя как объект, содержащий утилитные методы
             context["extensions"] = self
-
+            
             return await next(root, info, *args, **kwargs)
         except Exception as e:
-            logger.error(f"[GraphQLExtensionsMiddleware] Ошибка: {str(e)}")
+            logger.error(f"[AuthMiddleware] Ошибка в GraphQL resolve: {str(e)}")
             raise

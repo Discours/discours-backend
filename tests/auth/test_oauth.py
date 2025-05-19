@@ -161,7 +161,7 @@ with (
 
             assert isinstance(response, RedirectResponse)
             assert response.status_code == 307
-            assert "auth/success" in response.headers["location"]
+            assert "auth/success" in response.headers.get("location", "")
 
             # Проверяем cookie
             cookies = response.headers.getlist("set-cookie")

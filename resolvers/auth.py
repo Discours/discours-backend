@@ -8,7 +8,6 @@ from graphql.type import GraphQLResolveInfo
 
 from auth.authenticate import login_required
 from auth.credentials import AuthCredentials
-from auth.decorators import admin_auth_required
 from auth.email import send_auth_email
 from auth.exceptions import InvalidToken, ObjectNotExist
 from auth.identity import Identity, Password
@@ -26,10 +25,8 @@ from settings import (
     SESSION_COOKIE_HTTPONLY,
 )
 from utils.generate_slug import generate_unique_slug
-from graphql.error import GraphQLError
-from math import ceil
-from sqlalchemy import or_
-
+from auth.sessions import SessionManager
+from auth.internal import verify_internal_auth
 
 @mutation.field("getSession")
 @login_required
@@ -152,7 +149,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
     # Попытка отправить ссылку для подтверждения email
     try:
         # Если auth_send_link асинхронный...
-        await auth_send_link(_, _info, email)
+        await send_link(_, _info, email)
         logger.info(
             f"[auth] registerUser: Пользователь {email} зарегистрирован, ссылка для подтверждения отправлена."
         )
@@ -173,7 +170,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
 
 
 @mutation.field("sendLink")
-async def auth_send_link(_, _info, email, lang="ru", template="email_confirmation"):
+async def send_link(_, _info, email, lang="ru", template="email_confirmation"):
     email = email.lower()
     """send link with confirm code to email"""
     with local_session() as session:
@@ -189,7 +186,7 @@ async def auth_send_link(_, _info, email, lang="ru", template="email_confirmatio
 
 
 @mutation.field("login")
-async def login_mutation(_, info, email: str, password: str):
+async def login(_, info, email: str, password: str):
     """
     Авторизация пользователя с помощью email и пароля.
 
@@ -351,113 +348,150 @@ async def is_email_used(_, _info, email):
     return user is not None
 
 
-@query.field("adminGetUsers")
-@admin_auth_required
-async def admin_get_users(_, info, limit=10, offset=0, search=None):
+@mutation.field("logout")
+async def logout_resolver(_, info: GraphQLResolveInfo):
     """
-    Получает список пользователей для админ-панели с поддержкой пагинации и поиска
-
-    Args:
-        info: Контекст GraphQL запроса
-        limit: Максимальное количество записей для получения
-        offset: Смещение в списке результатов
-        search: Строка поиска (по email, имени или ID)
-
+    Выход из системы через GraphQL с удалением сессии и cookie.
+    
     Returns:
-        Пагинированный список пользователей
+        dict: Результат операции выхода
     """
+    # Получаем токен из cookie или заголовка
+    request = info.context["request"]
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        # Проверяем заголовок авторизации
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]  # Отрезаем "Bearer "
+
+    success = False
+    message = ""
+    
+    # Если токен найден, отзываем его
+    if token:
+        try:
+            # Декодируем токен для получения user_id
+            user_id, _ = await verify_internal_auth(token)
+            if user_id:
+                # Отзываем сессию
+                await SessionManager.revoke_session(user_id, token)
+                logger.info(f"[auth] logout_resolver: Токен успешно отозван для пользователя {user_id}")
+                success = True
+                message = "Выход выполнен успешно"
+            else:
+                logger.warning("[auth] logout_resolver: Не удалось получить user_id из токена")
+                message = "Не удалось обработать токен"
+        except Exception as e:
+            logger.error(f"[auth] logout_resolver: Ошибка при отзыве токена: {e}")
+            message = f"Ошибка при выходе: {str(e)}"
+    else:
+        message = "Токен не найден"
+        success = True  # Если токена нет, то пользователь уже вышел из системы
+
+    # Удаляем cookie через extensions
     try:
-        # Нормализуем параметры
-        limit = max(1, min(100, limit or 10))  # Ограничиваем количество записей от 1 до 100
-        offset = max(0, offset or 0)  # Смещение не может быть отрицательным
+        # Используем extensions для удаления cookie
+        if hasattr(info.context, "extensions") and hasattr(info.context.extensions, "delete_cookie"):
+            info.context.extensions.delete_cookie(SESSION_COOKIE_NAME)
+            logger.info("[auth] logout_resolver: Cookie успешно удалена через extensions")
+        elif hasattr(info.context, "response") and hasattr(info.context.response, "delete_cookie"):
+            info.context.response.delete_cookie(SESSION_COOKIE_NAME)
+            logger.info("[auth] logout_resolver: Cookie успешно удалена через response")
+        else:
+            logger.warning("[auth] logout_resolver: Невозможно удалить cookie - объекты extensions/response недоступны")
+    except Exception as e:
+        logger.error(f"[auth] logout_resolver: Ошибка при удалении cookie: {str(e)}")
+        logger.debug(traceback.format_exc())
 
+    return {"success": success, "message": message}
+
+
+@mutation.field("refreshToken")
+async def refresh_token_resolver(_, info: GraphQLResolveInfo):
+    """
+    Обновление токена аутентификации через GraphQL.
+    
+    Returns:
+        AuthResult с данными пользователя и обновленным токеном или сообщением об ошибке
+    """
+    request = info.context["request"]
+    
+    # Получаем текущий токен из cookie или заголовка
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]  # Отрезаем "Bearer "
+
+    if not token:
+        logger.warning("[auth] refresh_token_resolver: Токен не найден в запросе")
+        return {"success": False, "token": None, "author": None, "error": "Токен не найден"}
+
+    try:
+        # Получаем информацию о пользователе из токена
+        user_id, _ = await verify_internal_auth(token)
+        if not user_id:
+            logger.warning("[auth] refresh_token_resolver: Недействительный токен")
+            return {"success": False, "token": None, "author": None, "error": "Недействительный токен"}
+
+        # Получаем пользователя из базы данных
         with local_session() as session:
-            # Базовый запрос
-            query = session.query(Author)
+            author = session.query(Author).filter(Author.id == user_id).first()
 
-            # Применяем фильтр поиска, если указан
-            if search and search.strip():
-                search_term = f"%{search.strip().lower()}%"
-                query = query.filter(
-                    or_(
-                        Author.email.ilike(search_term),
-                        Author.name.ilike(search_term),
-                        Author.id.cast(str).ilike(search_term),
+            if not author:
+                logger.warning(f"[auth] refresh_token_resolver: Пользователь с ID {user_id} не найден")
+                return {"success": False, "token": None, "author": None, "error": "Пользователь не найден"}
+
+            # Обновляем сессию (создаем новую и отзываем старую)
+            device_info = {"ip": request.client.host, "user_agent": request.headers.get("user-agent")}
+            new_token = await SessionManager.refresh_session(user_id, token, device_info)
+
+            if not new_token:
+                logger.error("[auth] refresh_token_resolver: Не удалось обновить токен")
+                return {"success": False, "token": None, "author": None, "error": "Не удалось обновить токен"}
+
+            # Устанавливаем cookie через extensions
+            try:
+                # Используем extensions для установки cookie
+                if hasattr(info.context, "extensions") and hasattr(info.context.extensions, "set_cookie"):
+                    logger.info("[auth] refresh_token_resolver: Устанавливаем httponly cookie через extensions")
+                    info.context.extensions.set_cookie(
+                        SESSION_COOKIE_NAME,
+                        new_token,
+                        httponly=SESSION_COOKIE_HTTPONLY,
+                        secure=SESSION_COOKIE_SECURE,
+                        samesite=SESSION_COOKIE_SAMESITE,
+                        max_age=SESSION_COOKIE_MAX_AGE,
                     )
-                )
+                elif hasattr(info.context, "response") and hasattr(info.context.response, "set_cookie"):
+                    logger.info("[auth] refresh_token_resolver: Устанавливаем httponly cookie через response")
+                    info.context.response.set_cookie(
+                        key=SESSION_COOKIE_NAME,
+                        value=new_token,
+                        httponly=SESSION_COOKIE_HTTPONLY,
+                        secure=SESSION_COOKIE_SECURE,
+                        samesite=SESSION_COOKIE_SAMESITE,
+                        max_age=SESSION_COOKIE_MAX_AGE,
+                    )
+                else:
+                    logger.warning(
+                        "[auth] refresh_token_resolver: Невозможно установить cookie - объекты extensions/response недоступны"
+                    )
+            except Exception as e:
+                # В случае ошибки при установке cookie просто логируем, но продолжаем обновление токена
+                logger.error(f"[auth] refresh_token_resolver: Ошибка при установке cookie: {str(e)}")
+                logger.debug(traceback.format_exc())
 
-            # Получаем общее количество записей
-            total_count = query.count()
-
-            # Вычисляем информацию о пагинации
-            per_page = limit
-            total_pages = ceil(total_count / per_page)
-            current_page = (offset // per_page) + 1 if per_page > 0 else 1
-
-            # Применяем пагинацию
-            users = query.order_by(Author.id).offset(offset).limit(limit).all()
-
-            # Преобразуем в формат для API
-            result = {
-                "users": [
-                    {
-                        "id": user.id,
-                        "email": user.email,
-                        "name": user.name,
-                        "slug": user.slug,
-                        "roles": [role.role for role in user.roles]
-                        if hasattr(user, "roles") and user.roles
-                        else [],
-                        "created_at": user.created_at,
-                        "last_seen": user.last_seen,
-                        "muted": user.muted or False,
-                        "is_active": not user.blocked if hasattr(user, "blocked") else True,
-                    }
-                    for user in users
-                ],
-                "total": total_count,
-                "page": current_page,
-                "perPage": per_page,
-                "totalPages": total_pages,
+            logger.info(f"[auth] refresh_token_resolver: Токен успешно обновлен для пользователя {user_id}")
+            return {
+                "success": True,
+                "token": new_token,
+                "author": author,
+                "error": None
             }
 
-            return result
     except Exception as e:
-        logger.error(f"Ошибка при получении списка пользователей: {str(e)}")
+        logger.error(f"[auth] refresh_token_resolver: Ошибка при обновлении токена: {e}")
         logger.error(traceback.format_exc())
-        raise GraphQLError(f"Не удалось получить список пользователей: {str(e)}")
-
-
-@query.field("adminGetRoles")
-@admin_auth_required
-async def admin_get_roles(_, info):
-    """
-    Получает список всех ролей для админ-панели
-
-    Args:
-        info: Контекст GraphQL запроса
-
-    Returns:
-        Список ролей с их описаниями
-    """
-    try:
-        with local_session() as session:
-            # Получаем все роли из базы данных
-            roles = session.query(Role).all()
-
-            # Преобразуем их в формат для API
-            result = [
-                {
-                    "id": role.id,
-                    "name": role.name,
-                    "description": f"Роль с правами: {', '.join(p.resource + ':' + p.operation for p in role.permissions)}"
-                    if role.permissions
-                    else "Роль без особых прав",
-                }
-                for role in roles
-            ]
-
-            return result
-    except Exception as e:
-        logger.error(f"Ошибка при получении списка ролей: {str(e)}")
-        raise GraphQLError(f"Не удалось получить список ролей: {str(e)}")
+        return {"success": False, "token": None, "author": None, "error": str(e)}

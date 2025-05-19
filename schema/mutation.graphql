@@ -1,6 +1,8 @@
 type Mutation {
   # Auth mutations
   login(email: String!, password: String!): AuthResult!
+  logout: AuthSuccess!
+  refreshToken: AuthResult!
   registerUser(email: String!, password: String, name: String): AuthResult!
   sendLink(email: String!, lang: String, template: String): Author!
   confirmEmail(token: String!): AuthResult!

@@ -113,10 +113,3 @@ async def refresh_token(request: Request):
     except Exception as e:
         logger.error(f"[auth] refresh_token: Ошибка при обновлении токена: {e}")
         return JSONResponse({"success": False, "error": str(e)}, status_code=401)
-
-
-# Маршруты для авторизации
-routes = [
-    Route("/auth/logout", logout, methods=["GET", "POST"]),
-    Route("/auth/refresh", refresh_token, methods=["POST"]),
-]

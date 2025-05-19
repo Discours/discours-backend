@@ -18,6 +18,7 @@ const LoginPage: Component<LoginPageProps> = (props) => {
   const [password, setPassword] = createSignal('')
   const [isLoading, setIsLoading] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
+  const [formSubmitting, setFormSubmitting] = createSignal(false)
 
   /**
    * Обработчик отправки формы входа
@@ -25,6 +26,9 @@ const LoginPage: Component<LoginPageProps> = (props) => {
    */
   const handleSubmit = async (e: Event) => {
     e.preventDefault()
+
+    // Предотвращаем повторную отправку формы
+    if (formSubmitting()) return
 
     // Очищаем пробелы в email
     const cleanEmail = email().trim()
@@ -34,6 +38,7 @@ const LoginPage: Component<LoginPageProps> = (props) => {
       return
     }
 
+    setFormSubmitting(true)
     setIsLoading(true)
     setError(null)
 
@@ -56,6 +61,8 @@ const LoginPage: Component<LoginPageProps> = (props) => {
       console.error('Ошибка при входе:', err)
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка')
       setIsLoading(false)
+    } finally {
+      setFormSubmitting(false)
     }
   }
 
@@ -66,12 +73,13 @@ const LoginPage: Component<LoginPageProps> = (props) => {
 
         {error() && <div class="error-message">{error()}</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} method="post">
           <div class="form-group">
             <label for="email">Email</label>
             <input
               type="email"
               id="email"
+              name="email"
               value={email()}
               onInput={(e) => setEmail(e.currentTarget.value)}
               disabled={isLoading()}
@@ -85,6 +93,7 @@ const LoginPage: Component<LoginPageProps> = (props) => {
             <input
               type="password"
               id="password"
+              name="password"
               value={password()}
               onInput={(e) => setPassword(e.currentTarget.value)}
               disabled={isLoading()}
@@ -93,8 +102,15 @@ const LoginPage: Component<LoginPageProps> = (props) => {
             />
           </div>
 
-          <button type="submit" disabled={isLoading()}>
-            {isLoading() ? 'Вход...' : 'Войти'}
+          <button type="submit" disabled={isLoading() || formSubmitting()}>
+            {isLoading() ? (
+              <>
+                <span class="spinner"></span>
+                Вход...
+              </>
+            ) : (
+              'Войти'
+            )}
           </button>
         </form>
       </div>

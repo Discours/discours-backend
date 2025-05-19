@@ -51,6 +51,26 @@ interface AdminGetRolesResponse {
   adminGetRoles: Role[]
 }
 
+/**
+ * Интерфейс для ответа изменения статуса пользователя
+ */
+interface AdminSetUserStatusResponse {
+  adminSetUserStatus: {
+    success: boolean
+    error?: string
+  }
+}
+
+/**
+ * Интерфейс для ответа изменения статуса блокировки чата
+ */
+interface AdminMuteUserResponse {
+  adminMuteUser: {
+    success: boolean
+    error?: string
+  }
+}
+
 // Интерфейс для пропсов AdminPage
 interface AdminPageProps {
   onLogout?: () => void
@@ -199,42 +219,41 @@ const AdminPage: Component<AdminPageProps> = (props) => {
    * @param page - Номер страницы
    */
   function handlePageChange(page: number) {
-    if (page < 1 || page > pagination().totalPages) return
-    setPagination((prev) => ({ ...prev, page }))
+    setPagination({ ...pagination(), page })
     loadUsers()
   }
 
   /**
-   * Обработчик изменения количества записей на странице
-   * @param limit - Количество записей на странице
+   * Обработчик изменения количества элементов на странице
+   * @param limit - Количество элементов
    */
   function handlePerPageChange(limit: number) {
-    setPagination((prev) => ({ ...prev, page: 1, limit }))
+    setPagination({ ...pagination(), page: 1, limit })
     loadUsers()
   }
 
   /**
    * Обработчик изменения поискового запроса
-   * @param e - Событие изменения ввода
    */
   function handleSearchChange(e: Event) {
-    const target = e.target as HTMLInputElement
-    setSearchQuery(target.value)
+    const input = e.target as HTMLInputElement
+    setSearchQuery(input.value)
   }
 
   /**
-   * Выполняет поиск при нажатии Enter или кнопки поиска
+   * Выполняет поиск
    */
   function handleSearch() {
-    setPagination((prev) => ({ ...prev, page: 1 })) // Сбрасываем на первую страницу при поиске
+    setPagination({ ...pagination(), page: 1 })
     loadUsers()
   }
 
   /**
-   * Обработчик нажатия клавиши в поле поиска
-   * @param e - Событие нажатия клавиши
+   * Обработчик нажатия клавиш в поле поиска
+   * @param e - Событие клавиатуры
    */
   function handleSearchKeyDown(e: KeyboardEvent) {
+    // Если нажат Enter, выполняем поиск
     if (e.key === 'Enter') {
       e.preventDefault()
       handleSearch()
@@ -242,101 +261,105 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   }
 
   /**
-   * Блокировка/разблокировка пользователя
+   * Блокирует/разблокирует пользователя
    * @param userId - ID пользователя
    * @param isActive - Текущий статус активности
    */
   async function toggleUserBlock(userId: number, isActive: boolean) {
-    // Запрашиваем подтверждение
-    const action = isActive ? 'заблокировать' : 'разблокировать'
-    if (!confirm(`Вы действительно хотите ${action} этого пользователя?`)) {
-      return
-    }
-
     try {
-      await query(
+      setError(null)
+      
+      // Устанавливаем новый статус (противоположный текущему)
+      const newStatus = !isActive
+      
+      // Выполняем мутацию
+      const result = await query<AdminSetUserStatusResponse>(
         `${location.origin}/graphql`,
         `
-        mutation AdminToggleUserBlock($userId: Int!) {
-          adminToggleUserBlock(userId: $userId) {
-            success
-            error
+          mutation AdminSetUserStatus($userId: Int!, $isActive: Boolean!) {
+            adminSetUserStatus(userId: $userId, isActive: $isActive) {
+              success
+              error
+            }
           }
-        }
-      `,
-        { userId }
+        `,
+        { userId, isActive: newStatus }
       )
-
-      // Обновляем статус пользователя
-      setUsers((prev) =>
-        prev.map((user) => {
-          if (user.id === userId) {
-            return { ...user, is_active: !isActive }
-          }
-          return user
-        })
-      )
-
-      // Показываем сообщение об успехе
-      setSuccessMessage(`Пользователь успешно ${isActive ? 'заблокирован' : 'разблокирован'}`)
-
-      // Скрываем сообщение через 3 секунды
-      setTimeout(() => setSuccessMessage(null), 3000)
+      
+      // Проверяем результат
+      if (result?.adminSetUserStatus?.success) {
+        // Обновляем список пользователей
+        setSuccessMessage(`Пользователь ${newStatus ? 'разблокирован' : 'заблокирован'}`)
+        
+        // Обновляем пользователя в текущем списке
+        setUsers(
+          users().map((user) => 
+            user.id === userId ? { ...user, is_active: newStatus } : user
+          )
+        )
+        
+        // Скрываем сообщение через 3 секунды
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        setError(result?.adminSetUserStatus?.error || 'Ошибка обновления статуса пользователя')
+      }
     } catch (err) {
-      console.error('Ошибка изменения статуса блокировки:', err)
-      setError(err instanceof Error ? err.message : 'Ошибка изменения статуса блокировки')
+      console.error('Ошибка при изменении статуса пользователя:', err)
+      setError(err instanceof Error ? err.message : 'Неизвестная ошибка')
     }
   }
 
   /**
-   * Включение/отключение режима "mute" для пользователя
+   * Включает/отключает режим блокировки чата для пользователя
    * @param userId - ID пользователя
-   * @param isMuted - Текущий статус mute
+   * @param isMuted - Текущий статус блокировки чата
    */
   async function toggleUserMute(userId: number, isMuted: boolean) {
-    // Запрашиваем подтверждение
-    const action = isMuted ? 'включить звук' : 'отключить звук'
-    if (!confirm(`Вы действительно хотите ${action} для этого пользователя?`)) {
-      return
-    }
-
     try {
-      await query(
+      setError(null)
+      
+      // Устанавливаем новый статус (противоположный текущему)
+      const newMuteStatus = !isMuted
+      
+      // Выполняем мутацию
+      const result = await query<AdminMuteUserResponse>(
         `${location.origin}/graphql`,
         `
-        mutation AdminToggleUserMute($userId: Int!) {
-          adminToggleUserMute(userId: $userId) {
-            success
-            error
+          mutation AdminMuteUser($userId: Int!, $muted: Boolean!) {
+            adminMuteUser(userId: $userId, muted: $muted) {
+              success
+              error
+            }
           }
-        }
-      `,
-        { userId }
+        `,
+        { userId, muted: newMuteStatus }
       )
-
-      // Обновляем статус пользователя
-      setUsers((prev) =>
-        prev.map((user) => {
-          if (user.id === userId) {
-            return { ...user, muted: !isMuted }
-          }
-          return user
-        })
-      )
-
-      // Показываем сообщение об успехе
-      setSuccessMessage(`Звук для пользователя успешно ${isMuted ? 'включен' : 'отключен'}`)
-
-      // Скрываем сообщение через 3 секунды
-      setTimeout(() => setSuccessMessage(null), 3000)
+      
+      // Проверяем результат
+      if (result?.adminMuteUser?.success) {
+        // Обновляем сообщение об успехе
+        setSuccessMessage(`${newMuteStatus ? 'Блокировка' : 'Разблокировка'} чата выполнена`)
+        
+        // Обновляем пользователя в текущем списке
+        setUsers(
+          users().map((user) => 
+            user.id === userId ? { ...user, muted: newMuteStatus } : user
+          )
+        )
+        
+        // Скрываем сообщение через 3 секунды
+        setTimeout(() => setSuccessMessage(null), 3000)
+      } else {
+        setError(result?.adminMuteUser?.error || 'Ошибка обновления статуса блокировки чата')
+      }
     } catch (err) {
-      console.error('Ошибка изменения статуса mute:', err)
-      setError(err instanceof Error ? err.message : 'Ошибка изменения статуса mute')
+      console.error('Ошибка при изменении статуса блокировки чата:', err)
+      setError(err instanceof Error ? err.message : 'Неизвестная ошибка')
     }
   }
 
   /**
-   * Закрывает модальное окно управления ролями
+   * Закрывает модальное окно ролей
    */
   function closeRolesModal() {
     setShowRolesModal(false)
