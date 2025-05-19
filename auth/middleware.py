@@ -30,15 +30,34 @@ class AuthMiddleware:
 
         # Извлекаем заголовки
         headers = Headers(scope=scope)
-        auth_header = headers.get(SESSION_TOKEN_HEADER)
         token = None
+        token_source = None
 
-        # Сначала пробуем получить токен из заголовка Authorization
+        # Сначала пробуем получить токен из заголовка авторизации
+        auth_header = headers.get(SESSION_TOKEN_HEADER)
         if auth_header:
             if auth_header.startswith("Bearer "):
                 token = auth_header.replace("Bearer ", "", 1).strip()
+                token_source = "header"
                 logger.debug(
-                    f"[middleware] Извлечен Bearer токен из заголовка, длина: {len(token) if token else 0}"
+                    f"[middleware] Извлечен Bearer токен из заголовка {SESSION_TOKEN_HEADER}, длина: {len(token) if token else 0}"
+                )
+            else:
+                # Если заголовок не начинается с Bearer, предполагаем, что это чистый токен
+                token = auth_header.strip()
+                token_source = "header"
+                logger.debug(
+                    f"[middleware] Извлечен прямой токен из заголовка {SESSION_TOKEN_HEADER}, длина: {len(token) if token else 0}"
+                )
+
+        # Если токен не получен из основного заголовка и это не Authorization, проверяем заголовок Authorization
+        if not token and SESSION_TOKEN_HEADER.lower() != "authorization":
+            auth_header = headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.replace("Bearer ", "", 1).strip()
+                token_source = "auth_header"
+                logger.debug(
+                    f"[middleware] Извлечен Bearer токен из заголовка Authorization, длина: {len(token) if token else 0}"
                 )
 
         # Если токен не получен из заголовка, пробуем взять из cookie
@@ -50,8 +69,9 @@ class AuthMiddleware:
                     name, value = item.split("=", 1)
                     if name.strip() == SESSION_COOKIE_NAME:
                         token = value.strip()
+                        token_source = "cookie"
                         logger.debug(
-                            f"[middleware] Извлечен токен из cookie, длина: {len(token) if token else 0}"
+                            f"[middleware] Извлечен токен из cookie {SESSION_COOKIE_NAME}, длина: {len(token) if token else 0}"
                         )
                         break
 
@@ -71,24 +91,84 @@ class AuthMiddleware:
             scope["headers"] = new_headers
 
             # Также добавляем информацию о типе аутентификации для дальнейшего использования
-            if "auth" not in scope:
-                scope["auth"] = {"type": "bearer", "token": token}
+            scope["auth"] = {
+                "type": "bearer",
+                "token": token,
+                "source": token_source
+            }
+            logger.debug(f"[middleware] Токен добавлен в scope для аутентификации из источника: {token_source}")
+        else:
+            logger.debug(f"[middleware] Токен не найден ни в заголовке, ни в cookie")
 
         await self.app(scope, receive, send)
     
     def set_context(self, context):
         """Сохраняет ссылку на контекст GraphQL запроса"""
         self._context = context
+        logger.debug(f"[middleware] Установлен контекст GraphQL: {bool(context)}")
     
     def set_cookie(self, key, value, **options):
-        """Устанавливает cookie в ответе"""
+        """
+        Устанавливает cookie в ответе
+        
+        Args:
+            key: Имя cookie
+            value: Значение cookie
+            **options: Дополнительные параметры (httponly, secure, max_age, etc.)
+        """
+        success = False
+        
+        # Способ 1: Через response
         if self._context and "response" in self._context and hasattr(self._context["response"], "set_cookie"):
-            self._context["response"].set_cookie(key, value, **options)
+            try:
+                self._context["response"].set_cookie(key, value, **options)
+                logger.debug(f"[middleware] Установлена cookie {key} через response")
+                success = True
+            except Exception as e:
+                logger.error(f"[middleware] Ошибка при установке cookie {key} через response: {str(e)}")
+        
+        # Способ 2: Через собственный response в контексте
+        if not success and hasattr(self, "_response") and self._response and hasattr(self._response, "set_cookie"):
+            try:
+                self._response.set_cookie(key, value, **options)
+                logger.debug(f"[middleware] Установлена cookie {key} через _response")
+                success = True
+            except Exception as e:
+                logger.error(f"[middleware] Ошибка при установке cookie {key} через _response: {str(e)}")
+        
+        if not success:
+            logger.error(f"[middleware] Не удалось установить cookie {key}: объекты response недоступны")
 
     def delete_cookie(self, key, **options):
-        """Удаляет cookie из ответа"""
+        """
+        Удаляет cookie из ответа
+        
+        Args:
+            key: Имя cookie для удаления
+            **options: Дополнительные параметры
+        """
+        success = False
+        
+        # Способ 1: Через response
         if self._context and "response" in self._context and hasattr(self._context["response"], "delete_cookie"):
-            self._context["response"].delete_cookie(key, **options)
+            try:
+                self._context["response"].delete_cookie(key, **options)
+                logger.debug(f"[middleware] Удалена cookie {key} через response")
+                success = True
+            except Exception as e:
+                logger.error(f"[middleware] Ошибка при удалении cookie {key} через response: {str(e)}")
+        
+        # Способ 2: Через собственный response в контексте
+        if not success and hasattr(self, "_response") and self._response and hasattr(self._response, "delete_cookie"):
+            try:
+                self._response.delete_cookie(key, **options)
+                logger.debug(f"[middleware] Удалена cookie {key} через _response")
+                success = True
+            except Exception as e:
+                logger.error(f"[middleware] Ошибка при удалении cookie {key} через _response: {str(e)}")
+        
+        if not success:
+            logger.error(f"[middleware] Не удалось удалить cookie {key}: объекты response недоступны")
 
     async def resolve(self, next, root, info, *args, **kwargs):
         """
@@ -104,6 +184,14 @@ class AuthMiddleware:
             
             # Добавляем себя как объект, содержащий утилитные методы
             context["extensions"] = self
+            
+            # Проверяем наличие response в контексте
+            if "response" not in context or not context["response"]:
+                from starlette.responses import JSONResponse
+                context["response"] = JSONResponse({})
+                logger.debug("[middleware] Создан новый response объект в контексте GraphQL")
+            
+            logger.debug(f"[middleware] GraphQL resolve: контекст подготовлен, добавлены расширения для работы с cookie")
             
             return await next(root, info, *args, **kwargs)
         except Exception as e:

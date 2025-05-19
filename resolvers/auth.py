@@ -6,7 +6,7 @@ from utils.logger import root_logger as logger
 from graphql.type import GraphQLResolveInfo
 # import asyncio # Убираем, так как резолвер будет синхронным
 
-from auth.authenticate import login_required
+from services.auth import login_required
 from auth.credentials import AuthCredentials
 from auth.email import send_auth_email
 from auth.exceptions import InvalidToken, ObjectNotExist
@@ -31,6 +31,7 @@ from auth.internal import verify_internal_auth
 @mutation.field("getSession")
 @login_required
 async def get_current_user(_, info):
+    """get current user"""
     auth: AuthCredentials = info.context["request"].auth
     token = info.context["request"].headers.get(SESSION_TOKEN_HEADER)
 
@@ -42,23 +43,34 @@ async def get_current_user(_, info):
         return {"token": token, "author": author}
 
 
-@mutation.field("confirmEmail")
+@mutation.field("confirmEmail") 
 async def confirm_email(_, info, token):
     """confirm owning email address"""
     try:
         logger.info("[auth] confirmEmail: Начало подтверждения email по токену.")
         payload = JWTCodec.decode(token)
         user_id = payload.user_id
+        username = payload.username
+        
         # Если TokenStorage.get асинхронный, это нужно будет переделать или вызывать синхронно
         # Для теста пока оставим, но это потенциальная точка отказа в синхронном резолвере
-        await TokenStorage.get(f"{user_id}-{payload.username}-{token}")
+        token_key = f"{user_id}-{username}-{token}"
+        await TokenStorage.get(token_key)
+        
         with local_session() as session:
             user = session.query(Author).where(Author.id == user_id).first()
             if not user:
                 logger.warning(f"[auth] confirmEmail: Пользователь с ID {user_id} не найден.")
                 return {"success": False, "error": "Пользователь не найден"}
-            # Если TokenStorage.create_session асинхронный...
-            session_token = await TokenStorage.create_session(user)
+                
+            # Создаем сессионный токен с новым форматом вызова и явным временем истечения
+            device_info = {"email": user.email} if hasattr(user, "email") else None
+            session_token = await TokenStorage.create_session(
+                user_id=str(user_id),
+                username=user.username or user.email or user.slug or username,
+                device_info=device_info
+            )
+            
             user.email_verified = True
             user.last_seen = int(time.time())
             session.add(user)
@@ -75,10 +87,11 @@ async def confirm_email(_, info, token):
             "token": None,
             "author": None,
             "error": f"Ошибка подтверждения email: {str(e)}",
-        }
+        } 
 
 
 def create_user(user_dict):
+    """create new user account"""
     user = Author(**user_dict)
     with local_session() as session:
         # Добавляем пользователя в БД
@@ -118,8 +131,8 @@ def create_user(user_dict):
 
 @mutation.field("registerUser")
 async def register_by_email(_, _info, email: str, password: str = "", name: str = ""):
+    """register new user account by email"""
     email = email.lower()
-    """creates new user account"""
     logger.info(f"[auth] registerUser: Попытка регистрации для {email}")
     with local_session() as session:
         user = session.query(Author).filter(Author.email == email).first()
@@ -171,8 +184,8 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
 
 @mutation.field("sendLink")
 async def send_link(_, _info, email, lang="ru", template="email_confirmation"):
-    email = email.lower()
     """send link with confirm code to email"""
+    email = email.lower()
     with local_session() as session:
         user = session.query(Author).filter(Author.email == email).first()
         if not user:
@@ -264,20 +277,23 @@ async def login(_, info, email: str, password: str):
 
                 # Создаем сессионный токен
                 logger.info(f"[auth] login: СОЗДАНИЕ ТОКЕНА для {email}, id={valid_author.id}")
-                token = await TokenStorage.create_session(valid_author)
+                token = await TokenStorage.create_session(
+                    user_id=str(valid_author.id),
+                    username=valid_author.username or valid_author.email or valid_author.slug or "",
+                    device_info={"email": valid_author.email} if hasattr(valid_author, "email") else None
+                )
                 logger.info(f"[auth] login: токен успешно создан, длина: {len(token) if token else 0}")
 
                 # Обновляем время последнего входа
                 valid_author.last_seen = int(time.time())
                 session.commit()
 
-                # Устанавливаем httponly cookie с помощью GraphQLExtensionsMiddleware
+                # Устанавливаем httponly cookie различными способами для надежности
+                cookie_set = False
+                
+                # Метод 1: GraphQL контекст через extensions
                 try:
-                    # Используем extensions для установки cookie
-                    if hasattr(info.context, "extensions") and hasattr(
-                        info.context.extensions, "set_cookie"
-                    ):
-                        logger.info("[auth] login: Устанавливаем httponly cookie через extensions")
+                    if hasattr(info.context, "extensions") and hasattr(info.context.extensions, "set_cookie"):
                         info.context.extensions.set_cookie(
                             SESSION_COOKIE_NAME,
                             token,
@@ -286,9 +302,34 @@ async def login(_, info, email: str, password: str):
                             samesite=SESSION_COOKIE_SAMESITE,
                             max_age=SESSION_COOKIE_MAX_AGE,
                         )
-                    elif hasattr(info.context, "response") and hasattr(info.context.response, "set_cookie"):
-                        logger.info("[auth] login: Устанавливаем httponly cookie через response")
-                        info.context.response.set_cookie(
+                        logger.info(f"[auth] login: Установлена cookie через extensions")
+                        cookie_set = True
+                except Exception as e:
+                    logger.error(f"[auth] login: Ошибка при установке cookie через extensions: {str(e)}")
+                
+                # Метод 2: GraphQL контекст через response
+                if not cookie_set:
+                    try:
+                        if hasattr(info.context, "response") and hasattr(info.context.response, "set_cookie"):
+                            info.context.response.set_cookie(
+                                key=SESSION_COOKIE_NAME,
+                                value=token,
+                                httponly=SESSION_COOKIE_HTTPONLY,
+                                secure=SESSION_COOKIE_SECURE,
+                                samesite=SESSION_COOKIE_SAMESITE,
+                                max_age=SESSION_COOKIE_MAX_AGE,
+                            )
+                            logger.info(f"[auth] login: Установлена cookie через response")
+                            cookie_set = True
+                    except Exception as e:
+                        logger.error(f"[auth] login: Ошибка при установке cookie через response: {str(e)}")
+                
+                # Если ни один способ не сработал, создаем response в контексте
+                if not cookie_set and hasattr(info.context, "request") and not hasattr(info.context, "response"):
+                    try:
+                        from starlette.responses import JSONResponse
+                        response = JSONResponse({})
+                        response.set_cookie(
                             key=SESSION_COOKIE_NAME,
                             value=token,
                             httponly=SESSION_COOKIE_HTTPONLY,
@@ -296,15 +337,15 @@ async def login(_, info, email: str, password: str):
                             samesite=SESSION_COOKIE_SAMESITE,
                             max_age=SESSION_COOKIE_MAX_AGE,
                         )
-                    else:
-                        logger.warning(
-                            "[auth] login: Невозможно установить cookie - объекты extensions/response недоступны"
-                        )
-                except Exception as e:
-                    # В случае ошибки при установке cookie просто логируем, но продолжаем авторизацию
-                    logger.error(f"[auth] login: Ошибка при установке cookie: {str(e)}")
-                    logger.debug(traceback.format_exc())
-
+                        info.context["response"] = response
+                        logger.info(f"[auth] login: Создан новый response и установлена cookie")
+                        cookie_set = True
+                    except Exception as e:
+                        logger.error(f"[auth] login: Ошибка при создании response и установке cookie: {str(e)}")
+                
+                if not cookie_set:
+                    logger.warning(f"[auth] login: Не удалось установить cookie никаким способом")
+                
                 # Возвращаем успешный результат
                 logger.info(f"[auth] login: Успешный вход для {email}")
                 result = {"success": True, "token": token, "author": valid_author, "error": None}
@@ -327,21 +368,10 @@ async def login(_, info, email: str, password: str):
         logger.error(traceback.format_exc())
         return {"success": False, "token": None, "author": None, "error": str(e)}
 
-    # Если по какой-то причине мы дошли до этой точки, вернем безопасный результат
-    return default_response
-
-
-@query.field("signOut")
-@login_required
-async def sign_out(_, info: GraphQLResolveInfo):
-    token = info.context["request"].headers.get(SESSION_TOKEN_HEADER, "")
-    # Если TokenStorage.revoke асинхронный...
-    status = await TokenStorage.revoke(token)
-    return status
-
 
 @query.field("isEmailUsed")
 async def is_email_used(_, _info, email):
+    """check if email is used"""
     email = email.lower()
     with local_session() as session:
         user = session.query(Author).filter(Author.email == email).first()

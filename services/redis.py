@@ -16,7 +16,7 @@ class RedisService:
         self._client = None
 
     async def connect(self):
-        if self._uri:
+        if self._uri and self._client is None:
             self._client = await Redis.from_url(self._uri, decode_responses=True)
             logger.info("Redis connection was established.")
 
@@ -26,6 +26,11 @@ class RedisService:
             logger.info("Redis connection was closed.")
 
     async def execute(self, command, *args, **kwargs):
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            logger.info(f"[redis] Автоматически установлено соединение при выполнении команды {command}")
+            
         if self._client:
             try:
                 logger.debug(f"{command}")  # {args[0]}") # {args} {kwargs}")
@@ -47,31 +52,43 @@ class RedisService:
         Returns:
             Pipeline: объект pipeline Redis
         """
-        if self._client:
-            return self._client.pipeline()
-        raise Exception("Redis client is not initialized")
+        if self._client is None:
+            # Выбрасываем исключение, так как pipeline нельзя создать до подключения
+            raise Exception("Redis client is not initialized. Call redis.connect() first.")
+            
+        return self._client.pipeline()
 
     async def subscribe(self, *channels):
-        if self._client:
-            async with self._client.pubsub() as pubsub:
-                for channel in channels:
-                    await pubsub.subscribe(channel)
-                    self.pubsub_channels.append(channel)
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
+        async with self._client.pubsub() as pubsub:
+            for channel in channels:
+                await pubsub.subscribe(channel)
+                self.pubsub_channels.append(channel)
 
     async def unsubscribe(self, *channels):
-        if not self._client:
+        if self._client is None:
             return
+            
         async with self._client.pubsub() as pubsub:
             for channel in channels:
                 await pubsub.unsubscribe(channel)
                 self.pubsub_channels.remove(channel)
 
     async def publish(self, channel, data):
-        if not self._client:
-            return
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         await self._client.publish(channel, data)
 
     async def set(self, key, data, ex=None):
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         # Prepare the command arguments
         args = [key, data]
 
@@ -84,6 +101,10 @@ class RedisService:
         await self.execute("set", *args)
 
     async def get(self, key):
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         return await self.execute("get", key)
 
     async def delete(self, *keys):
@@ -96,8 +117,13 @@ class RedisService:
         Returns:
             int: Количество удаленных ключей
         """
-        if not self._client or not keys:
+        if not keys:
             return 0
+            
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         return await self._client.delete(*keys)
 
     async def hmset(self, key, mapping):
@@ -108,8 +134,10 @@ class RedisService:
             key: Ключ хеша
             mapping: Словарь с полями и значениями
         """
-        if not self._client:
-            return
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         await self._client.hset(key, mapping=mapping)
 
     async def expire(self, key, seconds):
@@ -120,8 +148,10 @@ class RedisService:
             key: Ключ
             seconds: Время жизни в секундах
         """
-        if not self._client:
-            return
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         await self._client.expire(key, seconds)
 
     async def sadd(self, key, *values):
@@ -132,8 +162,10 @@ class RedisService:
             key: Ключ множества
             *values: Значения для добавления
         """
-        if not self._client:
-            return
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         await self._client.sadd(key, *values)
 
     async def srem(self, key, *values):
@@ -144,8 +176,10 @@ class RedisService:
             key: Ключ множества
             *values: Значения для удаления
         """
-        if not self._client:
-            return
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         await self._client.srem(key, *values)
 
     async def smembers(self, key):
@@ -158,9 +192,56 @@ class RedisService:
         Returns:
             set: Множество элементов
         """
-        if not self._client:
-            return set()
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
         return await self._client.smembers(key)
+    
+    async def exists(self, key):
+        """
+        Проверяет, существует ли ключ в Redis.
+
+        Args:
+            key: Ключ для проверки
+
+        Returns:
+            bool: True, если ключ существует, False в противном случае
+        """
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()    
+            
+        return await self._client.exists(key)
+    
+    async def expire(self, key, seconds):
+        """
+        Устанавливает время жизни ключа.
+
+        Args:
+            key: Ключ
+            seconds: Время жизни в секундах
+        """
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
+        return await self._client.expire(key, seconds)
+
+    async def keys(self, pattern):
+        """
+        Возвращает все ключи, соответствующие шаблону.
+
+        Args:
+            pattern: Шаблон для поиска ключей
+        """
+        # Автоматически подключаемся к Redis, если соединение не установлено
+        if self._client is None:
+            await self.connect()
+            
+        return await self._client.keys(pattern)
+    
+    
 
 
 redis = RedisService()

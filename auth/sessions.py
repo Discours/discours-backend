@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from pydantic import BaseModel
 from services.redis import redis
@@ -26,87 +26,236 @@ class SessionManager:
 
     @staticmethod
     def _make_session_key(user_id: str, token: str) -> str:
-        """Формирует ключ сессии в Redis"""
-        return f"session:{user_id}:{token}"
+        """
+        Создаёт ключ для сессии в Redis.
+        
+        Args:
+            user_id: ID пользователя
+            token: JWT токен сессии
+            
+        Returns:
+            str: Ключ сессии
+        """
+        session_key = f"session:{user_id}:{token}"
+        logger.debug(f"[SessionManager._make_session_key] Сформирован ключ сессии: {session_key}")
+        return session_key
 
     @staticmethod
     def _make_user_sessions_key(user_id: str) -> str:
-        """Формирует ключ для списка сессий пользователя в Redis"""
+        """
+        Создаёт ключ для списка активных сессий пользователя.
+        
+        Args:
+            user_id: ID пользователя
+            
+        Returns:
+            str: Ключ списка сессий
+        """
         return f"user_sessions:{user_id}"
 
     @classmethod
-    async def create_session(cls, user_id: str, username: str, device_info: dict = None) -> str:
+    async def create_session(cls, user_id: str, username: str, device_info: Optional[dict] = None) -> str:
         """
-        Создает новую сессию для пользователя.
-
+        Создаёт новую сессию.
+        
         Args:
             user_id: ID пользователя
-            username: Имя пользователя/логин
+            username: Имя пользователя
             device_info: Информация об устройстве (опционально)
-
+            
         Returns:
-            str: Токен сессии
+            str: JWT токен сессии
         """
-        try:
-            # Создаем JWT токен
-            exp = datetime.now(tz=timezone.utc) + timedelta(seconds=SESSION_TOKEN_LIFE_SPAN)
-            session_token = JWTCodec.encode({"id": user_id, "email": username}, exp)
+        # Создаём токен с явным указанием срока действия (30 дней)
+        expiration_date = datetime.now(tz=timezone.utc) + timedelta(days=30)
+        token = JWTCodec.encode({"id": user_id, "email": username}, exp=expiration_date)
 
-            # Создаем данные сессии
-            session_data = SessionData(
-                user_id=user_id,
-                username=username,
-                created_at=datetime.now(tz=timezone.utc),
-                expires_at=exp,
-                device_info=device_info,
-            )
+        # Сохраняем сессию в Redis
+        session_key = cls._make_session_key(user_id, token)
+        user_sessions_key = cls._make_user_sessions_key(user_id)
 
-            # Ключи в Redis
-            session_key = cls._make_session_key(user_id, session_token)
-            user_sessions_key = cls._make_user_sessions_key(user_id)
+        # Сохраняем информацию о сессии
+        session_data = {
+            "user_id": user_id,
+            "username": username,
+            "created_at": datetime.now(tz=timezone.utc).isoformat(),
+            "expires_at": expiration_date.isoformat(),
+        }
 
-            # Сохраняем в Redis
-            pipe = redis.pipeline()
-            await pipe.hset(session_key, mapping=session_data.dict())
-            await pipe.expire(session_key, SESSION_TOKEN_LIFE_SPAN)
-            await pipe.sadd(user_sessions_key, session_token)
-            await pipe.expire(user_sessions_key, SESSION_TOKEN_LIFE_SPAN)
-            await pipe.execute()
+        # Добавляем информацию об устройстве, если она есть
+        if device_info:
+            for key, value in device_info.items():
+                session_data[f"device_{key}"] = value
 
-            return session_token
-        except Exception as e:
-            logger.error(f"[SessionManager.create_session] Ошибка: {str(e)}")
-            raise
+        # Сохраняем сессию в Redis
+        pipeline = redis.pipeline()
+        # Сохраняем данные сессии
+        pipeline.hset(session_key, mapping=session_data)
+        # Добавляем токен в список сессий пользователя
+        pipeline.sadd(user_sessions_key, token)
+        # Устанавливаем время жизни ключей (30 дней)
+        pipeline.expire(session_key, 30 * 24 * 60 * 60)
+        pipeline.expire(user_sessions_key, 30 * 24 * 60 * 60)
+        
+        # Также создаем ключ в формате, совместимом с TokenStorage для обратной совместимости
+        token_key = f"{user_id}-{username}-{token}"
+        pipeline.hset(token_key, mapping={"user_id": user_id, "username": username})
+        pipeline.expire(token_key, 30 * 24 * 60 * 60)
+        
+        result = await pipeline.execute()
+        logger.info(f"[SessionManager.create_session] Сессия успешно создана для пользователя {user_id}")
+        
+        return token
 
     @classmethod
     async def verify_session(cls, token: str) -> Optional[TokenPayload]:
         """
-        Проверяет валидность сессии.
-
+        Проверяет сессию по токену.
+        
         Args:
-            token: Токен сессии
-
+            token: JWT токен
+            
         Returns:
-            TokenPayload: Данные токена или None, если токен недействителен
+            Optional[TokenPayload]: Данные токена или None, если сессия недействительна
         """
-        try:
-            # Декодируем JWT
-            payload = JWTCodec.decode(token)
-
-            # Формируем ключ сессии
-            session_key = cls._make_session_key(payload.user_id, token)
-
-            # Проверяем существование сессии в Redis
-            session_exists = await redis.exists(session_key)
-            if not session_exists:
-                logger.debug(f"[SessionManager.verify_session] Сессия не найдена: {payload.user_id}")
-                return None
-
-            return payload
-
-        except Exception as e:
-            logger.error(f"[SessionManager.verify_session] Ошибка: {str(e)}")
+        # Декодируем токен для получения payload
+        payload = JWTCodec.decode(token)
+        if not payload:
             return None
+
+        # Получаем данные из payload
+        user_id = payload.user_id
+        
+        # Формируем ключ сессии
+        session_key = cls._make_session_key(user_id, token)
+        logger.debug(f"[SessionManager.verify_session] Сформирован ключ сессии: {session_key}")
+        
+        # Проверяем существование сессии в Redis
+        exists = await redis.exists(session_key)
+        if not exists:
+            logger.warning(f"[SessionManager.verify_session] Сессия не найдена: {user_id}. Ключ: {session_key}")
+            
+            # Проверяем также ключ в старом формате TokenStorage для обратной совместимости
+            token_key = f"{user_id}-{payload.username}-{token}"
+            old_format_exists = await redis.exists(token_key)
+            
+            if old_format_exists:
+                logger.info(f"[SessionManager.verify_session] Найдена сессия в старом формате: {token_key}")
+                
+                # Миграция: создаем запись в новом формате
+                session_data = {
+                    "user_id": user_id,
+                    "username": payload.username,
+                }
+                
+                # Копируем сессию в новый формат
+                pipeline = redis.pipeline()
+                pipeline.hset(session_key, mapping=session_data)
+                pipeline.expire(session_key, 30 * 24 * 60 * 60)
+                pipeline.sadd(cls._make_user_sessions_key(user_id), token)
+                await pipeline.execute()
+                
+                logger.info(f"[SessionManager.verify_session] Сессия мигрирована в новый формат: {session_key}")
+                return payload
+            
+            # Если сессия не найдена ни в новом, ни в старом формате, проверяем все ключи в Redis
+            keys = await redis.keys("session:*")
+            logger.debug(f"[SessionManager.verify_session] Все ключи сессий в Redis: {keys}")
+            
+            # Если сессии нет, возвращаем None
+            return None
+            
+        # Если сессия найдена, возвращаем payload
+        return payload
+
+    @classmethod
+    async def get_user_sessions(cls, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Получает список активных сессий пользователя.
+        
+        Args:
+            user_id: ID пользователя
+            
+        Returns:
+            List[Dict[str, Any]]: Список сессий
+        """
+        user_sessions_key = cls._make_user_sessions_key(user_id)
+        tokens = await redis.smembers(user_sessions_key)
+        
+        sessions = []
+        for token in tokens:
+            session_key = cls._make_session_key(user_id, token)
+            session_data = await redis.hgetall(session_key)
+            
+            if session_data:
+                session = dict(session_data)
+                session["token"] = token
+                sessions.append(session)
+        
+        return sessions
+
+    @classmethod
+    async def delete_session(cls, user_id: str, token: str) -> bool:
+        """
+        Удаляет сессию.
+        
+        Args:
+            user_id: ID пользователя
+            token: JWT токен
+            
+        Returns:
+            bool: True, если сессия успешно удалена
+        """
+        session_key = cls._make_session_key(user_id, token)
+        user_sessions_key = cls._make_user_sessions_key(user_id)
+        
+        # Удаляем данные сессии и токен из списка сессий пользователя
+        pipeline = redis.pipeline()
+        pipeline.delete(session_key)
+        pipeline.srem(user_sessions_key, token)
+        
+        # Также удаляем ключ в формате TokenStorage для полной очистки
+        token_payload = JWTCodec.decode(token)
+        if token_payload:
+            token_key = f"{user_id}-{token_payload.username}-{token}"
+            pipeline.delete(token_key)
+        
+        results = await pipeline.execute()
+        
+        return bool(results[0]) or bool(results[1])
+
+    @classmethod
+    async def delete_all_sessions(cls, user_id: str) -> int:
+        """
+        Удаляет все сессии пользователя.
+        
+        Args:
+            user_id: ID пользователя
+            
+        Returns:
+            int: Количество удаленных сессий
+        """
+        user_sessions_key = cls._make_user_sessions_key(user_id)
+        tokens = await redis.smembers(user_sessions_key)
+        
+        count = 0
+        for token in tokens:
+            session_key = cls._make_session_key(user_id, token)
+            
+            # Удаляем данные сессии
+            deleted = await redis.delete(session_key)
+            count += deleted
+            
+            # Также удаляем ключ в формате TokenStorage
+            token_payload = JWTCodec.decode(token)
+            if token_payload:
+                token_key = f"{user_id}-{token_payload.username}-{token}"
+                await redis.delete(token_key)
+        
+        # Очищаем список токенов
+        await redis.delete(user_sessions_key)
+        
+        return count
 
     @classmethod
     async def get_session_data(cls, user_id: str, token: str) -> Optional[Dict[str, Any]]:
@@ -122,7 +271,7 @@ class SessionManager:
         """
         try:
             session_key = cls._make_session_key(user_id, token)
-            session_data = await redis.hgetall(session_key)
+            session_data = await redis.execute("HGETALL", session_key)
             return session_data if session_data else None
         except Exception as e:
             logger.error(f"[SessionManager.get_session_data] Ошибка: {str(e)}")

@@ -26,6 +26,14 @@ from services.search import search_service
 from utils.logger import root_logger as logger
 from auth.internal import InternalAuthentication
 from auth.middleware import AuthMiddleware 
+from settings import (
+    SESSION_COOKIE_NAME,
+    SESSION_COOKIE_HTTPONLY,
+    SESSION_COOKIE_SECURE,
+    SESSION_COOKIE_SAMESITE,
+    SESSION_COOKIE_MAX_AGE,
+    SESSION_TOKEN_HEADER,
+)
 
 # Импортируем резолверы
 import_module("resolvers")
@@ -61,19 +69,49 @@ class EnhancedGraphQLHTTPHandler(GraphQLHTTPHandler):
         # Получаем стандартный контекст от базового класса
         context = await super().get_context_for_request(request, data)
         
-        # Добавляем объект ответа для установки cookie
+        # Создаем объект ответа для установки cookie
         response = JSONResponse({})
         context["response"] = response
         
         # Интегрируем с AuthMiddleware
+        auth_middleware.set_context(context)
         context["extensions"] = auth_middleware
         
+        logger.debug(f"[graphql] Подготовлен расширенный контекст для запроса")
+        
         return context
+    
+    async def process_result(self, request: Request, result: dict) -> Response:
+        """
+        Обрабатывает результат GraphQL запроса, поддерживая установку cookie
+        """
+        # Получаем контекст запроса
+        context = getattr(request, "context", {})
+        
+        # Получаем заранее созданный response из контекста
+        response = context.get("response") 
+        
+        if not response or not isinstance(response, Response):
+            # Если response не найден или не является объектом Response, создаем новый
+            response = await super().process_result(request, result)
+        else:
+            # Обновляем тело ответа данными из результата GraphQL
+            response.body = self.encode_json(result)
+            response.headers["content-type"] = "application/json"
+            response.headers["content-length"] = str(len(response.body))
+        
+        logger.debug(f"[graphql] Подготовлен ответ с типом {type(response).__name__}")
+        
+        return response
 
 
 # Функция запуска сервера
 async def start():
     """Запуск сервера и инициализация данных"""
+    # Инициализируем соединение с Redis
+    await redis.connect()
+    logger.info("Установлено соединение с Redis")
+
     # Создаем все таблицы в БД
     create_all_tables()
 
@@ -86,7 +124,7 @@ async def start():
     # Выводим сообщение о запуске сервера и доступности API
     logger.info("Сервер запущен и готов принимать запросы")
     logger.info("GraphQL API доступно по адресу: /graphql")
-    logger.info("Админ-панель доступна по адресу: /admin")
+    logger.info("Админ-панель доступна по адресу: http://127.0.0.1:8000/")
 
 
 # Функция остановки сервера
@@ -125,8 +163,12 @@ middleware = [
 ]
 
 
-# Создаем экземпляр GraphQL
-graphql_app = GraphQL(schema, debug=True)
+# Создаем экземпляр GraphQL с улучшенным обработчиком
+graphql_app = GraphQL(
+    schema, 
+    debug=True,
+    http_handler=EnhancedGraphQLHTTPHandler()
+)
 
 
 # Оборачиваем GraphQL-обработчик для лучшей обработки ошибок
@@ -135,14 +177,57 @@ async def graphql_handler(request: Request):
         return JSONResponse({"error": "Method Not Allowed by main.py"}, status_code=405)
 
     try:
+        # Обрабатываем CORS для OPTIONS запросов
+        if request.method == "OPTIONS":
+            response = JSONResponse({})
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Max-Age"] = "86400"  # 24 hours
+            return response
+        
         result = await graphql_app.handle_request(request)
-        if isinstance(result, Response):
-            return result
-        return JSONResponse(result)
+        
+        # Если результат не является Response, преобразуем его в JSONResponse
+        if not isinstance(result, Response):
+            response = JSONResponse(result)
+            
+            # Проверяем, был ли токен в запросе или ответе
+            if request.method == "POST" and isinstance(result, dict):
+                data = await request.json()
+                op_name = data.get("operationName", "").lower()
+                
+                # Если это операция логина или обновления токена, и в ответе есть токен
+                if (op_name in ["login", "refreshtoken"]) and result.get("data", {}).get(op_name, {}).get("token"):
+                    token = result["data"][op_name]["token"]
+                    # Устанавливаем cookie с токеном
+                    response.set_cookie(
+                        key=SESSION_COOKIE_NAME,
+                        value=token,
+                        httponly=SESSION_COOKIE_HTTPONLY,
+                        secure=SESSION_COOKIE_SECURE,
+                        samesite=SESSION_COOKIE_SAMESITE,
+                        max_age=SESSION_COOKIE_MAX_AGE,
+                    )
+                    logger.debug(f"[graphql_handler] Установлена cookie {SESSION_COOKIE_NAME} для операции {op_name}")
+                
+                # Если это операция logout, удаляем cookie
+                elif op_name == "logout":
+                    response.delete_cookie(
+                        key=SESSION_COOKIE_NAME,
+                        secure=SESSION_COOKIE_SECURE,
+                        httponly=SESSION_COOKIE_HTTPONLY,
+                        samesite=SESSION_COOKIE_SAMESITE
+                    )
+                    logger.debug(f"[graphql_handler] Удалена cookie {SESSION_COOKIE_NAME} для операции {op_name}")
+            
+            return response
+        
+        return result
     except asyncio.CancelledError:
         return JSONResponse({"error": "Request cancelled"}, status_code=499)
     except Exception as e:
-        print(f"GraphQL error: {str(e)}")
+        logger.error(f"GraphQL error: {str(e)}")
         return JSONResponse({"error": str(e)}, status_code=500)
     
 # Добавляем маршруты, порядок имеет значение

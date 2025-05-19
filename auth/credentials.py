@@ -29,6 +29,7 @@ class AuthCredentials(BaseModel):
     logged_in: bool = Field(False, description="Флаг, указывающий, авторизован ли пользователь")
     error_message: str = Field("", description="Сообщение об ошибке аутентификации")
     email: Optional[str] = Field(None, description="Email пользователя")
+    token: Optional[str] = Field(None, description="JWT токен авторизации")
 
     def get_permissions(self) -> List[str]:
         """

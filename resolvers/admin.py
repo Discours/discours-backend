@@ -63,7 +63,7 @@ async def admin_get_users(_, info, limit=10, offset=0, search=None):
                         "email": user.email,
                         "name": user.name,
                         "slug": user.slug,
-                        "roles": [role.role for role in user.roles]
+                        "roles": [role.id for role in user.roles]
                         if hasattr(user, "roles") and user.roles
                         else [],
                         "created_at": user.created_at,

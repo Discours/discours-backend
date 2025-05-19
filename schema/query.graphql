@@ -7,7 +7,7 @@ type Query {
   # search_authors(what: String!): [Author]
 
   # Auth queries
-  signOut: AuthSuccess!
+  logout: AuthResult!
   me: AuthResult!
   isEmailUsed(email: String!): Boolean!
   isAdmin: Boolean!
