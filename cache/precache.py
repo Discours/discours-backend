@@ -77,11 +77,15 @@ async def precache_topics_followers(topic_id: int, session):
 
 async def precache_data():
     logger.info("precaching...")
+    logger.debug("Entering precache_data")
     try:
         key = "authorizer_env"
+        logger.debug(f"Fetching existing hash for key '{key}' from Redis")
         # cache reset
         value = await redis.execute("HGETALL", key)
+        logger.debug(f"Fetched value for '{key}': {value}")
         await redis.execute("FLUSHDB")
+        logger.debug("Redis database flushed")
         logger.info("redis: FLUSHDB")
 
         # Преобразуем словарь в список аргументов для HSET
@@ -97,21 +101,27 @@ async def precache_data():
                 await redis.execute("HSET", key, *value)
             logger.info(f"redis hash '{key}' was restored")
 
+        logger.info("Beginning topic precache phase")
         with local_session() as session:
             # topics
             q = select(Topic).where(Topic.community == 1)
             topics = get_with_stat(q)
+            logger.info(f"Found {len(topics)} topics to precache")
             for topic in topics:
                 topic_dict = topic.dict() if hasattr(topic, "dict") else topic
+                logger.debug(f"Precaching topic id={topic_dict.get('id')}")
                 await cache_topic(topic_dict)
+                logger.debug(f"Cached topic id={topic_dict.get('id')}")
                 await asyncio.gather(
                     precache_topics_followers(topic_dict["id"], session),
                     precache_topics_authors(topic_dict["id"], session),
                 )
+                logger.debug(f"Finished precaching followers and authors for topic id={topic_dict.get('id')}")
             logger.info(f"{len(topics)} topics and their followings precached")
 
             # authors
             authors = get_with_stat(select(Author).where(Author.user.is_not(None)))
+            logger.info(f"Found {len(authors)} authors to precache")
             logger.info(f"{len(authors)} authors found in database")
             for author in authors:
                 if isinstance(author, Author):
@@ -119,10 +129,12 @@ async def precache_data():
                     author_id = profile.get("id")
                     user_id = profile.get("user", "").strip()
                     if author_id and user_id:
+                        logger.debug(f"Precaching author id={author_id}")
                         await cache_author(profile)
                         await asyncio.gather(
                             precache_authors_followers(author_id, session), precache_authors_follows(author_id, session)
                         )
+                        logger.debug(f"Finished precaching followers and follows for author id={author_id}")
                 else:
                     logger.error(f"fail caching {author}")
             logger.info(f"{len(authors)} authors and their followings precached")
