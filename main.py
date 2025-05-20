@@ -52,8 +52,13 @@ async def lifespan(_app):
     try:
         print("[lifespan] Starting application initialization")
         create_all_tables()
+        
         # schedule precaching in background to avoid blocking startup
-        asyncio.create_task(precache_data())
+        asyncio.create_task(
+            asyncio.wait_for(precache_data(), timeout=60)
+            .catch(asyncio.TimeoutError, lambda _: print("Precache timed out"))
+        )
+        
         await asyncio.gather(
             redis.connect(),
             ViewedStorage.init(),
