@@ -17,7 +17,6 @@ from cache.revalidator import revalidation_manager
 from services.exception import ExceptionHandlerMiddleware
 from services.redis import redis
 from services.schema import create_all_tables, resolvers
-#from services.search import search_service
 from services.search import search_service, initialize_search_index
 from services.viewed import ViewedStorage
 from services.webhook import WebhookEndpoint, create_webhook_endpoint
@@ -53,9 +52,10 @@ async def lifespan(_app):
     try:
         print("[lifespan] Starting application initialization")
         create_all_tables()
+        # schedule precaching in background to avoid blocking startup
+        asyncio.create_task(precache_data())
         await asyncio.gather(
             redis.connect(),
-            precache_data(),
             ViewedStorage.init(),
             create_webhook_endpoint(),
             check_search_service(),
