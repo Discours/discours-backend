@@ -42,6 +42,15 @@ async def check_search_service():
     else:
         print(f"[INFO] Search service is available: {info}")
 
+# Helper to run precache with timeout and catch errors
+async def precache_with_timeout():
+    try:
+        await asyncio.wait_for(precache_data(), timeout=60)
+    except asyncio.TimeoutError:
+        print("[precache] Precache timed out after 60 seconds")
+    except Exception as e:
+        print(f"[precache] Error during precache: {e}")
+
 
 # indexing DB data
 # async def indexing():
@@ -53,11 +62,8 @@ async def lifespan(_app):
         print("[lifespan] Starting application initialization")
         create_all_tables()
         
-        # schedule precaching in background to avoid blocking startup
-        asyncio.create_task(
-            asyncio.wait_for(precache_data(), timeout=60)
-            .catch(asyncio.TimeoutError, lambda _: print("Precache timed out"))
-        )
+        # schedule precaching in background with timeout and error handling
+        asyncio.create_task(precache_with_timeout())
         
         await asyncio.gather(
             redis.connect(),
