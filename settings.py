@@ -3,6 +3,10 @@
 import os
 import sys
 from os import environ
+from pathlib import Path
+
+# Корневая директория проекта
+ROOT_DIR = Path(__file__).parent.absolute()
 
 DEV_SERVER_PID_FILE_NAME = "dev-server.pid"
 

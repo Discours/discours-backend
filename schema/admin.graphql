@@ -27,15 +27,11 @@ type AdminUserInfo {
   roles: [String!]
   created_at: Int
   last_seen: Int
-  muted: Boolean
-  is_active: Boolean
 }
 
 input AdminUserUpdateInput {
   id: Int!
   roles: [String!]
-  muted: Boolean
-  is_active: Boolean
 }
 
 type Role {
@@ -66,6 +62,4 @@ extend type Mutation {
   
   # Мутации для управления пользователями
   adminUpdateUser(user: AdminUserUpdateInput!): Boolean!
-  adminToggleUserBlock(userId: Int!): Boolean!
-  adminToggleUserMute(userId: Int!): Boolean!
 } 

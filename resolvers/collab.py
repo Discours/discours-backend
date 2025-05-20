@@ -71,7 +71,7 @@ async def create_invite(_, info, slug: str = "", author_id: int = 0):
         # Check if the inviter is the owner of the shout
         with local_session() as session:
             shout = session.query(Shout).filter(Shout.slug == slug).first()
-            inviter = session.query(Author).filter(Author.user == user_id).first()
+            inviter = session.query(Author).filter(Author.id == user_id).first()
             if inviter and shout and shout.authors and inviter.id is shout.created_by:
                 # Check if an invite already exists
                 existing_invite = (
@@ -109,7 +109,7 @@ async def create_invite(_, info, slug: str = "", author_id: int = 0):
 async def remove_author(_, info, slug: str = "", author_id: int = 0):
     user_id = info.context["user_id"]
     with local_session() as session:
-        author = session.query(Author).filter(Author.user == user_id).first()
+        author = session.query(Author).filter(Author.id == user_id).first()
         if author:
             shout = session.query(Shout).filter(Shout.slug == slug).first()
             # NOTE: owner should be first in a list

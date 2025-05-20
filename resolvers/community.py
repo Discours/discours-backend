@@ -23,7 +23,7 @@ async def get_communities_by_author(_, _info, slug="", user="", author_id=0):
             author_id = session.query(Author).where(Author.slug == slug).first().id
             q = q.where(CommunityFollower.author == author_id)
         if user:
-            author_id = session.query(Author).where(Author.user == user).first().id
+            author_id = session.query(Author).where(Author.id == user).first().id
             q = q.where(CommunityFollower.author == author_id)
         if author_id:
             q = q.where(CommunityFollower.author == author_id)

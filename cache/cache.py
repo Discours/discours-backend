@@ -320,7 +320,7 @@ async def get_cached_author_by_user_id(user_id: str, get_with_stat):
             return orjson.loads(author_data)
 
     # If data is not found in cache, query the database
-    author_query = select(Author).where(Author.user == user_id)
+    author_query = select(Author).where(Author.id == user_id)
     authors = get_with_stat(author_query)
     if authors:
         # Cache the retrieved author data

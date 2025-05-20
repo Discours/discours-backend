@@ -151,16 +151,16 @@ class InternalAuthentication(AuthenticationBackend):
                 return AuthCredentials(scopes={}, error_message="User not found"), UnauthenticatedUser()
 
 
-async def verify_internal_auth(token: str) -> Tuple[str, list]:
+async def verify_internal_auth(token: str) -> Tuple[str, list, bool]:
     """
     Проверяет локальную авторизацию.
-    Возвращает user_id и список ролей.
+    Возвращает user_id, список ролей и флаг администратора.
 
     Args:
         token: Токен авторизации (может быть как с Bearer, так и без)
 
     Returns:
-        tuple: (user_id, roles)
+        tuple: (user_id, roles, is_admin)
     """
     # Обработка формата "Bearer <token>" (если токен не был обработан ранее)
     if token.startswith("Bearer "):
@@ -169,7 +169,7 @@ async def verify_internal_auth(token: str) -> Tuple[str, list]:
     # Проверяем сессию
     payload = await SessionManager.verify_session(token)
     if not payload:
-        return "", []
+        return "", [], False
 
     with local_session() as session:
         try:
@@ -182,10 +182,13 @@ async def verify_internal_auth(token: str) -> Tuple[str, list]:
 
             # Получаем роли
             roles = [role.id for role in author.roles]
-
-            return str(author.id), roles
+            
+            # Определяем, является ли пользователь администратором
+            is_admin = any(role in ['admin', 'super'] for role in roles) or author.email in ADMIN_EMAILS
+            
+            return str(author.id), roles, is_admin
         except exc.NoResultFound:
-            return "", []
+            return "", [], False
 
 
 async def create_internal_session(author: Author, device_info: Optional[dict] = None) -> str:
@@ -202,8 +205,8 @@ async def create_internal_session(author: Author, device_info: Optional[dict] = 
     # Сбрасываем счетчик неудачных попыток
     author.reset_failed_login()
 
-    # Обновляем last_login
-    author.last_login = int(time.time())
+    # Обновляем last_seen
+    author.last_seen = int(time.time())
 
     # Создаем сессию, используя token для идентификации
     return await SessionManager.create_session(

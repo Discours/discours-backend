@@ -18,15 +18,13 @@ interface User {
   roles: string[]
   created_at?: number
   last_seen?: number
-  muted: boolean
-  is_active: boolean
 }
 
 /**
  * Интерфейс для роли пользователя
  */
 interface Role {
-  id: number
+  id: string  // ID роли - строка, не число
   name: string
   description?: string
 }
@@ -52,27 +50,37 @@ interface AdminGetRolesResponse {
 }
 
 /**
- * Интерфейс для ответа изменения статуса пользователя
+ * Интерфейс для ответа обновления пользователя
  */
-interface AdminSetUserStatusResponse {
-  adminSetUserStatus: {
-    success: boolean
-    error?: string
-  }
+interface AdminUpdateUserResponse {
+  adminUpdateUser: boolean
 }
 
 /**
- * Интерфейс для ответа изменения статуса блокировки чата
+ * Интерфейс для переменной окружения
  */
-interface AdminMuteUserResponse {
-  adminMuteUser: {
-    success: boolean
-    error?: string
-  }
+interface EnvVariable {
+  key: string
+  value: string
+  description?: string
+  type: string
+  isSecret: boolean
 }
 
-// Интерфейс для пропсов AdminPage
+/**
+ * Интерфейс для секции переменных окружения
+ */
+interface EnvSection {
+  name: string
+  description?: string
+  variables: EnvVariable[]
+}
+
+/**
+ * Интерфейс свойств компонента AdminPage
+ */
 interface AdminPageProps {
+  apiUrl: string
   onLogout?: () => void
 }
 
@@ -88,6 +96,12 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   const [selectedUser, setSelectedUser] = createSignal<User | null>(null)
   const [showRolesModal, setShowRolesModal] = createSignal(false)
   const [successMessage, setSuccessMessage] = createSignal<string | null>(null)
+
+  // Переменные среды
+  const [envSections, setEnvSections] = createSignal<EnvSection[]>([])
+  const [envLoading, setEnvLoading] = createSignal(false)
+  const [editingVariable, setEditingVariable] = createSignal<EnvVariable | null>(null)
+  const [showVariableModal, setShowVariableModal] = createSignal(false)
 
   // Параметры пагинации
   const [pagination, setPagination] = createSignal<{
@@ -137,8 +151,6 @@ const AdminPage: Component<AdminPageProps> = (props) => {
               roles
               created_at
               last_seen
-              muted
-              is_active
             }
             total
             page
@@ -261,104 +273,6 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   }
 
   /**
-   * Блокирует/разблокирует пользователя
-   * @param userId - ID пользователя
-   * @param isActive - Текущий статус активности
-   */
-  async function toggleUserBlock(userId: number, isActive: boolean) {
-    try {
-      setError(null)
-      
-      // Устанавливаем новый статус (противоположный текущему)
-      const newStatus = !isActive
-      
-      // Выполняем мутацию
-      const result = await query<AdminSetUserStatusResponse>(
-        `${location.origin}/graphql`,
-        `
-          mutation AdminSetUserStatus($userId: Int!, $isActive: Boolean!) {
-            adminSetUserStatus(userId: $userId, isActive: $isActive) {
-              success
-              error
-            }
-          }
-        `,
-        { userId, isActive: newStatus }
-      )
-      
-      // Проверяем результат
-      if (result?.adminSetUserStatus?.success) {
-        // Обновляем список пользователей
-        setSuccessMessage(`Пользователь ${newStatus ? 'разблокирован' : 'заблокирован'}`)
-        
-        // Обновляем пользователя в текущем списке
-        setUsers(
-          users().map((user) => 
-            user.id === userId ? { ...user, is_active: newStatus } : user
-          )
-        )
-        
-        // Скрываем сообщение через 3 секунды
-        setTimeout(() => setSuccessMessage(null), 3000)
-      } else {
-        setError(result?.adminSetUserStatus?.error || 'Ошибка обновления статуса пользователя')
-      }
-    } catch (err) {
-      console.error('Ошибка при изменении статуса пользователя:', err)
-      setError(err instanceof Error ? err.message : 'Неизвестная ошибка')
-    }
-  }
-
-  /**
-   * Включает/отключает режим блокировки чата для пользователя
-   * @param userId - ID пользователя
-   * @param isMuted - Текущий статус блокировки чата
-   */
-  async function toggleUserMute(userId: number, isMuted: boolean) {
-    try {
-      setError(null)
-      
-      // Устанавливаем новый статус (противоположный текущему)
-      const newMuteStatus = !isMuted
-      
-      // Выполняем мутацию
-      const result = await query<AdminMuteUserResponse>(
-        `${location.origin}/graphql`,
-        `
-          mutation AdminMuteUser($userId: Int!, $muted: Boolean!) {
-            adminMuteUser(userId: $userId, muted: $muted) {
-              success
-              error
-            }
-          }
-        `,
-        { userId, muted: newMuteStatus }
-      )
-      
-      // Проверяем результат
-      if (result?.adminMuteUser?.success) {
-        // Обновляем сообщение об успехе
-        setSuccessMessage(`${newMuteStatus ? 'Блокировка' : 'Разблокировка'} чата выполнена`)
-        
-        // Обновляем пользователя в текущем списке
-        setUsers(
-          users().map((user) => 
-            user.id === userId ? { ...user, muted: newMuteStatus } : user
-          )
-        )
-        
-        // Скрываем сообщение через 3 секунды
-        setTimeout(() => setSuccessMessage(null), 3000)
-      } else {
-        setError(result?.adminMuteUser?.error || 'Ошибка обновления статуса блокировки чата')
-      }
-    } catch (err) {
-      console.error('Ошибка при изменении статуса блокировки чата:', err)
-      setError(err instanceof Error ? err.message : 'Неизвестная ошибка')
-    }
-  }
-
-  /**
    * Закрывает модальное окно ролей
    */
   function closeRolesModal() {
@@ -373,19 +287,18 @@ const AdminPage: Component<AdminPageProps> = (props) => {
    */
   async function updateUserRoles(userId: number, newRoles: string[]) {
     try {
-      await query(
+      await query<AdminUpdateUserResponse>(
         `${location.origin}/graphql`,
         `
-        mutation AdminUpdateUser($userId: Int!, $input: AdminUserUpdateInput!) {
-          adminUpdateUser(userId: $userId, input: $input) {
-            success
-            error
-          }
+        mutation AdminUpdateUser($user: AdminUserUpdateInput!) {
+          adminUpdateUser(user: $user)
         }
       `,
         {
-          userId,
-          input: { roles: newRoles }
+          user: { 
+            id: userId,
+            roles: newRoles 
+          }
         }
       )
 
@@ -414,20 +327,171 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   }
 
   /**
-   * Выход из системы
+   * Обрабатывает выход из системы
    */
-  function handleLogout() {
-    // Сначала выполняем локальные действия по очистке данных
-    setUsers([])
-    setRoles([])
-
-    // Затем выполняем выход
-    logout(() => {
-      // Вызываем коллбэк для оповещения родителя о выходе
+  const handleLogout = async () => {
+    try {
+      await logout()
       if (props.onLogout) {
         props.onLogout()
       }
-    })
+    } catch (error) {
+      setError('Ошибка при выходе: ' + (error as Error).message)
+    }
+  }
+
+  /**
+   * Форматирование даты в формате "X дней назад"
+   * @param timestamp - Временная метка
+   * @returns Форматированная строка с относительной датой
+   */
+  function formatDateRelative(timestamp?: number): string {
+    if (!timestamp) return 'Н/Д'
+    
+    const now = Math.floor(Date.now() / 1000)
+    const diff = now - timestamp
+    
+    // Меньше минуты
+    if (diff < 60) {
+      return 'только что'
+    }
+    
+    // Меньше часа
+    if (diff < 3600) {
+      const minutes = Math.floor(diff / 60)
+      return `${minutes} ${getMinutesForm(minutes)} назад`
+    }
+    
+    // Меньше суток
+    if (diff < 86400) {
+      const hours = Math.floor(diff / 3600)
+      return `${hours} ${getHoursForm(hours)} назад`
+    }
+    
+    // Меньше 30 дней
+    if (diff < 2592000) {
+      const days = Math.floor(diff / 86400)
+      return `${days} ${getDaysForm(days)} назад`
+    }
+    
+    // Меньше года
+    if (diff < 31536000) {
+      const months = Math.floor(diff / 2592000)
+      return `${months} ${getMonthsForm(months)} назад`
+    }
+    
+    // Больше года
+    const years = Math.floor(diff / 31536000)
+    return `${years} ${getYearsForm(years)} назад`
+  }
+
+  /**
+   * Получение правильной формы слова "минута" в зависимости от числа
+   * @param minutes - Количество минут
+   */
+  function getMinutesForm(minutes: number): string {
+    if (minutes % 10 === 1 && minutes % 100 !== 11) {
+      return 'минуту'
+    } else if ([2, 3, 4].includes(minutes % 10) && ![12, 13, 14].includes(minutes % 100)) {
+      return 'минуты'
+    }
+    return 'минут'
+  }
+
+  /**
+   * Получение правильной формы слова "час" в зависимости от числа
+   * @param hours - Количество часов
+   */
+  function getHoursForm(hours: number): string {
+    if (hours % 10 === 1 && hours % 100 !== 11) {
+      return 'час'
+    } else if ([2, 3, 4].includes(hours % 10) && ![12, 13, 14].includes(hours % 100)) {
+      return 'часа'
+    }
+    return 'часов'
+  }
+
+  /**
+   * Получение правильной формы слова "день" в зависимости от числа
+   * @param days - Количество дней
+   */
+  function getDaysForm(days: number): string {
+    if (days % 10 === 1 && days % 100 !== 11) {
+      return 'день'
+    } else if ([2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100)) {
+      return 'дня'
+    }
+    return 'дней'
+  }
+
+  /**
+   * Получение правильной формы слова "месяц" в зависимости от числа
+   * @param months - Количество месяцев
+   */
+  function getMonthsForm(months: number): string {
+    if (months % 10 === 1 && months % 100 !== 11) {
+      return 'месяц'
+    } else if ([2, 3, 4].includes(months % 10) && ![12, 13, 14].includes(months % 100)) {
+      return 'месяца'
+    }
+    return 'месяцев'
+  }
+
+  /**
+   * Получение правильной формы слова "год" в зависимости от числа
+   * @param years - Количество лет
+   */
+  function getYearsForm(years: number): string {
+    if (years % 10 === 1 && years % 100 !== 11) {
+      return 'год'
+    } else if ([2, 3, 4].includes(years % 10) && ![12, 13, 14].includes(years % 100)) {
+      return 'года'
+    }
+    return 'лет'
+  }
+
+  /**
+   * Получает иконку для роли пользователя
+   * @param role - Название роли
+   * @returns Иконка для роли
+   */
+  function getRoleIcon(role: string): string {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return '👑' // корона для администратора
+      case 'moderator':
+        return '🛡️' // щит для модератора
+      case 'editor':
+        return '✏️' // карандаш для редактора
+      case 'author':
+        return '📝' // блокнот для автора
+      case 'user':
+        return '👤' // фигура для обычного пользователя
+      case 'subscriber':
+        return '📬' // почтовый ящик для подписчика
+      case 'guest':
+        return '👋' // рука для гостя
+      case 'banned':
+        return '🚫' // знак запрета для заблокированного
+      case 'vip':
+        return '⭐' // звезда для VIP
+      case 'verified':
+        return '✓' // галочка для верифицированного
+      default:
+        return '🔹' // точка для прочих ролей
+    }
+  }
+
+  /**
+   * Компонент для отображения роли с иконкой
+   */
+  const RoleBadge: Component<{ role: string }> = (props) => {
+    return (
+      <span class="role-badge" title={props.role}>
+        <span class="role-icon">{getRoleIcon(props.role)}</span>
+        <span class="role-name">{props.role}</span>
+      </span>
+    )
   }
 
   /**
@@ -537,6 +601,25 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     const user = selectedUser()
     const [selectedRoles, setSelectedRoles] = createSignal<string[]>(user ? [...user.roles] : [])
 
+    // Получаем дополнительные описания ролей
+    const getRoleDescription = (roleId: string): string => {
+      // Если есть описание в списке ролей, используем его
+      const roleFromList = roles().find(r => r.id === roleId);
+      if (roleFromList?.description) {
+        return roleFromList.description;
+      }
+      
+      // Иначе возвращаем стандартное описание
+      switch(roleId) {
+        case 'reader':
+          return 'Базовая роль. Позволяет авторизоваться и оставлять реакции.';
+        case 'author':
+          return 'Расширенная роль. Позволяет создавать контент и голосовать за публикации для вывода на главную страницу.';
+        default:
+          return 'Нет описания';
+      }
+    };
+
     const toggleRole = (role: string) => {
       const current = selectedRoles()
       if (current.includes(role)) {
@@ -559,6 +642,11 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         <div class="modal-content">
           <h2>Управление ролями пользователя</h2>
           <p>Пользователь: {user.email}</p>
+          
+          <div class="role-info">
+            <p><strong>Внимание:</strong> Снятие роли "reader" блокирует доступ пользователя к системе.</p>
+            <p>Роль "author" дает возможность голосовать за публикации для размещения на главной странице.</p>
+          </div>
 
           <div class="roles-list">
             <For each={roles()}>
@@ -567,14 +655,12 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                   <label>
                     <input
                       type="checkbox"
-                      checked={selectedRoles().includes(role.name)}
-                      onChange={() => toggleRole(role.name)}
+                      checked={selectedRoles().includes(role.id)}
+                      onChange={() => toggleRole(role.id)}
                     />
-                    {role.name}
+                    {role.id}
                   </label>
-                  <Show when={role.description}>
-                    <p class="role-description">{role.description}</p>
-                  </Show>
+                  <p class="role-description">{getRoleDescription(role.id)}</p>
                 </div>
               )}
             </For>
@@ -593,6 +679,250 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     )
   }
 
+  /**
+   * Загружает переменные окружения
+   */
+  const loadEnvVariables = async () => {
+    try {
+      setEnvLoading(true)
+      setError(null)
+
+      const result = await query(props.apiUrl, `
+        query GetEnvVariables {
+          getEnvVariables {
+            name
+            description
+            variables {
+              key
+              value
+              description
+              type
+              isSecret
+            }
+          }
+        }
+      `)
+
+      if (result.getEnvVariables) {
+        setEnvSections(result.getEnvVariables as EnvSection[])
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки переменных окружения:', err)
+      setError('Не удалось загрузить переменные окружения: ' + (err as Error).message)
+      
+      // Если ошибка авторизации - перенаправляем на логин
+      if (
+        err instanceof Error &&
+        (err.message.includes('401') ||
+          err.message.includes('авторизации') ||
+          err.message.includes('unauthorized') ||
+          err.message.includes('Unauthorized'))
+      ) {
+        handleLogout()
+      }
+    } finally {
+      setEnvLoading(false)
+    }
+  }
+
+  /**
+   * Обновляет значение переменной окружения
+   */
+  const updateEnvVariable = async (key: string, value: string) => {
+    try {
+      setError(null)
+      setSuccessMessage(null)
+
+      const result = await query(props.apiUrl, `
+        mutation UpdateEnvVariable($key: String!, $value: String!) {
+          updateEnvVariable(key: $key, value: $value)
+        }
+      `, { key, value })
+
+      if (result.updateEnvVariable) {
+        setSuccessMessage(`Переменная ${key} успешно обновлена`)
+        // Обновляем список переменных
+        await loadEnvVariables()
+      } else {
+        setError('Не удалось обновить переменную')
+      }
+    } catch (err) {
+      console.error('Ошибка обновления переменной:', err)
+      setError('Ошибка при обновлении переменной: ' + (err as Error).message)
+      
+      // Если ошибка авторизации - перенаправляем на логин
+      if (
+        err instanceof Error &&
+        (err.message.includes('401') ||
+          err.message.includes('авторизации') ||
+          err.message.includes('unauthorized') ||
+          err.message.includes('Unauthorized'))
+      ) {
+        handleLogout()
+      }
+    }
+  }
+
+  /**
+   * Обработчик открытия модального окна редактирования переменной
+   */
+  const openVariableModal = (variable: EnvVariable) => {
+    setEditingVariable({ ...variable })
+    setShowVariableModal(true)
+  }
+
+  /**
+   * Обработчик закрытия модального окна редактирования переменной
+   */
+  const closeVariableModal = () => {
+    setEditingVariable(null)
+    setShowVariableModal(false)
+  }
+
+  /**
+   * Обработчик сохранения переменной
+   */
+  const saveVariable = async () => {
+    const variable = editingVariable()
+    if (!variable) return
+
+    await updateEnvVariable(variable.key, variable.value)
+    closeVariableModal()
+  }
+
+  /**
+   * Обработчик изменения значения в модальном окне
+   */
+  const handleVariableValueChange = (value: string) => {
+    const variable = editingVariable()
+    if (variable) {
+      setEditingVariable({ ...variable, value })
+    }
+  }
+
+  /**
+   * Загружает список переменных среды при переключении на соответствующую вкладку
+   */
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+    
+    if (tab === 'env' && envSections().length === 0) {
+      loadEnvVariables()
+    }
+  }
+
+  /**
+   * Компонент модального окна для редактирования переменной окружения
+   */
+  const VariableModal: Component = () => {
+    const variable = editingVariable()
+
+    if (!variable) return null
+
+    return (
+      <div class="modal-overlay">
+        <div class="modal-content">
+          <h2>Редактирование переменной</h2>
+          <p>Переменная: {variable.key}</p>
+          
+          <div class="variable-edit-form">
+            <div class="form-group">
+              <label>Значение:</label>
+              <input 
+                type={variable.isSecret ? 'password' : 'text'} 
+                value={variable.value} 
+                onInput={(e) => handleVariableValueChange(e.target.value)}
+              />
+            </div>
+            
+            <Show when={variable.description}>
+              <div class="variable-description">
+                <p>{variable.description}</p>
+              </div>
+            </Show>
+          </div>
+
+          <div class="modal-actions">
+            <button class="cancel-button" onClick={closeVariableModal}>
+              Отмена
+            </button>
+            <button class="save-button" onClick={saveVariable}>
+              Сохранить
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /**
+   * Компонент для отображения переменных окружения
+   */
+  const EnvVariablesTab: Component = () => {
+    return (
+      <div class="env-variables-container">
+        <Show when={envLoading()}>
+          <div class="loading">Загрузка переменных окружения...</div>
+        </Show>
+
+        <Show when={!envLoading() && envSections().length === 0}>
+          <div class="empty-state">Нет доступных переменных окружения</div>
+        </Show>
+
+        <Show when={!envLoading() && envSections().length > 0}>
+          <div class="env-sections">
+            <For each={envSections()}>
+              {(section) => (
+                <div class="env-section">
+                  <h3 class="section-name">{section.name}</h3>
+                  <Show when={section.description}>
+                    <p class="section-description">{section.description}</p>
+                  </Show>
+                  
+                  <div class="variables-list">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Ключ</th>
+                          <th>Значение</th>
+                          <th>Описание</th>
+                          <th>Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={section.variables}>
+                          {(variable) => (
+                            <tr>
+                              <td>{variable.key}</td>
+                              <td>
+                                {variable.isSecret 
+                                  ? '••••••••' 
+                                  : (variable.value || <span class="empty-value">не задано</span>)}
+                              </td>
+                              <td>{variable.description || '-'}</td>
+                              <td class="actions">
+                                <button 
+                                  class="edit-button"
+                                  onClick={() => openVariableModal(variable)}
+                                >
+                                  Изменить
+                                </button>
+                              </td>
+                            </tr>
+                          )}
+                        </For>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+      </div>
+    )
+  }
+
   return (
     <div class="admin-page">
       <header>
@@ -604,8 +934,11 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         </div>
 
         <nav class="admin-tabs">
-          <button class={activeTab() === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>
+          <button class={activeTab() === 'users' ? 'active' : ''} onClick={() => handleTabChange('users')}>
             Пользователи
+          </button>
+          <button class={activeTab() === 'env' ? 'active' : ''} onClick={() => handleTabChange('env')}>
+            Переменные среды
           </button>
         </nav>
       </header>
@@ -619,89 +952,89 @@ const AdminPage: Component<AdminPageProps> = (props) => {
           <div class="success-message">{successMessage()}</div>
         </Show>
 
-        <Show when={loading()}>
-          <div class="loading">Загрузка данных...</div>
-        </Show>
+        <Show when={activeTab() === 'users'}>
+          <Show when={loading()}>
+            <div class="loading">Загрузка данных...</div>
+          </Show>
 
-        <Show when={!loading() && users().length === 0 && !error()}>
-          <div class="empty-state">Нет данных для отображения</div>
-        </Show>
+          <Show when={!loading() && users().length === 0 && !error()}>
+            <div class="empty-state">Нет данных для отображения</div>
+          </Show>
 
-        <Show when={!loading() && users().length > 0}>
-          <div class="users-controls">
-            <div class="search-container">
-              <div class="search-input-group">
-                <input
-                  type="text"
-                  placeholder="Поиск по email, имени или ID..."
-                  value={searchQuery()}
-                  onInput={handleSearchChange}
-                  onKeyDown={handleSearchKeyDown}
-                  class="search-input"
-                />
-                <button class="search-button" onClick={handleSearch}>
-                  Поиск
-                </button>
+          <Show when={!loading() && users().length > 0}>
+            <div class="users-controls">
+              <div class="search-container">
+                <div class="search-input-group">
+                  <input
+                    type="text"
+                    placeholder="Поиск по email, имени или ID..."
+                    value={searchQuery()}
+                    onInput={handleSearchChange}
+                    onKeyDown={handleSearchKeyDown}
+                    class="search-input"
+                  />
+                  <button class="search-button" onClick={handleSearch}>
+                    Поиск
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="users-list">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Email</th>
-                  <th>Имя</th>
-                  <th>Роли</th>
-                  <th>Создан</th>
-                  <th>Последний вход</th>
-                  <th>Статус</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={users()}>
-                  {(user) => (
-                    <tr class={user.is_active ? '' : 'blocked'}>
-                      <td>{user.id}</td>
-                      <td>{user.email}</td>
-                      <td>{user.name || '-'}</td>
-                      <td>{user.roles.join(', ') || '-'}</td>
-                      <td>{formatDate(user.created_at)}</td>
-                      <td>{formatDate(user.last_seen)}</td>
-                      <td>
-                        <span class={`status ${user.is_active ? 'active' : 'inactive'}`}>
-                          {user.is_active ? 'Активен' : 'Заблокирован'}
-                        </span>
-                      </td>
-                      <td class="actions">
-                        <button
-                          class={user.is_active ? 'block' : 'unblock'}
-                          onClick={() => toggleUserBlock(user.id, user.is_active)}
-                        >
-                          {user.is_active ? 'Блокировать' : 'Разблокировать'}
-                        </button>
-                        <button
-                          class={user.muted ? 'unmute' : 'mute'}
-                          onClick={() => toggleUserMute(user.id, user.muted)}
-                        >
-                          {user.muted ? 'Unmute' : 'Mute'}
-                        </button>
-                      </td>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
-          </div>
+            <div class="users-list">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Email</th>
+                    <th>Имя</th>
+                    <th>Роли</th>
+                    <th>Создан</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={users()}>
+                    {(user) => (
+                      <tr>
+                        <td>{user.id}</td>
+                        <td>{user.email}</td>
+                        <td>{user.name || '-'}</td>
+                        <td class="roles-cell">
+                          <div class="roles-container">
+                            <For each={user.roles}>
+                              {(role) => <RoleBadge role={role} />}
+                            </For>
+                            <div class="role-badge" onClick={() => {
+                                  setSelectedUser(user)
+                                  setShowRolesModal(true)
+                                }}
+                              >
+                                🎭
+                            </div>
+                          </div>
+                        </td>
+                        <td>{formatDateRelative(user.created_at)}</td>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            </div>
 
-          <Pagination />
+            <Pagination />
+          </Show>
+        </Show>
+
+        <Show when={activeTab() === 'env'}>
+          <EnvVariablesTab />
         </Show>
       </main>
 
       <Show when={showRolesModal()}>
         <RolesModal />
+      </Show>
+
+      <Show when={showVariableModal()}>
+        <VariableModal />
       </Show>
     </div>
   )

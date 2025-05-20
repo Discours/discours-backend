@@ -91,24 +91,8 @@ class Identity:
             )
             raise InvalidPassword("Пароль не установлен для данного пользователя")
 
-        # Проверим словарь до создания нового объекта
-        author_dict = orm_author.dict()
-        if "password" not in author_dict or not author_dict["password"]:
-            logger.warning(
-                f"[auth.identity] Пароль отсутствует в dict() или пуст: email={orm_author.email}"
-            )
-            raise InvalidPassword("Пароль отсутствует в данных пользователя")
-
-        # Создаем новый объект автора
-        author = Author(**author_dict)
-        if not author.password:
-            logger.warning(
-                f"[auth.identity] Пароль в созданном объекте автора пуст: email={orm_author.email}"
-            )
-            raise InvalidPassword("Пароль не установлен для данного пользователя")
-
-        # Проверяем пароль
-        if not Password.verify(password, author.password):
+        # Проверяем пароль напрямую, не используя dict()
+        if not Password.verify(password, orm_author.password):
             logger.warning(f"[auth.identity] Неверный пароль для {orm_author.email}")
             raise InvalidPassword("Неверный пароль пользователя")
 

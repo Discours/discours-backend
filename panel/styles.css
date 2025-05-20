@@ -425,10 +425,11 @@ button.unmute {
 }
 
 .cancel-button {
+  color: #333 !important;
   padding: 8px 16px;
   background-color: #ccc;
-  color: #333;
   width: auto;
+  border: 1px solid #ccc;
 }
 
 .save-button {
@@ -597,4 +598,287 @@ button.unmute {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Стили для вкладки с переменными окружения */
+.env-variables-container {
+  margin-top: 1.5rem;
+}
+
+.env-section {
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.section-name {
+  margin-top: 0;
+  color: var(--primary-color);
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.section-description {
+  color: var(--text-secondary);
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.variable-edit-form {
+  margin-bottom: 20px;
+}
+
+.variable-description {
+  margin-top: 10px;
+  font-style: italic;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.empty-value {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+button.edit-button {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 5px 10px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: auto;
+}
+
+button.edit-button:hover {
+  background-color: var(--primary-dark);
+}
+
+.success-message {
+  background-color: var(--success-light);
+  color: var(--success-color);
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.error-message {
+  background-color: var(--danger-light);
+  color: var(--danger-color);
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+/* Стили для модального окна редактирования */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 500px;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  color: var(--primary-color);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+button.cancel-button {
+  background-color: var(--text-secondary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  width: auto;
+}
+
+button.save-button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  width: auto;
+}
+
+button.cancel-button:hover {
+  background-color: #999;
+}
+
+button.save-button:hover {
+  background-color: var(--primary-dark);
+}
+
+/* Стили для компонентов ролей */
+.roles-cell {
+  max-width: 200px;
+}
+
+.roles-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.05);
+  margin: 2px 0;
+  white-space: nowrap;
+  font-size: 0.85em;
+}
+
+.role-icon {
+  margin-right: 4px;
+  font-size: 1.1em;
+}
+
+.edit-roles {
+  background-color: #8a2be2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.edit-roles:hover {
+  background-color: #7b1fa2;
+}
+
+/* Стили компонентов ролей */
+.roles-cell {
+  max-width: 200px;
+}
+
+.roles-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.05);
+  margin: 2px 0;
+  white-space: nowrap;
+  font-size: 0.85em;
+}
+
+.role-icon {
+  margin-right: 4px;
+  font-size: 1.1em;
+}
+
+.edit-roles {
+  background-color: #8a2be2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.edit-roles:hover {
+  background-color: #7b1fa2;
+}
+
+/* Стили для сортировки таблицы */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 20px;
+}
+
+th.sortable:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+th.sortable.sorted {
+  background-color: rgba(65, 105, 225, 0.1);
+}
+
+.sort-icon {
+  display: inline-block;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+  font-size: 14px;
+}
+
+th.sortable.sorted .sort-icon {
+  color: #4169e1;
+  font-weight: bold;
+}
+
+/* Стили для сортировки таблицы */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 20px;
+}
+
+th.sortable:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+th.sortable.sorted {
+  background-color: rgba(65, 105, 225, 0.1);
+}
+
+.sort-icon {
+  display: inline-block;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+  font-size: 14px;
+}
+
+th.sortable.sorted .sort-icon {
+  color: #4169e1;
+  font-weight: bold;
 }

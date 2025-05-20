@@ -255,7 +255,7 @@ async def get_topics_by_author(_, _info, author_id=0, slug="", user=""):
     elif slug:
         topics_by_author_query = topics_by_author_query.join(Author).where(Author.slug == slug)
     elif user:
-        topics_by_author_query = topics_by_author_query.join(Author).where(Author.user == user)
+        topics_by_author_query = topics_by_author_query.join(Author).where(Author.id == user)
 
     return get_with_stat(topics_by_author_query)
 
@@ -320,7 +320,7 @@ async def delete_topic(_, info, slug: str):
         t: Topic = session.query(Topic).filter(Topic.slug == slug).first()
         if not t:
             return {"error": "invalid topic slug"}
-        author = session.query(Author).filter(Author.user == user_id).first()
+        author = session.query(Author).filter(Author.id == user_id).first()
         if author:
             if t.created_by != author.id:
                 return {"error": "access denied"}

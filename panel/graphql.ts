@@ -67,6 +67,11 @@ function hasAuthErrors(errors: Array<{ message?: string; extensions?: { code?: s
  * @returns Полный URL для запроса
  */
 function prepareUrl(url: string): string {
+  // В режиме локальной разработки всегда используем /graphql
+  if (location.hostname === 'localhost') {
+    return `${location.origin}/graphql`
+  }
+  
   // Если это относительный путь, добавляем к нему origin
   if (url.startsWith('/')) {
     return `${location.origin}${url}`

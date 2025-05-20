@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 
 from auth.identity import Password
 from services.db import Base
+from settings import ADMIN_EMAILS
 
 # from sqlalchemy_utils import TSVectorType
 
@@ -165,7 +166,6 @@ class Author(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     email_verified = Column(Boolean, default=False)
     phone_verified = Column(Boolean, default=False)
-    last_login = Column(Integer, nullable=True)
     failed_login_attempts = Column(Integer, default=0)
     account_locked_until = Column(Integer, nullable=True)
 
@@ -181,6 +181,9 @@ class Author(Base):
     # search_vector = Column(
     #    TSVectorType("name", "slug", "bio", "about", regconfig="pg_catalog.russian")
     # )
+
+    # Список защищенных полей, которые видны только владельцу и администраторам
+    _protected_fields = ['email', 'password', 'provider_access_token', 'provider_refresh_token']
 
     @property
     def is_authenticated(self) -> bool:
@@ -238,22 +241,27 @@ class Author(Base):
         """
         return self.slug or self.email or self.phone or ""
 
-    def dict(self) -> Dict:
-        """Преобразует объект Author в словарь"""
-        return {
-            "id": self.id,
-            "slug": self.slug,
-            "name": self.name,
-            "bio": self.bio,
-            "about": self.about,
-            "pic": self.pic,
-            "links": self.links,
-            "email": self.email,
-            "password": self.password,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "last_seen": self.last_seen,
-            "deleted_at": self.deleted_at,
-            "roles": [role.id for role in self.roles],
-            "email_verified": self.email_verified,
-        }
+    def dict(self, access=False) -> Dict:
+        """
+        Сериализует объект Author в словарь с учетом прав доступа.
+        
+        Args:
+            access (bool, optional): Флаг, указывающий, доступны ли защищенные поля
+            
+        Returns:
+            dict: Словарь с атрибутами Author, отфильтрованный по правам доступа
+        """
+        # Получаем все атрибуты объекта
+        result = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        
+        # Добавляем роли, если они есть
+        if hasattr(self, 'roles') and self.roles:
+            result['roles'] = [role.id for role in self.roles]
+        
+        # скрываем защищенные поля
+        if not access:
+            for field in self._protected_fields:
+                if field in result:
+                    result[field] = None
+                    
+        return result

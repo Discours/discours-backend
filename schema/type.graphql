@@ -12,9 +12,8 @@ type AuthorStat {
 
 type Author {
   id: Int!
-  user: String! # user.id
-  slug: String! # user.nickname
-  name: String # user.preferred_username
+  slug: String!
+  name: String
   pic: String
   bio: String
   about: String
@@ -25,10 +24,8 @@ type Author {
   deleted_at: Int
   email: String
   seo: String
-  # synthetic
   stat: AuthorStat # ratings inside
   communities: [Community]
-  # Auth fields
   roles: [String!]
   email_verified: Boolean
 }

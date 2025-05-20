@@ -1,18 +1,14 @@
 {
-  "name": "publy-admin",
-  "version": "0.4.20",
+  "name": "admin-panel",
+  "version": "0.4.22",
   "private": true,
-  "description": "admin panel",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
     "lint": "biome check . --fix",
     "format": "biome format . --write",
-    "type-check": "tsc --noEmit",
-    "test": "vitest",
-    "build:auth": "vite build -c client/auth/vite.config.ts",
-    "watch:auth": "vite build -c client/auth/vite.config.ts --watch"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

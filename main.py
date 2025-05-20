@@ -151,7 +151,14 @@ middleware = [
     # CORS должен быть перед другими middleware для корректной обработки preflight-запросов
     Middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[
+            "https://localhost:3000", 
+            "https://testing.discours.io", 
+            "https://discours.io", 
+            "https://new.discours.io",
+            "https://discours.ru",
+            "https://new.discours.ru"
+            ],
         allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS 
         allow_headers=["*"],
         allow_credentials=True,
@@ -183,6 +190,7 @@ async def graphql_handler(request: Request):
             response.headers["Access-Control-Allow-Origin"] = "*"
             response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
             response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Max-Age"] = "86400"  # 24 hours
             return response
         

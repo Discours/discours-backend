@@ -643,7 +643,7 @@ async def delete_shout(_, info, shout_id: int):
                 for author in shout.authors:
                     await cache_by_id(Author, author.id, cache_author)
                     info.context["author"] = author.dict()
-                    info.context["user_id"] = author.user
+                    info.context["user_id"] = author.id
                     unfollow(None, info, "shout", shout.slug)
 
                 for topic in shout.topics:

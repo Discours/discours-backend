@@ -40,6 +40,7 @@ async def get_current_user(_, info):
         author.last_seen = int(time.time())
         session.commit()
 
+        # Здесь можно не применять фильтрацию, так как пользователь получает свои данные
         return {"token": token, "author": author}
 
 
@@ -76,6 +77,7 @@ async def confirm_email(_, info, token):
             session.add(user)
             session.commit()
             logger.info(f"[auth] confirmEmail: Email для пользователя {user_id} успешно подтвержден.")
+            # Здесь можно не применять фильтрацию, так как пользователь получает свои данные
             return {"success": True, "token": session_token, "author": user, "error": None}
     except InvalidToken as e:
         logger.warning(f"[auth] confirmEmail: Невалидный токен - {e.message}")
@@ -166,6 +168,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
         logger.info(
             f"[auth] registerUser: Пользователь {email} зарегистрирован, ссылка для подтверждения отправлена."
         )
+        # При регистрации возвращаем данные самому пользователю, поэтому не фильтруем
         return {
             "success": True,
             "token": None,
@@ -237,21 +240,52 @@ async def login(_, info, email: str, password: str):
             logger.info(
                 f"[auth] login: Найден автор {email}, id={author.id}, имя={author.name}, пароль есть: {bool(author.password)}"
             )
+            
+            # Проверяем наличие роли reader
+            has_reader_role = False
+            if hasattr(author, "roles") and author.roles:
+                for role in author.roles:
+                    if role.id == "reader":
+                        has_reader_role = True
+                        break
+                        
+            # Если у пользователя нет роли reader и он не админ, запрещаем вход
+            if not has_reader_role:
+                # Проверяем, есть ли роль admin или super
+                is_admin = author.email in ADMIN_EMAILS.split(",")
+                
+                if not is_admin:
+                    logger.warning(f"[auth] login: У пользователя {email} нет роли 'reader', в доступе отказано")
+                    return {
+                        "success": False,
+                        "token": None,
+                        "author": None,
+                        "error": "У вас нет необходимых прав для входа. Обратитесь к администратору.",
+                    }
 
-            # Проверяем пароль
+            # Проверяем пароль - важно использовать непосредственно объект author, а не его dict
             logger.info(f"[auth] login: НАЧАЛО ПРОВЕРКИ ПАРОЛЯ для {email}")
-            verify_result = Identity.password(author, password)
-            logger.info(
-                f"[auth] login: РЕЗУЛЬТАТ ПРОВЕРКИ ПАРОЛЯ: {verify_result if isinstance(verify_result, dict) else 'успешно'}"
-            )
+            try:
+                verify_result = Identity.password(author, password)
+                logger.info(
+                    f"[auth] login: РЕЗУЛЬТАТ ПРОВЕРКИ ПАРОЛЯ: {verify_result if isinstance(verify_result, dict) else 'успешно'}"
+                )
 
-            if isinstance(verify_result, dict) and verify_result.get("error"):
-                logger.warning(f"[auth] login: Неверный пароль для {email}: {verify_result.get('error')}")
+                if isinstance(verify_result, dict) and verify_result.get("error"):
+                    logger.warning(f"[auth] login: Неверный пароль для {email}: {verify_result.get('error')}")
+                    return {
+                        "success": False,
+                        "token": None,
+                        "author": None,
+                        "error": verify_result.get("error", "Ошибка авторизации"),
+                    }
+            except Exception as e:
+                logger.error(f"[auth] login: Ошибка при проверке пароля: {str(e)}")
                 return {
                     "success": False,
                     "token": None,
                     "author": None,
-                    "error": verify_result.get("error", "Ошибка авторизации"),
+                    "error": str(e),
                 }
 
             # Получаем правильный объект автора - результат verify_result
@@ -346,9 +380,12 @@ async def login(_, info, email: str, password: str):
                 if not cookie_set:
                     logger.warning(f"[auth] login: Не удалось установить cookie никаким способом")
                 
-                # Возвращаем успешный результат
+                # Возвращаем успешный результат с данными для клиента
+                # Для ответа клиенту используем dict() с параметром access=True, 
+                # чтобы получить полный доступ к данным для самого пользователя
                 logger.info(f"[auth] login: Успешный вход для {email}")
-                result = {"success": True, "token": token, "author": valid_author, "error": None}
+                author_dict = valid_author.dict(access=True)
+                result = {"success": True, "token": token, "author": author_dict, "error": None}
                 logger.info(
                     f"[auth] login: Возвращаемый результат: {{success: {result['success']}, token_length: {len(token) if token else 0}}}"
                 )

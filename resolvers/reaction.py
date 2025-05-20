@@ -215,7 +215,7 @@ async def set_featured(session, shout_id):
         session.commit()
         author = session.query(Author).filter(Author.id == s.created_by).first()
         if author:
-            await add_user_role(str(author.user))
+            await add_user_role(str(author.id))
         session.add(s)
         session.commit()
 
@@ -446,7 +446,7 @@ async def delete_reaction(_, info, reaction_id: int):
 
     with local_session() as session:
         try:
-            author = session.query(Author).filter(Author.user == user_id).one()
+            author = session.query(Author).filter(Author.id == user_id).one()
             r = session.query(Reaction).filter(Reaction.id == reaction_id).one()
 
             if r.created_by != author_id and "editor" not in roles:
