@@ -3,7 +3,7 @@
  * @module LoginPage
  */
 
-import { Component, createSignal } from 'solid-js'
+import { Component, createSignal, Show } from 'solid-js'
 import { login } from './auth'
 
 interface LoginPageProps {
@@ -69,17 +69,16 @@ const LoginPage: Component<LoginPageProps> = (props) => {
   return (
     <div class="login-page">
       <div class="login-container">
-        <h1>Вход в систему</h1>
-
-        {error() && <div class="error-message">{error()}</div>}
+        <img src="https://testing.dscrs.site/logo.svg" alt="Logo" />
+        <div class="error-message" style={{ opacity: error() ? 1 : 0 }}>{error()}</div>
 
         <form onSubmit={handleSubmit} method="post">
           <div class="form-group">
-            <label for="email">Email</label>
             <input
               type="email"
               id="email"
               name="email"
+              placeholder="Email"
               value={email()}
               onInput={(e) => setEmail(e.currentTarget.value)}
               disabled={isLoading()}
@@ -89,11 +88,11 @@ const LoginPage: Component<LoginPageProps> = (props) => {
           </div>
 
           <div class="form-group">
-            <label for="password">Пароль</label>
             <input
               type="password"
               id="password"
               name="password"
+              placeholder="Пароль"
               value={password()}
               onInput={(e) => setPassword(e.currentTarget.value)}
               disabled={isLoading()}

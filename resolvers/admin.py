@@ -249,7 +249,7 @@ async def admin_update_user(_, info, user):
         user: Данные для обновления пользователя (содержит id и roles)
         
     Returns:
-        Boolean: результат операции
+        Boolean: результат операции или объект с ошибкой
     """
     try:
         user_id = user.get("id")
@@ -263,35 +263,70 @@ async def admin_update_user(_, info, user):
             author = session.query(Author).filter(Author.id == user_id).first()
             
             if not author:
-                logger.error(f"Пользователь с ID {user_id} не найден")
-                return False
+                error_msg = f"Пользователь с ID {user_id} не найден"
+                logger.error(error_msg)
+                return {
+                    "success": False,
+                    "error": error_msg
+                }
             
-            # Получаем текущие роли пользователя
-            current_roles = {role.id for role in author.roles} if author.roles else set()
+            # Получаем ID сообщества по умолчанию
+            default_community_id = 1  # Используем значение по умолчанию из модели AuthorRole
             
-            # Обновляем роли только если они изменились
-            if set(roles) != current_roles:
+            try:
+                # Очищаем текущие роли пользователя через ORM
+                session.query(AuthorRole).filter(AuthorRole.author == user_id).delete()
+                session.flush()
+                
                 # Получаем все существующие роли, которые указаны для обновления
                 role_objects = session.query(Role).filter(Role.id.in_(roles)).all()
                 
-                # Очищаем текущие роли и добавляем новые
-                author.roles = role_objects
+                # Проверяем, все ли запрошенные роли найдены
+                found_role_ids = [role.id for role in role_objects]
+                missing_roles = set(roles) - set(found_role_ids)
+                
+                if missing_roles:
+                    warning_msg = f"Некоторые роли не найдены в базе: {', '.join(missing_roles)}"
+                    logger.warning(warning_msg)
+                
+                # Создаем новые записи в таблице author_role с указанием community
+                for role in role_objects:
+                    # Используем ORM для создания новых записей
+                    author_role = AuthorRole(
+                        community=default_community_id,
+                        author=user_id,
+                        role=role.id
+                    )
+                    session.add(author_role)
                 
                 # Сохраняем изменения в базе данных
                 session.commit()
                 
                 # Проверяем, добавлена ли пользователю роль reader
-                has_reader = 'reader' in roles
+                has_reader = 'reader' in [role.id for role in role_objects]
                 if not has_reader:
                     logger.warning(f"Пользователю {author.email or author.id} не назначена роль 'reader'. Доступ в систему будет ограничен.")
                 
-                logger.info(f"Роли пользователя {author.email or author.id} обновлены: {', '.join(roles)}")
-            else:
-                logger.info(f"Роли пользователя {author.email or author.id} не изменились")
-            
-            return True
+                logger.info(f"Роли пользователя {author.email or author.id} обновлены: {', '.join(found_role_ids)}")
+                
+                return {
+                    "success": True
+                }
+            except Exception as e:
+                # Обработка вложенных исключений
+                session.rollback()
+                error_msg = f"Ошибка при изменении ролей: {str(e)}"
+                logger.error(error_msg)
+                return {
+                    "success": False,
+                    "error": error_msg
+                }
     except Exception as e:
         import traceback
-        logger.error(f"Ошибка при обновлении ролей пользователя: {str(e)}")
+        error_msg = f"Ошибка при обновлении ролей пользователя: {str(e)}"
+        logger.error(error_msg)
         logger.error(traceback.format_exc())
-        return False
+        return {
+            "success": False,
+            "error": error_msg
+        }

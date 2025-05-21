@@ -17,6 +17,7 @@ from auth.orm import Author, Role
 from services.db import local_session
 from services.schema import mutation, query
 from settings import (
+    ADMIN_EMAILS,
     SESSION_TOKEN_HEADER,
     SESSION_COOKIE_NAME,
     SESSION_COOKIE_SECURE,

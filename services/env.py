@@ -230,8 +230,8 @@ class EnvManager:
                     break
             
             # Если переменная не попала ни в одну секцию
-            if not placed:
-                other_variables.append(var)
+            # if not placed:
+            #    other_variables.append(var)
 
         # Формируем результат
         result = []

@@ -32,6 +32,7 @@ type AdminUserInfo {
 input AdminUserUpdateInput {
   id: Int!
   roles: [String!]
+  community: Int
 }
 
 type Role {
@@ -49,6 +50,12 @@ type AdminUserListResponse {
   totalPages: Int!
 }
 
+# Общий ответ на операцию с данными об успехе и ошибке
+type OperationResult {
+  success: Boolean!
+  error: String
+}
+
 extend type Query {
   getEnvVariables: [EnvSection!]!
   # Запросы для управления пользователями
@@ -61,5 +68,5 @@ extend type Mutation {
   updateEnvVariables(variables: [EnvVariableInput!]!): Boolean!
   
   # Мутации для управления пользователями
-  adminUpdateUser(user: AdminUserUpdateInput!): Boolean!
+  adminUpdateUser(user: AdminUserUpdateInput!): OperationResult!
 } 

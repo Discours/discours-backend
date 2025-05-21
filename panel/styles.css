@@ -11,26 +11,30 @@
 
 /* Общие стили */
 :root {
-  --primary-color: #3498db;
-  --primary-dark: #2980b9;
-  --success-color: #2ecc71;
-  --success-light: #d1fae5;
-  --danger-color: #e74c3c;
-  --danger-light: #fee2e2;
-  --warning-color: #f39c12;
-  --warning-light: #fef3c7;
-  --text-color: #333;
-  --bg-color: #f5f5f5;
-  --card-bg: #fff;
-  --border-color: #ddd;
+  --primary-color: #000000;
+  --primary-dark: #333333;
+  --primary-light: #F5F5F5;
+  --success-color: #000000;
+  --success-light: #F0F0F0;
+  --danger-color: #000000;
+  --danger-light: #F0F0F0;
+  --warning-color: #000000;
+  --warning-light: #F0F0F0;
+  --text-color: #000000;
+  --text-secondary: #666666;
+  --bg-color: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --border-color: #E0E0E0;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-family);
   margin: 0;
   padding: 0;
   background-color: var(--bg-color);
   color: var(--text-color);
+  line-height: 1.5;
 }
 
 /* Общие элементы интерфейса */
@@ -64,18 +68,26 @@ body {
   background-color: var(--danger-light);
   border-left: 4px solid var(--danger-color);
   color: var(--danger-color);
-  padding: 10px;
+  padding: 12px 16px;
   margin-bottom: 20px;
-  border-radius: 4px;
+  border-radius: 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .success-message {
   background-color: var(--success-light);
   border-left: 4px solid var(--success-color);
   color: var(--success-color);
-  padding: 10px;
+  padding: 12px 16px;
   margin-bottom: 20px;
-  border-radius: 4px;
+  border-radius: 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .empty-state {
@@ -98,31 +110,48 @@ body {
 
 .form-group input {
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--text-color);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
 }
 
 button {
   background-color: var(--primary-color);
   color: white;
   border: none;
-  border-radius: 4px;
-  padding: 10px 15px;
-  font-size: 16px;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
   width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 button:hover {
   background-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 button:disabled {
-  background-color: #ccc;
+  background-color: #E5E9F2;
+  color: #A0AEC0;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Стили для страницы входа */
@@ -132,27 +161,41 @@ button:disabled {
   align-items: center;
   min-height: 100vh;
   padding: 20px;
+  background-color: var(--bg-color);
 }
 
 .login-container {
   background-color: var(--card-bg);
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  padding: 40px;
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
+  border: none;
+  text-align: center;
 }
 
 .login-container h1 {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   text-align: center;
-  color: var(--primary-color);
+  color: var(--text-color);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.login-logo {
+  width: 120px;
+  height: auto;
+  margin-bottom: 24px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Стили для админ-панели */
 .admin-page {
-  max-width: 1200px;
+  max-width: 1260px;
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
@@ -162,8 +205,10 @@ button:disabled {
 
 header {
   background-color: var(--card-bg);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 24px;
 }
 
 .header-container {
@@ -175,11 +220,12 @@ header {
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+  padding: 0 10px;
 }
 
 header h1 {
   margin: 0;
-  color: var(--primary-color);
+  color: var(--text-color);
   font-size: 24px;
 }
 
@@ -195,6 +241,8 @@ header h1 {
 .logout-button:hover {
   background-color: var(--danger-color);
   color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(211, 47, 47, 0.15);
 }
 
 .admin-tabs {
@@ -210,24 +258,30 @@ header h1 {
 .admin-tabs button {
   background: none;
   border: none;
-  padding: 8px 16px;
+  padding: 10px 16px;
   cursor: pointer;
-  font-size: 16px;
-  border-bottom: 3px solid transparent;
+  font-size: 14px;
+  border-bottom: 2px solid transparent;
   transition: all 0.2s;
   width: auto;
-  color: var(--text-color);
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .admin-tabs button.active {
-  border-bottom-color: var(--primary-color);
-  color: var(--primary-color);
+  border-bottom-color: var(--text-color);
+  color: var(--text-color);
   font-weight: 600;
   background-color: transparent;
 }
 
+.admin-tabs button:hover:not(.active) {
+  color: var(--text-color);
+  border-bottom-color: #E5E9F2;
+}
+
 .admin-tabs button:hover {
-  background-color: rgba(52, 152, 219, 0.1);
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
 main {
@@ -246,88 +300,37 @@ main {
 
 table {
   width: 100%;
-  border-collapse: collapse;
-  border: 1px solid var(--border-color);
+  border-collapse: separate;
+  border-spacing: 0;
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background-color: var(--card-bg);
 }
 
 thead {
-  background-color: #f3f4f6;
+  background-color: #F5F7FA;
 }
 
 th, td {
-  padding: 10px;
+  padding: 14px 16px;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
 }
 
 th {
   font-weight: 600;
-  background-color: #f9f9f9;
+  color: var(--text-secondary);
+  background-color: #F5F7FA;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.05em;
 }
 
 tr:hover {
-  background-color: rgba(52, 152, 219, 0.05);
-}
-
-tr.blocked {
-  background-color: rgba(231, 76, 60, 0.05);
-}
-
-/* Статусы пользователей */
-.status {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-right: 4px;
-}
-
-.status.active {
-  background-color: var(--success-light);
-  color: var(--success-color);
-}
-
-.status.blocked {
-  background-color: var(--danger-light);
-  color: var(--danger-color);
-}
-
-.status.muted {
-  background-color: var(--warning-light);
-  color: var(--warning-color);
-}
-
-/* Кнопки действий */
-.actions {
-  display: flex;
-  gap: 5px;
-}
-
-.actions button {
-  padding: 5px 10px;
-  font-size: 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  width: auto;
-}
-
-button.block {
-  background-color: var(--danger-color);
-}
-
-button.unblock {
-  background-color: var(--success-color);
-}
-
-button.mute {
-  background-color: var(--warning-color);
-}
-
-button.unmute {
-  background-color: var(--primary-color);
+  background-color: rgba(0, 0, 0, 0.03);
 }
 
 /* Стили для редактирования ролей */
@@ -465,17 +468,19 @@ button.unmute {
 }
 
 .pagination-button {
-  min-width: 32px;
-  height: 32px;
+  min-width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
+  padding: 0 8px;
   border: 1px solid var(--border-color);
   background-color: white;
-  border-radius: 4px;
+  color: var(--text-color);
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  font-size: 14px;
 }
 
 .pagination-button:hover:not(:disabled) {
@@ -484,9 +489,11 @@ button.unmute {
 }
 
 .pagination-button.active {
-  background-color: var(--primary-color);
+  background-color: var(--text-color);
   color: white;
-  border-color: var(--primary-color);
+  border-color: var(--text-color);
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .pagination-button:disabled {
@@ -531,31 +538,38 @@ button.unmute {
 
 .search-input {
   flex: 1;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--border-color);
-  border-radius: 4px 0 0 4px;
+  border-radius: 8px 0 0 8px;
   font-size: 14px;
+  transition: all 0.2s ease;
 }
 
 .search-input:focus {
-  border-color: var(--primary-color);
+  border-color: var(--text-color);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
 }
 
 .search-button {
-  padding: 8px 16px;
+  padding: 10px 16px;
   background-color: var(--primary-color);
   color: white;
   border: none;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 8px 8px 0;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
   font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .search-button:hover {
   background-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 /* Адаптивные стили */
@@ -607,15 +621,16 @@ button.unmute {
 
 .env-section {
   background-color: var(--card-bg);
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  padding: 20px;
-  margin-bottom: 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-color);
 }
 
 .section-name {
   margin-top: 0;
-  color: var(--primary-color);
+  color: var(--text-color);
   font-size: 20px;
   margin-bottom: 10px;
 }
@@ -645,13 +660,17 @@ button.unmute {
 button.edit-button {
   background-color: var(--primary-color);
   color: white;
-  padding: 5px 10px;
+  padding: 6px 12px;
   font-size: 12px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
   width: auto;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 button.edit-button:hover {
@@ -710,33 +729,41 @@ button.edit-button:hover {
 }
 
 button.cancel-button {
-  background-color: var(--text-secondary);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
+  background-color: #EDF2FC;
+  color: var(--primary-color);
+  border: 1px solid #DCE7FD;
+  border-radius: 8px;
+  padding: 10px 16px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   width: auto;
+  transition: all 0.2s ease;
 }
 
 button.save-button {
   background-color: var(--primary-color);
   color: white;
   border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
+  border-radius: 8px;
+  padding: 10px 16px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   width: auto;
+  transition: all 0.2s ease;
 }
 
 button.cancel-button:hover {
-  background-color: #999;
+  background-color: #DCE7FD;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(76, 125, 216, 0.1);
 }
 
 button.save-button:hover {
   background-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(76, 125, 216, 0.15);
 }
 
 /* Стили для компонентов ролей */
@@ -747,78 +774,40 @@ button.save-button:hover {
 .roles-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .role-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 6px;
-  border-radius: 12px;
-  background-color: rgba(0, 0, 0, 0.05);
+  padding: 4px 10px;
+  border-radius: 20px;
+  background-color: #F5F5F5;
+  color: var(--text-color);
   margin: 2px 0;
   white-space: nowrap;
-  font-size: 0.85em;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.role-badge:hover {
+  background-color: #E0E0E0;
+}
+
+.edit-role-badge {
+  background-color: #E0E0E0;
+  border: 1px dashed #999;
+}
+
+.edit-role-badge:hover {
+  background-color: #D0D0D0;
 }
 
 .role-icon {
-  margin-right: 4px;
-  font-size: 1.1em;
-}
-
-.edit-roles {
-  background-color: #8a2be2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-  margin-left: 4px;
-}
-
-.edit-roles:hover {
-  background-color: #7b1fa2;
-}
-
-/* Стили компонентов ролей */
-.roles-cell {
-  max-width: 200px;
-}
-
-.roles-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.role-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 6px;
-  border-radius: 12px;
-  background-color: rgba(0, 0, 0, 0.05);
-  margin: 2px 0;
-  white-space: nowrap;
-  font-size: 0.85em;
-}
-
-.role-icon {
-  margin-right: 4px;
-  font-size: 1.1em;
-}
-
-.edit-roles {
-  background-color: #8a2be2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-  margin-left: 4px;
-}
-
-.edit-roles:hover {
-  background-color: #7b1fa2;
+  margin-right: 6px;
+  font-size: 14px;
 }
 
 /* Стили для сортировки таблицы */
@@ -826,7 +815,8 @@ th.sortable {
   cursor: pointer;
   user-select: none;
   position: relative;
-  padding-right: 20px;
+  padding-right: 24px;
+  transition: background-color 0.2s ease;
 }
 
 th.sortable:hover {
@@ -834,7 +824,7 @@ th.sortable:hover {
 }
 
 th.sortable.sorted {
-  background-color: rgba(65, 105, 225, 0.1);
+  background-color: rgba(0, 0, 0, 0.08);
 }
 
 .sort-icon {
@@ -848,37 +838,6 @@ th.sortable.sorted {
 }
 
 th.sortable.sorted .sort-icon {
-  color: #4169e1;
-  font-weight: bold;
-}
-
-/* Стили для сортировки таблицы */
-th.sortable {
-  cursor: pointer;
-  user-select: none;
-  position: relative;
-  padding-right: 20px;
-}
-
-th.sortable:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-th.sortable.sorted {
-  background-color: rgba(65, 105, 225, 0.1);
-}
-
-.sort-icon {
-  display: inline-block;
-  position: absolute;
-  right: 5px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #888;
-  font-size: 14px;
-}
-
-th.sortable.sorted .sort-icon {
-  color: #4169e1;
+  color: var(--primary-color);
   font-weight: bold;
 }

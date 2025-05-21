@@ -127,7 +127,7 @@ class AuthorRole(Base):
     __table_args__ = {"extend_existing": True}
 
     id = None
-    community = Column(ForeignKey("community.id"), primary_key=True, index=True)
+    community = Column(ForeignKey("community.id"), primary_key=True, index=True, default=1)
     author = Column(ForeignKey("author.id"), primary_key=True, index=True)
     role = Column(ForeignKey("role.id"), primary_key=True, index=True)
 

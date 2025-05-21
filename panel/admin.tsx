@@ -3,7 +3,7 @@
  * @module AdminPage
  */
 
-import { Component, For, Show, createSignal, onMount } from 'solid-js'
+import { Component, For, Show, createSignal, onMount, createEffect } from 'solid-js'
 import { logout } from './auth'
 import { query } from './graphql'
 
@@ -53,7 +53,17 @@ interface AdminGetRolesResponse {
  * Интерфейс для ответа обновления пользователя
  */
 interface AdminUpdateUserResponse {
-  adminUpdateUser: boolean
+  success: boolean
+  error?: string
+}
+
+/**
+ * Интерфейс для входных данных обновления пользователя
+ */
+interface AdminUserUpdateInput {
+  id: number
+  roles: string[]
+  community?: number
 }
 
 /**
@@ -121,10 +131,36 @@ const AdminPage: Component<AdminPageProps> = (props) => {
 
   // Периодическая проверка авторизации
   onMount(() => {
+    // Получаем параметры из URL при загрузке
+    const urlParams = new URLSearchParams(window.location.search);
+    const page = parseInt(urlParams.get('page') || '1');
+    const limit = parseInt(urlParams.get('limit') || '10');
+    const search = urlParams.get('search') || '';
+    
+    setPagination({ ...pagination(), page, limit });
+    setSearchQuery(search);
+    
     // Загружаем данные при монтировании
     loadUsers()
     loadRoles()
   })
+  
+  // Обновление URL при изменении параметров пагинации
+  createEffect(() => {
+    const pagData = pagination();
+    const search = searchQuery();
+    
+    const urlParams = new URLSearchParams();
+    urlParams.set('page', pagData.page.toString());
+    urlParams.set('limit', pagData.limit.toString());
+    
+    if (search) {
+      urlParams.set('search', search);
+    }
+    
+    const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+  });
 
   /**
    * Загрузка списка пользователей с учетом пагинации и поиска
@@ -134,6 +170,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     setError(null)
 
     try {
+      // Используем актуальные данные из состояния
       const { page, limit } = pagination()
       const offset = (page - 1) * limit
       const search = searchQuery().trim()
@@ -291,13 +328,17 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         `${location.origin}/graphql`,
         `
         mutation AdminUpdateUser($user: AdminUserUpdateInput!) {
-          adminUpdateUser(user: $user)
+          adminUpdateUser(user: $user) {
+            success
+            error
+          }
         }
       `,
         {
           user: { 
             id: userId,
-            roles: newRoles 
+            roles: newRoles,
+            community: 1 // Добавляем обязательный параметр community
           }
         }
       )
@@ -315,14 +356,24 @@ const AdminPage: Component<AdminPageProps> = (props) => {
       // Закрываем модальное окно
       closeRolesModal()
 
-      // Показываем сообщение об успехе
+      // Показываем сообщение об успехе и обновляем список пользователей
       setSuccessMessage('Роли пользователя успешно обновлены')
+      
+      // Перезагружаем список пользователей
+      loadUsers()
 
       // Скрываем сообщение через 3 секунды
       setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err) {
       console.error('Ошибка обновления ролей:', err)
-      setError(err instanceof Error ? err.message : 'Ошибка обновления ролей')
+      let errorMessage = err instanceof Error ? err.message : 'Ошибка обновления ролей';
+      
+      // Если ошибка связана с недостающим полем community
+      if (errorMessage.includes('author_role.community')) {
+        errorMessage = 'Ошибка: для роли author требуется указать community. Обратитесь к администратору.';
+      }
+      
+      setError(errorMessage)
     }
   }
 
@@ -600,21 +651,24 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   const RolesModal: Component = () => {
     const user = selectedUser()
     const [selectedRoles, setSelectedRoles] = createSignal<string[]>(user ? [...user.roles] : [])
+    const availableRoles = roles(); // Получаем список доступных ролей
 
     // Получаем дополнительные описания ролей
     const getRoleDescription = (roleId: string): string => {
-      // Если есть описание в списке ролей, используем его
-      const roleFromList = roles().find(r => r.id === roleId);
-      if (roleFromList?.description) {
-        return roleFromList.description;
-      }
-      
       // Иначе возвращаем стандартное описание
       switch(roleId) {
         case 'reader':
           return 'Базовая роль. Позволяет авторизоваться и оставлять реакции.';
+        case 'expert':
+          return 'Эксперт. Позволяет оставлять комментарии и апрувить публикации для главной.';
         case 'author':
           return 'Расширенная роль. Позволяет создавать контент и голосовать за публикации для вывода на главную страницу.';
+        case 'editor':
+          return 'Редактор. Позволяет редактировать темы и публикации сообщества.';
+        case 'moderator':
+          return 'Модератор. Позволяет модерировать контент и управлять пользователями.';
+        case 'admin':
+          return 'Администратор. Позволяет управлять всеми функциями системы.';
         default:
           return 'Нет описания';
       }
@@ -631,6 +685,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
 
     const saveRoles = () => {
       if (user) {
+        // При сохранении ролей передаем правильный набор параметров
         updateUserRoles(user.id, selectedRoles())
       }
     }
@@ -642,14 +697,9 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         <div class="modal-content">
           <h2>Управление ролями пользователя</h2>
           <p>Пользователь: {user.email}</p>
-          
-          <div class="role-info">
-            <p><strong>Внимание:</strong> Снятие роли "reader" блокирует доступ пользователя к системе.</p>
-            <p>Роль "author" дает возможность голосовать за публикации для размещения на главной странице.</p>
-          </div>
 
           <div class="roles-list">
-            <For each={roles()}>
+            <For each={availableRoles}>
               {(role) => (
                 <div class="role-item">
                   <label>
@@ -987,8 +1037,8 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                     <th>ID</th>
                     <th>Email</th>
                     <th>Имя</th>
-                    <th>Роли</th>
                     <th>Создан</th>
+                    <th>Роли</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -998,21 +1048,21 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                         <td>{user.id}</td>
                         <td>{user.email}</td>
                         <td>{user.name || '-'}</td>
+                        <td>{formatDateRelative(user.created_at)}</td>
                         <td class="roles-cell">
                           <div class="roles-container">
                             <For each={user.roles}>
                               {(role) => <RoleBadge role={role} />}
                             </For>
-                            <div class="role-badge" onClick={() => {
+                            <div class="role-badge edit-role-badge" onClick={() => {
                                   setSelectedUser(user)
                                   setShowRolesModal(true)
                                 }}
                               >
-                                🎭
+                                <span class="role-icon">🎭</span>
                             </div>
                           </div>
                         </td>
-                        <td>{formatDateRelative(user.created_at)}</td>
                       </tr>
                     )}
                   </For>
