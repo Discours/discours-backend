@@ -118,9 +118,18 @@ class SessionManager:
         Returns:
             Optional[TokenPayload]: Данные токена или None, если сессия недействительна
         """
+        logger.debug(f"[SessionManager.verify_session] Проверка сессии для токена: {token[:20]}...")
+        
         # Декодируем токен для получения payload
-        payload = JWTCodec.decode(token)
-        if not payload:
+        try:
+            payload = JWTCodec.decode(token)
+            if not payload:
+                logger.error("[SessionManager.verify_session] Не удалось декодировать токен")
+                return None
+                
+            logger.debug(f"[SessionManager.verify_session] Успешно декодирован токен, user_id={payload.user_id}")
+        except Exception as e:
+            logger.error(f"[SessionManager.verify_session] Ошибка при декодировании токена: {str(e)}")
             return None
 
         # Получаем данные из payload
@@ -162,10 +171,34 @@ class SessionManager:
             keys = await redis.keys("session:*")
             logger.debug(f"[SessionManager.verify_session] Все ключи сессий в Redis: {keys}")
             
+            # Проверяем, можно ли доверять токену напрямую
+            # Если токен валидный и не истек, мы можем доверять ему даже без записи в Redis
+            if payload and payload.exp and payload.exp > datetime.now(tz=timezone.utc):
+                logger.info(f"[SessionManager.verify_session] Токен валиден по JWT, создаем сессию для {user_id}")
+                
+                # Создаем сессию на основе валидного токена
+                session_data = {
+                    "user_id": user_id,
+                    "username": payload.username,
+                    "created_at": datetime.now(tz=timezone.utc).isoformat(),
+                    "expires_at": payload.exp.isoformat() if isinstance(payload.exp, datetime) else datetime.fromtimestamp(payload.exp, tz=timezone.utc).isoformat(),
+                }
+                
+                # Сохраняем сессию в Redis
+                pipeline = redis.pipeline()
+                pipeline.hset(session_key, mapping=session_data)
+                pipeline.expire(session_key, 30 * 24 * 60 * 60)
+                pipeline.sadd(cls._make_user_sessions_key(user_id), token)
+                await pipeline.execute()
+                
+                logger.info(f"[SessionManager.verify_session] Создана новая сессия для валидного токена: {session_key}")
+                return payload
+            
             # Если сессии нет, возвращаем None
             return None
             
         # Если сессия найдена, возвращаем payload
+        logger.debug(f"[SessionManager.verify_session] Сессия найдена для пользователя {user_id}")
         return payload
 
     @classmethod

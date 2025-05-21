@@ -66,8 +66,11 @@ class JWTCodec:
     @staticmethod
     def decode(token: str, verify_exp: bool = True):
         logger.debug(f"[JWTCodec.decode] Начало декодирования токена длиной {len(token) if token else 0}")
-        r = None
-        payload = None
+        
+        if not token:
+            logger.error("[JWTCodec.decode] Пустой токен")
+            return None
+            
         try:
             payload = jwt.decode(
                 token,
@@ -87,25 +90,29 @@ class JWTCodec:
                 # Добавим exp по умолчанию, чтобы избежать ошибки при создании TokenPayload
                 payload["exp"] = int((datetime.now(tz=timezone.utc) + timedelta(days=30)).timestamp())
             
-            r = TokenPayload(**payload)
-            logger.debug(f"[JWTCodec.decode] Создан объект TokenPayload: user_id={r.user_id}, username={r.username}")
-            
-            return r
+            try:
+                r = TokenPayload(**payload)
+                logger.debug(f"[JWTCodec.decode] Создан объект TokenPayload: user_id={r.user_id}, username={r.username}")
+                return r
+            except Exception as e:
+                logger.error(f"[JWTCodec.decode] Ошибка при создании TokenPayload: {e}")
+                return None
+                
         except jwt.InvalidIssuedAtError:
-            logger.error(f"[JWTCodec.decode] Недействительное время выпуска токена: {payload}")
-            raise ExpiredToken("jwt check token issued time")
+            logger.error("[JWTCodec.decode] Недействительное время выпуска токена")
+            return None
         except jwt.ExpiredSignatureError:
-            logger.error(f"[JWTCodec.decode] Истек срок действия токена: {payload}")
-            raise ExpiredToken("jwt check token lifetime")
+            logger.error("[JWTCodec.decode] Истек срок действия токена")
+            return None
         except jwt.InvalidSignatureError:
             logger.error("[JWTCodec.decode] Недействительная подпись токена")
-            raise InvalidToken("jwt check signature is not valid")
+            return None
         except jwt.InvalidTokenError:
             logger.error("[JWTCodec.decode] Недействительный токен")
-            raise InvalidToken("jwt check token is not valid")
+            return None
         except jwt.InvalidKeyError:
             logger.error("[JWTCodec.decode] Недействительный ключ")
-            raise InvalidToken("jwt check key is not valid")
+            return None
         except Exception as e:
             logger.error(f"[JWTCodec.decode] Неожиданная ошибка при декодировании: {e}")
-            raise InvalidToken(f"Ошибка декодирования: {str(e)}")
+            return None

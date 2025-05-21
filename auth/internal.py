@@ -162,14 +162,19 @@ async def verify_internal_auth(token: str) -> Tuple[str, list, bool]:
     Returns:
         tuple: (user_id, roles, is_admin)
     """
+    logger.debug(f"[verify_internal_auth] Проверка токена: {token[:10]}...")
+    
     # Обработка формата "Bearer <token>" (если токен не был обработан ранее)
-    if token.startswith("Bearer "):
+    if token and token.startswith("Bearer "):
         token = token.replace("Bearer ", "", 1).strip()
 
     # Проверяем сессию
     payload = await SessionManager.verify_session(token)
     if not payload:
+        logger.warning("[verify_internal_auth] Недействительный токен: payload не получен")
         return "", [], False
+
+    logger.debug(f"[verify_internal_auth] Токен действителен, user_id={payload.user_id}")
 
     with local_session() as session:
         try:
@@ -182,12 +187,15 @@ async def verify_internal_auth(token: str) -> Tuple[str, list, bool]:
 
             # Получаем роли
             roles = [role.id for role in author.roles]
+            logger.debug(f"[verify_internal_auth] Роли пользователя: {roles}")
             
             # Определяем, является ли пользователь администратором
             is_admin = any(role in ['admin', 'super'] for role in roles) or author.email in ADMIN_EMAILS
+            logger.debug(f"[verify_internal_auth] Пользователь {author.id} {'является' if is_admin else 'не является'} администратором")
             
             return str(author.id), roles, is_admin
         except exc.NoResultFound:
+            logger.warning(f"[verify_internal_auth] Пользователь с ID {payload.user_id} не найден в БД или не активен")
             return "", [], False
 
 
@@ -283,6 +291,31 @@ async def authenticate(request: Any) -> AuthState:
     state.author_id = payload.user_id
     state.token = token
     state.username = payload.username
+    
+    # Если запрос имеет атрибут auth, устанавливаем в него авторизационные данные
+    if hasattr(request, "auth") or hasattr(request, "__setattr__"):
+        try:
+            # Получаем информацию о пользователе для создания AuthCredentials
+            with local_session() as session:
+                author = session.query(Author).filter(Author.id == payload.user_id).one_or_none()
+                if author:
+                    # Получаем разрешения из ролей
+                    scopes = author.get_permissions()
+                    
+                    # Создаем объект авторизации
+                    auth_cred = AuthCredentials(
+                        author_id=author.id,
+                        scopes=scopes,
+                        logged_in=True,
+                        email=author.email,
+                        token=token
+                    )
+                    
+                    # Устанавливаем auth в request
+                    setattr(request, "auth", auth_cred)
+                    logger.debug(f"[auth.authenticate] Авторизационные данные установлены в request.auth для {payload.user_id}")
+        except Exception as e:
+            logger.error(f"[auth.authenticate] Ошибка при установке auth в request: {e}")
     
     logger.info(f"[auth.authenticate] Успешная аутентификация пользователя {state.author_id}")
     

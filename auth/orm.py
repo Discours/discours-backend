@@ -254,9 +254,12 @@ class Author(Base):
         # Получаем все атрибуты объекта
         result = {c.name: getattr(self, c.name) for c in self.__table__.columns}
         
-        # Добавляем роли, если они есть
-        if hasattr(self, 'roles') and self.roles:
-            result['roles'] = [role.id for role in self.roles]
+        # Добавляем роли как список идентификаторов и названий
+        if hasattr(self, 'roles'):
+            result['roles'] = []
+            for role in self.roles:
+                if isinstance(role, dict):
+                    result['roles'].append(role.get('id'))
         
         # скрываем защищенные поля
         if not access:
