@@ -8,6 +8,7 @@ from resolvers.author import (  # search_authors,
     get_author_id,
     get_authors_all,
     load_authors_by,
+    load_authors_search,
     update_author,
 )
 from resolvers.community import get_communities_all, get_community
@@ -97,6 +98,7 @@ __all__ = [
     "get_author_follows_authors",
     "get_authors_all",
     "load_authors_by",
+    "load_authors_search",
     "update_author",
     # "search_authors",
     

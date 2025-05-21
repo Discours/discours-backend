@@ -214,6 +214,7 @@ type CommonResult {
 }
 
 type SearchResult {
+    id: Int!
     slug: String!
     title: String!
     cover: String
@@ -315,5 +316,9 @@ type RolesInfo {
   name: String!
   description: String
   permissions: [Permission!]!
+}
+
+type CountResult {
+  count: Int!
 }
 

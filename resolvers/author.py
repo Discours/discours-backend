@@ -20,6 +20,7 @@ from services.auth import login_required
 from services.db import local_session
 from services.redis import redis
 from services.schema import mutation, query
+from services.search import search_service
 from utils.logger import root_logger as logger
 
 DEFAULT_COMMUNITIES = [1]
@@ -356,6 +357,46 @@ async def load_authors_by(_, info, by, limit, offset):
     
     # Используем оптимизированную функцию для получения авторов
     return await get_authors_with_stats(limit, offset, by, current_user_id, is_admin)
+
+
+@query.field("load_authors_search")
+async def load_authors_search(_, info, text: str, limit: int = 10, offset: int = 0):
+    """
+    Resolver for searching authors by text. Works with txt-ai search endpony.
+    Args:
+        text: Search text
+        limit: Maximum number of authors to return
+        offset: Offset for pagination
+    Returns:
+        list: List of authors matching the search criteria
+    """
+    
+    # Get author IDs from search engine (already sorted by relevance)
+    search_results = await search_service.search_authors(text, limit, offset)
+
+    if not search_results:
+        return []
+
+    author_ids = [result.get("id") for result in search_results if result.get("id")]
+    if not author_ids:
+        return []
+
+    # Fetch full author objects from DB
+    with local_session() as session:
+        # Simple query to get authors by IDs - no need for stats here
+        authors_query = select(Author).filter(Author.id.in_(author_ids))
+        db_authors = session.execute(authors_query).scalars().all()
+    
+    if not db_authors:
+        return []
+
+    # Create a dictionary for quick lookup
+    authors_dict = {str(author.id): author for author in db_authors}
+    
+    # Keep the order from search results (maintains the relevance sorting)
+    ordered_authors = [authors_dict[author_id] for author_id in author_ids if author_id in authors_dict]
+
+    return ordered_authors
 
 
 def get_author_id_from(slug="", user=None, author_id=None):

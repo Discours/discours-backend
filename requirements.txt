@@ -12,6 +12,10 @@ starlette
 gql
 ariadne
 granian
+
+# NLP and search
+httpx
+
 orjson
 pydantic
 trafilatura

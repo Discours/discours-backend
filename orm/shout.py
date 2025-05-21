@@ -71,6 +71,34 @@ class ShoutAuthor(Base):
 class Shout(Base):
     """
     Публикация в системе.
+
+    Attributes:
+        body (str)
+        slug (str)
+        cover (str) : "Cover image url"
+        cover_caption (str) : "Cover image alt caption"
+        lead (str) 
+        title (str)
+        subtitle (str)
+        layout (str)
+        media (dict)
+        authors (list[Author])
+        topics (list[Topic])
+        reactions (list[Reaction])
+        lang (str)
+        version_of (int)
+        oid (str)
+        seo (str) : JSON
+        draft (int)
+        created_at (int)
+        updated_at (int)
+        published_at (int)
+        featured_at (int)
+        deleted_at (int)
+        created_by (int)
+        updated_by (int)
+        deleted_by (int)
+        community (int)
     """
 
     __tablename__ = "shout"

@@ -21,7 +21,7 @@ from cache.revalidator import revalidation_manager
 from services.exception import ExceptionHandlerMiddleware
 from services.redis import redis
 from services.schema import create_all_tables, resolvers
-from services.search import search_service
+from services.search import search_service, initialize_search_index
 
 from utils.logger import root_logger as logger
 from auth.internal import InternalAuthentication
@@ -45,6 +45,15 @@ schema = make_executable_schema(load_schema_from_path("schema/"), resolvers)
 DIST_DIR = join(os.path.dirname(__file__), "dist")  # Директория для собранных файлов
 INDEX_HTML = join(os.path.dirname(__file__), "index.html")
 
+
+async def check_search_service():
+    """Check if search service is available and log result"""
+    info = await search_service.info()
+    if info.get("status") in ["error", "unavailable"]:
+        print(f"[WARNING] Search service unavailable: {info.get('message', 'unknown reason')}")
+    else:
+        print(f"[INFO] Search service is available: {info}")
+        
 
 async def index_handler(request: Request):
     """
