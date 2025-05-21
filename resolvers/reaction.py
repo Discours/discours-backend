@@ -79,7 +79,7 @@ def get_reactions_with_stat(q, limit=10, offset=0):
     >>> get_reactions_with_stat(q, 10, 0)  # doctest: +SKIP
     [{'id': 1, 'body': 'Текст комментария', 'stat': {'rating': 5, 'comments_count': 3}, ...}]
     """
-    q = q.limit(limit).offset(offset)
+    q = q.distinct().limit(limit).offset(offset)
     reactions = []
 
     with local_session() as session:
