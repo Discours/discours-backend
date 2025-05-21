@@ -6,7 +6,7 @@ from auth.oauth import get_user_profile, oauth_login, oauth_callback
 
 # Подменяем настройки для тестов
 with (
-    patch("auth.oauth.FRONTEND_URL", "http://localhost:3000"),
+    patch("auth.oauth.FRONTEND_URL", "https://localhost:3000"),
     patch(
         "auth.oauth.OAUTH_CLIENTS",
         {
@@ -208,9 +208,7 @@ with (
             # Мокаем существующего пользователя
             existing_user = MagicMock()
             session = MagicMock()
-            session.query.return_value.filter.return_value.first.return_value = (
-                existing_user
-            )
+            session.query.return_value.filter.return_value.first.return_value = existing_user
             mock_session.return_value.__enter__.return_value = session
 
             response = await oauth_callback(mock_request)

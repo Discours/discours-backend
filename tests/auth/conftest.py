@@ -15,7 +15,7 @@ def oauth_settings() -> Dict[str, Dict[str, str]]:
 @pytest.fixture
 def frontend_url() -> str:
     """URL фронтенда для тестов"""
-    return "http://localhost:3000"
+    return "https://localhost:3000"
 
 
 @pytest.fixture(autouse=True)
