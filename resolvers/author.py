@@ -403,7 +403,11 @@ async def get_author_follows(_, info, slug="", user=None, author_id=0):
             if hasattr(temp_author, key):
                 setattr(temp_author, key, value)
         # Добавляем отфильтрованную версию
-        followed_authors.append(temp_author.dict(current_user_id, is_admin))
+        # temp_author - это объект Author, который мы хотим сериализовать
+        # current_user_id - ID текущего авторизованного пользователя (может быть None)
+        # is_admin - булево значение, является ли текущий пользователь админом
+        has_access = is_admin or (current_user_id is not None and str(current_user_id) == str(temp_author.id))
+        followed_authors.append(temp_author.dict(access=has_access))
 
     # TODO: Get followed communities too
     return {
@@ -447,7 +451,11 @@ async def get_author_follows_authors(_, info, slug="", user=None, author_id=None
             if hasattr(temp_author, key):
                 setattr(temp_author, key, value)
         # Добавляем отфильтрованную версию
-        followed_authors.append(temp_author.dict(current_user_id, is_admin))
+        # temp_author - это объект Author, который мы хотим сериализовать
+        # current_user_id - ID текущего авторизованного пользователя (может быть None)
+        # is_admin - булево значение, является ли текущий пользователь админом
+        has_access = is_admin or (current_user_id is not None and str(current_user_id) == str(temp_author.id))
+        followed_authors.append(temp_author.dict(access=has_access))
         
     return followed_authors
 
@@ -488,6 +496,10 @@ async def get_author_followers(_, info, slug: str = "", user: str = "", author_i
             if hasattr(temp_author, key):
                 setattr(temp_author, key, value)
         # Добавляем отфильтрованную версию
-        followers.append(temp_author.dict(current_user_id, is_admin))
+        # temp_author - это объект Author, который мы хотим сериализовать
+        # current_user_id - ID текущего авторизованного пользователя (может быть None)
+        # is_admin - булево значение, является ли текущий пользователь админом
+        has_access = is_admin or (current_user_id is not None and str(current_user_id) == str(temp_author.id))
+        followers.append(temp_author.dict(access=has_access))
         
     return followers

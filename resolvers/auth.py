@@ -32,17 +32,51 @@ from auth.internal import verify_internal_auth
 @mutation.field("getSession")
 @login_required
 async def get_current_user(_, info):
-    """get current user"""
-    auth: AuthCredentials = info.context["request"].auth
-    token = info.context["request"].headers.get(SESSION_TOKEN_HEADER)
-
-    with local_session() as session:
-        author = session.query(Author).where(Author.id == auth.author_id).one()
-        author.last_seen = int(time.time())
-        session.commit()
-
-        # Здесь можно не применять фильтрацию, так как пользователь получает свои данные
-        return {"token": token, "author": author}
+    """
+    Получает информацию о текущем пользователе.
+    
+    Требует авторизации через декоратор login_required.
+    
+    Args:
+        _: Родительский объект (не используется)
+        info: Контекст GraphQL запроса
+        
+    Returns:
+        dict: Объект с токеном и данными автора
+    """
+    # Получаем данные авторизации из контекста запроса
+    user_id = info.context.get("user_id")
+    if not user_id:
+        logger.error("[getSession] Пользователь не авторизован")
+        from graphql.error import GraphQLError
+        raise GraphQLError("Требуется авторизация")
+        
+    # Получаем токен из заголовка
+    req = info.context.get("request")
+    token = req.headers.get(SESSION_TOKEN_HEADER)
+    if token and token.startswith("Bearer "):
+        token = token.split("Bearer ")[-1].strip()
+    
+    # Получаем данные автора
+    author = info.context.get("author")
+    
+    # Если автор не найден в контексте, пробуем получить из БД
+    if not author:
+        logger.debug(f"[getSession] Автор не найден в контексте для пользователя {user_id}, получаем из БД")
+        with local_session() as session:
+            try:
+                db_author = session.query(Author).filter(Author.id == user_id).one()
+                db_author.last_seen = int(time.time())
+                session.commit()
+                author = db_author
+            except Exception as e:
+                logger.error(f"[getSession] Ошибка при получении автора из БД: {e}")
+                from graphql.error import GraphQLError
+                raise GraphQLError("Ошибка при получении данных пользователя")
+    
+    # Возвращаем данные сессии
+    logger.info(f"[getSession] Успешно получена сессия для пользователя {user_id}")
+    return {"token": token or '', "author": author}
 
 
 @mutation.field("confirmEmail") 
@@ -63,7 +97,7 @@ async def confirm_email(_, info, token):
             user = session.query(Author).where(Author.id == user_id).first()
             if not user:
                 logger.warning(f"[auth] confirmEmail: Пользователь с ID {user_id} не найден.")
-                return {"success": False, "error": "Пользователь не найден"}
+                return {"success": False, "token": None, "author": None, "error": "Пользователь не найден"}
                 
             # Создаем сессионный токен с новым форматом вызова и явным временем истечения
             device_info = {"email": user.email} if hasattr(user, "email") else None

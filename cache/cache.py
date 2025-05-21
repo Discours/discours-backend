@@ -384,11 +384,8 @@ async def invalidate_shouts_cache(cache_keys: List[str]):
     """
     Инвалидирует кэш выборок публикаций по переданным ключам.
     """
-    for key in cache_keys:
+    for cache_key in cache_keys:
         try:
-            # Формируем полный ключ кэша
-            cache_key = f"shouts:{key}"
-
             # Удаляем основной кэш
             await redis.execute("DEL", cache_key)
             logger.debug(f"Invalidated cache key: {cache_key}")
@@ -397,8 +394,8 @@ async def invalidate_shouts_cache(cache_keys: List[str]):
             await redis.execute("SETEX", f"{cache_key}:invalidated", CACHE_TTL, "1")
 
             # Если это кэш темы, инвалидируем также связанные ключи
-            if key.startswith("topic_"):
-                topic_id = key.split("_")[1]
+            if cache_key.startswith("topic_"):
+                topic_id = cache_key.split("_")[1]
                 related_keys = [
                     f"topic:id:{topic_id}",
                     f"topic:authors:{topic_id}",

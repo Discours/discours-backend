@@ -1,6 +1,8 @@
 from functools import wraps
 from typing import Tuple
 
+from starlette.requests import Request
+
 from cache.cache import get_cached_author_by_user_id
 from resolvers.stat import get_with_stat
 from utils.logger import root_logger as logger
@@ -8,12 +10,13 @@ from auth.internal import verify_internal_auth
 from sqlalchemy import exc
 from services.db import local_session
 from auth.orm import Author, Role
+from settings import SESSION_TOKEN_HEADER
 
 # Список разрешенных заголовков
 ALLOWED_HEADERS = ["Authorization", "Content-Type"]
 
 
-async def check_auth(req) -> Tuple[str, list[str], bool]:
+async def check_auth(req: Request) -> Tuple[str, list[str], bool]:
     """
     Проверка авторизации пользователя.
 
@@ -27,50 +30,54 @@ async def check_auth(req) -> Tuple[str, list[str], bool]:
     - user_roles: list[str] - Список ролей пользователя
     - is_admin: bool - Флаг наличия у пользователя административных прав
     """
-    # Проверяем наличие токена
-    token = req.headers.get("Authorization")
+    logger.debug(f"[check_auth] Проверка авторизации...")
+    
+    # Получаем заголовок авторизации
+    token = None
+    
+    # Проверяем заголовок с учетом регистра
+    headers_dict = dict(req.headers.items())
+    logger.debug(f"[check_auth] Все заголовки: {headers_dict}")
+    
+    # Ищем заголовок Authorization независимо от регистра
+    for header_name, header_value in headers_dict.items():
+        if header_name.lower() == SESSION_TOKEN_HEADER.lower():
+            token = header_value
+            logger.debug(f"[check_auth] Найден заголовок {header_name}: {token[:10]}...")
+            break
+    
     if not token:
+        logger.debug(f"[check_auth] Токен не найден в заголовках")
         return "", [], False
 
     # Очищаем токен от префикса Bearer если он есть
     if token.startswith("Bearer "):
         token = token.split("Bearer ")[-1].strip()
 
-    logger.debug(f"Checking auth token: {token[:10]}...")
-
     # Проверяем авторизацию внутренним механизмом
-    logger.debug("Using internal authentication")
-    user_id, user_roles = await verify_internal_auth(token)
+    logger.debug("[check_auth] Вызов verify_internal_auth...")
+    user_id, user_roles, is_admin = await verify_internal_auth(token)
+    logger.debug(f"[check_auth] Результат verify_internal_auth: user_id={user_id}, roles={user_roles}, is_admin={is_admin}")
     
-    # Проверяем наличие административных прав у пользователя
-    is_admin = False
-    if user_id:
-        # Быстрая проверка на админ роли в кэше
-        admin_roles = ['admin', 'super']
-        for role in user_roles:
-            if role in admin_roles:
-                is_admin = True
-                break
-                
-        # Если в ролях нет админа, но есть ID - проверяем в БД
-        if not is_admin:
-            try:
-                with local_session() as session:
-                    # Преобразуем user_id в число
-                    try:
-                        user_id_int = int(user_id.strip())
-                    except (ValueError, TypeError):
-                        logger.error(f"Невозможно преобразовать user_id {user_id} в число")
-                    else:
-                        # Проверяем наличие админских прав через БД
-                        from auth.orm import AuthorRole
-                        admin_role = session.query(AuthorRole).filter(
-                            AuthorRole.author == user_id_int,
-                            AuthorRole.role.in_(["admin", "super"])
-                        ).first()
-                        is_admin = admin_role is not None
-            except Exception as e:
-                logger.error(f"Ошибка при проверке прав администратора: {e}")
+    # Если в ролях нет админа, но есть ID - проверяем в БД
+    if user_id and not is_admin:
+        try:
+            with local_session() as session:
+                # Преобразуем user_id в число
+                try:
+                    user_id_int = int(user_id.strip())
+                except (ValueError, TypeError):
+                    logger.error(f"Невозможно преобразовать user_id {user_id} в число")
+                else:
+                    # Проверяем наличие админских прав через БД
+                    from auth.orm import AuthorRole
+                    admin_role = session.query(AuthorRole).filter(
+                        AuthorRole.author == user_id_int,
+                        AuthorRole.role.in_(["admin", "super"])
+                    ).first()
+                    is_admin = admin_role is not None
+        except Exception as e:
+            logger.error(f"Ошибка при проверке прав администратора: {e}")
     
     return user_id, user_roles, is_admin
 
@@ -124,13 +131,18 @@ def login_required(f):
 
         info = args[1]
         req = info.context.get("request")
+        
+        logger.debug(f"[login_required] Проверка авторизации для запроса: {req.method} {req.url.path}")
+        logger.debug(f"[login_required] Заголовки: {req.headers}")
+        
         user_id, user_roles, is_admin = await check_auth(req)
         
         if not user_id:
+            logger.debug(f"[login_required] Пользователь не авторизован, {dict(req)}, {info}")
             raise GraphQLError("Требуется авторизация")
             
         # Проверяем наличие роли reader
-        if 'reader' not in user_roles and not is_admin:
+        if 'reader' not in user_roles:
             logger.error(f"Пользователь {user_id} не имеет роли 'reader'")
             raise GraphQLError("У вас нет необходимых прав для доступа")
             
@@ -189,41 +201,6 @@ def login_accepted(f):
             info.context["author"] = None
             info.context["is_admin"] = False
 
-        return await f(*args, **kwargs)
-
-    return decorated_function
-
-def author_required(f):
-    """Декоратор для проверки наличия роли 'author' у пользователя."""
-
-    @wraps(f)
-    async def decorated_function(*args, **kwargs):
-        from graphql.error import GraphQLError
-
-        info = args[1]
-        req = info.context.get("request")
-        user_id, user_roles, is_admin = await check_auth(req)
-        
-        if not user_id:
-            raise GraphQLError("Требуется авторизация")
-            
-        # Проверяем наличие роли author
-        if 'author' not in user_roles and not is_admin:
-            logger.error(f"Пользователь {user_id} не имеет роли 'author'")
-            raise GraphQLError("Для выполнения этого действия необходимы права автора")
-            
-        logger.info(f"Авторизован автор {user_id} с ролями: {user_roles}")
-        info.context["user_id"] = user_id.strip()
-        info.context["roles"] = user_roles
-        
-        # Проверяем права администратора
-        info.context["is_admin"] = is_admin
-        
-        author = await get_cached_author_by_user_id(user_id, get_with_stat)
-        if not author:
-            logger.error(f"Профиль автора не найден для пользователя {user_id}")
-        info.context["author"] = author
-            
         return await f(*args, **kwargs)
 
     return decorated_function

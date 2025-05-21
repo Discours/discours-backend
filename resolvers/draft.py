@@ -461,8 +461,9 @@ async def publish_draft(_, info, draft_id: int):
             session.commit()
 
             # Инвалидируем кеш
-            invalidate_shouts_cache()
-            invalidate_shout_related_cache(shout.id)
+            cache_keys = [f"shouts:{shout.id}", ]
+            await invalidate_shouts_cache(cache_keys)
+            await invalidate_shout_related_cache(shout, author_id)
 
             # Уведомляем о публикации
             await notify_shout(shout.id)

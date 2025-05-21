@@ -8,16 +8,16 @@
   - Управление пользователями (блокировка, изменение ролей, отключение звука)
   - Пагинация и поиск пользователей по email, имени и ID
 - Расширение GraphQL схемы для админки:
-  - Типы AdminUserInfo, AdminUserUpdateInput, AuthResult, Permission, SessionInfo
+  - Типы `AdminUserInfo`, `AdminUserUpdateInput`, `AuthResult`, `Permission`, `SessionInfo`
   - Мутации для управления пользователями и авторизации
 - Улучшения серверной части:
-  - Поддержка HTTPS через Granian с помощью mkcert
+  - Поддержка HTTPS через `Granian` с помощью `mkcert`
   - Параметры запуска `--https`, `--workers`, `--domain`
 - Система авторизации и аутентификации:
-  - Локальная система аутентификации с сессиями в Redis
+  - Локальная система аутентификации с сессиями в `Redis`
   - Система ролей и разрешений (RBAC)
   - Защита от брутфорс атак
-  - Поддержка httpOnly cookies для токенов
+  - Поддержка `httpOnly` cookies для токенов
   - Мультиязычные email уведомления
 
 ### Изменено
@@ -44,6 +44,7 @@
   - "Cannot return null for non-nullable field Mutation.login"
   - "Author password is empty" при авторизации
   - "Author object has no attribute username"
+  - Метод dict() класса Author теперь корректно сериализует роли как список словарей
 - Обработка ошибок:
   - Улучшена валидация email и username
   - Исправлена обработка истекших токенов
@@ -258,7 +259,7 @@
 #### [0.4.4]
 - `followers_stat` removed for shout
 - sqlite3 support added
-- `rating_stat` and `comments_count` fixes
+- `rating_stat` and `commented_stat` fixes
 
 #### [0.4.3]
 - cache reimplemented
@@ -414,4 +415,22 @@
 
 
 #### [0.2.7]
-- `loadFollowedReactions` now with `
+- `loadFollowedReactions` now with `login_required`
+- notifier service api draft
+- added `shout` visibility kind in schema
+- community isolated from author in orm
+
+
+#### [0.2.6]
+- redis connection pool
+- auth context fixes
+- communities orm, resolvers, schema
+
+
+#### [0.2.5]
+- restructured
+- all users have their profiles as authors in core
+- `gittask`, `inbox` and `auth` logics removed
+- `settings` moved to base and now smaller
+- new outside auth schema
+- removed `gittask`, `auth`, `inbox`, `migration`

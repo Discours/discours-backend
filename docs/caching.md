@@ -249,15 +249,128 @@ async def get_topics_with_stats(limit=10, offset=0, by="title"):
 ### Точечная инвалидация кеша при изменении данных
 
 ```python
-async def update_topic(topic_id, new_data):
+async def update_author(author_id, data):
     # Обновление данных в базе
     # ...
     
-    # Точечная инвалидация кеша только для измененной темы
-    await invalidate_topics_cache(topic_id)
+    # Инвалидация только кеша этого автора
+    await invalidate_authors_cache(author_id)
     
-    return updated_topic
+    return result
 ```
+
+## Ключи кеширования
+
+Ниже приведен полный список форматов ключей, используемых в системе кеширования Discours.
+
+### Ключи для публикаций (Shout)
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `shouts:{id}` | Публикация по ID | `shouts:123` |
+| `shouts:{id}:invalidated` | Флаг инвалидации публикации | `shouts:123:invalidated` |
+| `shouts:feed:limit={n}:offset={m}` | Основная лента публикаций | `shouts:feed:limit=20:offset=0` |
+| `shouts:recent:limit={n}` | Последние публикации | `shouts:recent:limit=10` |
+| `shouts:random_top:limit={n}` | Случайные топовые публикации | `shouts:random_top:limit=5` |
+| `shouts:unrated:limit={n}` | Неоцененные публикации | `shouts:unrated:limit=20` |
+| `shouts:coauthored:limit={n}` | Совместные публикации | `shouts:coauthored:limit=10` |
+
+### Ключи для авторов (Author)
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `author:id:{id}` | Автор по ID | `author:id:123` |
+| `author:slug:{slug}` | Автор по слагу | `author:slug:john-doe` |
+| `author:user_id:{user_id}` | Автор по ID пользователя | `author:user_id:abc123` |
+| `author:{id}` | Публикации автора | `author:123` |
+| `authored:{id}` | Публикации, созданные автором | `authored:123` |
+| `authors:all:basic` | Базовый список всех авторов | `authors:all:basic` |
+| `authors:stats:limit={n}:offset={m}:sort={field}` | Список авторов с пагинацией и сортировкой | `authors:stats:limit=20:offset=0:sort=name` |
+| `author:followers:{id}` | Подписчики автора | `author:followers:123` |
+| `author:following:{id}` | Авторы, на которых подписан автор | `author:following:123` |
+
+### Ключи для тем (Topic)
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `topic:id:{id}` | Тема по ID | `topic:id:123` |
+| `topic:slug:{slug}` | Тема по слагу | `topic:slug:technology` |
+| `topic:{id}` | Публикации по теме | `topic:123` |
+| `topic_shouts_{id}` | Публикации по теме (старый формат) | `topic_shouts_123` |
+| `topics:all:basic` | Базовый список всех тем | `topics:all:basic` |
+| `topics:stats:limit={n}:offset={m}:sort={field}` | Список тем с пагинацией и сортировкой | `topics:stats:limit=20:offset=0:sort=name` |
+| `topic:authors:{id}` | Авторы темы | `topic:authors:123` |
+| `topic:followers:{id}` | Подписчики темы | `topic:followers:123` |
+| `topic:stats:{id}` | Статистика темы | `topic:stats:123` |
+
+### Ключи для реакций (Reaction)
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `reactions:shout:{id}:limit={n}:offset={m}` | Реакции на публикацию | `reactions:shout:123:limit=20:offset=0` |
+| `reactions:comment:{id}:limit={n}:offset={m}` | Реакции на комментарий | `reactions:comment:456:limit=20:offset=0` |
+| `reactions:author:{id}:limit={n}:offset={m}` | Реакции автора | `reactions:author:123:limit=20:offset=0` |
+| `reactions:followed:author:{id}:limit={n}` | Реакции авторов, на которых подписан пользователь | `reactions:followed:author:123:limit=20` |
+
+### Ключи для сообществ (Community)
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `community:id:{id}` | Сообщество по ID | `community:id:123` |
+| `community:slug:{slug}` | Сообщество по слагу | `community:slug:tech-club` |
+| `communities:all:basic` | Базовый список всех сообществ | `communities:all:basic` |
+| `community:authors:{id}` | Авторы сообщества | `community:authors:123` |
+| `community:shouts:{id}:limit={n}:offset={m}` | Публикации сообщества | `community:shouts:123:limit=20:offset=0` |
+
+### Ключи для подписок (Follow)
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `follow:author:{follower_id}:authors` | Авторы, на которых подписан пользователь | `follow:author:123:authors` |
+| `follow:author:{follower_id}:topics` | Темы, на которые подписан пользователь | `follow:author:123:topics` |
+| `follow:topic:{topic_id}:authors` | Авторы, подписанные на тему | `follow:topic:456:authors` |
+| `follow:author:{author_id}:followers` | Подписчики автора | `follow:author:123:followers` |
+
+### Ключи для черновиков (Draft)
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `draft:id:{id}` | Черновик по ID | `draft:id:123` |
+| `drafts:author:{id}` | Черновики автора | `drafts:author:123` |
+| `drafts:all:limit={n}:offset={m}` | Список всех черновиков с пагинацией | `drafts:all:limit=20:offset=0` |
+
+### Ключи для статистики
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `stats:shout:{id}` | Статистика публикации | `stats:shout:123` |
+| `stats:author:{id}` | Статистика автора | `stats:author:123` |
+| `stats:topic:{id}` | Статистика темы | `stats:topic:123` |
+| `stats:community:{id}` | Статистика сообщества | `stats:community:123` |
+
+### Ключи для поиска
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `search:query:{query}:limit={n}:offset={m}` | Результаты поиска | `search:query:технологии:limit=20:offset=0` |
+| `search:author:{query}:limit={n}` | Результаты поиска авторов | `search:author:иван:limit=10` |
+| `search:topic:{query}:limit={n}` | Результаты поиска тем | `search:topic:наука:limit=10` |
+
+### Служебные ключи
+
+| Формат ключа | Описание | Пример |
+|--------------|----------|--------|
+| `revalidation:{entity_type}:{entity_id}` | Метка для ревалидации | `revalidation:author:123` |
+| `revalidation:batch:{entity_type}` | Батчевая ревалидация | `revalidation:batch:shouts` |
+| `lock:{resource}` | Блокировка ресурса | `lock:precache` |
+| `views:shout:{id}` | Счетчик просмотров публикации | `views:shout:123` |
+
+### Важные замечания по использованию ключей
+
+1. При инвалидации кеша публикаций через `invalidate_shouts_cache()` необходимо передавать список ID публикаций, а не ключи кеша.
+2. Функция `invalidate_shout_related_cache()` автоматически инвалидирует все связанные ключи для публикации, включая ключи авторов и тем.
+3. Для большинства операций с кешем следует использовать асинхронные функции с префиксом `await`.
+4. При создании новых ключей кеша следует придерживаться существующих конвенций именования.
 
 ## Отладка и мониторинг
 

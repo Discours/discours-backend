@@ -2,10 +2,12 @@ import asyncio
 import json
 import logging
 import os
+from typing import List
 
 import orjson
 from opensearchpy import OpenSearch
 
+from orm.shout import Shout
 from services.redis import redis
 from utils.encoders import CustomJSONEncoder
 
@@ -156,7 +158,18 @@ class SearchService:
         else:
             logger.error("клиент не инициализован, невозможно проверить индекс")
 
-    def index(self, shout):
+    def index_shouts(self, shouts: List[Shout]):
+        if not SEARCH_ENABLED:
+            return
+
+        if self.client:
+            for shout in shouts:
+                self.index(shout)
+                
+    def index(self, shout: Shout):
+        return self.index_shout(shout)
+
+    def index_shout(self, shout: Shout):
         if not SEARCH_ENABLED:
             return
 
