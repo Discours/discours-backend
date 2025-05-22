@@ -27,12 +27,14 @@ from utils.logger import root_logger as logger
 @login_required
 async def follow(_, info, what, slug="", entity_id=0):
     logger.debug("Начало выполнения функции 'follow'")
-    user_id = info.context.get("user_id")
+    viewer_id = info.context.get("author", {}).get("id")
+    if not viewer_id:
+        return {"error": "Access denied"}
     follower_dict = info.context.get("author")
     logger.debug(f"follower: {follower_dict}")
 
-    if not user_id or not follower_dict:
-        return GraphQLError("unauthorized")
+    if not viewer_id or not follower_dict:
+        return GraphQLError("Access denied")
 
     follower_id = follower_dict.get("id")
     logger.debug(f"follower_id: {follower_id}")
@@ -107,7 +109,6 @@ async def follow(_, info, what, slug="", entity_id=0):
                 # Если это авторы, получаем безопасную версию
                 if what == "AUTHOR":
                     # Получаем ID текущего пользователя и фильтруем данные
-                    current_user_id = user_id
                     follows_filtered = []
                     
                     for author_data in existing_follows:
@@ -117,7 +118,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                             if hasattr(temp_author, key):
                                 setattr(temp_author, key, value)
                         # Добавляем отфильтрованную версию
-                        follows_filtered.append(temp_author.dict(current_user_id, False))
+                        follows_filtered.append(temp_author.dict(viewer_id, False))
                     
                     if not existing_sub:
                         # Создаем объект автора для entity_dict
@@ -126,7 +127,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                             if hasattr(temp_author, key):
                                 setattr(temp_author, key, value)
                         # Добавляем отфильтрованную версию
-                        follows = [*follows_filtered, temp_author.dict(current_user_id, False)]
+                        follows = [*follows_filtered, temp_author.dict(viewer_id, False)]
                     else:
                         follows = follows_filtered
                 else:
@@ -149,13 +150,15 @@ async def follow(_, info, what, slug="", entity_id=0):
 @login_required
 async def unfollow(_, info, what, slug="", entity_id=0):
     logger.debug("Начало выполнения функции 'unfollow'")
-    user_id = info.context.get("user_id")
+    viewer_id = info.context.get("author", {}).get("id")
+    if not viewer_id:
+        return GraphQLError("Access denied")
     follower_dict = info.context.get("author")
     logger.debug(f"follower: {follower_dict}")
 
-    if not user_id or not follower_dict:
+    if not viewer_id or not follower_dict:
         logger.warning("Неавторизованный доступ при попытке отписаться")
-        return {"error": "unauthorized"}
+        return GraphQLError("Unauthorized")
 
     follower_id = follower_dict.get("id")
     logger.debug(f"follower_id: {follower_id}")
@@ -219,7 +222,6 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                     # Если это авторы, получаем безопасную версию
                     if what == "AUTHOR":
                         # Получаем ID текущего пользователя и фильтруем данные
-                        current_user_id = user_id
                         follows_filtered = []
                         
                         for author_data in existing_follows:
@@ -232,7 +234,7 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                                 if hasattr(temp_author, key):
                                     setattr(temp_author, key, value)
                             # Добавляем отфильтрованную версию
-                            follows_filtered.append(temp_author.dict(current_user_id, False))
+                            follows_filtered.append(temp_author.dict(viewer_id, False))
                         
                         follows = follows_filtered
                     else:

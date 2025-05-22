@@ -1,11 +1,13 @@
 """
 Middleware для обработки авторизации в GraphQL запросах
 """
-
+from typing import Any, Dict
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Scope, Receive, Send
 from utils.logger import root_logger as logger
-from settings import SESSION_TOKEN_HEADER, SESSION_COOKIE_NAME
+from settings import SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_MAX_AGE, SESSION_COOKIE_SAMESITE, SESSION_COOKIE_SECURE, SESSION_TOKEN_HEADER, SESSION_COOKIE_NAME
 
 
 class AuthMiddleware:
@@ -197,3 +199,76 @@ class AuthMiddleware:
         except Exception as e:
             logger.error(f"[AuthMiddleware] Ошибка в GraphQL resolve: {str(e)}")
             raise
+    
+    async def process_result(self, request: Request, result: Any) -> Response:
+        """
+        Обрабатывает результат GraphQL запроса, поддерживая установку cookie
+        
+        Args:
+            request: Starlette Request объект
+            result: результат GraphQL запроса (dict или Response)
+            
+        Returns:
+            Response: HTTP-ответ с результатом и cookie (если необходимо)
+        """
+        
+        # Проверяем, является ли result уже объектом Response
+        if isinstance(result, Response):
+            response = result
+            # Пытаемся получить данные из response для проверки логина/логаута
+            result_data = {}
+            if isinstance(result, JSONResponse):
+                try:
+                    import json
+                    result_data = json.loads(result.body.decode('utf-8'))
+                except Exception as e:
+                    logger.error(f"[process_result] Не удалось извлечь данные из JSONResponse: {str(e)}")
+        else:
+            response = JSONResponse(result)
+            result_data = result
+        
+        # Проверяем, был ли токен в запросе или ответе
+        if request.method == "POST":
+            try:
+                data = await request.json()
+                op_name = data.get("operationName", "").lower()
+                
+                # Если это операция логина или обновления токена, и в ответе есть токен
+                if op_name in ["login", "refreshtoken"]:
+                    token = None
+                    # Пытаемся извлечь токен из данных ответа
+                    if result_data and isinstance(result_data, dict):
+                        data_obj = result_data.get("data", {})
+                        if isinstance(data_obj, dict) and op_name in data_obj:
+                            op_result = data_obj.get(op_name, {})
+                            if isinstance(op_result, dict) and "token" in op_result:
+                                token = op_result.get("token")
+                    
+                    if token:
+                        # Устанавливаем cookie с токеном
+                        response.set_cookie(
+                            key=SESSION_COOKIE_NAME,
+                            value=token,
+                            httponly=SESSION_COOKIE_HTTPONLY, 
+                            secure=SESSION_COOKIE_SECURE,
+                            samesite=SESSION_COOKIE_SAMESITE,
+                            max_age=SESSION_COOKIE_MAX_AGE,
+                        )
+                        logger.debug(f"[graphql_handler] Установлена cookie {SESSION_COOKIE_NAME} для операции {op_name}")
+                
+                # Если это операция logout, удаляем cookie
+                elif op_name == "logout":
+                    response.delete_cookie(
+                        key=SESSION_COOKIE_NAME,
+                        secure=SESSION_COOKIE_SECURE,
+                        httponly=SESSION_COOKIE_HTTPONLY,
+                        samesite=SESSION_COOKIE_SAMESITE
+                    )
+                    logger.debug(f"[graphql_handler] Удалена cookie {SESSION_COOKIE_NAME} для операции {op_name}")
+            except Exception as e:
+                logger.error(f"[process_result] Ошибка при обработке POST запроса: {str(e)}")
+            
+        return response
+    
+# Создаем единый экземпляр AuthMiddleware для использования с GraphQL
+auth_middleware = AuthMiddleware(lambda scope, receive, send: None)

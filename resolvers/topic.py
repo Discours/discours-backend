@@ -315,12 +315,12 @@ async def update_topic(_, _info, topic_input):
 @mutation.field("delete_topic")
 @login_required
 async def delete_topic(_, info, slug: str):
-    user_id = info.context["user_id"]
+    viewer_id = info.context.get("author", {}).get("id")
     with local_session() as session:
         t: Topic = session.query(Topic).filter(Topic.slug == slug).first()
         if not t:
             return {"error": "invalid topic slug"}
-        author = session.query(Author).filter(Author.id == user_id).first()
+        author = session.query(Author).filter(Author.id == viewer_id).first()
         if author:
             if t.created_by != author.id:
                 return {"error": "access denied"}

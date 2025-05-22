@@ -5,7 +5,6 @@ from resolvers.author import (  # search_authors,
     get_author_follows,
     get_author_follows_authors,
     get_author_follows_topics,
-    get_author_id,
     get_authors_all,
     load_authors_by,
     load_authors_search,
@@ -18,6 +17,7 @@ from resolvers.draft import (
     load_drafts,
     publish_draft,
     update_draft,
+    unpublish_draft,
 )
 from resolvers.editor import (
     unpublish_shout,
@@ -91,7 +91,6 @@ __all__ = [
     
     # author
     "get_author",
-    "get_author_id",
     "get_author_followers",
     "get_author_follows",
     "get_author_follows_topics",
@@ -161,7 +160,6 @@ __all__ = [
     "update_draft",
     "delete_draft",
     "publish_draft",
-    "publish_shout",
     "unpublish_shout",
     "unpublish_draft",
 ]

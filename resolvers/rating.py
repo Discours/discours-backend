@@ -96,7 +96,6 @@ async def get_my_rates_shouts(_, info, shouts):
 @mutation.field("rate_author")
 @login_required
 async def rate_author(_, info, rated_slug, value):
-    info.context["user_id"]
     rater_id = info.context.get("author", {}).get("id")
     with local_session() as session:
         rater_id = int(rater_id)

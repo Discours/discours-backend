@@ -217,6 +217,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                         shout_id = int(f"{shout.id}")
                         shout_dict = shout.dict()
 
+                        # Обработка поля created_by
                         if has_field(info, "created_by") and shout_dict.get("created_by"):
                             main_author_id = shout_dict.get("created_by")
                             a = session.query(Author).filter(Author.id == main_author_id).first()
@@ -226,6 +227,44 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                                 "slug": a.slug,
                                 "pic": a.pic,
                             }
+                            
+                        # Обработка поля updated_by
+                        if has_field(info, "updated_by"):
+                            if shout_dict.get("updated_by"):
+                                updated_by_id = shout_dict.get("updated_by")
+                                updated_author = session.query(Author).filter(Author.id == updated_by_id).first()
+                                if updated_author:
+                                    shout_dict["updated_by"] = {
+                                        "id": updated_author.id,
+                                        "name": updated_author.name,
+                                        "slug": updated_author.slug,
+                                        "pic": updated_author.pic,
+                                    }
+                                else:
+                                    # Если автор не найден, устанавливаем поле в null
+                                    shout_dict["updated_by"] = None
+                            else:
+                                # Если updated_by не указан, устанавливаем поле в null
+                                shout_dict["updated_by"] = None
+                                
+                        # Обработка поля deleted_by
+                        if has_field(info, "deleted_by"):
+                            if shout_dict.get("deleted_by"):
+                                deleted_by_id = shout_dict.get("deleted_by")
+                                deleted_author = session.query(Author).filter(Author.id == deleted_by_id).first()
+                                if deleted_author:
+                                    shout_dict["deleted_by"] = {
+                                        "id": deleted_author.id,
+                                        "name": deleted_author.name,
+                                        "slug": deleted_author.slug,
+                                        "pic": deleted_author.pic,
+                                    }
+                                else:
+                                    # Если автор не найден, устанавливаем поле в null
+                                    shout_dict["deleted_by"] = None
+                            else:
+                                # Если deleted_by не указан, устанавливаем поле в null
+                                shout_dict["deleted_by"] = None
 
                         if has_field(info, "stat"):
                             stat = {}

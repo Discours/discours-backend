@@ -63,16 +63,16 @@ class EnvManager:
         },
         "APP": {
             "pattern": r"^(APP|PORT|HOST|DEBUG|DOMAIN|ENVIRONMENT|ENV|FRONTEND)_",
-            "name": "Приложение",
-            "description": "Основные настройки приложения"
+            "name": "Общие настройки",
+            "description": "Общие настройки приложения"
         },
         "LOGGING": {
             "pattern": r"^(LOG|LOGGING|SENTRY|GLITCH|GLITCHTIP)_",
-            "name": "Логирование",
+            "name": "Мониторинг",
             "description": "Настройки логирования и мониторинга"
         },
         "EMAIL": {
-            "pattern": r"^(MAIL|EMAIL|SMTP)_",
+            "pattern": r"^(MAIL|EMAIL|SMTP|IMAP|POP3|POST)_",
             "name": "Электронная почта",
             "description": "Настройки отправки электронной почты"
         },

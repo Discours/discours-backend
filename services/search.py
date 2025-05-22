@@ -5,13 +5,12 @@ import os
 import httpx
 import time
 import random
-from collections import defaultdict
-from datetime import datetime, timedelta
+from settings import TXTAI_SERVICE_URL
 
 # Set up proper logging
 logger = logging.getLogger("search")
 logger.setLevel(logging.INFO)  # Change to INFO to see more details
-# Disable noise HTTP client logging
+# Disable noise HTTP cltouchient logging
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
@@ -19,7 +18,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 SEARCH_ENABLED = bool(
     os.environ.get("SEARCH_ENABLED", "true").lower() in ["true", "1", "yes"]
 )
-TXTAI_SERVICE_URL = os.environ.get("TXTAI_SERVICE_URL", "none")
+
 MAX_BATCH_SIZE = int(os.environ.get("SEARCH_MAX_BATCH_SIZE", "25"))
 
 # Search cache configuration
@@ -948,3 +947,48 @@ async def initialize_search_index(shouts_data):
                     categories.add(getattr(matching_shouts[0], "category", "unknown"))
     except Exception as e:
         pass
+
+
+async def check_search_service():
+    info = await search_service.info()
+    if info.get("status") in ["error", "unavailable"]:
+        print(f"[WARNING] Search service unavailable: {info.get('message', 'unknown reason')}")
+    else:
+        print(f"[INFO] Search service is available: {info}")
+        
+
+# Initialize search index in the background
+async def initialize_search_index_background():
+    """
+    Запускает индексацию поиска в фоновом режиме с низким приоритетом.
+    
+    Эта функция:
+    1. Загружает все shouts из базы данных
+    2. Индексирует их в поисковом сервисе
+    3. Выполняется асинхронно, не блокируя основной поток
+    4. Обрабатывает возможные ошибки, не прерывая работу приложения
+    
+    Индексация запускается с задержкой после инициализации сервера,
+    чтобы не создавать дополнительную нагрузку при запуске.
+    """
+    try:
+        print("[search] Starting background search indexing process")
+        from services.db import fetch_all_shouts
+        
+        # Get total count first (optional)
+        all_shouts = await fetch_all_shouts()
+        total_count = len(all_shouts) if all_shouts else 0
+        print(f"[search] Fetched {total_count} shouts for background indexing")
+        
+        if not all_shouts:
+            print("[search] No shouts found for indexing, skipping search index initialization")
+            return
+        
+        # Start the indexing process with the fetched shouts
+        print("[search] Beginning background search index initialization...")
+        await initialize_search_index(all_shouts)
+        print("[search] Background search index initialization complete")
+    except Exception as e:
+        print(f"[search] Error in background search indexing: {str(e)}")
+        # Логируем детали ошибки для диагностики
+        logger.exception("[search] Detailed search indexing error")

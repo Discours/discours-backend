@@ -3,7 +3,7 @@ from typing import Tuple
 
 from starlette.requests import Request
 
-from cache.cache import get_cached_author_by_user_id
+from cache.cache import get_cached_author_by_id
 from resolvers.stat import get_with_stat
 from utils.logger import root_logger as logger
 from auth.internal import verify_internal_auth
@@ -147,13 +147,12 @@ def login_required(f):
             raise GraphQLError("У вас нет необходимых прав для доступа")
             
         logger.info(f"Авторизован пользователь {user_id} с ролями: {user_roles}")
-        info.context["user_id"] = user_id.strip()
         info.context["roles"] = user_roles
         
         # Проверяем права администратора
         info.context["is_admin"] = is_admin
         
-        author = await get_cached_author_by_user_id(user_id, get_with_stat)
+        author = await get_cached_author_by_id(user_id, get_with_stat)
         if not author:
             logger.error(f"Профиль автора не найден для пользователя {user_id}")
         info.context["author"] = author
@@ -177,14 +176,13 @@ def login_accepted(f):
 
         if user_id and user_roles:
             logger.info(f"login_accepted: Пользователь авторизован: {user_id} с ролями {user_roles}")
-            info.context["user_id"] = user_id.strip()
             info.context["roles"] = user_roles
             
             # Проверяем права администратора
             info.context["is_admin"] = is_admin
 
             # Пробуем получить профиль автора
-            author = await get_cached_author_by_user_id(user_id, get_with_stat)
+            author = await get_cached_author_by_id(user_id, get_with_stat)
             if author:
                 logger.debug(f"login_accepted: Найден профиль автора: {author}")
                 # Используем флаг is_admin из контекста или передаем права владельца для собственных данных
@@ -196,7 +194,6 @@ def login_accepted(f):
                 )
         else:
             logger.debug("login_accepted: Пользователь не авторизован. Очищаем контекст.")
-            info.context["user_id"] = None
             info.context["roles"] = None
             info.context["author"] = None
             info.context["is_admin"] = False

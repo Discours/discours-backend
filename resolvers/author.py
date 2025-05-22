@@ -8,7 +8,6 @@ from cache.cache import (
     cache_author,
     cached_query,
     get_cached_author,
-    get_cached_author_by_user_id,
     get_cached_author_followers,
     get_cached_follower_authors,
     get_cached_follower_topics,
@@ -205,25 +204,24 @@ async def invalidate_authors_cache(author_id=None):
 @mutation.field("update_author")
 @login_required
 async def update_author(_, info, profile):
-    user_id = info.context.get("user_id")
+    author_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
-    
-    if not user_id:
+    if not author_id:
         return {"error": "unauthorized", "author": None}
     try:
         with local_session() as session:
-            author = session.query(Author).where(Author.id == user_id).first()
+            author = session.query(Author).where(Author.id == author_id).first()
             if author:
                 Author.update(author, profile)
                 session.add(author)
                 session.commit()
-                author_query = select(Author).where(Author.id == user_id)
+                author_query = select(Author).where(Author.id == author_id)
                 result = get_with_stat(author_query)
                 if result:
                     author_with_stat = result[0]
                     if isinstance(author_with_stat, Author):
                         # Кэшируем полную версию для админов
-                        author_dict = author_with_stat.dict(is_admin=True)
+                        author_dict = author_with_stat.dict(access=is_admin)
                         asyncio.create_task(cache_author(author_dict))
                         
                         # Возвращаем обычную полную версию, т.к. это владелец
@@ -244,16 +242,16 @@ async def get_authors_all(_, info):
         list: Список всех авторов
     """
     # Получаем ID текущего пользователя и флаг админа из контекста
-    current_user_id = info.context.get("user_id") if hasattr(info, "context") else None
-    authors = await get_all_authors(current_user_id, False)
+    viewer_id = info.context.get("author", {}).get("id")
+    is_admin = info.context.get("is_admin", False)
+    authors = await get_all_authors(viewer_id, is_admin)
     return authors
 
 
 @query.field("get_author")
 async def get_author(_, info, slug="", author_id=0):
     # Получаем ID текущего пользователя и флаг админа из контекста
-    current_user_id = info.context.get("user_id") if hasattr(info, "context") else None
-    is_admin = info.context.get("is_admin", False) if hasattr(info, "context") else False
+    is_admin = info.context.get("is_admin", False)
     
     author_dict = None
     try:
@@ -272,7 +270,7 @@ async def get_author(_, info, slug="", author_id=0):
                 if hasattr(temp_author, key):
                     setattr(temp_author, key, value)
             # Получаем отфильтрованную версию
-            author_dict = temp_author.dict(current_user_id, is_admin)
+            author_dict = temp_author.dict(access=is_admin)
             # Добавляем статистику, которая могла быть в кэшированной версии
             if "stat" in cached_author:
                 author_dict["stat"] = cached_author["stat"]
@@ -285,11 +283,11 @@ async def get_author(_, info, slug="", author_id=0):
                 author_with_stat = result[0]
                 if isinstance(author_with_stat, Author):
                     # Кэшируем полные данные для админов
-                    original_dict = author_with_stat.dict(is_admin=True)
+                    original_dict = author_with_stat.dict(access=True)
                     asyncio.create_task(cache_author(original_dict))
                     
                     # Возвращаем отфильтрованную версию
-                    author_dict = author_with_stat.dict(current_user_id, is_admin)
+                    author_dict = author_with_stat.dict(access=is_admin)
                     # Добавляем статистику
                     if hasattr(author_with_stat, "stat"):
                         author_dict["stat"] = author_with_stat.stat
@@ -300,42 +298,6 @@ async def get_author(_, info, slug="", author_id=0):
 
         logger.error(f"{exc}:\n{traceback.format_exc()}")
     return author_dict
-
-
-@query.field("get_author_id")
-async def get_author_id(_, info, user: str):
-    # Получаем ID текущего пользователя и флаг админа из контекста
-    current_user_id = info.context.get("user_id") if hasattr(info, "context") else None
-    is_admin = info.context.get("is_admin", False) if hasattr(info, "context") else False
-    
-    user_id = user.strip()
-    logger.info(f"getting author id for {user_id}")
-    author = None
-    try:
-        cached_author = await get_cached_author_by_user_id(user_id, get_with_stat)
-        if cached_author:
-            # Создаем объект автора для использования метода dict
-            temp_author = Author()
-            for key, value in cached_author.items():
-                if hasattr(temp_author, key):
-                    setattr(temp_author, key, value)
-            # Возвращаем отфильтрованную версию
-            return temp_author.dict(current_user_id, is_admin)
-
-        author_query = select(Author).filter(Author.id == user_id)
-        result = get_with_stat(author_query)
-        if result:
-            author_with_stat = result[0]
-            if isinstance(author_with_stat, Author):
-                # Кэшируем полную версию данных
-                original_dict = author_with_stat.dict(is_admin=True)
-                asyncio.create_task(cache_author(original_dict))
-                
-                # Возвращаем отфильтрованную версию
-                return author_with_stat.dict(current_user_id, is_admin)
-    except Exception as exc:
-        logger.error(f"Error getting author: {exc}")
-    return None
 
 
 @query.field("load_authors_by")
@@ -352,11 +314,11 @@ async def load_authors_by(_, info, by, limit, offset):
         list: Список авторов с учетом критерия
     """
     # Получаем ID текущего пользователя и флаг админа из контекста
-    current_user_id = info.context.get("user_id") if hasattr(info, "context") else None
-    is_admin = info.context.get("is_admin", False) if hasattr(info, "context") else False
+    viewer_id = info.context.get("author", {}).get("id")
+    is_admin = info.context.get("is_admin", False)
     
     # Используем оптимизированную функцию для получения авторов
-    return await get_authors_with_stats(limit, offset, by, current_user_id, is_admin)
+    return await get_authors_with_stats(limit, offset, by, viewer_id, is_admin)
 
 
 @query.field("load_authors_search")
@@ -423,8 +385,8 @@ def get_author_id_from(slug="", user=None, author_id=None):
 @query.field("get_author_follows")
 async def get_author_follows(_, info, slug="", user=None, author_id=0):
     # Получаем ID текущего пользователя и флаг админа из контекста
-    current_user_id = info.context.get("user_id") if hasattr(info, "context") else None
-    is_admin = info.context.get("is_admin", False) if hasattr(info, "context") else False
+    viewer_id = info.context.get("author", {}).get("id")
+    is_admin = info.context.get("is_admin", False)
     
     logger.debug(f"getting follows for @{slug}")
     author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
@@ -447,7 +409,7 @@ async def get_author_follows(_, info, slug="", user=None, author_id=0):
         # temp_author - это объект Author, который мы хотим сериализовать
         # current_user_id - ID текущего авторизованного пользователя (может быть None)
         # is_admin - булево значение, является ли текущий пользователь админом
-        has_access = is_admin or (current_user_id is not None and str(current_user_id) == str(temp_author.id))
+        has_access = is_admin or (viewer_id is not None and str(viewer_id) == str(temp_author.id))
         followed_authors.append(temp_author.dict(access=has_access))
 
     # TODO: Get followed communities too
@@ -472,13 +434,13 @@ async def get_author_follows_topics(_, _info, slug="", user=None, author_id=None
 @query.field("get_author_follows_authors")
 async def get_author_follows_authors(_, info, slug="", user=None, author_id=None):
     # Получаем ID текущего пользователя и флаг админа из контекста
-    current_user_id = info.context.get("user_id") if hasattr(info, "context") else None
-    is_admin = info.context.get("is_admin", False) if hasattr(info, "context") else False
+    viewer_id = info.context.get("author", {}).get("id")
+    is_admin = info.context.get("is_admin", False)
     
     logger.debug(f"getting followed authors for @{slug}")
-    author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
     if not author_id:
         return []
+
         
     # Получаем данные из кэша
     followed_authors_raw = await get_cached_follower_authors(author_id)
@@ -495,7 +457,7 @@ async def get_author_follows_authors(_, info, slug="", user=None, author_id=None
         # temp_author - это объект Author, который мы хотим сериализовать
         # current_user_id - ID текущего авторизованного пользователя (может быть None)
         # is_admin - булево значение, является ли текущий пользователь админом
-        has_access = is_admin or (current_user_id is not None and str(current_user_id) == str(temp_author.id))
+        has_access = is_admin or (viewer_id is not None and str(viewer_id) == str(temp_author.id))
         followed_authors.append(temp_author.dict(access=has_access))
         
     return followed_authors
@@ -517,8 +479,8 @@ def create_author(user_id: str, slug: str, name: str = ""):
 @query.field("get_author_followers")
 async def get_author_followers(_, info, slug: str = "", user: str = "", author_id: int = 0):
     # Получаем ID текущего пользователя и флаг админа из контекста
-    current_user_id = info.context.get("user_id") if hasattr(info, "context") else None
-    is_admin = info.context.get("is_admin", False) if hasattr(info, "context") else False
+    viewer_id = info.context.get("author", {}).get("id")
+    is_admin = info.context.get("is_admin", False)
     
     logger.debug(f"getting followers for author @{slug} or ID:{author_id}")
     author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
@@ -540,7 +502,7 @@ async def get_author_followers(_, info, slug: str = "", user: str = "", author_i
         # temp_author - это объект Author, который мы хотим сериализовать
         # current_user_id - ID текущего авторизованного пользователя (может быть None)
         # is_admin - булево значение, является ли текущий пользователь админом
-        has_access = is_admin or (current_user_id is not None and str(current_user_id) == str(temp_author.id))
+        has_access = is_admin or (viewer_id is not None and str(viewer_id) == str(temp_author.id))
         followers.append(temp_author.dict(access=has_access))
         
     return followers

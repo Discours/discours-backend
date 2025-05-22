@@ -376,16 +376,13 @@ def login_accepted(func):
                     try:
                         author = session.query(Author).filter(Author.id == auth.author_id).one()
                         info.context["author"] = author.dict()
-                        info.context["user_id"] = author.id
                         logger.debug(f"[login_accepted] Пользователь авторизован: {author.id}")
                     except exc.NoResultFound:
                         logger.warning(f"[login_accepted] Пользователь с ID {auth.author_id} не найден в базе данных")
                         info.context["author"] = None
-                        info.context["user_id"] = None
             else:
                 # Если пользователь не авторизован, устанавливаем пустые значения
                 info.context["author"] = None
-                info.context["user_id"] = None
                 logger.debug("[login_accepted] Пользователь не авторизован")
 
             return await func(parent, info, *args, **kwargs)

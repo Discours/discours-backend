@@ -42,11 +42,11 @@ async def get_current_user(_, info):
         info: Контекст GraphQL запроса
         
     Returns:
-        dict: Объект с токеном и данными автора
+        dict: Объект с токеном и данными автора с добавленной статистикой
     """
     # Получаем данные авторизации из контекста запроса
-    user_id = info.context.get("user_id")
-    if not user_id:
+    author_id = info.context.get("author", {}).get("id")
+    if not author_id:
         logger.error("[getSession] Пользователь не авторизован")
         from graphql.error import GraphQLError
         raise GraphQLError("Требуется авторизация")
@@ -60,19 +60,50 @@ async def get_current_user(_, info):
     # Получаем данные автора
     author = info.context.get("author")
     
-    # Если автор не найден в контексте, пробуем получить из БД
+    # Если автор не найден в контексте, пробуем получить из БД с добавлением статистики
     if not author:
         logger.debug(f"[getSession] Автор не найден в контексте для пользователя {user_id}, получаем из БД")
-        with local_session() as session:
-            try:
-                db_author = session.query(Author).filter(Author.id == user_id).one()
-                db_author.last_seen = int(time.time())
-                session.commit()
-                author = db_author
-            except Exception as e:
-                logger.error(f"[getSession] Ошибка при получении автора из БД: {e}")
+        
+        try:
+            # Используем функцию get_with_stat для получения автора со статистикой
+            from sqlalchemy import select
+            from resolvers.stat import get_with_stat
+            
+            q = select(Author).where(Author.id == user_id)
+            authors_with_stat = get_with_stat(q)
+            
+            if authors_with_stat and len(authors_with_stat) > 0:
+                author = authors_with_stat[0]
+                
+                # Обновляем last_seen отдельной транзакцией
+                with local_session() as session:
+                    author_db = session.query(Author).filter(Author.id == user_id).first()
+                    if author_db:
+                        author_db.last_seen = int(time.time())
+                        session.commit()
+            else:
+                logger.error(f"[getSession] Автор с ID {user_id} не найден в БД")
                 from graphql.error import GraphQLError
-                raise GraphQLError("Ошибка при получении данных пользователя")
+                raise GraphQLError("Пользователь не найден")
+                
+        except Exception as e:
+            logger.error(f"[getSession] Ошибка при получении автора из БД: {e}", exc_info=True)
+            from graphql.error import GraphQLError
+            raise GraphQLError("Ошибка при получении данных пользователя")
+    else:
+        # Если автор уже есть в контексте, добавляем статистику
+        try:
+            from sqlalchemy import select
+            from resolvers.stat import get_with_stat
+            
+            q = select(Author).where(Author.id == user_id)
+            authors_with_stat = get_with_stat(q)
+            
+            if authors_with_stat and len(authors_with_stat) > 0:
+                # Обновляем только статистику
+                author.stat = authors_with_stat[0].stat
+        except Exception as e:
+            logger.warning(f"[getSession] Не удалось добавить статистику к автору: {e}")
     
     # Возвращаем данные сессии
     logger.info(f"[getSession] Успешно получена сессия для пользователя {user_id}")

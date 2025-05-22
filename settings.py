@@ -70,3 +70,6 @@ SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
 
 MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY", "")
 MAILGUN_DOMAIN = os.getenv("MAILGUN_DOMAIN", "discours.io")
+
+
+TXTAI_SERVICE_URL = os.environ.get("TXTAI_SERVICE_URL", "none")

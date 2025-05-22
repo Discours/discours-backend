@@ -9,7 +9,6 @@ from services.schema import mutation
 @mutation.field("accept_invite")
 @login_required
 async def accept_invite(_, info, invite_id: int):
-    info.context["user_id"]
     author_dict = info.context["author"]
     author_id = author_dict.get("id")
     if author_id:
@@ -41,7 +40,6 @@ async def accept_invite(_, info, invite_id: int):
 @mutation.field("reject_invite")
 @login_required
 async def reject_invite(_, info, invite_id: int):
-    info.context["user_id"]
     author_dict = info.context["author"]
     author_id = author_dict.get("id")
 
@@ -64,14 +62,17 @@ async def reject_invite(_, info, invite_id: int):
 @mutation.field("create_invite")
 @login_required
 async def create_invite(_, info, slug: str = "", author_id: int = 0):
-    user_id = info.context["user_id"]
     author_dict = info.context["author"]
-    author_id = author_dict.get("id")
+    viewer_id = author_dict.get("id")
+    roles = info.context.get("roles", [])
+    is_admin = info.context.get("is_admin", False)
+    if not viewer_id and not is_admin and "admin" not in roles and "editor" not in roles:
+        return {"error": "Access denied"}
     if author_id:
         # Check if the inviter is the owner of the shout
         with local_session() as session:
             shout = session.query(Shout).filter(Shout.slug == slug).first()
-            inviter = session.query(Author).filter(Author.id == user_id).first()
+            inviter = session.query(Author).filter(Author.id == viewer_id).first()
             if inviter and shout and shout.authors and inviter.id is shout.created_by:
                 # Check if an invite already exists
                 existing_invite = (
@@ -89,7 +90,7 @@ async def create_invite(_, info, slug: str = "", author_id: int = 0):
 
                 # Create a new invite
                 new_invite = Invite(
-                    inviter_id=user_id,
+                    inviter_id=viewer_id,
                     author_id=author_id,
                     shout_id=shout.id,
                     status=InviteStatus.PENDING.value,
@@ -107,9 +108,13 @@ async def create_invite(_, info, slug: str = "", author_id: int = 0):
 @mutation.field("remove_author")
 @login_required
 async def remove_author(_, info, slug: str = "", author_id: int = 0):
-    user_id = info.context["user_id"]
+    viewer_id = info.context.get("author", {}).get("id")
+    is_admin = info.context.get("is_admin", False)
+    roles = info.context.get("roles", [])
+    if not viewer_id and not is_admin and "admin" not in roles and "editor" not in roles:
+        return {"error": "Access denied"}
     with local_session() as session:
-        author = session.query(Author).filter(Author.id == user_id).first()
+        author = session.query(Author).filter(Author.id == author_id).first()
         if author:
             shout = session.query(Shout).filter(Shout.slug == slug).first()
             # NOTE: owner should be first in a list
@@ -123,8 +128,6 @@ async def remove_author(_, info, slug: str = "", author_id: int = 0):
 @mutation.field("remove_invite")
 @login_required
 async def remove_invite(_, info, invite_id: int):
-    info.context["user_id"]
-
     author_dict = info.context["author"]
     author_id = author_dict.get("id")
     if isinstance(author_id, int):

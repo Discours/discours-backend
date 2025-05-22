@@ -383,11 +383,11 @@ async def update_reaction(_, info, reaction):
     :param reaction: Dictionary with reaction data.
     :return: Dictionary with updated reaction data or error.
     """
-    user_id = info.context.get("user_id")
+    author_id = info.context.get("author", {}).get("id")
     roles = info.context.get("roles")
     rid = reaction.get("id")
 
-    if not rid or not user_id or not roles:
+    if not rid or not author_id or not roles:
         return {"error": "Invalid input data"}
 
     del reaction["id"]
@@ -437,16 +437,15 @@ async def delete_reaction(_, info, reaction_id: int):
     :param reaction_id: Reaction ID to delete.
     :return: Dictionary with deleted reaction data or error.
     """
-    user_id = info.context.get("user_id")
     author_id = info.context.get("author", {}).get("id")
     roles = info.context.get("roles", [])
 
-    if not user_id:
+    if not author_id:
         return {"error": "Unauthorized"}
 
     with local_session() as session:
         try:
-            author = session.query(Author).filter(Author.id == user_id).one()
+            author = session.query(Author).filter(Author.id == author_id).one()
             r = session.query(Reaction).filter(Reaction.id == reaction_id).one()
 
             if r.created_by != author_id and "editor" not in roles:
@@ -463,7 +462,7 @@ async def delete_reaction(_, info, reaction_id: int):
                 session.commit()
                 # TODO: add more reaction types here
             else:
-                logger.debug(f"{user_id} user removing his #{reaction_id} reaction")
+                logger.debug(f"{author_id} user removing his #{reaction_id} reaction")
                 session.delete(r)
                 session.commit()
                 if check_to_unfeature(session, r):

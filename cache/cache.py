@@ -301,7 +301,7 @@ async def get_cached_follower_topics(author_id: int):
 
 
 # Get author by user ID from cache
-async def get_cached_author_by_user_id(user_id: str, get_with_stat):
+async def get_cached_author_by_id(user_id: str, get_with_stat):
     """
     Retrieve author information by user_id, checking the cache first, then the database.
 
@@ -312,7 +312,7 @@ async def get_cached_author_by_user_id(user_id: str, get_with_stat):
         dict: Dictionary with author data or None if not found.
     """
     # Attempt to find author ID by user_id in Redis cache
-    author_id = await redis.execute("GET", f"author:user:{user_id.strip()}")
+    author_id = await redis.execute("GET", f"author:user:{author_id}")
     if author_id:
         # If ID is found, get full author data by ID
         author_data = await redis.execute("GET", f"author:id:{author_id}")
@@ -320,14 +320,13 @@ async def get_cached_author_by_user_id(user_id: str, get_with_stat):
             return orjson.loads(author_data)
 
     # If data is not found in cache, query the database
-    author_query = select(Author).where(Author.id == user_id)
+    author_query = select(Author).where(Author.id == author_id)
     authors = get_with_stat(author_query)
     if authors:
         # Cache the retrieved author data
         author = authors[0]
         author_dict = author.dict()
         await asyncio.gather(
-            redis.execute("SET", f"author:user:{user_id.strip()}", str(author.id)),
             redis.execute("SET", f"author:id:{author.id}", orjson.dumps(author_dict)),
         )
         return author_dict

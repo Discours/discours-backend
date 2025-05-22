@@ -78,12 +78,11 @@ async def load_drafts(_, info):
     Returns:
         dict: Список черновиков или сообщение об ошибке
     """
-    user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
 
-    if not user_id or not author_id:
-        return {"error": "User ID and author ID are required"}
+    if not author_id:
+        return {"error": "Author ID is required"}
 
     try:
         with local_session() as session:
@@ -152,11 +151,10 @@ async def create_draft(_, info, draft_input):
         ...     assert result['draft'].title == 'Test'
         ...     return result
     """
-    user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
 
-    if not user_id or not author_id:
+    if not author_id:
         return {"error": "Author ID is required"}
 
     # Проверяем обязательные поля
@@ -227,11 +225,10 @@ async def update_draft(_, info, draft_id: int, draft_input):
     Returns:
         dict: Обновленный черновик или сообщение об ошибке
     """
-    user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
 
-    if not user_id or not author_id:
+    if not author_id:
         return {"error": "Author ID are required"}
 
     try:
@@ -389,11 +386,10 @@ async def publish_draft(_, info, draft_id: int):
     Returns:
         dict: Результат публикации с shout или сообщением об ошибке
     """
-    user_id = info.context.get("user_id")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
 
-    if not user_id or not author_id:
+    if not author_id:
         return {"error": "Author ID is required"}
 
     try:
@@ -469,7 +465,7 @@ async def publish_draft(_, info, draft_id: int):
             await notify_shout(shout.id)
 
             # Обновляем поисковый индекс
-            search_service.index_shout(shout)
+            search_service.perform_index(shout)
 
             logger.info(f"Successfully published shout #{shout.id} from draft #{draft_id}")
             logger.debug(f"Shout data: {shout.dict()}")
@@ -479,3 +475,74 @@ async def publish_draft(_, info, draft_id: int):
     except Exception as e:
         logger.error(f"Failed to publish draft {draft_id}: {e}", exc_info=True)
         return {"error": f"Failed to publish draft: {str(e)}"}
+
+
+@mutation.field("unpublish_draft")
+@login_required
+async def unpublish_draft(_, info, draft_id: int):
+    """
+    Снимает с публикации черновик, обновляя связанный Shout.
+    
+    Args:
+        draft_id (int): ID черновика, публикацию которого нужно снять
+        
+    Returns:
+        dict: Результат операции с информацией о черновике или сообщением об ошибке
+    """
+    author_dict = info.context.get("author", {})
+    author_id = author_dict.get("id")
+    
+    if author_id:
+        return {"error": "Author ID is required"}
+    
+    try:
+        with local_session() as session:
+            # Загружаем черновик со связанной публикацией
+            draft = (
+                session.query(Draft)
+                .options(
+                    joinedload(Draft.publication),
+                    joinedload(Draft.authors),
+                    joinedload(Draft.topics)
+                )
+                .filter(Draft.id == draft_id)
+                .first()
+            )
+            
+            if not draft:
+                return {"error": "Draft not found"}
+                
+            # Проверяем, есть ли публикация
+            if not draft.publication:
+                return {"error": "This draft is not published yet"}
+                
+            shout = draft.publication
+            
+            # Снимаем с публикации
+            shout.published_at = None
+            shout.updated_at = int(time.time())
+            shout.updated_by = author_id
+            
+            session.commit()
+            
+            # Инвалидируем кэш
+            cache_keys = [f"shouts:{shout.id}"]
+            await invalidate_shouts_cache(cache_keys)
+            await invalidate_shout_related_cache(shout, author_id)
+            
+            # Формируем результат
+            draft_dict = draft.dict()
+            # Добавляем информацию о публикации
+            draft_dict["publication"] = {
+                "id": shout.id,
+                "slug": shout.slug,
+                "published_at": None
+            }
+            
+            logger.info(f"Successfully unpublished shout #{shout.id} for draft #{draft_id}")
+            
+            return {"draft": draft_dict}
+            
+    except Exception as e:
+        logger.error(f"Failed to unpublish draft {draft_id}: {e}", exc_info=True)
+        return {"error": f"Failed to unpublish draft: {str(e)}"}

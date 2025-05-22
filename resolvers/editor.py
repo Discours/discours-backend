@@ -86,12 +86,11 @@ async def get_my_shout(_, info, shout_id: int):
         ...     assert result['shout'].id == 1
         ...     return result
     """
-    user_id = info.context.get("user_id", "")
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
     roles = info.context.get("roles", [])
     shout = None
-    if not user_id or not author_id:
+    if not author_id:
         return {"error": "unauthorized", "shout": None}
     with local_session() as session:
         shout = (
@@ -136,7 +135,6 @@ async def get_my_shout(_, info, shout_id: int):
 @query.field("get_shouts_drafts")
 @login_required
 async def get_shouts_drafts(_, info):
-    # user_id = info.context.get("user_id")
     author_dict = info.context.get("author")
     if not author_dict:
         return {"error": "author profile was not found"}
@@ -160,16 +158,15 @@ async def get_shouts_drafts(_, info):
 # @login_required
 async def create_shout(_, info, inp):
     logger.info(f"Starting create_shout with input: {inp}")
-    user_id = info.context.get("user_id")
     author_dict = info.context.get("author")
-    logger.debug(f"Context user_id: {user_id}, author: {author_dict}")
+    logger.debug(f"Context author: {author_dict}")
 
     if not author_dict:
         logger.error("Author profile not found in context")
         return {"error": "author profile was not found"}
 
     author_id = author_dict.get("id")
-    if user_id and author_id:
+    if author_id:
         try:
             with local_session() as session:
                 author_id = int(author_id)
@@ -268,7 +265,7 @@ async def create_shout(_, info, inp):
             logger.error(f"Unexpected error in create_shout: {e}", exc_info=True)
             return {"error": f"Unexpected error: {str(e)}"}
 
-    error_msg = "cant create shout" if user_id else "unauthorized"
+    error_msg = "cant create shout" if author_id else "unauthorized"
     logger.error(f"Create shout failed: {error_msg}")
     return {"error": error_msg}
 
@@ -394,25 +391,18 @@ def patch_topics(session, shout, topics_input):
 # @mutation.field("update_shout")
 # @login_required
 async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
-    logger.info(f"Starting update_shout with id={shout_id}, publish={publish}")
-    logger.debug(f"Full shout_input: {shout_input}")  # DraftInput
-
-    user_id = info.context.get("user_id")
-    roles = info.context.get("roles", [])
-    author_dict = info.context.get("author")
-    if not author_dict:
-        logger.error("Author profile not found")
-        return {"error": "author profile was not found"}
-
-    author_id = author_dict.get("id")
-    shout_input = shout_input or {}
-    current_time = int(time.time())
-    shout_id = shout_id or shout_input.get("id", shout_id)
-    slug = shout_input.get("slug")
-
-    if not user_id:
+    author_id = info.context.get("author").get("id")
+    if not author_id:
         logger.error("Unauthorized update attempt")
         return {"error": "unauthorized"}
+
+    logger.info(f"Starting update_shout with id={shout_id}, publish={publish}")
+    logger.debug(f"Full shout_input: {shout_input}")  # DraftInput
+    roles = info.context.get("roles", [])
+    current_time = int(time.time())
+    shout_input = shout_input or {}
+    shout_id = shout_id or shout_input.get("id", shout_id)
+    slug = shout_input.get("slug")
 
     try:
         with local_session() as session:
@@ -620,13 +610,12 @@ async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
 # @mutation.field("delete_shout")
 # @login_required
 async def delete_shout(_, info, shout_id: int):
-    user_id = info.context.get("user_id")
-    roles = info.context.get("roles", [])
     author_dict = info.context.get("author")
     if not author_dict:
         return {"error": "author profile was not found"}
     author_id = author_dict.get("id")
-    if user_id and author_id:
+    roles = info.context.get("roles", [])
+    if author_id:
         author_id = int(author_id)
         with local_session() as session:
             shout = session.query(Shout).filter(Shout.id == shout_id).first()
@@ -643,7 +632,6 @@ async def delete_shout(_, info, shout_id: int):
                 for author in shout.authors:
                     await cache_by_id(Author, author.id, cache_author)
                     info.context["author"] = author.dict()
-                    info.context["user_id"] = author.id
                     unfollow(None, info, "shout", shout.slug)
 
                 for topic in shout.topics:
@@ -746,7 +734,7 @@ async def unpublish_shout(_, info, shout_id: int):
                 return {"error": "Shout not found"}
 
             # Если у публикации есть связанный черновик, загружаем его с relationships
-            if shout.draft:
+            if shout.draft is not None:
                 # Отдельно загружаем черновик с его связями
                 draft = (
                     session.query(Draft)
