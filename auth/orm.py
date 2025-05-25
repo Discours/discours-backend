@@ -5,9 +5,6 @@ from sqlalchemy.orm import relationship
 
 from auth.identity import Password
 from services.db import Base
-from settings import ADMIN_EMAILS
-
-# from sqlalchemy_utils import TSVectorType
 
 # Общие table_args для всех моделей
 DEFAULT_TABLE_ARGS = {"extend_existing": True}

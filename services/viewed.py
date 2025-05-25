@@ -74,14 +74,26 @@ class ViewedStorage:
         if not redis._client:
             await redis.connect()
 
+        # Логируем настройки Redis соединения
+        logger.info(f" * Redis connection: {redis._client}")
+
         # Получаем список всех ключей migrated_views_* и находим самый последний
         keys = await redis.execute("KEYS", "migrated_views_*")
+        logger.info(f" * Raw Redis result for 'KEYS migrated_views_*': {len(keys)}")
+        
+        # Декодируем байтовые строки, если есть
+        if keys and isinstance(keys[0], bytes):
+            keys = [k.decode('utf-8') for k in keys]
+            logger.info(f" * Decoded keys: {keys}")
+        
         if not keys:
             logger.warning(" * No migrated_views keys found in Redis")
             return
 
         # Фильтруем только ключи timestamp формата (исключаем migrated_views_slugs)
         timestamp_keys = [k for k in keys if k != "migrated_views_slugs"]
+        logger.info(f" * Timestamp keys after filtering: {timestamp_keys}")
+        
         if not timestamp_keys:
             logger.warning(" * No migrated_views timestamp keys found in Redis")
             return
@@ -90,6 +102,7 @@ class ViewedStorage:
         timestamp_keys.sort()
         latest_key = timestamp_keys[-1]
         self.redis_views_key = latest_key
+        logger.info(f" * Selected latest key: {latest_key}")
 
         # Получаем метку времени создания для установки start_date
         timestamp = await redis.execute("HGET", latest_key, "_timestamp")
@@ -109,6 +122,8 @@ class ViewedStorage:
         total_entries = await redis.execute("HGET", latest_key, "_total")
         if total_entries:
             logger.info(f" * {total_entries} shouts with views loaded from Redis key: {latest_key}")
+
+        logger.info(f" * Found migrated_views keys: {keys}")
 
     # noinspection PyTypeChecker
     @staticmethod
