@@ -77,18 +77,45 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None):
             base_query = select(Author).where(Author.deleted_at.is_(None))
 
             # Применяем сортировку
+            
+            # vars for statistics sorting
+            stats_sort_field = None
+            stats_sort_direction = "desc"
+            
             if by:
                 if isinstance(by, dict):
+                    logger.debug(f"Processing dict-based sorting: {by}")
                     # Обработка словаря параметров сортировки
-                    from sqlalchemy import asc, desc
+                    from sqlalchemy import asc, desc, func
+                    from orm.shout import ShoutAuthor
+                    from orm.author import AuthorFollower
 
-                    for field, direction in by.items():
-                        column = getattr(Author, field, None)
-                        if column:
-                            if direction.lower() == "desc":
+                    # Checking for order field in the dictionary
+                    if "order" in by:
+                        order_value = by["order"]
+                        logger.debug(f"Found order field with value: {order_value}")
+                        if order_value in ["shouts", "followers", "rating", "comments"]:
+                            stats_sort_field = order_value
+                            stats_sort_direction = "desc"  # По умолчанию убывающая сортировка для статистики
+                            logger.debug(f"Applying statistics-based sorting by: {stats_sort_field}")
+                        elif order_value == "name":
+                            # Sorting by name in ascending order
+                            base_query = base_query.order_by(asc(Author.name))
+                            logger.debug("Applying alphabetical sorting by name")
+                        else:
+                            # If order is not a stats field, treat it as a regular field
+                            column = getattr(Author, order_value, None)
+                            if column:
                                 base_query = base_query.order_by(desc(column))
-                            else:
-                                base_query = base_query.order_by(column)
+                    else:
+                        # Regular sorting by fields
+                        for field, direction in by.items():
+                            column = getattr(Author, field, None)
+                            if column:
+                                if direction.lower() == "desc":
+                                    base_query = base_query.order_by(desc(column))
+                                else:
+                                    base_query = base_query.order_by(column)
                 elif by == "new":
                     base_query = base_query.order_by(desc(Author.created_at))
                 elif by == "active":
@@ -98,6 +125,55 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None):
                     base_query = base_query.order_by(desc(Author.created_at))
             else:
                 base_query = base_query.order_by(desc(Author.created_at))
+
+            # If sorting by statistics, modify the query
+            if stats_sort_field == "shouts":
+                # Sorting by the number of shouts
+                from sqlalchemy import func, and_
+                from orm.shout import Shout, ShoutAuthor
+                
+                subquery = (
+                    select(
+                        ShoutAuthor.author,
+                        func.count(func.distinct(Shout.id)).label("shouts_count")
+                    )
+                    .select_from(ShoutAuthor)
+                    .join(Shout, ShoutAuthor.shout == Shout.id)
+                    .where(
+                        and_(
+                            Shout.deleted_at.is_(None),
+                            Shout.published_at.is_not(None)
+                        )
+                    )
+                    .group_by(ShoutAuthor.author)
+                    .subquery()
+                )
+                
+                base_query = (
+                    base_query
+                    .outerjoin(subquery, Author.id == subquery.c.author)
+                    .order_by(desc(func.coalesce(subquery.c.shouts_count, 0)))
+                )
+            elif stats_sort_field == "followers":
+                # Sorting by the number of followers
+                from sqlalchemy import func
+                from orm.author import AuthorFollower
+                
+                subquery = (
+                    select(
+                        AuthorFollower.author,
+                        func.count(func.distinct(AuthorFollower.follower)).label("followers_count")
+                    )
+                    .select_from(AuthorFollower)
+                    .group_by(AuthorFollower.author)
+                    .subquery()
+                )
+                
+                base_query = (
+                    base_query
+                    .outerjoin(subquery, Author.id == subquery.c.author)
+                    .order_by(desc(func.coalesce(subquery.c.followers_count, 0)))
+                )
 
             # Применяем лимит и смещение
             base_query = base_query.limit(limit).offset(offset)

@@ -162,3 +162,4 @@ views.json
 *.crt
 *cache.json
 .cursor
+.devcontainer/devcontainer.json
