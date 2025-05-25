@@ -53,7 +53,11 @@ async def test_create_reaction(test_client, db_session, test_setup):
             }
             """,
             "variables": {
-                "reaction": {"shout": test_setup["shout"].id, "kind": ReactionKind.LIKE.value, "body": "Great post!"}
+                "reaction": {
+                    "shout": test_setup["shout"].id,
+                    "kind": ReactionKind.LIKE.value,
+                    "body": "Great post!",
+                }
             },
         },
     )

@@ -90,7 +90,6 @@ class Author(Base):
     Модель автора в системе.
 
     Attributes:
-        user (str): Идентификатор пользователя в системе авторизации
         name (str): Отображаемое имя
         slug (str): Уникальный строковый идентификатор
         bio (str): Краткая биография/статус
@@ -104,8 +103,6 @@ class Author(Base):
     """
 
     __tablename__ = "author"
-
-    user = Column(String)  # unbounded link with authorizer's User type
 
     name = Column(String, nullable=True, comment="Display name")
     slug = Column(String, unique=True, comment="Author's slug")
@@ -124,12 +121,14 @@ class Author(Base):
 
     # Определяем индексы
     __table_args__ = (
+        # Индекс для быстрого поиска по имени
+        Index("idx_author_name", "name"),
         # Индекс для быстрого поиска по slug
         Index("idx_author_slug", "slug"),
-        # Индекс для быстрого поиска по идентификатору пользователя
-        Index("idx_author_user", "user"),
         # Индекс для фильтрации неудаленных авторов
-        Index("idx_author_deleted_at", "deleted_at", postgresql_where=deleted_at.is_(None)),
+        Index(
+            "idx_author_deleted_at", "deleted_at", postgresql_where=deleted_at.is_(None)
+        ),
         # Индекс для сортировки по времени создания (для новых авторов)
         Index("idx_author_created_at", "created_at"),
         # Индекс для сортировки по времени последнего посещения

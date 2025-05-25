@@ -88,7 +88,11 @@ def after_reaction_handler(mapper, connection, target):
         with local_session() as session:
             shout = (
                 session.query(Shout)
-                .filter(Shout.id == shout_id, Shout.published_at.is_not(None), Shout.deleted_at.is_(None))
+                .filter(
+                    Shout.id == shout_id,
+                    Shout.published_at.is_not(None),
+                    Shout.deleted_at.is_(None),
+                )
                 .first()
             )
 
@@ -108,15 +112,27 @@ def events_register():
 
     event.listen(AuthorFollower, "after_insert", after_follower_handler)
     event.listen(AuthorFollower, "after_update", after_follower_handler)
-    event.listen(AuthorFollower, "after_delete", lambda *args: after_follower_handler(*args, is_delete=True))
+    event.listen(
+        AuthorFollower,
+        "after_delete",
+        lambda *args: after_follower_handler(*args, is_delete=True),
+    )
 
     event.listen(TopicFollower, "after_insert", after_follower_handler)
     event.listen(TopicFollower, "after_update", after_follower_handler)
-    event.listen(TopicFollower, "after_delete", lambda *args: after_follower_handler(*args, is_delete=True))
+    event.listen(
+        TopicFollower,
+        "after_delete",
+        lambda *args: after_follower_handler(*args, is_delete=True),
+    )
 
     event.listen(ShoutReactionsFollower, "after_insert", after_follower_handler)
     event.listen(ShoutReactionsFollower, "after_update", after_follower_handler)
-    event.listen(ShoutReactionsFollower, "after_delete", lambda *args: after_follower_handler(*args, is_delete=True))
+    event.listen(
+        ShoutReactionsFollower,
+        "after_delete",
+        lambda *args: after_follower_handler(*args, is_delete=True),
+    )
 
     event.listen(Reaction, "after_update", mark_for_revalidation)
     event.listen(Author, "after_update", mark_for_revalidation)

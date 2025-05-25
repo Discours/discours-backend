@@ -1,17 +1,7 @@
 import asyncio
-import os
-
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from starlette.testclient import TestClient
-
-from main import app
-from services.db import Base
 from services.redis import redis
-
-# Use SQLite for testing
-TEST_DB_URL = "sqlite:///test.db"
+from tests.test_config import get_test_client
 
 
 @pytest.fixture(scope="session")
@@ -23,38 +13,36 @@ def event_loop():
 
 
 @pytest.fixture(scope="session")
-def test_engine():
-    """Create a test database engine."""
-    engine = create_engine(TEST_DB_URL)
-    Base.metadata.create_all(engine)
-    yield engine
-    Base.metadata.drop_all(engine)
-    os.remove("test.db")
+def test_app():
+    """Create a test client and session factory."""
+    client, SessionLocal = get_test_client()
+    return client, SessionLocal
 
 
 @pytest.fixture
-def db_session(test_engine):
+def db_session(test_app):
     """Create a new database session for a test."""
-    connection = test_engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection)
+    _, SessionLocal = test_app
+    session = SessionLocal()
 
     yield session
 
+    session.rollback()
     session.close()
-    transaction.rollback()
-    connection.close()
+
+
+@pytest.fixture
+def test_client(test_app):
+    """Get the test client."""
+    client, _ = test_app
+    return client
 
 
 @pytest.fixture
 async def redis_client():
     """Create a test Redis client."""
     await redis.connect()
+    await redis.flushall()  # Очищаем Redis перед каждым тестом
     yield redis
+    await redis.flushall()  # Очищаем после теста
     await redis.disconnect()
-
-
-@pytest.fixture
-def test_client():
-    """Create a TestClient instance."""
-    return TestClient(app)

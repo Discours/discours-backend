@@ -6,7 +6,6 @@ from sqlalchemy.orm import relationship
 from orm.author import Author
 from orm.topic import Topic
 from services.db import Base
-from orm.shout import Shout
 
 
 class DraftTopic(Base):
