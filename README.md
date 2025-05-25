@@ -57,7 +57,7 @@ mkcert localhost
 Then, run the server:
 
 ```shell
-python server.py dev
+python -m granian main:app --interface asgi --host 0.0.0.0 --port 8000
 ```
 
 ### Useful Commands
