@@ -24,6 +24,7 @@ COPY . .
 # Установка зависимостей и сборка фронта (если есть package.json)
 COPY package.json package-lock.json ./
 RUN npm ci && npm run build
+RUN cp -r dist dist
 
 EXPOSE 8000
 
