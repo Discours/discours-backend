@@ -86,7 +86,9 @@ class EnvManager:
     # Переменные, которые следует всегда помечать как секретные
     SECRET_VARS_PATTERNS = [
         r".*TOKEN.*", r".*SECRET.*", r".*PASSWORD.*", r".*KEY.*", 
-        r".*PWD.*", r".*PASS.*", r".*CRED.*"
+        r".*PWD.*", r".*PASS.*", r".*CRED.*", 
+        r".*JWT.*", r".*SESSION.*", r".*OAUTH.*", 
+        r".*GITHUB.*", r".*GOOGLE.*", r".*FACEBOOK.*"
     ]
 
     def __init__(self):
@@ -178,9 +180,27 @@ class EnvManager:
 
     def _is_secret_variable(self, key: str) -> bool:
         """
-        Проверяет, является ли переменная секретной
+        Проверяет, является ли переменная секретной.
+        Секретными считаются:
+        - переменные, подходящие под SECRET_VARS_PATTERNS
+        - переменные с ключами DATABASE_URL, REDIS_URL, DB_URL (точное совпадение, без учета регистра)
+
+        >>> EnvManager()._is_secret_variable('MY_SECRET_TOKEN')
+        True
+        >>> EnvManager()._is_secret_variable('database_url')
+        True
+        >>> EnvManager()._is_secret_variable('REDIS_URL')
+        True
+        >>> EnvManager()._is_secret_variable('DB_URL')
+        True
+        >>> EnvManager()._is_secret_variable('SOME_PUBLIC_KEY')
+        True
+        >>> EnvManager()._is_secret_variable('SOME_PUBLIC_VAR')
+        False
         """
         key_upper = key.upper()
+        if key_upper in {"DATABASE_URL", "REDIS_URL", "DB_URL"}:
+            return True
         return any(re.match(pattern, key_upper) for pattern in self.SECRET_VARS_PATTERNS)
 
     def _determine_variable_type(self, value: str) -> str:

@@ -862,6 +862,44 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   }
 
   /**
+   * Кнопка копирования значения переменной окружения
+   * @param value - значение для копирования
+   */
+  function CopyButton({ value }: { value: string }) {
+    /**
+     * Копирует значение в буфер обмена
+     * @param e - событие клика
+     */
+    const handleCopy = async (e: MouseEvent) => {
+      e.preventDefault()
+      try {
+        await navigator.clipboard.writeText(value)
+        // Можно добавить всплывающее уведомление
+      } catch (err) {
+        alert('Ошибка копирования: ' + (err as Error).message)
+      }
+    }
+    return (
+      <button class="copy-btn" title="Скопировать" onClick={handleCopy} style="margin-left: 6px">
+        📋
+      </button>
+    )
+  }
+
+  /**
+   * Кнопка показать/скрыть значение переменной
+   * @param shown - показывать ли значение
+   * @param onToggle - обработчик переключения
+   */
+  function ShowHideButton({ shown, onToggle }: { shown: boolean, onToggle: () => void }) {
+    return (
+      <button class="show-btn" title={shown ? 'Скрыть' : 'Показать'} onClick={onToggle} style="margin-left: 6px">
+        {shown ? '🙈' : '👁️'}
+      </button>
+    )
+  }
+
+  /**
    * Компонент модального окна для редактирования переменной окружения
    */
   const VariableModal: Component = () => {
@@ -909,6 +947,17 @@ const AdminPage: Component<AdminPageProps> = (props) => {
    * Компонент для отображения переменных окружения
    */
   const EnvVariablesTab: Component = () => {
+    // Сигналы для показа/скрытия значений по ключу
+    const [shownVars, setShownVars] = createSignal<{ [key: string]: boolean }>({})
+
+    /**
+     * Переключает показ значения переменной
+     * @param key - ключ переменной
+     */
+    const toggleShow = (key: string) => {
+      setShownVars((prev) => ({ ...prev, [key]: !prev[key] }))
+    }
+
     return (
       <div class="env-variables-container">
         <Show when={envLoading()}>
@@ -928,7 +977,6 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                   <Show when={section.description}>
                     <p class="section-description">{section.description}</p>
                   </Show>
-                  
                   <div class="variables-list">
                     <table>
                       <thead>
@@ -941,25 +989,32 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                       </thead>
                       <tbody>
                         <For each={section.variables}>
-                          {(variable) => (
-                            <tr>
-                              <td>{variable.key}</td>
-                              <td>
-                                {variable.isSecret 
-                                  ? '••••••••' 
-                                  : (variable.value || <span class="empty-value">не задано</span>)}
-                              </td>
-                              <td>{variable.description || '-'}</td>
-                              <td class="actions">
-                                <button 
-                                  class="edit-button"
-                                  onClick={() => openVariableModal(variable)}
-                                >
-                                  Изменить
-                                </button>
-                              </td>
-                            </tr>
-                          )}
+                          {(variable) => {
+                            const shown = shownVars()[variable.key] || false
+                            return (
+                              <tr>
+                                <td>{variable.key}</td>
+                                <td>
+                                  {variable.isSecret && !shown
+                                    ? '••••••••'
+                                    : (variable.value || <span class="empty-value">не задано</span>)}
+                                  <CopyButton value={variable.value || ''} />
+                                  {variable.isSecret && (
+                                    <ShowHideButton shown={shown} onToggle={() => toggleShow(variable.key)} />
+                                  )}
+                                </td>
+                                <td>{variable.description || '-'}</td>
+                                <td class="actions">
+                                  <button 
+                                    class="edit-button"
+                                    onClick={() => openVariableModal(variable)}
+                                  >
+                                    Изменить
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          }}
                         </For>
                       </tbody>
                     </table>

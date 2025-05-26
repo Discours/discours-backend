@@ -75,7 +75,7 @@ class ViewedStorage:
             await redis.connect()
 
         # Логируем настройки Redis соединения
-        logger.info(f" * Redis connection: {redis._client}")
+        logger.info("* Redis connected")
 
         # Получаем список всех ключей migrated_views_* и находим самый последний
         keys = await redis.execute("KEYS", "migrated_views_*")
