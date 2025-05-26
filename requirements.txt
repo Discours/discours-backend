@@ -1,4 +1,5 @@
 bcrypt
+PyJWT
 authlib
 passlib
 opensearch-py
