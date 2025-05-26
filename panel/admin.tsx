@@ -880,9 +880,9 @@ const AdminPage: Component<AdminPageProps> = (props) => {
       }
     }
     return (
-      <button class="copy-btn" title="Скопировать" onClick={handleCopy} style="margin-left: 6px">
+      <a class="btn" title="Скопировать" type="button" style="margin-left: 6px" onClick={handleCopy}>
         📋
-      </button>
+      </a>
     )
   }
 
@@ -893,9 +893,9 @@ const AdminPage: Component<AdminPageProps> = (props) => {
    */
   function ShowHideButton({ shown, onToggle }: { shown: boolean, onToggle: () => void }) {
     return (
-      <button class="show-btn" title={shown ? 'Скрыть' : 'Показать'} onClick={onToggle} style="margin-left: 6px">
+      <a class="btn" title={shown ? 'Скрыть' : 'Показать'} type="button" style="margin-left: 6px" onClick={onToggle}>
         {shown ? '🙈' : '👁️'}
-      </button>
+      </a>
     )
   }
 
@@ -990,17 +990,17 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                       <tbody>
                         <For each={section.variables}>
                           {(variable) => {
-                            const shown = shownVars()[variable.key] || false
+                            const shown = () => shownVars()[variable.key] || false
                             return (
                               <tr>
                                 <td>{variable.key}</td>
                                 <td>
-                                  {variable.isSecret && !shown
+                                  {variable.isSecret && !shown()
                                     ? '••••••••'
                                     : (variable.value || <span class="empty-value">не задано</span>)}
                                   <CopyButton value={variable.value || ''} />
                                   {variable.isSecret && (
-                                    <ShowHideButton shown={shown} onToggle={() => toggleShow(variable.key)} />
+                                    <ShowHideButton shown={shown()} onToggle={() => toggleShow(variable.key)} />
                                   )}
                                 </td>
                                 <td>{variable.description || '-'}</td>

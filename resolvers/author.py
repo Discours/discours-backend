@@ -389,12 +389,17 @@ async def load_authors_by(_, info, by, limit, offset):
     Returns:
         list: Список авторов с учетом критерия
     """
-    # Получаем ID текущего пользователя и флаг админа из контекста
-    viewer_id = info.context.get("author", {}).get("id")
-    is_admin = info.context.get("is_admin", False)
-    
-    # Используем оптимизированную функцию для получения авторов
-    return await get_authors_with_stats(limit, offset, by, viewer_id, is_admin)
+    try:
+        # Получаем ID текущего пользователя и флаг админа из контекста
+        viewer_id = info.context.get("author", {}).get("id")
+        is_admin = info.context.get("is_admin", False)
+        
+        # Используем оптимизированную функцию для получения авторов
+        return await get_authors_with_stats(limit, offset, by, viewer_id, is_admin)
+    except Exception as exc:
+        import traceback
+        logger.error(f"{exc}:\n{traceback.format_exc()}")
+        return []
 
 
 @query.field("load_authors_search")

@@ -86,7 +86,7 @@ class EnvManager:
     # Переменные, которые следует всегда помечать как секретные
     SECRET_VARS_PATTERNS = [
         r".*TOKEN.*", r".*SECRET.*", r".*PASSWORD.*", r".*KEY.*", 
-        r".*PWD.*", r".*PASS.*", r".*CRED.*", 
+        r".*PWD.*", r".*PASS.*", r".*CRED.*", r".*_DSN.*",
         r".*JWT.*", r".*SESSION.*", r".*OAUTH.*", 
         r".*GITHUB.*", r".*GOOGLE.*", r".*FACEBOOK.*"
     ]

@@ -841,3 +841,10 @@ th.sortable.sorted .sort-icon {
   color: var(--primary-color);
   font-weight: bold;
 }
+
+.btn {
+  text-decoration: none;
+  margin-left: 6px;
+  cursor: pointer;
+  user-select: none;
+}
