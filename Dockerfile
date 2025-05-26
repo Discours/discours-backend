@@ -4,7 +4,13 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     curl \
     build-essential \
+    gnupg \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Установка Node.js LTS и npm
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
+    apt-get install -y nodejs
 
 WORKDIR /app
 
@@ -13,6 +19,10 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
+
+# Установка зависимостей и сборка фронта (если есть package.json)
+COPY package.json package-lock.json ./
+RUN npm ci && npm run build
 
 EXPOSE 8000
 
