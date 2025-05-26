@@ -16,15 +16,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
 WORKDIR /app
 
 COPY requirements.txt .
-
+COPY package.json package-lock.json ./
+RUN npm ci && npm run build
 RUN pip install -r requirements.txt
 
 COPY . .
 
-# Установка зависимостей и сборка фронта (если есть package.json)
-COPY package.json package-lock.json ./
-RUN npm ci && npm run build
-RUN cp -r dist .
 
 EXPOSE 8000
 
