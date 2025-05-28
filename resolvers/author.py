@@ -94,7 +94,7 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
                     # Обработка словаря параметров сортировки
                     from sqlalchemy import asc, desc, func
                     from orm.shout import ShoutAuthor
-                    from orm.author import AuthorFollower
+                    from auth.orm import AuthorFollower
 
                     # Checking for order field in the dictionary
                     if "order" in by:
@@ -163,7 +163,7 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
             elif stats_sort_field == "followers":
                 # Sorting by the number of followers
                 from sqlalchemy import func
-                from orm.author import AuthorFollower
+                from auth.orm import AuthorFollower
                 
                 subquery = (
                     select(
