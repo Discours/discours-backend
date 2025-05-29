@@ -306,7 +306,7 @@ async def create_article_example(request: Request): # Используем Reque
     """
     user: Author = request.user # request.user добавляется декоратором @login_required
 
-    # Проверяем право на создание статей (метод из модели auth.orm.Author)
+    # Проверяем право на создание статей (метод из модели auth.auth.orm)
     if not user.has_permission('articles', 'create'):
         return JSONResponse({'error': 'Недостаточно прав для создания статьи'}, status_code=403)
 

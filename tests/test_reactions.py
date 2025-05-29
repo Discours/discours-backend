@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from orm.author import Author
+from auth.orm import Author
 from orm.reaction import ReactionKind
 from orm.shout import Shout
 

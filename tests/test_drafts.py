@@ -1,6 +1,6 @@
 import pytest
 
-from orm.author import Author
+from auth.orm import Author
 from orm.shout import Shout
 
 

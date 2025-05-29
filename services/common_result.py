@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from orm.author import Author
+from auth.orm import Author
 from orm.community import Community
 from orm.reaction import Reaction
 from orm.shout import Shout
