@@ -252,11 +252,11 @@ async def invalidate_authors_cache(author_id=None):
             f"author:follows-shouts:{author_id}",
         ]
 
-        # Получаем user_id автора, если есть
+        # Получаем author_id автора, если есть
         with local_session() as session:
             author = session.query(Author).filter(Author.id == author_id).first()
             if author and Author.id:
-                specific_keys.append(f"author:user:{Author.id.strip()}")
+                specific_keys.append(f"author:id:{Author.id}")
 
         # Удаляем конкретные ключи
         for key in specific_keys:

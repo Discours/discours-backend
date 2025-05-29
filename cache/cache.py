@@ -60,7 +60,6 @@ CACHE_KEYS = {
     "TOPIC_FOLLOWERS": "topic:followers:{}",
     "TOPIC_SHOUTS": "topic_shouts_{}",
     "AUTHOR_ID": "author:id:{}",
-    "AUTHOR_USER": "author:user:{}",
     "SHOUTS": "shouts:{}",
 }
 
@@ -300,19 +299,19 @@ async def get_cached_follower_topics(author_id: int):
     return topics
 
 
-# Get author by user ID from cache
-async def get_cached_author_by_id(user_id: str, get_with_stat):
+# Get author by author_id from cache
+async def get_cached_author_by_id(author_id: int, get_with_stat):
     """
-    Retrieve author information by user_id, checking the cache first, then the database.
+    Retrieve author information by author_id, checking the cache first, then the database.
 
     Args:
-        user_id (str): The user identifier for which to retrieve the author.
+        author_id (int): The author identifier for which to retrieve the author.
 
     Returns:
         dict: Dictionary with author data or None if not found.
     """
-    # Attempt to find author ID by user_id in Redis cache
-    author_id = await redis.execute("GET", f"author:user:{author_id}")
+    # Attempt to find author ID by author_id in Redis cache
+    author_id = await redis.execute("GET", f"author:id:{author_id}")
     if author_id:
         # If ID is found, get full author data by ID
         author_data = await redis.execute("GET", f"author:id:{author_id}")
@@ -406,7 +405,7 @@ async def invalidate_shouts_cache(cache_keys: List[str]):
                     logger.debug(f"Invalidated related key: {related_key}")
 
         except Exception as e:
-            logger.error(f"Error invalidating cache key {key}: {e}")
+            logger.error(f"Error invalidating cache key {cache_key}: {e}")
 
 
 async def cache_topic_shouts(topic_id: int, shouts: List[dict]):
