@@ -65,10 +65,6 @@ server {
 
         # Handle CORS preflight requests
         if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Allow-Origin' $allow_origin always;
-            add_header 'Access-Control-Allow-Methods' 'POST, GET, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization' always;
-            add_header 'Access-Control-Allow-Credentials' 'true' always;
             add_header 'Access-Control-Max-Age' 1728000;
             add_header 'Content-Type' 'text/plain; charset=utf-8';
             add_header 'Content-Length' 0;
