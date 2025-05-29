@@ -310,13 +310,11 @@ async def get_cached_author_by_id(author_id: int, get_with_stat):
     Returns:
         dict: Dictionary with author data or None if not found.
     """
-    # Attempt to find author ID by author_id in Redis cache
-    author_id = await redis.execute("GET", f"author:id:{author_id}")
-    if author_id:
-        # If ID is found, get full author data by ID
-        author_data = await redis.execute("GET", f"author:id:{author_id}")
-        if author_data:
-            return orjson.loads(author_data)
+    # Attempt to find author data by author_id in Redis cache
+    cached_author_data = await redis.execute("GET", f"author:id:{author_id}")
+    if cached_author_data:
+        # If data is found, return parsed JSON
+        return orjson.loads(cached_author_data)
 
     # If data is not found in cache, query the database
     author_query = select(Author).where(Author.id == author_id)
