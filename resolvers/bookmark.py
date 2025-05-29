@@ -72,9 +72,7 @@ def toggle_bookmark_shout(_, info, slug: str) -> CommonResult:
 
         if existing_bookmark:
             db.execute(
-                delete(AuthorBookmark).where(
-                    AuthorBookmark.author == author_id, AuthorBookmark.shout == shout.id
-                )
+                delete(AuthorBookmark).where(AuthorBookmark.author == author_id, AuthorBookmark.shout == shout.id)
             )
             result = False
         else:

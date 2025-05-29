@@ -5,13 +5,13 @@ from sqlalchemy import and_, desc, select
 from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.sql.functions import coalesce
 
+from auth.orm import Author
 from cache.cache import (
     cache_author,
     cache_topic,
     invalidate_shout_related_cache,
     invalidate_shouts_cache,
 )
-from auth.orm import Author
 from orm.draft import Draft
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
@@ -179,9 +179,7 @@ async def create_shout(_, info, inp):
                 lead = inp.get("lead", "")
                 body_text = extract_text(body)
                 lead_text = extract_text(lead)
-                seo = inp.get(
-                    "seo", lead_text.strip() or body_text.strip()[:300].split(". ")[:-1].join(". ")
-                )
+                seo = inp.get("seo", lead_text.strip() or body_text.strip()[:300].split(". ")[:-1].join(". "))
                 new_shout = Shout(
                     slug=slug,
                     body=body,
@@ -278,9 +276,7 @@ def patch_main_topic(session, main_topic_slug, shout):
     with session.begin():
         # Получаем текущий главный топик
         old_main = (
-            session.query(ShoutTopic)
-            .filter(and_(ShoutTopic.shout == shout.id, ShoutTopic.main.is_(True)))
-            .first()
+            session.query(ShoutTopic).filter(and_(ShoutTopic.shout == shout.id, ShoutTopic.main.is_(True))).first()
         )
         if old_main:
             logger.info(f"Found current main topic: {old_main.topic.slug}")
@@ -314,9 +310,7 @@ def patch_main_topic(session, main_topic_slug, shout):
             session.flush()
             logger.info(f"Main topic updated for shout#{shout.id}")
         else:
-            logger.warning(
-                f"No changes needed for main topic (old={old_main is not None}, new={new_main is not None})"
-            )
+            logger.warning(f"No changes needed for main topic (old={old_main is not None}, new={new_main is not None})")
 
 
 def patch_topics(session, shout, topics_input):
@@ -410,9 +404,7 @@ async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
                 logger.info(f"Processing update for shout#{shout_id} by author #{author_id}")
                 shout_by_id = (
                     session.query(Shout)
-                    .options(
-                        joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors)
-                    )
+                    .options(joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors))
                     .filter(Shout.id == shout_id)
                     .first()
                 )
@@ -441,10 +433,7 @@ async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
                     shout_input["slug"] = slug
                     logger.info(f"shout#{shout_id} slug patched")
 
-                if (
-                    filter(lambda x: x.id == author_id, [x for x in shout_by_id.authors])
-                    or "editor" in roles
-                ):
+                if filter(lambda x: x.id == author_id, [x for x in shout_by_id.authors]) or "editor" in roles:
                     logger.info(f"Author #{author_id} has permission to edit shout#{shout_id}")
 
                     # topics patch
@@ -558,9 +547,7 @@ async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
                     # Получаем полные данные шаута со связями
                     shout_with_relations = (
                         session.query(Shout)
-                        .options(
-                            joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors)
-                        )
+                        .options(joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors))
                         .filter(Shout.id == shout_id)
                         .first()
                     )

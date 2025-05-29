@@ -1,11 +1,12 @@
 import time
+
 from sqlalchemy.orm import joinedload
 
+from auth.orm import Author
 from cache.cache import (
     invalidate_shout_related_cache,
     invalidate_shouts_cache,
 )
-from auth.orm import Author
 from orm.draft import Draft, DraftAuthor, DraftTopic
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from services.auth import login_required
@@ -449,15 +450,15 @@ async def publish_draft(_, info, draft_id: int):
 
             # Добавляем темы
             for topic in draft.topics or []:
-                st = ShoutTopic(
-                    topic=topic.id, shout=shout.id, main=topic.main if hasattr(topic, "main") else False
-                )
+                st = ShoutTopic(topic=topic.id, shout=shout.id, main=topic.main if hasattr(topic, "main") else False)
                 session.add(st)
 
             session.commit()
 
             # Инвалидируем кеш
-            cache_keys = [f"shouts:{shout.id}", ]
+            cache_keys = [
+                f"shouts:{shout.id}",
+            ]
             await invalidate_shouts_cache(cache_keys)
             await invalidate_shout_related_cache(shout, author_id)
 
@@ -482,67 +483,59 @@ async def publish_draft(_, info, draft_id: int):
 async def unpublish_draft(_, info, draft_id: int):
     """
     Снимает с публикации черновик, обновляя связанный Shout.
-    
+
     Args:
         draft_id (int): ID черновика, публикацию которого нужно снять
-        
+
     Returns:
         dict: Результат операции с информацией о черновике или сообщением об ошибке
     """
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
-    
+
     if author_id:
         return {"error": "Author ID is required"}
-    
+
     try:
         with local_session() as session:
             # Загружаем черновик со связанной публикацией
             draft = (
                 session.query(Draft)
-                .options(
-                    joinedload(Draft.publication),
-                    joinedload(Draft.authors),
-                    joinedload(Draft.topics)
-                )
+                .options(joinedload(Draft.publication), joinedload(Draft.authors), joinedload(Draft.topics))
                 .filter(Draft.id == draft_id)
                 .first()
             )
-            
+
             if not draft:
                 return {"error": "Draft not found"}
-                
+
             # Проверяем, есть ли публикация
             if not draft.publication:
                 return {"error": "This draft is not published yet"}
-                
+
             shout = draft.publication
-            
+
             # Снимаем с публикации
             shout.published_at = None
             shout.updated_at = int(time.time())
             shout.updated_by = author_id
-            
+
             session.commit()
-            
+
             # Инвалидируем кэш
             cache_keys = [f"shouts:{shout.id}"]
             await invalidate_shouts_cache(cache_keys)
             await invalidate_shout_related_cache(shout, author_id)
-            
+
             # Формируем результат
             draft_dict = draft.dict()
             # Добавляем информацию о публикации
-            draft_dict["publication"] = {
-                "id": shout.id,
-                "slug": shout.slug,
-                "published_at": None
-            }
-            
+            draft_dict["publication"] = {"id": shout.id, "slug": shout.slug, "published_at": None}
+
             logger.info(f"Successfully unpublished shout #{shout.id} for draft #{draft_id}")
-            
+
             return {"draft": draft_dict}
-            
+
     except Exception as e:
         logger.error(f"Failed to unpublish draft {draft_id}: {e}", exc_info=True)
         return {"error": f"Failed to unpublish draft: {str(e)}"}

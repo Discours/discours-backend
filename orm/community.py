@@ -66,11 +66,7 @@ class CommunityStats:
     def shouts(self):
         from orm.shout import Shout
 
-        return (
-            self.community.session.query(func.count(Shout.id))
-            .filter(Shout.community == self.community.id)
-            .scalar()
-        )
+        return self.community.session.query(func.count(Shout.id)).filter(Shout.community == self.community.id).scalar()
 
     @property
     def followers(self):

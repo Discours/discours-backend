@@ -5,19 +5,18 @@ from os.path import exists, join
 
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles
 
 from auth.handler import EnhancedGraphQLHTTPHandler
 from auth.internal import InternalAuthentication
-from auth.middleware import auth_middleware, AuthMiddleware
-from starlette.applications import Starlette
-from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.authentication import AuthenticationMiddleware
-from starlette.middleware import Middleware
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
-from starlette.routing import Route, Mount
-from starlette.staticfiles import StaticFiles
-
+from auth.middleware import AuthMiddleware, auth_middleware
 from cache.precache import precache_data
 from cache.revalidator import revalidation_manager
 from services.exception import ExceptionHandlerMiddleware
@@ -25,8 +24,8 @@ from services.redis import redis
 from services.schema import create_all_tables, resolvers
 from services.search import check_search_service, initialize_search_index_background, search_service
 from services.viewed import ViewedStorage
-from utils.logger import root_logger as logger
 from settings import DEV_SERVER_PID_FILE_NAME
+from utils.logger import root_logger as logger
 
 DEVMODE = os.getenv("DOKKU_APP_TYPE", "false").lower() == "false"
 DIST_DIR = join(os.path.dirname(__file__), "dist")  # Директория для собранных файлов
@@ -46,14 +45,14 @@ middleware = [
     Middleware(
         CORSMiddleware,
         allow_origins=[
-            "https://localhost:3000", 
-            "https://testing.discours.io", 
-            "https://discours.io", 
+            "https://localhost:3000",
+            "https://testing.discours.io",
+            "https://discours.io",
             "https://new.discours.io",
             "https://discours.ru",
-            "https://new.discours.ru"
-            ],
-        allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS 
+            "https://new.discours.ru",
+        ],
+        allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
         allow_headers=["*"],
         allow_credentials=True,
     ),
@@ -65,33 +64,29 @@ middleware = [
 
 
 # Создаем экземпляр GraphQL с улучшенным обработчиком
-graphql_app = GraphQL(
-    schema, 
-    debug=DEVMODE,
-    http_handler=EnhancedGraphQLHTTPHandler()
-)
+graphql_app = GraphQL(schema, debug=DEVMODE, http_handler=EnhancedGraphQLHTTPHandler())
 
 
 # Оборачиваем GraphQL-обработчик для лучшей обработки ошибок
 async def graphql_handler(request: Request):
     """
     Обработчик GraphQL запросов с поддержкой middleware и обработкой ошибок.
-    
+
     Выполняет:
     1. Проверку метода запроса (GET, POST, OPTIONS)
     2. Обработку GraphQL запроса через ariadne
     3. Применение middleware для корректной обработки cookie и авторизации
     4. Обработку исключений и формирование ответа
-    
+
     Args:
         request: Starlette Request объект
-        
+
     Returns:
         Response: объект ответа (обычно JSONResponse)
     """
     if request.method not in ["GET", "POST", "OPTIONS"]:
         return JSONResponse({"error": "Method Not Allowed by main.py"}, status_code=405)
-    
+
     # Проверяем, что все необходимые middleware корректно отработали
     if not hasattr(request, "scope") or "auth" not in request.scope:
         logger.warning("[graphql] AuthMiddleware не обработал запрос перед GraphQL обработчиком")
@@ -99,7 +94,7 @@ async def graphql_handler(request: Request):
     try:
         # Обрабатываем запрос через GraphQL приложение
         result = await graphql_app.handle_request(request)
-        
+
         # Применяем middleware для установки cookie
         # Используем метод process_result из auth_middleware для корректной обработки
         # cookie на основе результатов операций login/logout
@@ -111,6 +106,7 @@ async def graphql_handler(request: Request):
         logger.error(f"GraphQL error: {str(e)}")
         # Логируем более подробную информацию для отладки
         import traceback
+
         logger.debug(f"GraphQL error traceback: {traceback.format_exc()}")
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -127,6 +123,7 @@ async def shutdown():
 
     # Удаляем PID-файл, если он существует
     from settings import DEV_SERVER_PID_FILE_NAME
+
     if exists(DEV_SERVER_PID_FILE_NAME):
         os.unlink(DEV_SERVER_PID_FILE_NAME)
 
@@ -134,12 +131,12 @@ async def shutdown():
 async def dev_start():
     """
     Инициализация сервера в DEV режиме.
-    
+
     Функция:
     1. Проверяет наличие DEV режима
     2. Создает PID-файл для отслеживания процесса
     3. Логирует информацию о старте сервера
-    
+
     Используется только при запуске сервера с флагом "dev".
     """
     try:
@@ -151,6 +148,7 @@ async def dev_start():
                     old_pid = int(f.read().strip())
                 # Проверяем, существует ли процесс с таким PID
                 import signal
+
                 try:
                     os.kill(old_pid, 0)  # Сигнал 0 только проверяет существование процесса
                     print(f"[warning] DEV server already running with PID {old_pid}")
@@ -158,7 +156,7 @@ async def dev_start():
                     print(f"[info] Stale PID file found, previous process {old_pid} not running")
             except (ValueError, FileNotFoundError):
                 print(f"[warning] Invalid PID file found, recreating")
-        
+
         # Создаем или перезаписываем PID-файл
         with open(pid_path, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
@@ -172,16 +170,16 @@ async def dev_start():
 async def lifespan(_app):
     """
     Функция жизненного цикла приложения.
-    
+
     Обеспечивает:
     1. Инициализацию всех необходимых сервисов и компонентов
     2. Предзагрузку кеша данных
     3. Подключение к Redis и поисковому сервису
     4. Корректное завершение работы при остановке сервера
-    
+
     Args:
         _app: экземпляр Starlette приложения
-        
+
     Yields:
         None: генератор для управления жизненным циклом
     """
@@ -213,11 +211,12 @@ async def lifespan(_app):
         await asyncio.gather(*tasks, return_exceptions=True)
         print("[lifespan] Shutdown complete")
 
+
 # Обновляем маршрут в Starlette
 app = Starlette(
     routes=[
         Route("/graphql", graphql_handler, methods=["GET", "POST", "OPTIONS"]),
-        Mount("/", app=StaticFiles(directory=DIST_DIR, html=True))
+        Mount("/", app=StaticFiles(directory=DIST_DIR, html=True)),
     ],
     lifespan=lifespan,
     middleware=middleware,  # Явно указываем список middleware

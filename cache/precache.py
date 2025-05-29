@@ -3,8 +3,8 @@ import json
 
 from sqlalchemy import and_, join, select
 
-from cache.cache import cache_author, cache_topic
 from auth.orm import Author, AuthorFollower
+from cache.cache import cache_author, cache_topic
 from orm.shout import Shout, ShoutAuthor, ShoutReactionsFollower, ShoutTopic
 from orm.topic import Topic, TopicFollower
 from resolvers.stat import get_with_stat
@@ -29,9 +29,7 @@ async def precache_authors_followers(author_id, session):
 async def precache_authors_follows(author_id, session):
     follows_topics_query = select(TopicFollower.topic).where(TopicFollower.follower == author_id)
     follows_authors_query = select(AuthorFollower.author).where(AuthorFollower.follower == author_id)
-    follows_shouts_query = select(ShoutReactionsFollower.shout).where(
-        ShoutReactionsFollower.follower == author_id
-    )
+    follows_shouts_query = select(ShoutReactionsFollower.shout).where(ShoutReactionsFollower.follower == author_id)
 
     follows_topics = {row[0] for row in session.execute(follows_topics_query) if row[0]}
     follows_authors = {row[0] for row in session.execute(follows_authors_query) if row[0]}

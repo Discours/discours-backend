@@ -1,5 +1,7 @@
 import asyncio
+
 import pytest
+
 from services.redis import redis
 from tests.test_config import get_test_client
 

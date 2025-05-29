@@ -1,19 +1,21 @@
 from functools import wraps
-from typing import Callable, Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
+
 from graphql import GraphQLError, GraphQLResolveInfo
 from sqlalchemy import exc
 
 from auth.credentials import AuthCredentials
-from services.db import local_session
-from auth.orm import Author
 from auth.exceptions import OperationNotAllowed
-from utils.logger import root_logger as logger
-from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST, SESSION_TOKEN_HEADER, SESSION_COOKIE_NAME
-from auth.sessions import SessionManager
-from auth.jwtcodec import JWTCodec, InvalidToken, ExpiredToken
-from auth.tokenstorage import TokenStorage
-from services.redis import redis
 from auth.internal import authenticate
+from auth.jwtcodec import ExpiredToken, InvalidToken, JWTCodec
+from auth.orm import Author
+from auth.sessions import SessionManager
+from auth.tokenstorage import TokenStorage
+from services.db import local_session
+from services.redis import redis
+from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
+from settings import SESSION_COOKIE_NAME, SESSION_TOKEN_HEADER
+from utils.logger import root_logger as logger
 
 ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
 
@@ -21,10 +23,10 @@ ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
 def get_safe_headers(request: Any) -> Dict[str, str]:
     """
     Безопасно получает заголовки запроса.
-    
+
     Args:
         request: Объект запроса
-        
+
     Returns:
         Dict[str, str]: Словарь заголовков
     """
@@ -34,12 +36,9 @@ def get_safe_headers(request: Any) -> Dict[str, str]:
         if hasattr(request, "scope") and isinstance(request.scope, dict):
             scope_headers = request.scope.get("headers", [])
             if scope_headers:
-                headers.update({
-                    k.decode("utf-8").lower(): v.decode("utf-8")
-                    for k, v in scope_headers
-                })
+                headers.update({k.decode("utf-8").lower(): v.decode("utf-8") for k, v in scope_headers})
                 logger.debug(f"[decorators] Получены заголовки из request.scope: {len(headers)}")
-        
+
         # Второй приоритет: метод headers() или атрибут headers
         if hasattr(request, "headers"):
             if callable(request.headers):
@@ -55,15 +54,15 @@ def get_safe_headers(request: Any) -> Dict[str, str]:
                 elif isinstance(h, dict):
                     headers.update({k.lower(): v for k, v in h.items()})
                     logger.debug(f"[decorators] Получены заголовки из request.headers словаря: {len(headers)}")
-        
+
         # Третий приоритет: атрибут _headers
         if hasattr(request, "_headers") and request._headers:
             headers.update({k.lower(): v for k, v in request._headers.items()})
             logger.debug(f"[decorators] Получены заголовки из request._headers: {len(headers)}")
-            
+
     except Exception as e:
         logger.warning(f"[decorators] Ошибка при доступе к заголовкам: {e}")
-    
+
     return headers
 
 
@@ -72,13 +71,13 @@ def get_auth_token(request: Any) -> Optional[str]:
     Извлекает токен авторизации из запроса.
     Порядок проверки:
     1. Проверяет auth из middleware
-    2. Проверяет auth из scope 
+    2. Проверяет auth из scope
     3. Проверяет заголовок Authorization
     4. Проверяет cookie с именем auth_token
-    
+
     Args:
         request: Объект запроса
-        
+
     Returns:
         Optional[str]: Токен авторизации или None
     """
@@ -100,7 +99,7 @@ def get_auth_token(request: Any) -> Optional[str]:
 
         # 3. Проверяем заголовок Authorization
         headers = get_safe_headers(request)
-        
+
         # Сначала проверяем основной заголовок авторизации
         auth_header = headers.get(SESSION_TOKEN_HEADER.lower(), "")
         if auth_header:
@@ -112,7 +111,7 @@ def get_auth_token(request: Any) -> Optional[str]:
                 token = auth_header.strip()
                 logger.debug(f"[decorators] Прямой токен получен из заголовка {SESSION_TOKEN_HEADER}: {len(token)}")
                 return token
-        
+
         # Затем проверяем стандартный заголовок Authorization, если основной не определен
         if SESSION_TOKEN_HEADER.lower() != "authorization":
             auth_header = headers.get("authorization", "")
@@ -139,10 +138,10 @@ def get_auth_token(request: Any) -> Optional[str]:
 async def validate_graphql_context(info: Any) -> None:
     """
     Проверяет валидность GraphQL контекста и проверяет авторизацию.
-    
+
     Args:
         info: GraphQL информация о контексте
-    
+
     Raises:
         GraphQLError: если контекст невалиден или пользователь не авторизован
     """
@@ -161,7 +160,7 @@ async def validate_graphql_context(info: Any) -> None:
     if auth and auth.logged_in:
         logger.debug(f"[decorators] Пользователь уже авторизован: {auth.author_id}")
         return
-        
+
     # Если аутентификации нет в request.auth, пробуем получить ее из scope
     if hasattr(request, "scope") and "auth" in request.scope:
         auth_cred = request.scope.get("auth")
@@ -170,49 +169,45 @@ async def validate_graphql_context(info: Any) -> None:
             # Устанавливаем auth в request для дальнейшего использования
             request.auth = auth_cred
             return
-        
+
     # Если авторизации нет ни в auth, ни в scope, пробуем получить и проверить токен
     token = get_auth_token(request)
     if not token:
         # Если токен не найден, возвращаем ошибку авторизации
         client_info = {
             "ip": getattr(request.client, "host", "unknown") if hasattr(request, "client") else "unknown",
-            "headers": get_safe_headers(request)
+            "headers": get_safe_headers(request),
         }
         logger.warning(f"[decorators] Токен авторизации не найден: {client_info}")
         raise GraphQLError("Unauthorized - please login")
-    
+
     # Используем единый механизм проверки токена из auth.internal
     auth_state = await authenticate(request)
-    
+
     if not auth_state.logged_in:
         error_msg = auth_state.error or "Invalid or expired token"
         logger.warning(f"[decorators] Недействительный токен: {error_msg}")
         raise GraphQLError(f"Unauthorized - {error_msg}")
-    
+
     # Если все проверки пройдены, создаем AuthCredentials и устанавливаем в request.auth
     with local_session() as session:
         try:
             author = session.query(Author).filter(Author.id == auth_state.author_id).one()
             # Получаем разрешения из ролей
             scopes = author.get_permissions()
-            
+
             # Создаем объект авторизации
             auth_cred = AuthCredentials(
-                author_id=author.id,
-                scopes=scopes,
-                logged_in=True,
-                email=author.email,
-                token=auth_state.token
+                author_id=author.id, scopes=scopes, logged_in=True, email=author.email, token=auth_state.token
             )
-            
+
             # Устанавливаем auth в request
             request.auth = auth_cred
             logger.debug(f"[decorators] Токен успешно проверен и установлен для пользователя {auth_state.author_id}")
         except exc.NoResultFound:
             logger.error(f"[decorators] Пользователь с ID {auth_state.author_id} не найден в базе данных")
             raise GraphQLError("Unauthorized - user not found")
-    
+
     return
 
 
@@ -229,18 +224,19 @@ def admin_auth_required(resolver: Callable) -> Callable:
 
     Raises:
         GraphQLError: если пользователь не авторизован или не имеет доступа администратора
-    
+
     Example:
         >>> @admin_auth_required
         ... async def admin_resolver(root, info, **kwargs):
         ...     return "Admin data"
     """
+
     @wraps(resolver)
     async def wrapper(root: Any = None, info: Any = None, **kwargs):
         try:
             # Проверяем авторизацию пользователя
             await validate_graphql_context(info)
-            
+
             # Получаем объект авторизации
             auth = info.context["request"].auth
             if not auth or not auth.logged_in:
@@ -255,22 +251,24 @@ def admin_auth_required(resolver: Callable) -> Callable:
                     if not author_id:
                         logger.error(f"[admin_auth_required] ID автора не определен: {auth}")
                         raise GraphQLError("Unauthorized - invalid user ID")
-                        
+
                     author = session.query(Author).filter(Author.id == author_id).one()
-                    
+
                     # Проверяем, является ли пользователь администратором
                     if author.email in ADMIN_EMAILS:
                         logger.info(f"Admin access granted for {author.email} (ID: {author.id})")
                         return await resolver(root, info, **kwargs)
-                    
+
                     # Проверяем роли пользователя
-                    admin_roles = ['admin', 'super']
+                    admin_roles = ["admin", "super"]
                     user_roles = [role.id for role in author.roles] if author.roles else []
-                    
+
                     if any(role in admin_roles for role in user_roles):
-                        logger.info(f"Admin access granted for {author.email} (ID: {author.id}) with role: {user_roles}")
+                        logger.info(
+                            f"Admin access granted for {author.email} (ID: {author.id}) with role: {user_roles}"
+                        )
                         return await resolver(root, info, **kwargs)
-                    
+
                     logger.warning(f"Admin access denied for {author.email} (ID: {author.id}). Roles: {user_roles}")
                     raise GraphQLError("Unauthorized - not an admin")
                 except exc.NoResultFound:
@@ -301,7 +299,7 @@ def permission_required(resource: str, operation: str, func):
     async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
         # Сначала проверяем авторизацию
         await validate_graphql_context(info)
-        
+
         # Получаем объект авторизации
         logger.debug(f"[permission_required] Контекст: {info.context}")
         auth = info.context["request"].auth
@@ -324,21 +322,27 @@ def permission_required(resource: str, operation: str, func):
                 if author.email in ADMIN_EMAILS:
                     logger.debug(f"[permission_required] Администратор {author.email} имеет все разрешения")
                     return await func(parent, info, *args, **kwargs)
-                
+
                 # Проверяем роли пользователя
-                admin_roles = ['admin', 'super']
+                admin_roles = ["admin", "super"]
                 user_roles = [role.id for role in author.roles] if author.roles else []
-                
+
                 if any(role in admin_roles for role in user_roles):
-                    logger.debug(f"[permission_required] Пользователь с ролью администратора {author.email} имеет все разрешения")
+                    logger.debug(
+                        f"[permission_required] Пользователь с ролью администратора {author.email} имеет все разрешения"
+                    )
                     return await func(parent, info, *args, **kwargs)
 
                 # Проверяем разрешение
                 if not author.has_permission(resource, operation):
-                    logger.warning(f"[permission_required] У пользователя {author.email} нет разрешения {operation} на {resource}")
+                    logger.warning(
+                        f"[permission_required] У пользователя {author.email} нет разрешения {operation} на {resource}"
+                    )
                     raise OperationNotAllowed(f"No permission for {operation} on {resource}")
-                
-                logger.debug(f"[permission_required] Пользователь {author.email} имеет разрешение {operation} на {resource}")
+
+                logger.debug(
+                    f"[permission_required] Пользователь {author.email} имеет разрешение {operation} на {resource}"
+                )
                 return await func(parent, info, *args, **kwargs)
             except exc.NoResultFound:
                 logger.error(f"[permission_required] Пользователь с ID {auth.author_id} не найден в базе данных")
@@ -349,14 +353,15 @@ def permission_required(resource: str, operation: str, func):
 
 def login_accepted(func):
     """
-    Декоратор для резолверов, которые могут работать как с авторизованными, 
+    Декоратор для резолверов, которые могут работать как с авторизованными,
     так и с неавторизованными пользователями.
-    
+
     Добавляет информацию о пользователе в контекст, если пользователь авторизован.
-    
+
     Args:
         func: Декорируемая функция
     """
+
     @wraps(func)
     async def wrap(parent, info: GraphQLResolveInfo, *args, **kwargs):
         try:
@@ -366,10 +371,10 @@ def login_accepted(func):
             except GraphQLError:
                 # Игнорируем ошибку авторизации
                 pass
-            
+
             # Получаем объект авторизации
             auth = getattr(info.context["request"], "auth", None)
-            
+
             if auth and auth.logged_in:
                 # Если пользователь авторизован, добавляем информацию о нем в контекст
                 with local_session() as session:

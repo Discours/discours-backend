@@ -1,5 +1,6 @@
 from sqlalchemy import desc, select, text
 
+from auth.orm import Author
 from cache.cache import (
     cache_topic,
     cached_query,
@@ -8,9 +9,8 @@ from cache.cache import (
     get_cached_topic_followers,
     invalidate_cache_by_prefix,
 )
-from auth.orm import Author
-from orm.topic import Topic
 from orm.reaction import ReactionKind
+from orm.topic import Topic
 from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session

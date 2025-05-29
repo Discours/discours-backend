@@ -74,9 +74,9 @@ async def update_community(_, info, community_data):
     if slug:
         with local_session() as session:
             try:
-                session.query(Community).where(
-                    Community.created_by == author_id, Community.slug == slug
-                ).update(community_data)
+                session.query(Community).where(Community.created_by == author_id, Community.slug == slug).update(
+                    community_data
+                )
                 session.commit()
             except Exception as e:
                 return {"ok": False, "error": str(e)}
@@ -90,9 +90,7 @@ async def delete_community(_, info, slug: str):
     author_id = author_dict.get("id")
     with local_session() as session:
         try:
-            session.query(Community).where(
-                Community.slug == slug, Community.created_by == author_id
-            ).delete()
+            session.query(Community).where(Community.slug == slug, Community.created_by == author_id).delete()
             session.commit()
             return {"ok": True}
         except Exception as e:

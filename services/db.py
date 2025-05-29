@@ -200,9 +200,7 @@ class Base(declarative_base()):
                             data[column_name] = value
                     else:
                         # Пропускаем атрибут, если его нет в объекте (может быть добавлен после миграции)
-                        logger.debug(
-                            f"Skipping missing attribute '{column_name}' for {self.__class__.__name__}"
-                        )
+                        logger.debug(f"Skipping missing attribute '{column_name}' for {self.__class__.__name__}")
                 except AttributeError as e:
                     logger.warning(f"Attribute error for column '{column_name}': {e}")
             # Добавляем синтетическое поле .stat если оно существует
@@ -223,9 +221,7 @@ class Base(declarative_base()):
 
 
 # Функция для вывода полного трейсбека при предупреждениях
-def warning_with_traceback(
-    message: Warning | str, category, filename: str, lineno: int, file=None, line=None
-):
+def warning_with_traceback(message: Warning | str, category, filename: str, lineno: int, file=None, line=None):
     tb = traceback.format_stack()
     tb_str = "".join(tb)
     return f"{message} ({filename}, {lineno}): {category.__name__}\n{tb_str}"
@@ -302,22 +298,22 @@ json_builder, json_array_builder, json_cast = get_json_builder()
 # Fetch all shouts, with authors preloaded
 # This function is used for search indexing
 
+
 async def fetch_all_shouts(session=None):
     """Fetch all published shouts for search indexing with authors preloaded"""
     from orm.shout import Shout
-    
+
     close_session = False
     if session is None:
         session = local_session()
         close_session = True
-    
+
     try:
         # Fetch only published and non-deleted shouts with authors preloaded
-        query = session.query(Shout).options(
-            joinedload(Shout.authors)
-        ).filter(
-            Shout.published_at.is_not(None),
-            Shout.deleted_at.is_(None)
+        query = (
+            session.query(Shout)
+            .options(joinedload(Shout.authors))
+            .filter(Shout.published_at.is_not(None), Shout.deleted_at.is_(None))
         )
         shouts = query.all()
         return shouts

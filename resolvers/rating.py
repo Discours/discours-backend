@@ -186,9 +186,7 @@ def count_author_shouts_rating(session, author_id) -> int:
 
 def get_author_rating_old(session, author: Author):
     likes_count = (
-        session.query(AuthorRating)
-        .filter(and_(AuthorRating.author == author.id, AuthorRating.plus.is_(True)))
-        .count()
+        session.query(AuthorRating).filter(and_(AuthorRating.author == author.id, AuthorRating.plus.is_(True))).count()
     )
     dislikes_count = (
         session.query(AuthorRating)

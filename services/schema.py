@@ -12,7 +12,7 @@ resolvers = [query, mutation, type_draft]
 
 def create_all_tables():
     """Create all database tables in the correct order."""
-    from auth.orm import Author, AuthorFollower, AuthorBookmark, AuthorRating
+    from auth.orm import Author, AuthorBookmark, AuthorFollower, AuthorRating
     from orm import community, draft, notification, reaction, shout, topic
 
     # Порядок важен - сначала таблицы без внешних ключей, затем зависимые таблицы

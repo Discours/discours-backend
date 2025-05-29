@@ -138,9 +138,7 @@ def query_with_stat(info):
             select(
                 ShoutTopic.shout,
                 json_array_builder(
-                    json_builder(
-                        "id", Topic.id, "title", Topic.title, "slug", Topic.slug, "is_main", ShoutTopic.main
-                    )
+                    json_builder("id", Topic.id, "title", Topic.title, "slug", Topic.slug, "is_main", ShoutTopic.main)
                 ).label("topics"),
             )
             .outerjoin(Topic, ShoutTopic.topic == Topic.id)
@@ -227,7 +225,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                                 "slug": a.slug,
                                 "pic": a.pic,
                             }
-                            
+
                         # Обработка поля updated_by
                         if has_field(info, "updated_by"):
                             if shout_dict.get("updated_by"):
@@ -246,7 +244,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                             else:
                                 # Если updated_by не указан, устанавливаем поле в null
                                 shout_dict["updated_by"] = None
-                                
+
                         # Обработка поля deleted_by
                         if has_field(info, "deleted_by"):
                             if shout_dict.get("deleted_by"):
@@ -287,9 +285,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                             if hasattr(row, "main_topic"):
                                 # logger.debug(f"Raw main_topic for shout#{shout_id}: {row.main_topic}")
                                 main_topic = (
-                                    orjson.loads(row.main_topic)
-                                    if isinstance(row.main_topic, str)
-                                    else row.main_topic
+                                    orjson.loads(row.main_topic) if isinstance(row.main_topic, str) else row.main_topic
                                 )
                                 # logger.debug(f"Parsed main_topic for shout#{shout_id}: {main_topic}")
 
@@ -325,9 +321,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                                     media_data = orjson.loads(media_data)
                                 except orjson.JSONDecodeError:
                                     media_data = []
-                            shout_dict["media"] = (
-                                [media_data] if isinstance(media_data, dict) else media_data
-                            )
+                            shout_dict["media"] = [media_data] if isinstance(media_data, dict) else media_data
 
                         shouts.append(shout_dict)
 
@@ -415,9 +409,7 @@ def apply_sorting(q, options):
     """
     order_str = options.get("order_by")
     if order_str in ["rating", "comments_count", "last_commented_at"]:
-        query_order_by = (
-            desc(text(order_str)) if options.get("order_by_desc", True) else asc(text(order_str))
-        )
+        query_order_by = desc(text(order_str)) if options.get("order_by_desc", True) else asc(text(order_str))
         q = q.distinct(text(order_str), Shout.id).order_by(  # DISTINCT ON включает поле сортировки
             nulls_last(query_order_by), Shout.id
         )
@@ -513,15 +505,11 @@ async def load_shouts_unrated(_, info, options):
     q = select(Shout).where(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
     q = q.join(Author, Author.id == Shout.created_by)
     q = q.add_columns(
-        json_builder("id", Author.id, "name", Author.name, "slug", Author.slug, "pic", Author.pic).label(
-            "main_author"
-        )
+        json_builder("id", Author.id, "name", Author.name, "slug", Author.slug, "pic", Author.pic).label("main_author")
     )
     q = q.join(ShoutTopic, and_(ShoutTopic.shout == Shout.id, ShoutTopic.main.is_(True)))
     q = q.join(Topic, Topic.id == ShoutTopic.topic)
-    q = q.add_columns(
-        json_builder("id", Topic.id, "title", Topic.title, "slug", Topic.slug).label("main_topic")
-    )
+    q = q.add_columns(json_builder("id", Topic.id, "title", Topic.title, "slug", Topic.slug).label("main_topic"))
     q = q.where(Shout.id.not_in(rated_shouts))
     q = q.order_by(func.random())
 

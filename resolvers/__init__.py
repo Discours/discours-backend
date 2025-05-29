@@ -1,4 +1,15 @@
 from cache.triggers import events_register
+from resolvers.admin import (
+    admin_get_roles,
+    admin_get_users,
+)
+from resolvers.auth import (
+    confirm_email,
+    get_current_user,
+    login,
+    register_by_email,
+    send_link,
+)
 from resolvers.author import (  # search_authors,
     get_author,
     get_author_followers,
@@ -16,8 +27,8 @@ from resolvers.draft import (
     delete_draft,
     load_drafts,
     publish_draft,
-    update_draft,
     unpublish_draft,
+    update_draft,
 )
 from resolvers.editor import (
     unpublish_shout,
@@ -62,19 +73,6 @@ from resolvers.topic import (
     get_topics_by_community,
 )
 
-from resolvers.auth import (
-    get_current_user,
-    confirm_email,
-    register_by_email,
-    send_link,
-    login,
-)
-
-from resolvers.admin import (
-    admin_get_users,
-    admin_get_roles,
-)
-
 events_register()
 
 __all__ = [
@@ -84,11 +82,9 @@ __all__ = [
     "register_by_email",
     "send_link",
     "login",
-    
     # admin
     "admin_get_users",
     "admin_get_roles",
-    
     # author
     "get_author",
     "get_author_followers",
@@ -100,11 +96,9 @@ __all__ = [
     "load_authors_search",
     "update_author",
     # "search_authors",
-    
     # community
     "get_community",
     "get_communities_all",
-    
     # topic
     "get_topic",
     "get_topics_all",
@@ -112,14 +106,12 @@ __all__ = [
     "get_topics_by_author",
     "get_topic_followers",
     "get_topic_authors",
-    
     # reader
     "get_shout",
     "load_shouts_by",
     "load_shouts_random_top",
     "load_shouts_search",
     "load_shouts_unrated",
-    
     # feed
     "load_shouts_feed",
     "load_shouts_coauthored",
@@ -127,12 +119,10 @@ __all__ = [
     "load_shouts_with_topic",
     "load_shouts_followed_by",
     "load_shouts_authored_by",
-    
     # follower
     "follow",
     "unfollow",
     "get_shout_followers",
-    
     # reaction
     "create_reaction",
     "update_reaction",
@@ -142,18 +132,15 @@ __all__ = [
     "load_shout_ratings",
     "load_comment_ratings",
     "load_comments_branch",
-    
     # notifier
     "load_notifications",
     "notifications_seen_thread",
     "notifications_seen_after",
     "notification_mark_seen",
-    
     # rating
     "rate_author",
     "get_my_rates_comments",
     "get_my_rates_shouts",
-    
     # draft
     "load_drafts",
     "create_draft",

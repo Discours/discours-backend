@@ -9,9 +9,9 @@ from typing import List, Union
 
 from sqlalchemy.orm import Session
 
-from auth.orm import Author, Role, RolePermission, Permission
-from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
+from auth.orm import Author, Permission, Role, RolePermission
 from orm.community import Community, CommunityFollower, CommunityRole
+from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 
 ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
 
@@ -110,9 +110,7 @@ class ContextualPermissionCheck:
         return has_permission
 
     @staticmethod
-    def get_user_community_roles(
-        session: Session, author_id: int, community_slug: str
-    ) -> List[CommunityRole]:
+    def get_user_community_roles(session: Session, author_id: int, community_slug: str) -> List[CommunityRole]:
         """
         Получает список ролей пользователя в сообществе.
 

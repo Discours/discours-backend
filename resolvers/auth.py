@@ -1,46 +1,48 @@
 # -*- coding: utf-8 -*-
 import time
 import traceback
-from utils.logger import root_logger as logger
 
 from graphql.type import GraphQLResolveInfo
-# import asyncio # Убираем, так как резолвер будет синхронным
 
-from services.auth import login_required
 from auth.credentials import AuthCredentials
 from auth.email import send_auth_email
 from auth.exceptions import InvalidToken, ObjectNotExist
 from auth.identity import Identity, Password
+from auth.internal import verify_internal_auth
 from auth.jwtcodec import JWTCodec
-from auth.tokenstorage import TokenStorage
 from auth.orm import Author, Role
+from auth.sessions import SessionManager
+from auth.tokenstorage import TokenStorage
+
+# import asyncio # Убираем, так как резолвер будет синхронным
+from services.auth import login_required
 from services.db import local_session
 from services.schema import mutation, query
 from settings import (
     ADMIN_EMAILS,
-    SESSION_TOKEN_HEADER,
-    SESSION_COOKIE_NAME,
-    SESSION_COOKIE_SECURE,
-    SESSION_COOKIE_SAMESITE,
-    SESSION_COOKIE_MAX_AGE,
     SESSION_COOKIE_HTTPONLY,
+    SESSION_COOKIE_MAX_AGE,
+    SESSION_COOKIE_NAME,
+    SESSION_COOKIE_SAMESITE,
+    SESSION_COOKIE_SECURE,
+    SESSION_TOKEN_HEADER,
 )
 from utils.generate_slug import generate_unique_slug
-from auth.sessions import SessionManager
-from auth.internal import verify_internal_auth
+from utils.logger import root_logger as logger
+
 
 @mutation.field("getSession")
 @login_required
 async def get_current_user(_, info):
     """
     Получает информацию о текущем пользователе.
-    
+
     Требует авторизации через декоратор login_required.
-    
+
     Args:
         _: Родительский объект (не используется)
         info: Контекст GraphQL запроса
-        
+
     Returns:
         dict: Объект с токеном и данными автора с добавленной статистикой
     """
@@ -49,68 +51,73 @@ async def get_current_user(_, info):
     if not author_id:
         logger.error("[getSession] Пользователь не авторизован")
         from graphql.error import GraphQLError
+
         raise GraphQLError("Требуется авторизация")
-        
+
     # Получаем токен из заголовка
     req = info.context.get("request")
     token = req.headers.get(SESSION_TOKEN_HEADER)
     if token and token.startswith("Bearer "):
         token = token.split("Bearer ")[-1].strip()
-    
+
     # Получаем данные автора
     author = info.context.get("author")
-    
+
     # Если автор не найден в контексте, пробуем получить из БД с добавлением статистики
     if not author:
-        logger.debug(f"[getSession] Автор не найден в контексте для пользователя {user_id}, получаем из БД")
-        
+        logger.debug(f"[getSession] Автор не найден в контексте для пользователя {author_id}, получаем из БД")
+
         try:
             # Используем функцию get_with_stat для получения автора со статистикой
             from sqlalchemy import select
+
             from resolvers.stat import get_with_stat
-            
-            q = select(Author).where(Author.id == user_id)
+
+            q = select(Author).where(Author.id == author_id)
             authors_with_stat = get_with_stat(q)
-            
+
             if authors_with_stat and len(authors_with_stat) > 0:
                 author = authors_with_stat[0]
-                
+
                 # Обновляем last_seen отдельной транзакцией
                 with local_session() as session:
-                    author_db = session.query(Author).filter(Author.id == user_id).first()
+                    author_db = session.query(Author).filter(Author.id == author_id).first()
                     if author_db:
                         author_db.last_seen = int(time.time())
                         session.commit()
             else:
-                logger.error(f"[getSession] Автор с ID {user_id} не найден в БД")
+                logger.error(f"[getSession] Автор с ID {author_id} не найден в БД")
                 from graphql.error import GraphQLError
+
                 raise GraphQLError("Пользователь не найден")
-                
+
         except Exception as e:
             logger.error(f"[getSession] Ошибка при получении автора из БД: {e}", exc_info=True)
             from graphql.error import GraphQLError
+
             raise GraphQLError("Ошибка при получении данных пользователя")
     else:
         # Если автор уже есть в контексте, добавляем статистику
         try:
             from sqlalchemy import select
+
             from resolvers.stat import get_with_stat
-            
-            q = select(Author).where(Author.id == user_id)
+
+            q = select(Author).where(Author.id == author_id)
             authors_with_stat = get_with_stat(q)
-            
+
             if authors_with_stat and len(authors_with_stat) > 0:
                 # Обновляем только статистику
                 author.stat = authors_with_stat[0].stat
         except Exception as e:
             logger.warning(f"[getSession] Не удалось добавить статистику к автору: {e}")
-    
+
     # Возвращаем данные сессии
-    logger.info(f"[getSession] Успешно получена сессия для пользователя {user_id}")
-    return {"token": token or '', "author": author}
+    logger.info(f"[getSession] Успешно получена сессия для пользователя {author_id}")
+    return {"token": token or "", "author": author}
 
 
-@mutation.field("confirmEmail") 
+@mutation.field("confirmEmail")
 async def confirm_email(_, info, token):
     """confirm owning email address"""
     try:
@@ -118,26 +125,26 @@ async def confirm_email(_, info, token):
         payload = JWTCodec.decode(token)
         user_id = payload.user_id
         username = payload.username
-        
+
         # Если TokenStorage.get асинхронный, это нужно будет переделать или вызывать синхронно
         # Для теста пока оставим, но это потенциальная точка отказа в синхронном резолвере
         token_key = f"{user_id}-{username}-{token}"
         await TokenStorage.get(token_key)
-        
+
         with local_session() as session:
             user = session.query(Author).where(Author.id == user_id).first()
             if not user:
                 logger.warning(f"[auth] confirmEmail: Пользователь с ID {user_id} не найден.")
                 return {"success": False, "token": None, "author": None, "error": "Пользователь не найден"}
-                
+
             # Создаем сессионный токен с новым форматом вызова и явным временем истечения
             device_info = {"email": user.email} if hasattr(user, "email") else None
             session_token = await TokenStorage.create_session(
                 user_id=str(user_id),
                 username=user.username or user.email or user.slug or username,
-                device_info=device_info
+                device_info=device_info,
             )
-            
+
             user.email_verified = True
             user.last_seen = int(time.time())
             session.add(user)
@@ -155,7 +162,7 @@ async def confirm_email(_, info, token):
             "token": None,
             "author": None,
             "error": f"Ошибка подтверждения email: {str(e)}",
-        } 
+        }
 
 
 def create_user(user_dict):
@@ -231,9 +238,7 @@ async def register_by_email(_, _info, email: str, password: str = "", name: str 
     try:
         # Если auth_send_link асинхронный...
         await send_link(_, _info, email)
-        logger.info(
-            f"[auth] registerUser: Пользователь {email} зарегистрирован, ссылка для подтверждения отправлена."
-        )
+        logger.info(f"[auth] registerUser: Пользователь {email} зарегистрирован, ссылка для подтверждения отправлена.")
         # При регистрации возвращаем данные самому пользователю, поэтому не фильтруем
         return {
             "success": True,
@@ -306,7 +311,7 @@ async def login(_, info, email: str, password: str):
             logger.info(
                 f"[auth] login: Найден автор {email}, id={author.id}, имя={author.name}, пароль есть: {bool(author.password)}"
             )
-            
+
             # Проверяем наличие роли reader
             has_reader_role = False
             if hasattr(author, "roles") and author.roles:
@@ -314,12 +319,12 @@ async def login(_, info, email: str, password: str):
                     if role.id == "reader":
                         has_reader_role = True
                         break
-                        
+
             # Если у пользователя нет роли reader и он не админ, запрещаем вход
             if not has_reader_role:
                 # Проверяем, есть ли роль admin или super
                 is_admin = author.email in ADMIN_EMAILS.split(",")
-                
+
                 if not is_admin:
                     logger.warning(f"[auth] login: У пользователя {email} нет роли 'reader', в доступе отказано")
                     return {
@@ -365,9 +370,7 @@ async def login(_, info, email: str, password: str):
                     or not hasattr(valid_author, "username")
                     and not hasattr(valid_author, "email")
                 ):
-                    logger.error(
-                        f"[auth] login: Объект автора не содержит необходимых атрибутов: {valid_author}"
-                    )
+                    logger.error(f"[auth] login: Объект автора не содержит необходимых атрибутов: {valid_author}")
                     return {
                         "success": False,
                         "token": None,
@@ -380,7 +383,7 @@ async def login(_, info, email: str, password: str):
                 token = await TokenStorage.create_session(
                     user_id=str(valid_author.id),
                     username=valid_author.username or valid_author.email or valid_author.slug or "",
-                    device_info={"email": valid_author.email} if hasattr(valid_author, "email") else None
+                    device_info={"email": valid_author.email} if hasattr(valid_author, "email") else None,
                 )
                 logger.info(f"[auth] login: токен успешно создан, длина: {len(token) if token else 0}")
 
@@ -390,7 +393,7 @@ async def login(_, info, email: str, password: str):
 
                 # Устанавливаем httponly cookie различными способами для надежности
                 cookie_set = False
-                
+
                 # Метод 1: GraphQL контекст через extensions
                 try:
                     if hasattr(info.context, "extensions") and hasattr(info.context.extensions, "set_cookie"):
@@ -406,7 +409,7 @@ async def login(_, info, email: str, password: str):
                         cookie_set = True
                 except Exception as e:
                     logger.error(f"[auth] login: Ошибка при установке cookie через extensions: {str(e)}")
-                
+
                 # Метод 2: GraphQL контекст через response
                 if not cookie_set:
                     try:
@@ -423,11 +426,12 @@ async def login(_, info, email: str, password: str):
                             cookie_set = True
                     except Exception as e:
                         logger.error(f"[auth] login: Ошибка при установке cookie через response: {str(e)}")
-                
+
                 # Если ни один способ не сработал, создаем response в контексте
                 if not cookie_set and hasattr(info.context, "request") and not hasattr(info.context, "response"):
                     try:
                         from starlette.responses import JSONResponse
+
                         response = JSONResponse({})
                         response.set_cookie(
                             key=SESSION_COOKIE_NAME,
@@ -442,12 +446,12 @@ async def login(_, info, email: str, password: str):
                         cookie_set = True
                     except Exception as e:
                         logger.error(f"[auth] login: Ошибка при создании response и установке cookie: {str(e)}")
-                
+
                 if not cookie_set:
                     logger.warning(f"[auth] login: Не удалось установить cookie никаким способом")
-                
+
                 # Возвращаем успешный результат с данными для клиента
-                # Для ответа клиенту используем dict() с параметром access=True, 
+                # Для ответа клиенту используем dict() с параметром access=True,
                 # чтобы получить полный доступ к данным для самого пользователя
                 logger.info(f"[auth] login: Успешный вход для {email}")
                 author_dict = valid_author.dict(access=True)
@@ -485,7 +489,7 @@ async def is_email_used(_, _info, email):
 async def logout_resolver(_, info: GraphQLResolveInfo):
     """
     Выход из системы через GraphQL с удалением сессии и cookie.
-    
+
     Returns:
         dict: Результат операции выхода
     """
@@ -500,7 +504,7 @@ async def logout_resolver(_, info: GraphQLResolveInfo):
 
     success = False
     message = ""
-    
+
     # Если токен найден, отзываем его
     if token:
         try:
@@ -544,12 +548,12 @@ async def logout_resolver(_, info: GraphQLResolveInfo):
 async def refresh_token_resolver(_, info: GraphQLResolveInfo):
     """
     Обновление токена аутентификации через GraphQL.
-    
+
     Returns:
         AuthResult с данными пользователя и обновленным токеном или сообщением об ошибке
     """
     request = info.context["request"]
-    
+
     # Получаем текущий токен из cookie или заголовка
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
@@ -617,12 +621,7 @@ async def refresh_token_resolver(_, info: GraphQLResolveInfo):
                 logger.debug(traceback.format_exc())
 
             logger.info(f"[auth] refresh_token_resolver: Токен успешно обновлен для пользователя {user_id}")
-            return {
-                "success": True,
-                "token": new_token,
-                "author": author,
-                "error": None
-            }
+            return {"success": True, "token": new_token, "author": author, "error": None}
 
     except Exception as e:
         logger.error(f"[auth] refresh_token_resolver: Ошибка при обновлении токена: {e}")

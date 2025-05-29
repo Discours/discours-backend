@@ -1,13 +1,12 @@
 from binascii import hexlify
 from hashlib import sha256
-from typing import Any, Dict, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, TypeVar
 
 from passlib.hash import bcrypt
 
-from auth.exceptions import ExpiredToken, InvalidToken, InvalidPassword
+from auth.exceptions import ExpiredToken, InvalidPassword, InvalidToken
 from auth.jwtcodec import JWTCodec
 from auth.tokenstorage import TokenStorage
-
 from services.db import local_session
 
 # Для типизации
@@ -86,9 +85,7 @@ class Identity:
 
         # Проверим исходный пароль в orm_author
         if not orm_author.password:
-            logger.warning(
-                f"[auth.identity] Пароль в исходном объекте автора пуст: email={orm_author.email}"
-            )
+            logger.warning(f"[auth.identity] Пароль в исходном объекте автора пуст: email={orm_author.email}")
             raise InvalidPassword("Пароль не установлен для данного пользователя")
 
         # Проверяем пароль напрямую, не используя dict()

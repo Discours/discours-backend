@@ -80,12 +80,12 @@ class ViewedStorage:
         # Получаем список всех ключей migrated_views_* и находим самый последний
         keys = await redis.execute("KEYS", "migrated_views_*")
         logger.info(f" * Raw Redis result for 'KEYS migrated_views_*': {len(keys)}")
-        
+
         # Декодируем байтовые строки, если есть
         if keys and isinstance(keys[0], bytes):
-            keys = [k.decode('utf-8') for k in keys]
+            keys = [k.decode("utf-8") for k in keys]
             logger.info(f" * Decoded keys: {keys}")
-        
+
         if not keys:
             logger.warning(" * No migrated_views keys found in Redis")
             return
@@ -93,7 +93,7 @@ class ViewedStorage:
         # Фильтруем только ключи timestamp формата (исключаем migrated_views_slugs)
         timestamp_keys = [k for k in keys if k != "migrated_views_slugs"]
         logger.info(f" * Timestamp keys after filtering: {timestamp_keys}")
-        
+
         if not timestamp_keys:
             logger.warning(" * No migrated_views timestamp keys found in Redis")
             return
@@ -243,20 +243,12 @@ class ViewedStorage:
 
             # Обновление тем и авторов с использованием вспомогательной функции
             for [_st, topic] in (
-                session.query(ShoutTopic, Topic)
-                .join(Topic)
-                .join(Shout)
-                .where(Shout.slug == shout_slug)
-                .all()
+                session.query(ShoutTopic, Topic).join(Topic).join(Shout).where(Shout.slug == shout_slug).all()
             ):
                 update_groups(self.shouts_by_topic, topic.slug, shout_slug)
 
             for [_st, author] in (
-                session.query(ShoutAuthor, Author)
-                .join(Author)
-                .join(Shout)
-                .where(Shout.slug == shout_slug)
-                .all()
+                session.query(ShoutAuthor, Author).join(Author).join(Shout).where(Shout.slug == shout_slug).all()
             ):
                 update_groups(self.shouts_by_author, author.slug, shout_slug)
 
@@ -289,9 +281,7 @@ class ViewedStorage:
             if failed == 0:
                 when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
                 t = format(when.astimezone().isoformat())
-                logger.info(
-                    "       ⎩ next update: %s" % (t.split("T")[0] + " " + t.split("T")[1].split(".")[0])
-                )
+                logger.info("       ⎩ next update: %s" % (t.split("T")[0] + " " + t.split("T")[1].split(".")[0]))
                 await asyncio.sleep(self.period)
             else:
                 await asyncio.sleep(10)

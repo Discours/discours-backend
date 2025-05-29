@@ -2,9 +2,11 @@ import asyncio
 import json
 import logging
 import os
-import httpx
-import time
 import random
+import time
+
+import httpx
+
 from settings import TXTAI_SERVICE_URL
 
 # Set up proper logging
@@ -15,23 +17,15 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # Configuration for search service
-SEARCH_ENABLED = bool(
-    os.environ.get("SEARCH_ENABLED", "true").lower() in ["true", "1", "yes"]
-)
+SEARCH_ENABLED = bool(os.environ.get("SEARCH_ENABLED", "true").lower() in ["true", "1", "yes"])
 
 MAX_BATCH_SIZE = int(os.environ.get("SEARCH_MAX_BATCH_SIZE", "25"))
 
 # Search cache configuration
-SEARCH_CACHE_ENABLED = bool(
-    os.environ.get("SEARCH_CACHE_ENABLED", "true").lower() in ["true", "1", "yes"]
-)
-SEARCH_CACHE_TTL_SECONDS = int(
-    os.environ.get("SEARCH_CACHE_TTL_SECONDS", "300")
-)  # Default: 15 minutes
+SEARCH_CACHE_ENABLED = bool(os.environ.get("SEARCH_CACHE_ENABLED", "true").lower() in ["true", "1", "yes"])
+SEARCH_CACHE_TTL_SECONDS = int(os.environ.get("SEARCH_CACHE_TTL_SECONDS", "300"))  # Default: 15 minutes
 SEARCH_PREFETCH_SIZE = int(os.environ.get("SEARCH_PREFETCH_SIZE", "200"))
-SEARCH_USE_REDIS = bool(
-    os.environ.get("SEARCH_USE_REDIS", "true").lower() in ["true", "1", "yes"]
-)
+SEARCH_USE_REDIS = bool(os.environ.get("SEARCH_USE_REDIS", "true").lower() in ["true", "1", "yes"])
 
 search_offset = 0
 
@@ -68,9 +62,7 @@ class SearchCache:
                     serialized_results,
                     ex=self.ttl,
                 )
-                logger.info(
-                    f"Stored {len(results)} search results for query '{query}' in Redis"
-                )
+                logger.info(f"Stored {len(results)} search results for query '{query}' in Redis")
                 return True
             except Exception as e:
                 logger.error(f"Error storing search results in Redis: {e}")
@@ -83,9 +75,7 @@ class SearchCache:
         # Store results and update timestamp
         self.cache[normalized_query] = results
         self.last_accessed[normalized_query] = time.time()
-        logger.info(
-            f"Cached {len(results)} search results for query '{query}' in memory"
-        )
+        logger.info(f"Cached {len(results)} search results for query '{query}' in memory")
         return True
 
     async def get(self, query, limit=10, offset=0):
@@ -117,14 +107,10 @@ class SearchCache:
         # Return paginated subset
         end_idx = min(offset + limit, len(all_results))
         if offset >= len(all_results):
-            logger.warning(
-                f"Requested offset {offset} exceeds result count {len(all_results)}"
-            )
+            logger.warning(f"Requested offset {offset} exceeds result count {len(all_results)}")
             return []
 
-        logger.info(
-            f"Cache hit for '{query}': serving {offset}:{end_idx} of {len(all_results)} results"
-        )
+        logger.info(f"Cache hit for '{query}': serving {offset}:{end_idx} of {len(all_results)} results")
         return all_results[offset:end_idx]
 
     async def has_query(self, query):
@@ -174,11 +160,7 @@ class SearchCache:
         """Remove oldest entries if memory cache is full"""
         now = time.time()
         # First remove expired entries
-        expired_keys = [
-            key
-            for key, last_access in self.last_accessed.items()
-            if now - last_access > self.ttl
-        ]
+        expired_keys = [key for key, last_access in self.last_accessed.items() if now - last_access > self.ttl]
 
         for key in expired_keys:
             if key in self.cache:
@@ -217,9 +199,7 @@ class SearchService:
 
         if SEARCH_CACHE_ENABLED:
             cache_location = "Redis" if SEARCH_USE_REDIS else "Memory"
-            logger.info(
-                f"Search caching enabled using {cache_location} cache with TTL={SEARCH_CACHE_TTL_SECONDS}s"
-            )
+            logger.info(f"Search caching enabled using {cache_location} cache with TTL={SEARCH_CACHE_TTL_SECONDS}s")
 
     async def info(self):
         """Return information about search service"""
@@ -270,9 +250,7 @@ class SearchService:
             logger.info(
                 f"Document verification complete: {bodies_missing_count} bodies missing, {titles_missing_count} titles missing"
             )
-            logger.info(
-                f"Total unique missing documents: {total_missing_count} out of {len(doc_ids)} total"
-            )
+            logger.info(f"Total unique missing documents: {total_missing_count} out of {len(doc_ids)} total")
 
             # Return in a backwards-compatible format plus the detailed breakdown
             return {
@@ -308,9 +286,7 @@ class SearchService:
             # 1. Index title if available
             if hasattr(shout, "title") and shout.title and isinstance(shout.title, str):
                 title_doc = {"id": str(shout.id), "title": shout.title.strip()}
-                indexing_tasks.append(
-                    self.index_client.post("/index-title", json=title_doc)
-                )
+                indexing_tasks.append(self.index_client.post("/index-title", json=title_doc))
 
             # 2. Index body content (subtitle, lead, body)
             body_text_parts = []
@@ -346,9 +322,7 @@ class SearchService:
                     body_text = body_text[:MAX_TEXT_LENGTH]
 
                 body_doc = {"id": str(shout.id), "body": body_text}
-                indexing_tasks.append(
-                    self.index_client.post("/index-body", json=body_doc)
-                )
+                indexing_tasks.append(self.index_client.post("/index-body", json=body_doc))
 
             # 3. Index authors
             authors = getattr(shout, "authors", [])
@@ -373,30 +347,22 @@ class SearchService:
 
                 if name:
                     author_doc = {"id": author_id, "name": name, "bio": combined_bio}
-                    indexing_tasks.append(
-                        self.index_client.post("/index-author", json=author_doc)
-                    )
+                    indexing_tasks.append(self.index_client.post("/index-author", json=author_doc))
 
             # Run all indexing tasks in parallel
             if indexing_tasks:
-                responses = await asyncio.gather(
-                    *indexing_tasks, return_exceptions=True
-                )
+                responses = await asyncio.gather(*indexing_tasks, return_exceptions=True)
 
                 # Check for errors in responses
                 for i, response in enumerate(responses):
                     if isinstance(response, Exception):
                         logger.error(f"Error in indexing task {i}: {response}")
-                    elif (
-                        hasattr(response, "status_code") and response.status_code >= 400
-                    ):
+                    elif hasattr(response, "status_code") and response.status_code >= 400:
                         logger.error(
                             f"Error response in indexing task {i}: {response.status_code}, {await response.text()}"
                         )
 
-                logger.info(
-                    f"Document {shout.id} indexed across {len(indexing_tasks)} endpoints"
-                )
+                logger.info(f"Document {shout.id} indexed across {len(indexing_tasks)} endpoints")
             else:
                 logger.warning(f"No content to index for shout {shout.id}")
 
@@ -424,24 +390,14 @@ class SearchService:
         for shout in shouts:
             try:
                 # 1. Process title documents
-                if (
-                    hasattr(shout, "title")
-                    and shout.title
-                    and isinstance(shout.title, str)
-                ):
-                    title_docs.append(
-                        {"id": str(shout.id), "title": shout.title.strip()}
-                    )
+                if hasattr(shout, "title") and shout.title and isinstance(shout.title, str):
+                    title_docs.append({"id": str(shout.id), "title": shout.title.strip()})
 
                 # 2. Process body documents (subtitle, lead, body)
                 body_text_parts = []
                 for field_name in ["subtitle", "lead", "body"]:
                     field_value = getattr(shout, field_name, None)
-                    if (
-                        field_value
-                        and isinstance(field_value, str)
-                        and field_value.strip()
-                    ):
+                    if field_value and isinstance(field_value, str) and field_value.strip():
                         body_text_parts.append(field_value.strip())
 
                 # Process media content if available
@@ -507,9 +463,7 @@ class SearchService:
                         }
 
             except Exception as e:
-                logger.error(
-                    f"Error processing shout {getattr(shout, 'id', 'unknown')} for indexing: {e}"
-                )
+                logger.error(f"Error processing shout {getattr(shout, 'id', 'unknown')} for indexing: {e}")
                 total_skipped += 1
 
         # Convert author dict to list
@@ -543,9 +497,7 @@ class SearchService:
         logger.info(f"Indexing {len(documents)} {doc_type} documents")
 
         # Categorize documents by size
-        small_docs, medium_docs, large_docs = self._categorize_by_size(
-            documents, doc_type
-        )
+        small_docs, medium_docs, large_docs = self._categorize_by_size(documents, doc_type)
 
         # Process each category with appropriate batch sizes
         batch_sizes = {
@@ -561,9 +513,7 @@ class SearchService:
         ]:
             if docs:
                 batch_size = batch_sizes[category]
-                await self._process_batches(
-                    docs, batch_size, endpoint, f"{doc_type}-{category}"
-                )
+                await self._process_batches(docs, batch_size, endpoint, f"{doc_type}-{category}")
 
     def _categorize_by_size(self, documents, doc_type):
         """Categorize documents by size for optimized batch processing"""
@@ -599,7 +549,7 @@ class SearchService:
         """Process document batches with retry logic"""
         for i in range(0, len(documents), batch_size):
             batch = documents[i : i + batch_size]
-            batch_id = f"{batch_prefix}-{i//batch_size + 1}"
+            batch_id = f"{batch_prefix}-{i // batch_size + 1}"
 
             retry_count = 0
             max_retries = 3
@@ -607,9 +557,7 @@ class SearchService:
 
             while not success and retry_count < max_retries:
                 try:
-                    response = await self.index_client.post(
-                        endpoint, json=batch, timeout=90.0
-                    )
+                    response = await self.index_client.post(endpoint, json=batch, timeout=90.0)
 
                     if response.status_code == 422:
                         error_detail = response.json()
@@ -630,13 +578,13 @@ class SearchService:
                                 batch[:mid],
                                 batch_size // 2,
                                 endpoint,
-                                f"{batch_prefix}-{i//batch_size}-A",
+                                f"{batch_prefix}-{i // batch_size}-A",
                             )
                             await self._process_batches(
                                 batch[mid:],
                                 batch_size // 2,
                                 endpoint,
-                                f"{batch_prefix}-{i//batch_size}-B",
+                                f"{batch_prefix}-{i // batch_size}-B",
                             )
                         else:
                             logger.error(
@@ -649,9 +597,7 @@ class SearchService:
 
     def _truncate_error_detail(self, error_detail):
         """Truncate error details for logging"""
-        truncated_detail = (
-            error_detail.copy() if isinstance(error_detail, dict) else error_detail
-        )
+        truncated_detail = error_detail.copy() if isinstance(error_detail, dict) else error_detail
 
         if (
             isinstance(truncated_detail, dict)
@@ -660,30 +606,22 @@ class SearchService:
         ):
             for i, item in enumerate(truncated_detail["detail"]):
                 if isinstance(item, dict) and "input" in item:
-                    if isinstance(item["input"], dict) and any(
-                        k in item["input"] for k in ["documents", "text"]
-                    ):
-                        if "documents" in item["input"] and isinstance(
-                            item["input"]["documents"], list
-                        ):
+                    if isinstance(item["input"], dict) and any(k in item["input"] for k in ["documents", "text"]):
+                        if "documents" in item["input"] and isinstance(item["input"]["documents"], list):
                             for j, doc in enumerate(item["input"]["documents"]):
-                                if (
-                                    "text" in doc
-                                    and isinstance(doc["text"], str)
-                                    and len(doc["text"]) > 100
-                                ):
-                                    item["input"]["documents"][j][
-                                        "text"
-                                    ] = f"{doc['text'][:100]}... [truncated, total {len(doc['text'])} chars]"
+                                if "text" in doc and isinstance(doc["text"], str) and len(doc["text"]) > 100:
+                                    item["input"]["documents"][j]["text"] = (
+                                        f"{doc['text'][:100]}... [truncated, total {len(doc['text'])} chars]"
+                                    )
 
                         if (
                             "text" in item["input"]
                             and isinstance(item["input"]["text"], str)
                             and len(item["input"]["text"]) > 100
                         ):
-                            item["input"][
-                                "text"
-                            ] = f"{item['input']['text'][:100]}... [truncated, total {len(item['input']['text'])} chars]"
+                            item["input"]["text"] = (
+                                f"{item['input']['text'][:100]}... [truncated, total {len(item['input']['text'])} chars]"
+                            )
 
         return truncated_detail
 
@@ -711,9 +649,9 @@ class SearchService:
                 search_limit = SEARCH_PREFETCH_SIZE
             else:
                 search_limit = limit
-                
+
             logger.info(f"Searching for: '{text}' (limit={limit}, offset={offset}, search_limit={search_limit})")
-            
+
             response = await self.client.post(
                 "/search-combined",
                 json={"text": text, "limit": search_limit},
@@ -767,9 +705,7 @@ class SearchService:
             logger.info(
                 f"Searching authors for: '{text}' (limit={limit}, offset={offset}, search_limit={search_limit})"
             )
-            response = await self.client.post(
-                "/search-author", json={"text": text, "limit": search_limit}
-            )
+            response = await self.client.post("/search-author", json={"text": text, "limit": search_limit})
             response.raise_for_status()
 
             result = response.json()
@@ -784,7 +720,7 @@ class SearchService:
                 # Store the full prefetch batch, then page it
                 await self.cache.store(cache_key, author_results)
                 return await self.cache.get(cache_key, limit, offset)
-                
+
             return author_results[offset : offset + limit]
 
         except Exception as e:
@@ -802,9 +738,7 @@ class SearchService:
             result = response.json()
 
             if result.get("consistency", {}).get("status") != "ok":
-                null_count = result.get("consistency", {}).get(
-                    "null_embeddings_count", 0
-                )
+                null_count = result.get("consistency", {}).get("null_embeddings_count", 0)
                 if null_count > 0:
                     logger.warning(f"Found {null_count} documents with NULL embeddings")
 
@@ -877,14 +811,10 @@ async def initialize_search_index(shouts_data):
 
     index_status = await search_service.check_index_status()
     if index_status.get("status") == "inconsistent":
-        problem_ids = index_status.get("consistency", {}).get(
-            "null_embeddings_sample", []
-        )
+        problem_ids = index_status.get("consistency", {}).get("null_embeddings_sample", [])
 
         if problem_ids:
-            problem_docs = [
-                shout for shout in shouts_data if str(shout.id) in problem_ids
-            ]
+            problem_docs = [shout for shout in shouts_data if str(shout.id) in problem_ids]
             if problem_docs:
                 await search_service.bulk_index(problem_docs)
 
@@ -902,9 +832,7 @@ async def initialize_search_index(shouts_data):
             if isinstance(media, str):
                 try:
                     media_json = json.loads(media)
-                    if isinstance(media_json, dict) and (
-                        media_json.get("title") or media_json.get("body")
-                    ):
+                    if isinstance(media_json, dict) and (media_json.get("title") or media_json.get("body")):
                         return True
                 except Exception:
                     return True
@@ -922,13 +850,9 @@ async def initialize_search_index(shouts_data):
         if verification.get("status") == "error":
             return
         # Only reindex missing docs that actually have body content
-        missing_ids = [
-            mid for mid in verification.get("missing", []) if mid in body_ids
-        ]
+        missing_ids = [mid for mid in verification.get("missing", []) if mid in body_ids]
         if missing_ids:
-            missing_docs = [
-                shout for shout in shouts_with_body if str(shout.id) in missing_ids
-            ]
+            missing_docs = [shout for shout in shouts_with_body if str(shout.id) in missing_ids]
             await search_service.bulk_index(missing_docs)
     else:
         pass
@@ -955,35 +879,35 @@ async def check_search_service():
         print(f"[WARNING] Search service unavailable: {info.get('message', 'unknown reason')}")
     else:
         print(f"[INFO] Search service is available: {info}")
-        
+
 
 # Initialize search index in the background
 async def initialize_search_index_background():
     """
     Запускает индексацию поиска в фоновом режиме с низким приоритетом.
-    
+
     Эта функция:
     1. Загружает все shouts из базы данных
     2. Индексирует их в поисковом сервисе
     3. Выполняется асинхронно, не блокируя основной поток
     4. Обрабатывает возможные ошибки, не прерывая работу приложения
-    
+
     Индексация запускается с задержкой после инициализации сервера,
     чтобы не создавать дополнительную нагрузку при запуске.
     """
     try:
         print("[search] Starting background search indexing process")
         from services.db import fetch_all_shouts
-        
+
         # Get total count first (optional)
         all_shouts = await fetch_all_shouts()
         total_count = len(all_shouts) if all_shouts else 0
         print(f"[search] Fetched {total_count} shouts for background indexing")
-        
+
         if not all_shouts:
             print("[search] No shouts found for indexing, skipping search index initialization")
             return
-        
+
         # Start the indexing process with the fetched shouts
         print("[search] Beginning background search index initialization...")
         await initialize_search_index(all_shouts)

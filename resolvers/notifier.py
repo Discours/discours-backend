@@ -66,9 +66,7 @@ def query_notifications(author_id: int, after: int = 0) -> Tuple[int, int, List[
     return total, unread, notifications
 
 
-def group_notification(
-    thread, authors=None, shout=None, reactions=None, entity="follower", action="follow"
-):
+def group_notification(thread, authors=None, shout=None, reactions=None, entity="follower", action="follow"):
     reactions = reactions or []
     authors = authors or []
     return {

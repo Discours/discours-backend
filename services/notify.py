@@ -93,9 +93,7 @@ async def notify_draft(draft_data, action: str = "publish"):
 
             # Если переданы связанные атрибуты, добавим их
             if hasattr(draft_data, "topics") and draft_data.topics is not None:
-                draft_payload["topics"] = [
-                    {"id": t.id, "name": t.name, "slug": t.slug} for t in draft_data.topics
-                ]
+                draft_payload["topics"] = [{"id": t.id, "name": t.name, "slug": t.slug} for t in draft_data.topics]
 
             if hasattr(draft_data, "authors") and draft_data.authors is not None:
                 draft_payload["authors"] = [

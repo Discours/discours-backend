@@ -1,8 +1,9 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from starlette.responses import JSONResponse, RedirectResponse
 
-from auth.oauth import get_user_profile, oauth_login, oauth_callback
+from auth.oauth import get_user_profile, oauth_callback, oauth_login
 
 # Подменяем настройки для тестов
 with (

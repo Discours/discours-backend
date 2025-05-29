@@ -1,5 +1,6 @@
 import time
 from typing import Dict, Set
+
 from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
@@ -180,7 +181,7 @@ class Author(Base):
     # )
 
     # Список защищенных полей, которые видны только владельцу и администраторам
-    _protected_fields = ['email', 'password', 'provider_access_token', 'provider_refresh_token']
+    _protected_fields = ["email", "password", "provider_access_token", "provider_refresh_token"]
 
     @property
     def is_authenticated(self) -> bool:
@@ -241,27 +242,27 @@ class Author(Base):
     def dict(self, access=False) -> Dict:
         """
         Сериализует объект Author в словарь с учетом прав доступа.
-        
+
         Args:
             access (bool, optional): Флаг, указывающий, доступны ли защищенные поля
-            
+
         Returns:
             dict: Словарь с атрибутами Author, отфильтрованный по правам доступа
         """
         # Получаем все атрибуты объекта
         result = {c.name: getattr(self, c.name) for c in self.__table__.columns}
-        
+
         # Добавляем роли как список идентификаторов и названий
-        if hasattr(self, 'roles'):
-            result['roles'] = []
+        if hasattr(self, "roles"):
+            result["roles"] = []
             for role in self.roles:
                 if isinstance(role, dict):
-                    result['roles'].append(role.get('id'))
-        
+                    result["roles"].append(role.get("id"))
+
         # скрываем защищенные поля
         if not access:
             for field in self._protected_fields:
                 if field in result:
                     result[field] = None
-                    
+
         return result

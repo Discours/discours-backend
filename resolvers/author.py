@@ -1,9 +1,10 @@
 import asyncio
 import time
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select, text
 
+from auth.orm import Author
 from cache.cache import (
     cache_author,
     cached_query,
@@ -13,7 +14,6 @@ from cache.cache import (
     get_cached_follower_topics,
     invalidate_cache_by_prefix,
 )
-from auth.orm import Author
 from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session
@@ -74,27 +74,26 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
 
     # Функция для получения авторов из БД
     async def fetch_authors_with_stats():
-        logger.debug(
-            f"Выполняем запрос на получение авторов со статистикой: limit={limit}, offset={offset}, by={by}"
-        )
+        logger.debug(f"Выполняем запрос на получение авторов со статистикой: limit={limit}, offset={offset}, by={by}")
 
         with local_session() as session:
             # Базовый запрос для получения авторов
             base_query = select(Author).where(Author.deleted_at.is_(None))
 
             # Применяем сортировку
-            
+
             # vars for statistics sorting
             stats_sort_field = None
             stats_sort_direction = "desc"
-            
+
             if by:
                 if isinstance(by, dict):
                     logger.debug(f"Processing dict-based sorting: {by}")
                     # Обработка словаря параметров сортировки
                     from sqlalchemy import asc, desc, func
-                    from orm.shout import ShoutAuthor
+
                     from auth.orm import AuthorFollower
+                    from orm.shout import ShoutAuthor
 
                     # Checking for order field in the dictionary
                     if "order" in by:
@@ -135,50 +134,40 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
             # If sorting by statistics, modify the query
             if stats_sort_field == "shouts":
                 # Sorting by the number of shouts
-                from sqlalchemy import func, and_
+                from sqlalchemy import and_, func
+
                 from orm.shout import Shout, ShoutAuthor
-                
+
                 subquery = (
-                    select(
-                        ShoutAuthor.author,
-                        func.count(func.distinct(Shout.id)).label("shouts_count")
-                    )
+                    select(ShoutAuthor.author, func.count(func.distinct(Shout.id)).label("shouts_count"))
                     .select_from(ShoutAuthor)
                     .join(Shout, ShoutAuthor.shout == Shout.id)
-                    .where(
-                        and_(
-                            Shout.deleted_at.is_(None),
-                            Shout.published_at.is_not(None)
-                        )
-                    )
+                    .where(and_(Shout.deleted_at.is_(None), Shout.published_at.is_not(None)))
                     .group_by(ShoutAuthor.author)
                     .subquery()
                 )
-                
-                base_query = (
-                    base_query
-                    .outerjoin(subquery, Author.id == subquery.c.author)
-                    .order_by(desc(func.coalesce(subquery.c.shouts_count, 0)))
+
+                base_query = base_query.outerjoin(subquery, Author.id == subquery.c.author).order_by(
+                    desc(func.coalesce(subquery.c.shouts_count, 0))
                 )
             elif stats_sort_field == "followers":
                 # Sorting by the number of followers
                 from sqlalchemy import func
+
                 from auth.orm import AuthorFollower
-                
+
                 subquery = (
                     select(
                         AuthorFollower.author,
-                        func.count(func.distinct(AuthorFollower.follower)).label("followers_count")
+                        func.count(func.distinct(AuthorFollower.follower)).label("followers_count"),
                     )
                     .select_from(AuthorFollower)
                     .group_by(AuthorFollower.author)
                     .subquery()
                 )
-                
-                base_query = (
-                    base_query
-                    .outerjoin(subquery, Author.id == subquery.c.author)
-                    .order_by(desc(func.coalesce(subquery.c.followers_count, 0)))
+
+                base_query = base_query.outerjoin(subquery, Author.id == subquery.c.author).order_by(
+                    desc(func.coalesce(subquery.c.followers_count, 0))
                 )
 
             # Применяем лимит и смещение
@@ -219,7 +208,7 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
                     "shouts": shouts_stats.get(author.id, 0),
                     "followers": followers_stats.get(author.id, 0),
                 }
-                
+
                 result.append(author_dict)
 
                 # Кешируем каждого автора отдельно для использования в других функциях
@@ -299,7 +288,7 @@ async def update_author(_, info, profile):
                         # Кэшируем полную версию для админов
                         author_dict = author_with_stat.dict(access=is_admin)
                         asyncio.create_task(cache_author(author_dict))
-                        
+
                         # Возвращаем обычную полную версию, т.к. это владелец
                         return {"error": None, "author": author}
     except Exception as exc:
@@ -328,16 +317,16 @@ async def get_authors_all(_, info):
 async def get_author(_, info, slug="", author_id=0):
     # Получаем ID текущего пользователя и флаг админа из контекста
     is_admin = info.context.get("is_admin", False)
-    
+
     author_dict = None
     try:
         author_id = get_author_id_from(slug=slug, user="", author_id=author_id)
         if not author_id:
             raise ValueError("cant find")
-        
+
         # Получаем данные автора из кэша (полные данные)
         cached_author = await get_cached_author(int(author_id), get_with_stat)
-        
+
         # Применяем фильтрацию на стороне клиента, так как в кэше хранится полная версия
         if cached_author:
             # Создаем объект автора для использования метода dict
@@ -361,7 +350,7 @@ async def get_author(_, info, slug="", author_id=0):
                     # Кэшируем полные данные для админов
                     original_dict = author_with_stat.dict(access=True)
                     asyncio.create_task(cache_author(original_dict))
-                    
+
                     # Возвращаем отфильтрованную версию
                     author_dict = author_with_stat.dict(access=is_admin)
                     # Добавляем статистику
@@ -393,11 +382,12 @@ async def load_authors_by(_, info, by, limit, offset):
         # Получаем ID текущего пользователя и флаг админа из контекста
         viewer_id = info.context.get("author", {}).get("id")
         is_admin = info.context.get("is_admin", False)
-        
+
         # Используем оптимизированную функцию для получения авторов
         return await get_authors_with_stats(limit, offset, by, viewer_id, is_admin)
     except Exception as exc:
         import traceback
+
         logger.error(f"{exc}:\n{traceback.format_exc()}")
         return []
 
@@ -413,7 +403,7 @@ async def load_authors_search(_, info, text: str, limit: int = 10, offset: int =
     Returns:
         list: List of authors matching the search criteria
     """
-    
+
     # Get author IDs from search engine (already sorted by relevance)
     search_results = await search_service.search_authors(text, limit, offset)
 
@@ -429,13 +419,13 @@ async def load_authors_search(_, info, text: str, limit: int = 10, offset: int =
         # Simple query to get authors by IDs - no need for stats here
         authors_query = select(Author).filter(Author.id.in_(author_ids))
         db_authors = session.execute(authors_query).scalars().all()
-    
+
     if not db_authors:
         return []
 
     # Create a dictionary for quick lookup
     authors_dict = {str(author.id): author for author in db_authors}
-    
+
     # Keep the order from search results (maintains the relevance sorting)
     ordered_authors = [authors_dict[author_id] for author_id in author_ids if author_id in authors_dict]
 
@@ -468,7 +458,7 @@ async def get_author_follows(_, info, slug="", user=None, author_id=0):
     # Получаем ID текущего пользователя и флаг админа из контекста
     viewer_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
-    
+
     logger.debug(f"getting follows for @{slug}")
     author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
     if not author_id:
@@ -477,7 +467,7 @@ async def get_author_follows(_, info, slug="", user=None, author_id=0):
     # Получаем данные из кэша
     followed_authors_raw = await get_cached_follower_authors(author_id)
     followed_topics = await get_cached_follower_topics(author_id)
-    
+
     # Фильтруем чувствительные данные авторов
     followed_authors = []
     for author_data in followed_authors_raw:
@@ -517,15 +507,14 @@ async def get_author_follows_authors(_, info, slug="", user=None, author_id=None
     # Получаем ID текущего пользователя и флаг админа из контекста
     viewer_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
-    
+
     logger.debug(f"getting followed authors for @{slug}")
     if not author_id:
         return []
 
-        
     # Получаем данные из кэша
     followed_authors_raw = await get_cached_follower_authors(author_id)
-    
+
     # Фильтруем чувствительные данные авторов
     followed_authors = []
     for author_data in followed_authors_raw:
@@ -540,7 +529,7 @@ async def get_author_follows_authors(_, info, slug="", user=None, author_id=None
         # is_admin - булево значение, является ли текущий пользователь админом
         has_access = is_admin or (viewer_id is not None and str(viewer_id) == str(temp_author.id))
         followed_authors.append(temp_author.dict(access=has_access))
-        
+
     return followed_authors
 
 
@@ -562,15 +551,15 @@ async def get_author_followers(_, info, slug: str = "", user: str = "", author_i
     # Получаем ID текущего пользователя и флаг админа из контекста
     viewer_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
-    
+
     logger.debug(f"getting followers for author @{slug} or ID:{author_id}")
     author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
     if not author_id:
         return []
-        
+
     # Получаем данные из кэша
     followers_raw = await get_cached_author_followers(author_id)
-    
+
     # Фильтруем чувствительные данные авторов
     followers = []
     for follower_data in followers_raw:
@@ -585,5 +574,5 @@ async def get_author_followers(_, info, slug: str = "", user: str = "", author_i
         # is_admin - булево значение, является ли текущий пользователь админом
         has_access = is_admin or (viewer_id is not None and str(viewer_id) == str(temp_author.id))
         followers.append(temp_author.dict(access=has_access))
-        
+
     return followers

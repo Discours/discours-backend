@@ -4,13 +4,13 @@ from graphql import GraphQLError
 from sqlalchemy import select
 from sqlalchemy.sql import and_
 
+from auth.orm import Author, AuthorFollower
 from cache.cache import (
     cache_author,
     cache_topic,
     get_cached_follower_authors,
     get_cached_follower_topics,
 )
-from auth.orm import Author, AuthorFollower
 from orm.community import Community, CommunityFollower
 from orm.reaction import Reaction
 from orm.shout import Shout, ShoutReactionsFollower
@@ -65,14 +65,14 @@ async def follow(_, info, what, slug="", entity_id=0):
                 return {"error": f"{what.lower()} not found"}
             if not entity_id and entity:
                 entity_id = entity.id
-                
+
             # Если это автор, учитываем фильтрацию данных
             if what == "AUTHOR":
                 # Полная версия для кэширования
                 entity_dict = entity.dict(is_admin=True)
             else:
-                entity_dict = entity.dict() 
-                
+                entity_dict = entity.dict()
+
             logger.debug(f"entity_id: {entity_id}, entity_dict: {entity_dict}")
 
         if entity_id:
@@ -87,9 +87,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                     .first()
                 )
                 if existing_sub:
-                    logger.info(
-                        f"Пользователь {follower_id} уже подписан на {what.lower()} с ID {entity_id}"
-                    )
+                    logger.info(f"Пользователь {follower_id} уже подписан на {what.lower()} с ID {entity_id}")
                 else:
                     logger.debug("Добавление новой записи в базу данных")
                     sub = follower_class(follower=follower_id, **{entity_type: entity_id})
@@ -105,12 +103,12 @@ async def follow(_, info, what, slug="", entity_id=0):
             if get_cached_follows_method:
                 logger.debug("Получение подписок из кэша")
                 existing_follows = await get_cached_follows_method(follower_id)
-                
+
                 # Если это авторы, получаем безопасную версию
                 if what == "AUTHOR":
                     # Получаем ID текущего пользователя и фильтруем данные
                     follows_filtered = []
-                    
+
                     for author_data in existing_follows:
                         # Создаем объект автора для использования метода dict
                         temp_author = Author()
@@ -119,7 +117,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                                 setattr(temp_author, key, value)
                         # Добавляем отфильтрованную версию
                         follows_filtered.append(temp_author.dict(viewer_id, False))
-                    
+
                     if not existing_sub:
                         # Создаем объект автора для entity_dict
                         temp_author = Author()
@@ -132,7 +130,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                         follows = follows_filtered
                 else:
                     follows = [*existing_follows, entity_dict] if not existing_sub else existing_follows
-                    
+
                 logger.debug("Обновлен список подписок")
 
             if what == "AUTHOR" and not existing_sub:
@@ -214,20 +212,20 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                         await cache_method(entity.dict(is_admin=True))
                     else:
                         await cache_method(entity.dict())
-                        
+
                 if get_cached_follows_method:
                     logger.debug("Получение подписок из кэша")
                     existing_follows = await get_cached_follows_method(follower_id)
-                    
+
                     # Если это авторы, получаем безопасную версию
                     if what == "AUTHOR":
                         # Получаем ID текущего пользователя и фильтруем данные
                         follows_filtered = []
-                        
+
                         for author_data in existing_follows:
                             if author_data["id"] == entity_id:
                                 continue
-                                
+
                             # Создаем объект автора для использования метода dict
                             temp_author = Author()
                             for key, value in author_data.items():
@@ -235,11 +233,11 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                                     setattr(temp_author, key, value)
                             # Добавляем отфильтрованную версию
                             follows_filtered.append(temp_author.dict(viewer_id, False))
-                        
+
                         follows = follows_filtered
                     else:
                         follows = [item for item in existing_follows if item["id"] != entity_id]
-                        
+
                     logger.debug("Обновлен список подписок")
 
                 if what == "AUTHOR":

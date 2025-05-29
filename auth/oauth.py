@@ -1,11 +1,12 @@
+import time
+from secrets import token_urlsafe
+
 from authlib.integrations.starlette_client import OAuth
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
-from starlette.responses import RedirectResponse, JSONResponse
-from secrets import token_urlsafe
-import time
+from starlette.responses import JSONResponse, RedirectResponse
 
-from auth.tokenstorage import TokenStorage
 from auth.orm import Author
+from auth.tokenstorage import TokenStorage
 from services.db import local_session
 from settings import FRONTEND_URL, OAUTH_CLIENTS
 
@@ -129,9 +130,7 @@ async def oauth_callback(request):
             return JSONResponse({"error": "Provider not configured"}, status_code=400)
 
         # Получаем токен с PKCE verifier
-        token = await client.authorize_access_token(
-            request, code_verifier=request.session.get("code_verifier")
-        )
+        token = await client.authorize_access_token(request, code_verifier=request.session.get("code_verifier"))
 
         # Получаем профиль пользователя
         profile = await get_user_profile(provider, client, token)

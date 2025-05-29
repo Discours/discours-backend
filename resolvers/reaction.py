@@ -334,9 +334,7 @@ async def create_reaction(_, info, reaction):
         with local_session() as session:
             authors = session.query(ShoutAuthor.author).filter(ShoutAuthor.shout == shout_id).scalar()
             is_author = (
-                bool(list(filter(lambda x: x == int(author_id), authors)))
-                if isinstance(authors, list)
-                else False
+                bool(list(filter(lambda x: x == int(author_id), authors))) if isinstance(authors, list) else False
             )
             reaction_input["created_by"] = author_id
             kind = reaction_input.get("kind")

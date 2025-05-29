@@ -2,25 +2,25 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
 from starlette.routing import Route
 
-from auth.sessions import SessionManager
 from auth.internal import verify_internal_auth
 from auth.orm import Author
+from auth.sessions import SessionManager
 from services.db import local_session
-from utils.logger import root_logger as logger
 from settings import (
-    SESSION_COOKIE_NAME,
     SESSION_COOKIE_HTTPONLY,
-    SESSION_COOKIE_SECURE,
-    SESSION_COOKIE_SAMESITE,
     SESSION_COOKIE_MAX_AGE,
+    SESSION_COOKIE_NAME,
+    SESSION_COOKIE_SAMESITE,
+    SESSION_COOKIE_SECURE,
     SESSION_TOKEN_HEADER,
 )
+from utils.logger import root_logger as logger
 
 
 async def logout(request: Request):
     """
     Выход из системы с удалением сессии и cookie.
-    
+
     Поддерживает получение токена из:
     1. HTTP-only cookie
     2. Заголовка Authorization
@@ -30,7 +30,7 @@ async def logout(request: Request):
     if SESSION_COOKIE_NAME in request.cookies:
         token = request.cookies.get(SESSION_COOKIE_NAME)
         logger.debug(f"[auth] logout: Получен токен из cookie {SESSION_COOKIE_NAME}")
-    
+
     # Если токен не найден в cookie, проверяем заголовок
     if not token:
         # Сначала проверяем основной заголовок авторизации
@@ -42,7 +42,7 @@ async def logout(request: Request):
             else:
                 token = auth_header.strip()
                 logger.debug(f"[auth] logout: Получен прямой токен из заголовка {SESSION_TOKEN_HEADER}")
-    
+
     # Если токен не найден в основном заголовке, проверяем стандартный Authorization
     if not token and "Authorization" in request.headers:
         auth_header = request.headers.get("Authorization")
@@ -74,7 +74,7 @@ async def logout(request: Request):
         key=SESSION_COOKIE_NAME,
         secure=SESSION_COOKIE_SECURE,
         httponly=SESSION_COOKIE_HTTPONLY,
-        samesite=SESSION_COOKIE_SAMESITE
+        samesite=SESSION_COOKIE_SAMESITE,
     )
     logger.info("[auth] logout: Cookie успешно удалена")
 
@@ -84,22 +84,22 @@ async def logout(request: Request):
 async def refresh_token(request: Request):
     """
     Обновление токена аутентификации.
-    
+
     Поддерживает получение токена из:
     1. HTTP-only cookie
     2. Заголовка Authorization
-    
+
     Возвращает новый токен как в HTTP-only cookie, так и в теле ответа.
     """
     token = None
     source = None
-    
+
     # Получаем текущий токен из cookie
     if SESSION_COOKIE_NAME in request.cookies:
         token = request.cookies.get(SESSION_COOKIE_NAME)
         source = "cookie"
         logger.debug(f"[auth] refresh_token: Токен получен из cookie {SESSION_COOKIE_NAME}")
-    
+
     # Если токен не найден в cookie, проверяем заголовок авторизации
     if not token:
         # Проверяем основной заголовок авторизации
@@ -113,7 +113,7 @@ async def refresh_token(request: Request):
                 token = auth_header.strip()
                 source = "header"
                 logger.debug(f"[auth] refresh_token: Токен получен из заголовка {SESSION_TOKEN_HEADER} (прямой)")
-    
+
     # Если токен не найден в основном заголовке, проверяем стандартный Authorization
     if not token and "Authorization" in request.headers:
         auth_header = request.headers.get("Authorization")
@@ -147,9 +147,7 @@ async def refresh_token(request: Request):
 
             if not new_token:
                 logger.error(f"[auth] refresh_token: Не удалось обновить токен для пользователя {user_id}")
-                return JSONResponse(
-                    {"success": False, "error": "Не удалось обновить токен"}, status_code=500
-                )
+                return JSONResponse({"success": False, "error": "Не удалось обновить токен"}, status_code=500)
 
             # Создаем ответ
             response = JSONResponse(

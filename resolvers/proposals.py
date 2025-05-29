@@ -14,11 +14,7 @@ def handle_proposing(kind: ReactionKind, reply_to: int, shout_id: int):
                 session.query(Reaction).filter(Reaction.id == reply_to, Reaction.shout == shout_id).first()
             )
 
-            if (
-                replied_reaction
-                and replied_reaction.kind is ReactionKind.PROPOSE.value
-                and replied_reaction.quote
-            ):
+            if replied_reaction and replied_reaction.kind is ReactionKind.PROPOSE.value and replied_reaction.quote:
                 # patch all the proposals' quotes
                 proposals = (
                     session.query(Reaction)

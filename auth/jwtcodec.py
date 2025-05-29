@@ -1,12 +1,13 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import jwt
 from pydantic import BaseModel
-from typing import Optional
-from utils.logger import root_logger as logger
 
 from auth.exceptions import ExpiredToken, InvalidToken
 from settings import JWT_ALGORITHM, JWT_SECRET_KEY
+from utils.logger import root_logger as logger
+
 
 class TokenPayload(BaseModel):
     user_id: str
@@ -28,14 +29,14 @@ class JWTCodec:
             # Для объектов с атрибутами
             user_id = str(getattr(user, "id", ""))
             username = getattr(user, "slug", "") or getattr(user, "email", "") or getattr(user, "phone", "") or ""
-        
+
         logger.debug(f"[JWTCodec.encode] Кодирование токена для user_id={user_id}, username={username}")
-        
+
         # Если время истечения не указано, установим срок годности на 30 дней
         if exp is None:
             exp = datetime.now(tz=timezone.utc) + timedelta(days=30)
             logger.debug(f"[JWTCodec.encode] Время истечения не указано, устанавливаем срок: {exp}")
-        
+
         # Важно: убедимся, что exp всегда является либо datetime, либо целым числом от timestamp
         if isinstance(exp, datetime):
             # Преобразуем datetime в timestamp чтобы гарантировать правильный формат
@@ -44,7 +45,7 @@ class JWTCodec:
             # Если передано что-то другое, установим значение по умолчанию
             logger.warning(f"[JWTCodec.encode] Некорректный формат exp: {exp}, используем значение по умолчанию")
             exp_timestamp = int((datetime.now(tz=timezone.utc) + timedelta(days=30)).timestamp())
-        
+
         payload = {
             "user_id": user_id,
             "username": username,
@@ -52,9 +53,9 @@ class JWTCodec:
             "iat": datetime.now(tz=timezone.utc),
             "iss": "discours",
         }
-        
+
         logger.debug(f"[JWTCodec.encode] Сформирован payload: {payload}")
-        
+
         try:
             token = jwt.encode(payload, JWT_SECRET_KEY, JWT_ALGORITHM)
             logger.debug(f"[JWTCodec.encode] Токен успешно создан, длина: {len(token) if token else 0}")
@@ -66,11 +67,11 @@ class JWTCodec:
     @staticmethod
     def decode(token: str, verify_exp: bool = True):
         logger.debug(f"[JWTCodec.decode] Начало декодирования токена длиной {len(token) if token else 0}")
-        
+
         if not token:
             logger.error("[JWTCodec.decode] Пустой токен")
             return None
-            
+
         try:
             payload = jwt.decode(
                 token,
@@ -83,21 +84,23 @@ class JWTCodec:
                 issuer="discours",
             )
             logger.debug(f"[JWTCodec.decode] Декодирован payload: {payload}")
-            
+
             # Убедимся, что exp существует (добавим обработку если exp отсутствует)
             if "exp" not in payload:
                 logger.warning(f"[JWTCodec.decode] В токене отсутствует поле exp")
                 # Добавим exp по умолчанию, чтобы избежать ошибки при создании TokenPayload
                 payload["exp"] = int((datetime.now(tz=timezone.utc) + timedelta(days=30)).timestamp())
-            
+
             try:
                 r = TokenPayload(**payload)
-                logger.debug(f"[JWTCodec.decode] Создан объект TokenPayload: user_id={r.user_id}, username={r.username}")
+                logger.debug(
+                    f"[JWTCodec.decode] Создан объект TokenPayload: user_id={r.user_id}, username={r.username}"
+                )
                 return r
             except Exception as e:
                 logger.error(f"[JWTCodec.decode] Ошибка при создании TokenPayload: {e}")
                 return None
-                
+
         except jwt.InvalidIssuedAtError:
             logger.error("[JWTCodec.decode] Недействительное время выпуска токена")
             return None

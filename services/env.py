@@ -1,9 +1,11 @@
-from typing import Dict, List, Optional, Set
-from dataclasses import dataclass
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict, List, Optional, Set
+
 from redis import Redis
+
 from settings import REDIS_URL, ROOT_DIR
 from utils.logger import root_logger as logger
 
@@ -31,12 +33,37 @@ class EnvManager:
 
     # Стандартные переменные окружения, которые следует исключить
     EXCLUDED_ENV_VARS: Set[str] = {
-        "PATH", "SHELL", "USER", "HOME", "PWD", "TERM", "LANG", 
-        "PYTHONPATH", "_", "TMPDIR", "TERM_PROGRAM", "TERM_SESSION_ID",
-        "XPC_SERVICE_NAME", "XPC_FLAGS", "SHLVL", "SECURITYSESSIONID",
-        "LOGNAME", "OLDPWD", "ZSH", "PAGER", "LESS", "LC_CTYPE", "LSCOLORS",
-        "SSH_AUTH_SOCK", "DISPLAY", "COLORTERM", "EDITOR", "VISUAL",
-        "PYTHONDONTWRITEBYTECODE", "VIRTUAL_ENV", "PYTHONUNBUFFERED"
+        "PATH",
+        "SHELL",
+        "USER",
+        "HOME",
+        "PWD",
+        "TERM",
+        "LANG",
+        "PYTHONPATH",
+        "_",
+        "TMPDIR",
+        "TERM_PROGRAM",
+        "TERM_SESSION_ID",
+        "XPC_SERVICE_NAME",
+        "XPC_FLAGS",
+        "SHLVL",
+        "SECURITYSESSIONID",
+        "LOGNAME",
+        "OLDPWD",
+        "ZSH",
+        "PAGER",
+        "LESS",
+        "LC_CTYPE",
+        "LSCOLORS",
+        "SSH_AUTH_SOCK",
+        "DISPLAY",
+        "COLORTERM",
+        "EDITOR",
+        "VISUAL",
+        "PYTHONDONTWRITEBYTECODE",
+        "VIRTUAL_ENV",
+        "PYTHONUNBUFFERED",
     }
 
     # Секции для группировки переменных
@@ -44,57 +71,67 @@ class EnvManager:
         "AUTH": {
             "pattern": r"^(JWT|AUTH|SESSION|OAUTH|GITHUB|GOOGLE|FACEBOOK)_",
             "name": "Авторизация",
-            "description": "Настройки системы авторизации"
+            "description": "Настройки системы авторизации",
         },
         "DATABASE": {
             "pattern": r"^(DB|DATABASE|POSTGRES|MYSQL|SQL)_",
             "name": "База данных",
-            "description": "Настройки подключения к базам данных"
+            "description": "Настройки подключения к базам данных",
         },
         "CACHE": {
             "pattern": r"^(REDIS|CACHE|MEMCACHED)_",
             "name": "Кэширование",
-            "description": "Настройки систем кэширования"
+            "description": "Настройки систем кэширования",
         },
         "SEARCH": {
             "pattern": r"^(ELASTIC|SEARCH|OPENSEARCH)_",
             "name": "Поиск",
-            "description": "Настройки поисковых систем"
+            "description": "Настройки поисковых систем",
         },
         "APP": {
             "pattern": r"^(APP|PORT|HOST|DEBUG|DOMAIN|ENVIRONMENT|ENV|FRONTEND)_",
             "name": "Общие настройки",
-            "description": "Общие настройки приложения"
+            "description": "Общие настройки приложения",
         },
         "LOGGING": {
             "pattern": r"^(LOG|LOGGING|SENTRY|GLITCH|GLITCHTIP)_",
             "name": "Мониторинг",
-            "description": "Настройки логирования и мониторинга"
+            "description": "Настройки логирования и мониторинга",
         },
         "EMAIL": {
             "pattern": r"^(MAIL|EMAIL|SMTP|IMAP|POP3|POST)_",
             "name": "Электронная почта",
-            "description": "Настройки отправки электронной почты"
+            "description": "Настройки отправки электронной почты",
         },
         "ANALYTICS": {
             "pattern": r"^(GA|GOOGLE_ANALYTICS|ANALYTICS)_",
             "name": "Аналитика",
-            "description": "Настройки систем аналитики"
+            "description": "Настройки систем аналитики",
         },
     }
 
     # Переменные, которые следует всегда помечать как секретные
     SECRET_VARS_PATTERNS = [
-        r".*TOKEN.*", r".*SECRET.*", r".*PASSWORD.*", r".*KEY.*", 
-        r".*PWD.*", r".*PASS.*", r".*CRED.*", r".*_DSN.*",
-        r".*JWT.*", r".*SESSION.*", r".*OAUTH.*", 
-        r".*GITHUB.*", r".*GOOGLE.*", r".*FACEBOOK.*"
+        r".*TOKEN.*",
+        r".*SECRET.*",
+        r".*PASSWORD.*",
+        r".*KEY.*",
+        r".*PWD.*",
+        r".*PASS.*",
+        r".*CRED.*",
+        r".*_DSN.*",
+        r".*JWT.*",
+        r".*SESSION.*",
+        r".*OAUTH.*",
+        r".*GITHUB.*",
+        r".*GOOGLE.*",
+        r".*FACEBOOK.*",
     ]
 
     def __init__(self):
         self.redis = Redis.from_url(REDIS_URL)
         self.prefix = "env:"
-        self.env_file_path = os.path.join(ROOT_DIR, '.env')
+        self.env_file_path = os.path.join(ROOT_DIR, ".env")
 
     def get_all_variables(self) -> List[EnvSection]:
         """
@@ -142,15 +179,15 @@ class EnvManager:
         env_vars = {}
         if os.path.exists(self.env_file_path):
             try:
-                with open(self.env_file_path, 'r') as f:
+                with open(self.env_file_path, "r") as f:
                     for line in f:
                         line = line.strip()
                         # Пропускаем пустые строки и комментарии
-                        if not line or line.startswith('#'):
+                        if not line or line.startswith("#"):
                             continue
                         # Разделяем строку на ключ и значение
-                        if '=' in line:
-                            key, value = line.split('=', 1)
+                        if "=" in line:
+                            key, value = line.split("=", 1)
                             key = key.strip()
                             value = value.strip()
                             # Удаляем кавычки, если они есть
@@ -207,17 +244,17 @@ class EnvManager:
         """
         Определяет тип переменной на основе ее значения
         """
-        if value.lower() in ('true', 'false'):
+        if value.lower() in ("true", "false"):
             return "boolean"
         if value.isdigit():
             return "integer"
         if re.match(r"^\d+\.\d+$", value):
             return "float"
         # Проверяем на JSON объект или массив
-        if (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']')):
+        if (value.startswith("{") and value.endswith("}")) or (value.startswith("[") and value.endswith("]")):
             return "json"
         # Проверяем на URL
-        if value.startswith(('http://', 'https://', 'redis://', 'postgresql://')):
+        if value.startswith(("http://", "https://", "redis://", "postgresql://")):
             return "url"
         return "string"
 
@@ -233,14 +270,9 @@ class EnvManager:
         for key, value in variables.items():
             is_secret = self._is_secret_variable(key)
             var_type = self._determine_variable_type(value)
-            
-            var = EnvVariable(
-                key=key,
-                value=value,
-                type=var_type,
-                is_secret=is_secret
-            )
-            
+
+            var = EnvVariable(key=key, value=value, type=var_type, is_secret=is_secret)
+
             # Определяем секцию для переменной
             placed = False
             for section_id, section_config in self.SECTIONS.items():
@@ -248,7 +280,7 @@ class EnvManager:
                     sections_dict[section_id].append(var)
                     placed = True
                     break
-            
+
             # Если переменная не попала ни в одну секцию
             # if not placed:
             #    other_variables.append(var)
@@ -260,22 +292,20 @@ class EnvManager:
                 section_config = self.SECTIONS[section_id]
                 result.append(
                     EnvSection(
-                        name=section_config["name"],
-                        description=section_config["description"],
-                        variables=variables
+                        name=section_config["name"], description=section_config["description"], variables=variables
                     )
                 )
-        
+
         # Добавляем прочие переменные, если они есть
         if other_variables:
             result.append(
                 EnvSection(
                     name="Прочие переменные",
                     description="Переменные, не вошедшие в основные категории",
-                    variables=other_variables
+                    variables=other_variables,
                 )
             )
-        
+
         return result
 
     def update_variable(self, key: str, value: str) -> bool:
@@ -286,13 +316,13 @@ class EnvManager:
             # Сохраняем в Redis
             full_key = f"{self.prefix}{key}"
             self.redis.set(full_key, value)
-            
+
             # Обновляем значение в .env файле
             self._update_dotenv_var(key, value)
-            
+
             # Обновляем переменную в текущем процессе
             os.environ[key] = value
-            
+
             return True
         except Exception as e:
             logger.error(f"Ошибка обновления переменной {key}: {e}")
@@ -305,20 +335,20 @@ class EnvManager:
         try:
             # Если файл .env не существует, создаем его
             if not os.path.exists(self.env_file_path):
-                with open(self.env_file_path, 'w') as f:
+                with open(self.env_file_path, "w") as f:
                     f.write(f"{key}={value}\n")
                 return True
-            
+
             # Если файл существует, читаем его содержимое
             lines = []
             found = False
-            
-            with open(self.env_file_path, 'r') as f:
+
+            with open(self.env_file_path, "r") as f:
                 for line in f:
-                    if line.strip() and not line.strip().startswith('#'):
+                    if line.strip() and not line.strip().startswith("#"):
                         if line.strip().startswith(f"{key}="):
                             # Экранируем значение, если необходимо
-                            if ' ' in value or ',' in value or '"' in value or "'" in value:
+                            if " " in value or "," in value or '"' in value or "'" in value:
                                 escaped_value = f'"{value}"'
                             else:
                                 escaped_value = value
@@ -328,20 +358,20 @@ class EnvManager:
                             lines.append(line)
                     else:
                         lines.append(line)
-            
+
             # Если переменной не было в файле, добавляем ее
             if not found:
                 # Экранируем значение, если необходимо
-                if ' ' in value or ',' in value or '"' in value or "'" in value:
+                if " " in value or "," in value or '"' in value or "'" in value:
                     escaped_value = f'"{value}"'
                 else:
                     escaped_value = value
                 lines.append(f"{key}={escaped_value}\n")
-            
+
             # Записываем обновленный файл
-            with open(self.env_file_path, 'w') as f:
+            with open(self.env_file_path, "w") as f:
                 f.writelines(lines)
-            
+
             return True
         except Exception as e:
             logger.error(f"Ошибка обновления .env файла: {e}")
@@ -358,14 +388,14 @@ class EnvManager:
                 full_key = f"{self.prefix}{var.key}"
                 pipe.set(full_key, var.value)
             pipe.execute()
-            
+
             # Обновляем переменные в .env файле
             for var in variables:
                 self._update_dotenv_var(var.key, var.value)
-                
+
                 # Обновляем переменную в текущем процессе
                 os.environ[var.key] = var.value
-                
+
             return True
         except Exception as e:
             logger.error(f"Ошибка массового обновления переменных: {e}")

@@ -1,22 +1,22 @@
-from typing import Optional, Tuple
 import time
-from typing import Any
+from typing import Any, Optional, Tuple
 
 from sqlalchemy.orm import exc
 from starlette.authentication import AuthenticationBackend, BaseUser, UnauthenticatedUser
 from starlette.requests import HTTPConnection
 
 from auth.credentials import AuthCredentials
+from auth.exceptions import ExpiredToken, InvalidToken
+from auth.jwtcodec import JWTCodec
 from auth.orm import Author
 from auth.sessions import SessionManager
-from services.db import local_session
-from settings import SESSION_TOKEN_HEADER, SESSION_COOKIE_NAME, ADMIN_EMAILS as ADMIN_EMAILS_LIST
-from utils.logger import root_logger as logger
-from auth.jwtcodec import JWTCodec
-from auth.exceptions import ExpiredToken, InvalidToken
 from auth.state import AuthState
 from auth.tokenstorage import TokenStorage
+from services.db import local_session
 from services.redis import redis
+from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
+from settings import SESSION_COOKIE_NAME, SESSION_TOKEN_HEADER
+from utils.logger import root_logger as logger
 
 ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
 
@@ -24,13 +24,9 @@ ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
 class AuthenticatedUser(BaseUser):
     """Аутентифицированный пользователь для Starlette"""
 
-    def __init__(self, 
-                 user_id: str, 
-                 username: str = "", 
-                 roles: list = None, 
-                 permissions: dict = None, 
-                 token: str = None
-                ):
+    def __init__(
+        self, user_id: str, username: str = "", roles: list = None, permissions: dict = None, token: str = None
+    ):
         self.user_id = user_id
         self.username = username
         self.roles = roles or []
@@ -56,17 +52,17 @@ class InternalAuthentication(AuthenticationBackend):
     async def authenticate(self, request: HTTPConnection):
         """
         Аутентифицирует пользователя по токену из заголовка или cookie.
-        
+
         Порядок поиска токена:
         1. Проверяем заголовок SESSION_TOKEN_HEADER (может быть установлен middleware)
-        2. Проверяем scope/auth в request, куда middleware мог сохранить токен 
+        2. Проверяем scope/auth в request, куда middleware мог сохранить токен
         3. Проверяем cookie
 
         Возвращает:
             tuple: (AuthCredentials, BaseUser)
         """
         token = None
-        
+
         # 1. Проверяем заголовок
         if SESSION_TOKEN_HEADER in request.headers:
             token_header = request.headers.get(SESSION_TOKEN_HEADER)
@@ -77,19 +73,19 @@ class InternalAuthentication(AuthenticationBackend):
                 else:
                     token = token_header.strip()
                     logger.debug(f"[auth.authenticate] Извлечен прямой токен из заголовка {SESSION_TOKEN_HEADER}")
-        
+
         # 2. Проверяем scope/auth, который мог быть установлен middleware
         if not token and hasattr(request, "scope") and "auth" in request.scope:
             auth_data = request.scope.get("auth", {})
             if isinstance(auth_data, dict) and "token" in auth_data:
                 token = auth_data["token"]
                 logger.debug(f"[auth.authenticate] Извлечен токен из request.scope['auth']")
-        
+
         # 3. Проверяем cookie
         if not token and hasattr(request, "cookies") and SESSION_COOKIE_NAME in request.cookies:
             token = request.cookies.get(SESSION_COOKIE_NAME)
             logger.debug(f"[auth.authenticate] Извлечен токен из cookie {SESSION_COOKIE_NAME}")
-        
+
         # Если токен не найден, возвращаем неаутентифицированного пользователя
         if not token:
             logger.debug("[auth.authenticate] Токен не найден")
@@ -112,9 +108,7 @@ class InternalAuthentication(AuthenticationBackend):
 
                 if author.is_locked():
                     logger.debug(f"[auth.authenticate] Аккаунт заблокирован: {author.id}")
-                    return AuthCredentials(
-                        scopes={}, error_message="Account is locked"
-                    ), UnauthenticatedUser()
+                    return AuthCredentials(scopes={}, error_message="Account is locked"), UnauthenticatedUser()
 
                 # Получаем разрешения из ролей
                 scopes = author.get_permissions()
@@ -128,11 +122,7 @@ class InternalAuthentication(AuthenticationBackend):
 
                 # Создаем объекты авторизации с сохранением токена
                 credentials = AuthCredentials(
-                    author_id=author.id, 
-                    scopes=scopes, 
-                    logged_in=True, 
-                    email=author.email,
-                    token=token
+                    author_id=author.id, scopes=scopes, logged_in=True, email=author.email, token=token
                 )
 
                 user = AuthenticatedUser(
@@ -140,7 +130,7 @@ class InternalAuthentication(AuthenticationBackend):
                     username=author.slug or author.email or "",
                     roles=roles,
                     permissions=scopes,
-                    token=token
+                    token=token,
                 )
 
                 logger.debug(f"[auth.authenticate] Успешная аутентификация: {author.email}")
@@ -163,7 +153,7 @@ async def verify_internal_auth(token: str) -> Tuple[str, list, bool]:
         tuple: (user_id, roles, is_admin)
     """
     logger.debug(f"[verify_internal_auth] Проверка токена: {token[:10]}...")
-    
+
     # Обработка формата "Bearer <token>" (если токен не был обработан ранее)
     if token and token.startswith("Bearer "):
         token = token.replace("Bearer ", "", 1).strip()
@@ -188,11 +178,13 @@ async def verify_internal_auth(token: str) -> Tuple[str, list, bool]:
             # Получаем роли
             roles = [role.id for role in author.roles]
             logger.debug(f"[verify_internal_auth] Роли пользователя: {roles}")
-            
+
             # Определяем, является ли пользователь администратором
-            is_admin = any(role in ['admin', 'super'] for role in roles) or author.email in ADMIN_EMAILS
-            logger.debug(f"[verify_internal_auth] Пользователь {author.id} {'является' if is_admin else 'не является'} администратором")
-            
+            is_admin = any(role in ["admin", "super"] for role in roles) or author.email in ADMIN_EMAILS
+            logger.debug(
+                f"[verify_internal_auth] Пользователь {author.id} {'является' if is_admin else 'не является'} администратором"
+            )
+
             return str(author.id), roles, is_admin
         except exc.NoResultFound:
             logger.warning(f"[verify_internal_auth] Пользователь с ID {payload.user_id} не найден в БД или не активен")
@@ -257,7 +249,7 @@ async def authenticate(request: Any) -> AuthState:
                     headers = dict(request.headers())
                 else:
                     headers = dict(request.headers)
-                
+
             auth_header = headers.get(SESSION_TOKEN_HEADER, "")
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header[7:].strip()
@@ -285,13 +277,13 @@ async def authenticate(request: Any) -> AuthState:
         logger.warning(f"[auth.authenticate] Токен не валиден: не найдена сессия")
         state.error = "Invalid or expired token"
         return state
-        
+
     # Создаем успешное состояние авторизации
     state.logged_in = True
     state.author_id = payload.user_id
     state.token = token
     state.username = payload.username
-    
+
     # Если запрос имеет атрибут auth, устанавливаем в него авторизационные данные
     if hasattr(request, "auth") or hasattr(request, "__setattr__"):
         try:
@@ -301,22 +293,20 @@ async def authenticate(request: Any) -> AuthState:
                 if author:
                     # Получаем разрешения из ролей
                     scopes = author.get_permissions()
-                    
+
                     # Создаем объект авторизации
                     auth_cred = AuthCredentials(
-                        author_id=author.id,
-                        scopes=scopes,
-                        logged_in=True,
-                        email=author.email,
-                        token=token
+                        author_id=author.id, scopes=scopes, logged_in=True, email=author.email, token=token
                     )
-                    
+
                     # Устанавливаем auth в request
                     setattr(request, "auth", auth_cred)
-                    logger.debug(f"[auth.authenticate] Авторизационные данные установлены в request.auth для {payload.user_id}")
+                    logger.debug(
+                        f"[auth.authenticate] Авторизационные данные установлены в request.auth для {payload.user_id}"
+                    )
         except Exception as e:
             logger.error(f"[auth.authenticate] Ошибка при установке auth в request: {e}")
-    
+
     logger.info(f"[auth.authenticate] Успешная аутентификация пользователя {state.author_id}")
-    
+
     return state

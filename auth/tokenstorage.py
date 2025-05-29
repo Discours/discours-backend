@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
 import json
 import time
-from typing import Dict, Any, Optional, Tuple, List
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 from auth.jwtcodec import JWTCodec
 from auth.validations import AuthInput
@@ -81,7 +81,7 @@ class TokenStorage:
         # Формируем ключи для Redis
         token_key = cls._make_token_key(user_id, username, token)
         logger.debug(f"[TokenStorage.create_session] Сформированы ключи: token_key={token_key}")
-        
+
         # Формируем ключи в новом формате SessionManager для совместимости
         session_key = cls._make_session_key(user_id, token)
         user_sessions_key = cls._make_user_sessions_key(user_id)
@@ -91,25 +91,25 @@ class TokenStorage:
             "user_id": user_id,
             "username": username,
             "created_at": time.time(),
-            "expires_at": time.time() + 30 * 24 * 60 * 60  # 30 дней
+            "expires_at": time.time() + 30 * 24 * 60 * 60,  # 30 дней
         }
-        
+
         if device_info:
             token_data.update(device_info)
-            
+
         logger.debug(f"[TokenStorage.create_session] Сформированы данные сессии: {token_data}")
 
         # Сохраняем в Redis старый формат
         pipeline = redis.pipeline()
         pipeline.hset(token_key, mapping=token_data)
         pipeline.expire(token_key, 30 * 24 * 60 * 60)  # 30 дней
-        
+
         # Также сохраняем в новом формате SessionManager для обеспечения совместимости
         pipeline.hset(session_key, mapping=token_data)
         pipeline.expire(session_key, 30 * 24 * 60 * 60)  # 30 дней
         pipeline.sadd(user_sessions_key, token)
         pipeline.expire(user_sessions_key, 30 * 24 * 60 * 60)  # 30 дней
-        
+
         results = await pipeline.execute()
         logger.info(f"[TokenStorage.create_session] Сессия успешно создана для пользователя {user_id}")
 
@@ -146,39 +146,39 @@ class TokenStorage:
             if not payload:
                 logger.warning(f"[TokenStorage.validate_token] Токен не валиден (не удалось декодировать)")
                 return False, None
-                
+
             user_id = payload.user_id
             username = payload.username
-            
+
             # Формируем ключи для Redis в обоих форматах
             token_key = cls._make_token_key(user_id, username, token)
             session_key = cls._make_session_key(user_id, token)
-            
+
             # Проверяем в обоих форматах для совместимости
             old_exists = await redis.exists(token_key)
             new_exists = await redis.exists(session_key)
-            
+
             if old_exists or new_exists:
                 logger.info(f"[TokenStorage.validate_token] Токен валиден для пользователя {user_id}")
-                
+
                 # Получаем данные токена из актуального хранилища
                 if new_exists:
                     token_data = await redis.hgetall(session_key)
                 else:
                     token_data = await redis.hgetall(token_key)
-                    
+
                     # Если найден только в старом формате, создаем запись в новом формате
                     if not new_exists:
                         logger.info(f"[TokenStorage.validate_token] Миграция токена в новый формат: {session_key}")
                         await redis.hset(session_key, mapping=token_data)
                         await redis.expire(session_key, 30 * 24 * 60 * 60)
                         await redis.sadd(cls._make_user_sessions_key(user_id), token)
-                
+
                 return True, token_data
             else:
                 logger.warning(f"[TokenStorage.validate_token] Токен не найден в Redis: {token_key}")
                 return False, None
-                
+
         except Exception as e:
             logger.error(f"[TokenStorage.validate_token] Ошибка при проверке токена: {e}")
             return False, None
@@ -200,30 +200,30 @@ class TokenStorage:
             if not payload:
                 logger.warning(f"[TokenStorage.invalidate_token] Токен не валиден (не удалось декодировать)")
                 return False
-                
+
             user_id = payload.user_id
             username = payload.username
-            
+
             # Формируем ключи для Redis в обоих форматах
             token_key = cls._make_token_key(user_id, username, token)
             session_key = cls._make_session_key(user_id, token)
             user_sessions_key = cls._make_user_sessions_key(user_id)
-            
+
             # Удаляем токен из Redis в обоих форматах
             pipeline = redis.pipeline()
             pipeline.delete(token_key)
             pipeline.delete(session_key)
             pipeline.srem(user_sessions_key, token)
             results = await pipeline.execute()
-            
+
             success = any(results)
             if success:
                 logger.info(f"[TokenStorage.invalidate_token] Токен успешно инвалидирован для пользователя {user_id}")
             else:
                 logger.warning(f"[TokenStorage.invalidate_token] Токен не найден: {token_key}")
-                
+
             return success
-            
+
         except Exception as e:
             logger.error(f"[TokenStorage.invalidate_token] Ошибка при инвалидации токена: {e}")
             return False
@@ -243,11 +243,11 @@ class TokenStorage:
             # Получаем список сессий пользователя
             user_sessions_key = cls._make_user_sessions_key(user_id)
             tokens = await redis.smembers(user_sessions_key)
-            
+
             if not tokens:
                 logger.warning(f"[TokenStorage.invalidate_all_tokens] Нет активных сессий пользователя {user_id}")
                 return 0
-                
+
             count = 0
             for token in tokens:
                 # Декодируем JWT токен
@@ -255,28 +255,28 @@ class TokenStorage:
                     payload = JWTCodec.decode(token)
                     if payload:
                         username = payload.username
-                        
+
                         # Формируем ключи для Redis
                         token_key = cls._make_token_key(user_id, username, token)
                         session_key = cls._make_session_key(user_id, token)
-                        
+
                         # Удаляем токен из Redis
                         pipeline = redis.pipeline()
                         pipeline.delete(token_key)
                         pipeline.delete(session_key)
                         results = await pipeline.execute()
-                        
+
                         count += 1
                 except Exception as e:
                     logger.error(f"[TokenStorage.invalidate_all_tokens] Ошибка при обработке токена: {e}")
                     continue
-            
+
             # Удаляем список сессий пользователя
             await redis.delete(user_sessions_key)
-            
+
             logger.info(f"[TokenStorage.invalidate_all_tokens] Инвалидировано {count} токенов пользователя {user_id}")
             return count
-            
+
         except Exception as e:
             logger.error(f"[TokenStorage.invalidate_all_tokens] Ошибка при инвалидации всех токенов: {e}")
             return 0

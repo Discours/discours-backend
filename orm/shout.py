@@ -77,7 +77,7 @@ class Shout(Base):
         slug (str)
         cover (str) : "Cover image url"
         cover_caption (str) : "Cover image alt caption"
-        lead (str) 
+        lead (str)
         title (str)
         subtitle (str)
         layout (str)
