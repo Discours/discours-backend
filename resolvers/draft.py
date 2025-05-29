@@ -79,7 +79,7 @@ async def load_drafts(_, info):
     Returns:
         dict: Список черновиков или сообщение об ошибке
     """
-    author_dict = info.context.get("author", {})
+    author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
     if not author_id:
@@ -152,7 +152,7 @@ async def create_draft(_, info, draft_input):
         ...     assert result['draft'].title == 'Test'
         ...     return result
     """
-    author_dict = info.context.get("author", {})
+    author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
     if not author_id:
@@ -226,7 +226,7 @@ async def update_draft(_, info, draft_id: int, draft_input):
     Returns:
         dict: Обновленный черновик или сообщение об ошибке
     """
-    author_dict = info.context.get("author", {})
+    author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
     if not author_id:
@@ -328,7 +328,7 @@ async def update_draft(_, info, draft_id: int, draft_input):
 @mutation.field("delete_draft")
 @login_required
 async def delete_draft(_, info, draft_id: int):
-    author_dict = info.context.get("author", {})
+    author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
     with local_session() as session:
@@ -387,7 +387,7 @@ async def publish_draft(_, info, draft_id: int):
     Returns:
         dict: Результат публикации с shout или сообщением об ошибке
     """
-    author_dict = info.context.get("author", {})
+    author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
     if not author_id:
@@ -490,7 +490,7 @@ async def unpublish_draft(_, info, draft_id: int):
     Returns:
         dict: Результат операции с информацией о черновике или сообщением об ошибке
     """
-    author_dict = info.context.get("author", {})
+    author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
     if author_id:

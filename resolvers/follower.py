@@ -30,7 +30,7 @@ async def follow(_, info, what, slug="", entity_id=0):
     viewer_id = info.context.get("author", {}).get("id")
     if not viewer_id:
         return {"error": "Access denied"}
-    follower_dict = info.context.get("author")
+    follower_dict = info.context.get("author") or {}
     logger.debug(f"follower: {follower_dict}")
 
     if not viewer_id or not follower_dict:
@@ -151,7 +151,7 @@ async def unfollow(_, info, what, slug="", entity_id=0):
     viewer_id = info.context.get("author", {}).get("id")
     if not viewer_id:
         return GraphQLError("Access denied")
-    follower_dict = info.context.get("author")
+    follower_dict = info.context.get("author") or {}
     logger.debug(f"follower: {follower_dict}")
 
     if not viewer_id or not follower_dict:

@@ -203,7 +203,7 @@ def get_notifications_grouped(author_id: int, after: int = 0, limit: int = 10, o
 @query.field("load_notifications")
 @login_required
 async def load_notifications(_, info, after: int, limit: int = 50, offset=0):
-    author_dict = info.context.get("author")
+    author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
     error = None
     total = 0

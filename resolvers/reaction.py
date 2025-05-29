@@ -83,7 +83,7 @@ def get_reactions_with_stat(q, limit=10, offset=0):
     reactions = []
 
     with local_session() as session:
-        result_rows = session.execute(q)
+        result_rows = session.execute(q).unique()
         for reaction, author, shout, comments_count, rating_stat in result_rows:
             # Пропускаем реакции с отсутствующими shout или author
             if not shout or not author:

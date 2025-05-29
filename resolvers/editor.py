@@ -135,7 +135,7 @@ async def get_my_shout(_, info, shout_id: int):
 @query.field("get_shouts_drafts")
 @login_required
 async def get_shouts_drafts(_, info):
-    author_dict = info.context.get("author")
+    author_dict = info.context.get("author") or {}
     if not author_dict:
         return {"error": "author profile was not found"}
     author_id = author_dict.get("id")
@@ -158,7 +158,7 @@ async def get_shouts_drafts(_, info):
 # @login_required
 async def create_shout(_, info, inp):
     logger.info(f"Starting create_shout with input: {inp}")
-    author_dict = info.context.get("author")
+    author_dict = info.context.get("author") or {}
     logger.debug(f"Context author: {author_dict}")
 
     if not author_dict:
@@ -385,7 +385,8 @@ def patch_topics(session, shout, topics_input):
 # @mutation.field("update_shout")
 # @login_required
 async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
-    author_id = info.context.get("author").get("id")
+    author_dict = info.context.get("author") or {}
+    author_id = author_dict.get("id")
     if not author_id:
         logger.error("Unauthorized update attempt")
         return {"error": "unauthorized"}
@@ -597,7 +598,7 @@ async def update_shout(_, info, shout_id: int, shout_input=None, publish=False):
 # @mutation.field("delete_shout")
 # @login_required
 async def delete_shout(_, info, shout_id: int):
-    author_dict = info.context.get("author")
+    author_dict = info.context.get("author") or {}
     if not author_dict:
         return {"error": "author profile was not found"}
     author_id = author_dict.get("id")
