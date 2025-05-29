@@ -47,6 +47,7 @@ middleware = [
         allow_origins=[
             "https://localhost:3000",
             "https://testing.discours.io",
+            "https://testing3.discours.io",
             "https://discours.io",
             "https://new.discours.io",
             "https://discours.ru",
