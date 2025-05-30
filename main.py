@@ -7,7 +7,6 @@ from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
-from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -15,7 +14,6 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from auth.handler import EnhancedGraphQLHTTPHandler
-from auth.internal import InternalAuthentication
 from auth.middleware import AuthMiddleware, auth_middleware
 from cache.precache import precache_data
 from cache.revalidator import revalidation_manager
@@ -26,6 +24,7 @@ from services.search import check_search_service, initialize_search_index_backgr
 from services.viewed import ViewedStorage
 from settings import DEV_SERVER_PID_FILE_NAME
 from utils.logger import root_logger as logger
+from auth.oauth import oauth_login, oauth_callback
 
 DEVMODE = os.getenv("DOKKU_APP_TYPE", "false").lower() == "false"
 DIST_DIR = join(os.path.dirname(__file__), "dist")  # Директория для собранных файлов
@@ -57,10 +56,8 @@ middleware = [
         allow_headers=["*"],
         allow_credentials=True,
     ),
-    # Сначала AuthMiddleware (для обработки токенов)
+    # извлечение токена + аутентификация + cookies
     Middleware(AuthMiddleware),
-    # Затем AuthenticationMiddleware (для создания request.user на основе токена)
-    Middleware(AuthenticationMiddleware, backend=InternalAuthentication()),
 ]
 
 
@@ -217,6 +214,9 @@ async def lifespan(_app):
 app = Starlette(
     routes=[
         Route("/graphql", graphql_handler, methods=["GET", "POST", "OPTIONS"]),
+        # OAuth маршруты
+        Route("/oauth/{provider}", oauth_login, methods=["GET"]),
+        Route("/oauth/{provider}/callback", oauth_callback, methods=["GET"]),
         Mount("/", app=StaticFiles(directory=DIST_DIR, html=True)),
     ],
     lifespan=lifespan,

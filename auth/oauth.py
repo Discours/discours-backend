@@ -1,4 +1,5 @@
 import time
+import orjson
 from secrets import token_urlsafe
 
 from authlib.integrations.starlette_client import OAuth
@@ -8,9 +9,15 @@ from starlette.responses import JSONResponse, RedirectResponse
 from auth.orm import Author
 from auth.tokenstorage import TokenStorage
 from services.db import local_session
+from services.redis import redis
 from settings import FRONTEND_URL, OAUTH_CLIENTS
+from utils.logger import root_logger as logger
+from resolvers.auth import generate_unique_slug
 
 oauth = OAuth()
+
+# OAuth state management через Redis (TTL 10 минут)
+OAUTH_STATE_TTL = 600  # 10 минут
 
 # Конфигурация провайдеров
 PROVIDERS = {
@@ -90,47 +97,68 @@ async def oauth_login(request):
     if not client:
         return JSONResponse({"error": "Provider not configured"}, status_code=400)
 
+    # Получаем параметры из query string
+    state = request.query_params.get("state")
+    redirect_uri = request.query_params.get("redirect_uri", FRONTEND_URL)
+    
+    if not state:
+        return JSONResponse({"error": "State parameter is required"}, status_code=400)
+
     # Генерируем PKCE challenge
     code_verifier = token_urlsafe(32)
     code_challenge = create_s256_code_challenge(code_verifier)
 
-    # Сохраняем code_verifier в сессии
-    request.session["code_verifier"] = code_verifier
-    request.session["provider"] = provider
-    request.session["state"] = token_urlsafe(16)
+    # Сохраняем состояние OAuth в Redis
+    oauth_data = {
+        "code_verifier": code_verifier,
+        "provider": provider,
+        "redirect_uri": redirect_uri,
+        "created_at": int(time.time())
+    }
+    await store_oauth_state(state, oauth_data)
 
-    redirect_uri = f"{FRONTEND_URL}/oauth/callback"
+    # Используем URL из фронтенда для callback
+    oauth_callback_uri = f"{request.base_url}oauth/{provider}/callback"
 
     try:
         return await client.authorize_redirect(
             request,
-            redirect_uri,
+            oauth_callback_uri,
             code_challenge=code_challenge,
             code_challenge_method="S256",
-            state=request.session["state"],
+            state=state,
         )
     except Exception as e:
+        logger.error(f"OAuth redirect error for {provider}: {str(e)}")
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
 async def oauth_callback(request):
     """Обрабатывает callback от OAuth провайдера"""
     try:
-        provider = request.session.get("provider")
+        # Получаем state из query параметров
+        state = request.query_params.get("state")
+        if not state:
+            return JSONResponse({"error": "State parameter missing"}, status_code=400)
+
+        # Получаем сохраненные данные OAuth из Redis
+        oauth_data = await get_oauth_state(state)
+        if not oauth_data:
+            return JSONResponse({"error": "Invalid or expired OAuth state"}, status_code=400)
+
+        provider = oauth_data.get("provider")
+        code_verifier = oauth_data.get("code_verifier")
+        stored_redirect_uri = oauth_data.get("redirect_uri", FRONTEND_URL)
+
         if not provider:
             return JSONResponse({"error": "No active OAuth session"}, status_code=400)
-
-        # Проверяем state
-        state = request.query_params.get("state")
-        if state != request.session.get("state"):
-            return JSONResponse({"error": "Invalid state"}, status_code=400)
 
         client = oauth.create_client(provider)
         if not client:
             return JSONResponse({"error": "Provider not configured"}, status_code=400)
 
         # Получаем токен с PKCE verifier
-        token = await client.authorize_access_token(request, code_verifier=request.session.get("code_verifier"))
+        token = await client.authorize_access_token(request, code_verifier=code_verifier)
 
         # Получаем профиль пользователя
         profile = await get_user_profile(provider, client, token)
@@ -142,10 +170,13 @@ async def oauth_callback(request):
             author = session.query(Author).filter(Author.email == profile["email"]).first()
 
             if not author:
+                # Генерируем slug из имени или email
+                slug = generate_unique_slug(profile["name"] or profile["email"].split("@")[0])
+                
                 author = Author(
                     email=profile["email"],
                     name=profile["name"],
-                    username=profile["name"],
+                    slug=slug,
                     pic=profile.get("picture"),
                     oauth=f"{provider}:{profile['id']}",
                     email_verified=True,
@@ -167,13 +198,9 @@ async def oauth_callback(request):
         # Создаем сессию
         session_token = await TokenStorage.create_session(author)
 
-        # Очищаем сессию OAuth
-        request.session.pop("code_verifier", None)
-        request.session.pop("provider", None)
-        request.session.pop("state", None)
-
-        # Возвращаем токен через cookie
-        response = RedirectResponse(url=f"{FRONTEND_URL}/auth/success")
+        # Формируем URL для редиректа с токеном
+        redirect_url = f"{stored_redirect_uri}?state={state}&access_token={session_token}"
+        response = RedirectResponse(url=redirect_url)
         response.set_cookie(
             "session_token",
             session_token,
@@ -185,4 +212,22 @@ async def oauth_callback(request):
         return response
 
     except Exception as e:
-        return RedirectResponse(url=f"{FRONTEND_URL}/auth/error?message={str(e)}")
+        logger.error(f"OAuth callback error: {str(e)}")
+        # В случае ошибки редиректим на фронтенд с ошибкой
+        fallback_redirect = request.query_params.get("redirect_uri", FRONTEND_URL)
+        return RedirectResponse(url=f"{fallback_redirect}?error=oauth_failed&message={str(e)}")
+
+
+async def store_oauth_state(state: str, data: dict) -> None:
+    """Сохраняет OAuth состояние в Redis с TTL"""
+    key = f"oauth_state:{state}"
+    await redis.execute("SETEX", key, OAUTH_STATE_TTL, orjson.dumps(data))
+
+async def get_oauth_state(state: str) -> dict:
+    """Получает и удаляет OAuth состояние из Redis (one-time use)"""
+    key = f"oauth_state:{state}"
+    data = await redis.execute("GET", key)
+    if data:
+        await redis.execute("DEL", key)  # Одноразовое использование
+        return orjson.loads(data)
+    return None

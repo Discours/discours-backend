@@ -1,15 +1,23 @@
 """
-Middleware для обработки авторизации в GraphQL запросах
+Единый middleware для обработки авторизации в GraphQL запросах
 """
 
+import time
 from typing import Any, Dict
 
+from starlette.authentication import UnauthenticatedUser
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
+from sqlalchemy.orm import exc
 
+from auth.credentials import AuthCredentials
+from auth.orm import Author
+from auth.sessions import SessionManager
+from services.db import local_session
 from settings import (
+    ADMIN_EMAILS as ADMIN_EMAILS_LIST,
     SESSION_COOKIE_HTTPONLY,
     SESSION_COOKIE_MAX_AGE,
     SESSION_COOKIE_NAME,
@@ -19,20 +27,100 @@ from settings import (
 )
 from utils.logger import root_logger as logger
 
+ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
+
+
+class AuthenticatedUser:
+    """Аутентифицированный пользователь"""
+
+    def __init__(self, user_id: str, username: str = "", roles: list = None, permissions: dict = None, token: str = None):
+        self.user_id = user_id
+        self.username = username
+        self.roles = roles or []
+        self.permissions = permissions or {}
+        self.token = token
+
+    @property
+    def is_authenticated(self) -> bool:
+        return True
+
+    @property
+    def display_name(self) -> str:
+        return self.username
+
+    @property
+    def identity(self) -> str:
+        return self.user_id
+
 
 class AuthMiddleware:
     """
-    Универсальный middleware для обработки авторизации и управления cookies.
+    Единый middleware для обработки авторизации и аутентификации.
 
     Основные функции:
     1. Извлечение Bearer токена из заголовка Authorization или cookie
-    2. Добавление токена в заголовки запроса для обработки AuthenticationMiddleware
-    3. Предоставление методов для установки/удаления cookies в GraphQL резолверах
+    2. Проверка сессии через SessionManager
+    3. Создание request.user и request.auth
+    4. Предоставление методов для установки/удаления cookies
     """
 
     def __init__(self, app: ASGIApp):
         self.app = app
         self._context = None
+
+    async def authenticate_user(self, token: str):
+        """Аутентифицирует пользователя по токену"""
+        if not token:
+            return AuthCredentials(scopes={}, error_message="no token"), UnauthenticatedUser()
+
+        # Проверяем сессию в Redis
+        payload = await SessionManager.verify_session(token)
+        if not payload:
+            logger.debug("[auth.authenticate] Недействительный токен")
+            return AuthCredentials(scopes={}, error_message="Invalid token"), UnauthenticatedUser()
+
+        with local_session() as session:
+            try:
+                author = (
+                    session.query(Author)
+                    .filter(Author.id == payload.user_id)
+                    .filter(Author.is_active == True)  # noqa
+                    .one()
+                )
+
+                if author.is_locked():
+                    logger.debug(f"[auth.authenticate] Аккаунт заблокирован: {author.id}")
+                    return AuthCredentials(scopes={}, error_message="Account is locked"), UnauthenticatedUser()
+
+                # Получаем разрешения из ролей
+                scopes = author.get_permissions()
+
+                # Получаем роли для пользователя
+                roles = [role.id for role in author.roles] if author.roles else []
+
+                # Обновляем last_seen
+                author.last_seen = int(time.time())
+                session.commit()
+
+                # Создаем объекты авторизации с сохранением токена
+                credentials = AuthCredentials(
+                    author_id=author.id, scopes=scopes, logged_in=True, email=author.email, token=token
+                )
+
+                user = AuthenticatedUser(
+                    user_id=str(author.id),
+                    username=author.slug or author.email or "",
+                    roles=roles,
+                    permissions=scopes,
+                    token=token,
+                )
+
+                logger.debug(f"[auth.authenticate] Успешная аутентификация: {author.email}")
+                return credentials, user
+
+            except exc.NoResultFound:
+                logger.debug("[auth.authenticate] Пользователь не найден")
+                return AuthCredentials(scopes={}, error_message="User not found"), UnauthenticatedUser()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         """Обработка ASGI запроса"""
@@ -87,26 +175,25 @@ class AuthMiddleware:
                         )
                         break
 
-        # Если токен получен, обновляем заголовки в scope
+        # Аутентифицируем пользователя
+        auth, user = await self.authenticate_user(token)
+        
+        # Добавляем в scope данные авторизации и пользователя
+        scope["auth"] = auth
+        scope["user"] = user
+        
         if token:
-            # Создаем новый список заголовков
+            # Обновляем заголовки в scope для совместимости
             new_headers = []
             for name, value in scope["headers"]:
-                # Пропускаем оригинальный заголовок авторизации
                 if name.decode("latin1").lower() != SESSION_TOKEN_HEADER.lower():
                     new_headers.append((name, value))
-
-            # Добавляем заголовок с чистым токеном
             new_headers.append((SESSION_TOKEN_HEADER.encode("latin1"), token.encode("latin1")))
-
-            # Обновляем заголовки в scope
             scope["headers"] = new_headers
-
-            # Также добавляем информацию о типе аутентификации для дальнейшего использования
-            scope["auth"] = {"type": "bearer", "token": token, "source": token_source}
-            logger.debug(f"[middleware] Токен добавлен в scope для аутентификации из источника: {token_source}")
+            
+            logger.debug(f"[middleware] Пользователь аутентифицирован: {user.is_authenticated}")
         else:
-            logger.debug(f"[middleware] Токен не найден ни в заголовке, ни в cookie")
+            logger.debug(f"[middleware] Токен не найден, пользователь неаутентифицирован")
 
         await self.app(scope, receive, send)
 
