@@ -309,7 +309,7 @@ async def get_authors_all(_, info):
     # Получаем ID текущего пользователя и флаг админа из контекста
     viewer_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
-    authors = await get_all_authors(viewer_id, is_admin)
+    authors = await get_all_authors(viewer_id)
     return authors
 
 
@@ -384,7 +384,7 @@ async def load_authors_by(_, info, by, limit, offset):
         is_admin = info.context.get("is_admin", False)
 
         # Используем оптимизированную функцию для получения авторов
-        return await get_authors_with_stats(limit, offset, by, viewer_id, is_admin)
+        return await get_authors_with_stats(limit, offset, by, viewer_id)
     except Exception as exc:
         import traceback
 
