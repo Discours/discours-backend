@@ -79,7 +79,9 @@ def get_reactions_with_stat(q, limit=10, offset=0):
     >>> get_reactions_with_stat(q, 10, 0)  # doctest: +SKIP
     [{'id': 1, 'body': 'Текст комментария', 'stat': {'rating': 5, 'comments_count': 3}, ...}]
     """
-    q = q.distinct().limit(limit).offset(offset)
+    # Убираем distinct() поскольку GROUP BY уже обеспечивает уникальность,
+    # а distinct() вызывает ошибку PostgreSQL с JSON полями
+    q = q.limit(limit).offset(offset)
     reactions = []
 
     with local_session() as session:

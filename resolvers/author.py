@@ -47,7 +47,7 @@ async def get_all_authors(current_user_id=None):
         with local_session() as session:
             # Запрос на получение базовой информации об авторах
             authors_query = select(Author).where(Author.deleted_at.is_(None))
-            authors = session.execute(authors_query).scalars().all()
+            authors = session.execute(authors_query).scalars().unique().all()
 
             # Преобразуем авторов в словари с учетом прав доступа
             return [author.dict(current_user_id, False) for author in authors]
@@ -174,7 +174,7 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
             base_query = base_query.limit(limit).offset(offset)
 
             # Получаем авторов
-            authors = session.execute(base_query).scalars().all()
+            authors = session.execute(base_query).scalars().unique().all()
             author_ids = [author.id for author in authors]
 
             if not author_ids:
@@ -418,7 +418,7 @@ async def load_authors_search(_, info, text: str, limit: int = 10, offset: int =
     with local_session() as session:
         # Simple query to get authors by IDs - no need for stats here
         authors_query = select(Author).filter(Author.id.in_(author_ids))
-        db_authors = session.execute(authors_query).scalars().all()
+        db_authors = session.execute(authors_query).scalars().unique().all()
 
     if not db_authors:
         return []

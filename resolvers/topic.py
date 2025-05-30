@@ -37,7 +37,7 @@ async def get_all_topics():
         with local_session() as session:
             # Запрос на получение базовой информации о темах
             topics_query = select(Topic)
-            topics = session.execute(topics_query).scalars().all()
+            topics = session.execute(topics_query).scalars().unique().all()
 
             # Преобразуем темы в словари
             return [topic.dict() for topic in topics]
@@ -103,7 +103,7 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             base_query = base_query.limit(limit).offset(offset)
 
             # Получаем темы
-            topics = session.execute(base_query).scalars().all()
+            topics = session.execute(base_query).scalars().unique().all()
             topic_ids = [topic.id for topic in topics]
 
             if not topic_ids:

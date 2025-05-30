@@ -177,7 +177,7 @@ async def get_cached_authors_by_ids(author_ids: List[int]) -> List[dict]:
         missing_ids = [author_ids[index] for index in missing_indices]
         with local_session() as session:
             query = select(Author).where(Author.id.in_(missing_ids))
-            missing_authors = session.execute(query).scalars().all()
+            missing_authors = session.execute(query).scalars().unique().all()
             await asyncio.gather(*(cache_author(author.dict()) for author in missing_authors))
             for index, author in zip(missing_indices, missing_authors):
                 authors[index] = author.dict()
