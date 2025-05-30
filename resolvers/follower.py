@@ -69,7 +69,7 @@ async def follow(_, info, what, slug="", entity_id=0):
             # Если это автор, учитываем фильтрацию данных
             if what == "AUTHOR":
                 # Полная версия для кэширования
-                entity_dict = entity.dict(is_admin=True)
+                entity_dict = entity.dict(access=True)
             else:
                 entity_dict = entity.dict()
 
@@ -116,7 +116,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                             if hasattr(temp_author, key):
                                 setattr(temp_author, key, value)
                         # Добавляем отфильтрованную версию
-                        follows_filtered.append(temp_author.dict(viewer_id, False))
+                        follows_filtered.append(temp_author.dict(access=False))
 
                     if not existing_sub:
                         # Создаем объект автора для entity_dict
@@ -125,7 +125,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                             if hasattr(temp_author, key):
                                 setattr(temp_author, key, value)
                         # Добавляем отфильтрованную версию
-                        follows = [*follows_filtered, temp_author.dict(viewer_id, False)]
+                        follows = [*follows_filtered, temp_author.dict(access=False)]
                     else:
                         follows = follows_filtered
                 else:
@@ -209,7 +209,7 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                     logger.debug("Обновление кэша после отписки")
                     # Если это автор, кэшируем полную версию
                     if what == "AUTHOR":
-                        await cache_method(entity.dict(is_admin=True))
+                        await cache_method(entity.dict(access=True))
                     else:
                         await cache_method(entity.dict())
 
@@ -232,7 +232,7 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                                 if hasattr(temp_author, key):
                                     setattr(temp_author, key, value)
                             # Добавляем отфильтрованную версию
-                            follows_filtered.append(temp_author.dict(viewer_id, False))
+                            follows_filtered.append(temp_author.dict(access=False))
 
                         follows = follows_filtered
                     else:

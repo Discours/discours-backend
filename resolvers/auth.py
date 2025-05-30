@@ -108,7 +108,11 @@ async def get_current_user(_, info):
 
             if authors_with_stat and len(authors_with_stat) > 0:
                 # Обновляем только статистику
-                author.stat = authors_with_stat[0].stat
+                # Проверяем, является ли author объектом или словарем
+                if isinstance(author, dict):
+                    author["stat"] = authors_with_stat[0].stat
+                else:
+                    author.stat = authors_with_stat[0].stat
         except Exception as e:
             logger.warning(f"[getSession] Не удалось добавить статистику к автору: {e}")
 

@@ -50,7 +50,7 @@ async def get_all_authors(current_user_id=None):
             authors = session.execute(authors_query).scalars().unique().all()
 
             # Преобразуем авторов в словари с учетом прав доступа
-            return [author.dict(current_user_id, False) for author in authors]
+            return [author.dict(access=False) for author in authors]
 
     # Используем универсальную функцию для кеширования запросов
     return await cached_query(cache_key, fetch_all_authors)

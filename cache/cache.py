@@ -108,17 +108,39 @@ async def update_follower_stat(follower_id, entity_type, count):
 
 # Get author from cache
 async def get_cached_author(author_id: int, get_with_stat):
+    logger.debug(f"[get_cached_author] Начало выполнения для author_id: {author_id}")
+    
     author_key = f"author:id:{author_id}"
+    logger.debug(f"[get_cached_author] Проверка кэша по ключу: {author_key}")
+    
     result = await redis.execute("GET", author_key)
     if result:
-        return orjson.loads(result)
+        logger.debug(f"[get_cached_author] Найдены данные в кэше, размер: {len(result)} байт")
+        cached_data = orjson.loads(result)
+        logger.debug(f"[get_cached_author] Кэшированные данные имеют ключи: {list(cached_data.keys()) if cached_data else 'None'}")
+        return cached_data
+    
+    logger.debug(f"[get_cached_author] Данные не найдены в кэше, загрузка из БД")
+    
     # Load from database if not found in cache
     q = select(Author).where(Author.id == author_id)
     authors = get_with_stat(q)
+    logger.debug(f"[get_cached_author] Результат запроса из БД: {len(authors) if authors else 0} записей")
+    
     if authors:
         author = authors[0]
-        await cache_author(author.dict())
-        return author.dict()
+        logger.debug(f"[get_cached_author] Получен автор из БД: {type(author)}, id: {getattr(author, 'id', 'N/A')}")
+        
+        # Используем безопасный вызов dict() для Author
+        author_dict = author.dict() if hasattr(author, 'dict') else author.__dict__
+        logger.debug(f"[get_cached_author] Сериализованные данные автора: {list(author_dict.keys()) if author_dict else 'None'}")
+        
+        await cache_author(author_dict)
+        logger.debug(f"[get_cached_author] Автор кэширован")
+        
+        return author_dict
+    
+    logger.warning(f"[get_cached_author] Автор с ID {author_id} не найден в БД")
     return None
 
 
