@@ -5,12 +5,12 @@
 import time
 from typing import Any, Dict
 
+from sqlalchemy.orm import exc
 from starlette.authentication import UnauthenticatedUser
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
-from sqlalchemy.orm import exc
 
 from auth.credentials import AuthCredentials
 from auth.orm import Author
@@ -18,6 +18,8 @@ from auth.sessions import SessionManager
 from services.db import local_session
 from settings import (
     ADMIN_EMAILS as ADMIN_EMAILS_LIST,
+)
+from settings import (
     SESSION_COOKIE_HTTPONLY,
     SESSION_COOKIE_MAX_AGE,
     SESSION_COOKIE_NAME,
@@ -33,7 +35,9 @@ ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
 class AuthenticatedUser:
     """Аутентифицированный пользователь"""
 
-    def __init__(self, user_id: str, username: str = "", roles: list = None, permissions: dict = None, token: str = None):
+    def __init__(
+        self, user_id: str, username: str = "", roles: list = None, permissions: dict = None, token: str = None
+    ):
         self.user_id = user_id
         self.username = username
         self.roles = roles or []
@@ -177,11 +181,11 @@ class AuthMiddleware:
 
         # Аутентифицируем пользователя
         auth, user = await self.authenticate_user(token)
-        
+
         # Добавляем в scope данные авторизации и пользователя
         scope["auth"] = auth
         scope["user"] = user
-        
+
         if token:
             # Обновляем заголовки в scope для совместимости
             new_headers = []
@@ -190,7 +194,7 @@ class AuthMiddleware:
                     new_headers.append((name, value))
             new_headers.append((SESSION_TOKEN_HEADER.encode("latin1"), token.encode("latin1")))
             scope["headers"] = new_headers
-            
+
             logger.debug(f"[middleware] Пользователь аутентифицирован: {user.is_authenticated}")
         else:
             logger.debug(f"[middleware] Токен не найден, пользователь неаутентифицирован")

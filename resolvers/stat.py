@@ -290,26 +290,26 @@ def get_with_stat(q):
                 stat["followers"] = cols[2]  # Статистика по подписчикам
                 if is_author:
                     # Дополнительная проверка типа entity.id
-                    if not hasattr(entity, 'id'):
+                    if not hasattr(entity, "id"):
                         logger.error(f"Entity does not have id attribute: {entity}")
                         continue
                     entity_id = entity.id
                     if not isinstance(entity_id, int):
                         logger.error(f"Entity id is not integer: {entity_id} (type: {type(entity_id)})")
                         continue
-                    
+
                     stat["authors"] = get_author_authors_stat(entity_id)  # Статистика по подпискам на авторов
                     stat["comments"] = get_author_comments_stat(entity_id)  # Статистика по комментариям
                 else:
                     # Дополнительная проверка типа entity.id для тем
-                    if not hasattr(entity, 'id'):
+                    if not hasattr(entity, "id"):
                         logger.error(f"Entity does not have id attribute: {entity}")
                         continue
                     entity_id = entity.id
                     if not isinstance(entity_id, int):
                         logger.error(f"Entity id is not integer: {entity_id} (type: {type(entity_id)})")
                         continue
-                        
+
                     stat["authors"] = get_topic_authors_stat(entity_id)  # Статистика по авторам темы
                 entity.stat = stat
                 records.append(entity)

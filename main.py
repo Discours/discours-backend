@@ -15,6 +15,7 @@ from starlette.staticfiles import StaticFiles
 
 from auth.handler import EnhancedGraphQLHTTPHandler
 from auth.middleware import AuthMiddleware, auth_middleware
+from auth.oauth import oauth_callback, oauth_login
 from cache.precache import precache_data
 from cache.revalidator import revalidation_manager
 from services.exception import ExceptionHandlerMiddleware
@@ -24,7 +25,6 @@ from services.search import check_search_service, initialize_search_index_backgr
 from services.viewed import ViewedStorage
 from settings import DEV_SERVER_PID_FILE_NAME
 from utils.logger import root_logger as logger
-from auth.oauth import oauth_login, oauth_callback
 
 DEVMODE = os.getenv("DOKKU_APP_TYPE", "false").lower() == "false"
 DIST_DIR = join(os.path.dirname(__file__), "dist")  # Директория для собранных файлов

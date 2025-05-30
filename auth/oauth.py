@@ -1,18 +1,18 @@
 import time
-import orjson
 from secrets import token_urlsafe
 
+import orjson
 from authlib.integrations.starlette_client import OAuth
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from starlette.responses import JSONResponse, RedirectResponse
 
 from auth.orm import Author
 from auth.tokenstorage import TokenStorage
+from resolvers.auth import generate_unique_slug
 from services.db import local_session
 from services.redis import redis
 from settings import FRONTEND_URL, OAUTH_CLIENTS
 from utils.logger import root_logger as logger
-from resolvers.auth import generate_unique_slug
 
 oauth = OAuth()
 
@@ -100,7 +100,7 @@ async def oauth_login(request):
     # Получаем параметры из query string
     state = request.query_params.get("state")
     redirect_uri = request.query_params.get("redirect_uri", FRONTEND_URL)
-    
+
     if not state:
         return JSONResponse({"error": "State parameter is required"}, status_code=400)
 
@@ -113,7 +113,7 @@ async def oauth_login(request):
         "code_verifier": code_verifier,
         "provider": provider,
         "redirect_uri": redirect_uri,
-        "created_at": int(time.time())
+        "created_at": int(time.time()),
     }
     await store_oauth_state(state, oauth_data)
 
@@ -172,7 +172,7 @@ async def oauth_callback(request):
             if not author:
                 # Генерируем slug из имени или email
                 slug = generate_unique_slug(profile["name"] or profile["email"].split("@")[0])
-                
+
                 author = Author(
                     email=profile["email"],
                     name=profile["name"],
@@ -222,6 +222,7 @@ async def store_oauth_state(state: str, data: dict) -> None:
     """Сохраняет OAuth состояние в Redis с TTL"""
     key = f"oauth_state:{state}"
     await redis.execute("SETEX", key, OAUTH_STATE_TTL, orjson.dumps(data))
+
 
 async def get_oauth_state(state: str) -> dict:
     """Получает и удаляет OAuth состояние из Redis (one-time use)"""
