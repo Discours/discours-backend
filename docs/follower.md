@@ -98,7 +98,7 @@ This ensures fresh data is fetched from database on next request.
 
 ## Recent Fixes (NEW)
 
-### Issue: Stale UI State on Unfollow Errors
+### Issue 1: Stale UI State on Unfollow Errors
 **Problem:** When unfollow operation failed with "following was not found", the client didn't update its state because it only processed successful responses.
 
 **Root Cause:**
@@ -112,15 +112,32 @@ This ensures fresh data is fetched from database on next request.
 3. **Add cache invalidation** after successful operations
 4. **Enhanced logging** for debugging
 
+### Issue 2: Inconsistent Behavior in Follow Operations (NEW)
+**Problem:** The `follow` function had similar issues to `unfollow`:
+- Could return `None` instead of actual following list in error scenarios
+- Cache was not invalidated when trying to follow already-followed entities
+- Inconsistent error handling between follow/unfollow operations
+
+**Root Cause:**
+1. `follow` mutation could return `{topics: null}` when `get_cached_follows_method` was not available
+2. When user was already following an entity, cache invalidation was skipped
+3. Error responses didn't include current following state
+
+**Solution:**
+1. **Always return actual following list** from cache/database
+2. **Invalidate cache on every operation** (both new and existing subscriptions)
+3. **Add "already following" error** while still returning current state
+4. **Unified error handling** consistent with unfollow
+
 ### Code Changes
 ```python
-# Before (BROKEN)
+# UNFOLLOW - Before (BROKEN)
 if sub:
     # ... process unfollow
 else:
     return {"error": "following was not found", f"{entity_type}s": follows}  # follows was []
 
-# After (FIXED)  
+# UNFOLLOW - After (FIXED)  
 if sub:
     # ... process unfollow
     # Invalidate cache
@@ -131,7 +148,41 @@ else:
 # Always get current state
 existing_follows = await get_cached_follows_method(follower_id)
 return {f"{entity_type}s": existing_follows, "error": error}
+
+# FOLLOW - Before (BROKEN)
+if existing_sub:
+    logger.info(f"User already following...")
+    # Cache not invalidated, could return stale data
+else:
+    # ... create subscription
+    # Cache invalidated only here
+follows = None  # Could be None!
+# ... complex logic to build follows list
+return {f"{entity_type}s": follows}  # follows could be None
+
+# FOLLOW - After (FIXED)
+if existing_sub:
+    error = "already following"
+else:
+    # ... create subscription
+
+# Always invalidate cache and get current state  
+await redis.execute("DEL", f"author:follows-{entity_type}s:{follower_id}")
+existing_follows = await get_cached_follows_method(follower_id)
+return {f"{entity_type}s": existing_follows, "error": error}
 ```
+
+### Impact
+**Before fixes:**
+- UI could show incorrect subscription state
+- Cache inconsistencies between follow/unfollow operations
+- Client-side logic `if (result && !result.error)` failed on valid error states
+
+**After fixes:**
+- ✅ **UI always receives current subscription state**
+- ✅ **Consistent cache invalidation** on all operations
+- ✅ **Unified error handling** between follow/unfollow
+- ✅ **Client can safely update UI** even on error responses
 
 ## Notifications
 
