@@ -1,2 +1,126 @@
 [tool.ruff]
-line-length = 108
+line-length = 120  # Максимальная длина строки кода
+fix = true         # Автоматическое исправление ошибок где возможно
+
+[tool.ruff.lint]
+# Включаем автоматическое исправление для всех правил, которые поддерживают это
+fixable = ["ALL"]
+unfixable = []
+
+# Выбранные правила для проверки кода
+select = [
+    "E",      # pycodestyle errors - ошибки стиля кода
+    "W",      # pycodestyle warnings - предупреждения стиля кода
+    "F",      # pyflakes - неиспользуемые импорты, переменные и синтаксические ошибки
+    "I",      # isort - сортировка и группировка импортов
+    "N",      # pep8-naming - соглашения именования PEP 8
+    "UP",     # pyupgrade - обновление синтаксиса до современного Python
+    "YTT",    # flake8-2020 - проверки для Python 2020+
+    "ANN",    # flake8-annotations - проверка аннотаций типов
+    "S",      # bandit - проверки безопасности
+    "BLE",    # flake8-blind-except - избегание слепых except блоков
+    "FBT",    # flake8-boolean-trap - избегание boolean параметров
+    "B",      # flake8-bugbear - обнаружение вероятных багов
+    "A",      # flake8-builtins - избегание переопределения встроенных функций
+    "C4",     # flake8-comprehensions - улучшение list/dict/set comprehensions
+    "DTZ",    # flake8-datetimez - правильная работа с часовыми поясами
+    "T10",    # flake8-debugger - обнаружение отладочных вызовов
+    "DJ",     # flake8-django - специфичные для Django проверки
+    "EM",     # flake8-errmsg - правильное форматирование сообщений об ошибках
+    "EXE",    # flake8-executable - проверка исполняемых файлов
+    "FA",     # flake8-future-annotations - использование future annotations
+    "ISC",    # flake8-implicit-str-concat - неявная конкатенация строк
+    "ICN",    # flake8-import-conventions - соглашения импортов
+    "G",      # flake8-logging-format - форматирование логирования
+    "INP",    # flake8-no-pep420 - проверка __init__.py файлов
+    "PIE",    # flake8-pie - разнообразные улучшения кода
+    "T20",    # flake8-print - избегание print statements
+    "PYI",    # flake8-pyi - проверки для .pyi файлов
+    "PT",     # flake8-pytest-style - стиль pytest тестов
+    "Q",      # flake8-quotes - единообразие кавычек
+    "RSE",    # flake8-raise - правильное использование raise
+    "RET",    # flake8-return - правильное использование return
+    "SLF",    # flake8-self - избегание доступа к приватным членам
+    "SLOT",   # flake8-slots - использование __slots__
+    "SIM",    # flake8-simplify - упрощение кода
+    "TID",    # flake8-tidy-imports - организация импортов
+    "INT",    # flake8-gettext - интернационализация
+    "ARG",    # flake8-unused-arguments - неиспользуемые аргументы
+    "PTH",    # flake8-use-pathlib - использование pathlib вместо os.path
+    "TD",     # flake8-todos - проверка TODO комментариев
+    "PD",     # pandas-vet - лучшие практики pandas
+    "PGH",    # pygrep-hooks - общие проверки с помощью grep
+    "PL",     # pylint - расширенные проверки качества кода
+    "TRY",    # tryceratops - улучшение обработки исключений
+    "FLY",    # flynt - преобразование в f-strings
+    "NPY",    # numpy specific rules - правила для numpy
+    "AIR",    # airflow - правила для Apache Airflow
+    "PERF",   # perflint - проверки производительности
+    "FURB",   # refurb - рефакторинг предложения
+    "LOG",    # flake8-logging - правильное логирование
+    "RUF",    # ruff specific rules - специфичные правила ruff
+]
+
+# Игнорируемые правила (в основном конфликтующие с форматтером)
+ignore = [
+    "COM812", # trailing-comma-missing - конфликтует с форматтером
+    "COM819", # trailing-comma-prohibited -
+    "ISC001", # single-line-implicit-string-concatenation -
+    "ISC002", # multi-line-implicit-string-concatenation -
+    "Q000",   # bad-quotes-inline-string -
+    "Q001",   # bad-quotes-multiline-string -
+    "Q002",   # bad-quotes-docstring -
+    "Q003",   # avoidable-escaped-quote -
+    "W191",   # tab-indentation -
+    "E111",   # indentation-with-invalid-multiple -
+    "E114",   # indentation-with-invalid-multiple-comment -
+    "E117",   # over-indented -
+    "D206",   # indent-with-spaces -
+    "D300",   # triple-single-quotes -
+    "E501",   # line-too-long - используем line-length вместо этого правила
+    # Игнорируем некоторые строгие правила для удобства разработки
+    "ANN401", # Dynamically typed expressions (Any) - иногда нужно
+    "S101",   # assert statements - нужно в тестах
+    "T201",   # print statements - нужно для отладки
+    "PLR2004", # Magic values - иногда допустимо
+    "RUF001", # ambiguous unicode characters - для кириллицы
+    "RUF002", # ambiguous unicode characters in docstrings - для кириллицы
+    "RUF003", # ambiguous unicode characters in comments - для кириллицы
+]
+
+# Настройки для отдельных директорий
+[tool.ruff.lint.per-file-ignores]
+# Тесты - более мягкие правила
+"tests/**/*.py" = [
+    "S101",    # assert statements - нормально в тестах
+    "PLR2004", # magic values - нормально в тестах
+    "ANN",     # type annotations - не обязательно в тестах
+    "EXE001",  # shebang without executable - нормально для тестовых скриптов
+    "PTH100",  # os.path usage - допустимо в тестах
+    "PTH120",  # os.path.dirname - допустимо в тестах
+    "BLE001",  # blind except - допустимо в тестах
+    "T201",    # print statements - нормально в тестах
+    "F841",    # unused variables - нормально в тестах
+    "ARG001",  # unused arguments - нормально в тестах
+    "DTZ005",  # datetime without tz - допустимо в тестах
+]
+
+# Утилиты - более мягкие правила для аннотаций
+"utils/**/*.py" = [
+    "T201",    # print statements - иногда нужно в утилитах
+    "A001",    # builtin shadowing - иногда нужно
+    "F841",    # unused variables - иногда остаются при рефакторинге
+    "RET503",  # missing return - иногда допустимо
+    "ARG001",  # unused arguments - иногда для совместимости API
+]
+
+# Миграции Alembic
+"alembic/**/*.py" = [
+    "ANN",     # type annotations - не нужно в миграциях
+    "INP001",  # missing __init__.py - нормально для alembic
+]
+
+[tool.ruff.lint.isort]
+# Настройки для сортировки импортов
+known-first-party = ["auth", "cache", "orm", "resolvers", "services", "utils", "schema", "settings"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]

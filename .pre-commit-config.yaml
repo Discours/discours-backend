@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
       - id: check-yaml
       - id: check-toml
@@ -12,7 +12,30 @@ repos:
       - id: check-merge-conflict
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.7
+    rev: v0.11.12
     hooks:
       - id: ruff
+        name: ruff lint with fixes
         args: [--fix]
+      - id: ruff-format
+        name: ruff format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.16.0
+    hooks:
+      - id: mypy
+        name: mypy type checking
+        entry: mypy
+        language: python
+        types: [python]
+        require_serial: true
+        additional_dependencies: [
+          "types-redis",
+          "types-requests",
+          "sqlalchemy[mypy]"
+        ]
+        args: [
+          "--config-file=mypy.ini",
+          "--show-error-codes",
+          "--no-error-summary"
+        ]
