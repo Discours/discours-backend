@@ -19,6 +19,7 @@ from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session
 from services.notify import notify_follower
+from services.redis import redis
 from services.schema import mutation, query
 from utils.logger import root_logger as logger
 
@@ -95,6 +96,11 @@ async def follow(_, info, what, slug="", entity_id=0):
                     session.add(sub)
                     session.commit()
                     logger.info(f"Пользователь {follower_id} подписался на {what.lower()} с ID {entity_id}")
+
+                    # Инвалидируем кэш подписок пользователя после успешной подписки
+                    cache_key_pattern = f"author:follows-{entity_type}s:{follower_id}"
+                    await redis.execute("DEL", cache_key_pattern)
+                    logger.debug(f"Инвалидирован кэш подписок: {cache_key_pattern}")
 
             follows = None
             if cache_method:
@@ -205,6 +211,11 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                 session.commit()
                 logger.info(f"Пользователь {follower_id} отписался от {what.lower()} с ID {entity_id}")
 
+                # Инвалидируем кэш подписок пользователя после успешной отписки
+                cache_key_pattern = f"author:follows-{entity_type}s:{follower_id}"
+                await redis.execute("DEL", cache_key_pattern)
+                logger.debug(f"Инвалидирован кэш подписок: {cache_key_pattern}")
+
                 if cache_method:
                     logger.debug("Обновление кэша после отписки")
                     # Если это автор, кэшируем полную версию
@@ -213,38 +224,37 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                     else:
                         await cache_method(entity.dict())
 
-                if get_cached_follows_method:
-                    logger.debug("Получение подписок из кэша")
-                    existing_follows = await get_cached_follows_method(follower_id)
-
-                    # Если это авторы, получаем безопасную версию
-                    if what == "AUTHOR":
-                        # Получаем ID текущего пользователя и фильтруем данные
-                        follows_filtered = []
-
-                        for author_data in existing_follows:
-                            if author_data["id"] == entity_id:
-                                continue
-
-                            # Создаем объект автора для использования метода dict
-                            temp_author = Author()
-                            for key, value in author_data.items():
-                                if hasattr(temp_author, key):
-                                    setattr(temp_author, key, value)
-                            # Добавляем отфильтрованную версию
-                            follows_filtered.append(temp_author.dict(access=False))
-
-                        follows = follows_filtered
-                    else:
-                        follows = [item for item in existing_follows if item["id"] != entity_id]
-
-                    logger.debug("Обновлен список подписок")
-
                 if what == "AUTHOR":
                     logger.debug("Отправка уведомления автору об отписке")
                     await notify_follower(follower=follower_dict, author_id=entity_id, action="unfollow")
             else:
-                return {"error": "following was not found", f"{entity_type}s": follows}
+                # Подписка не найдена, но это не критическая ошибка
+                logger.warning(f"Подписка не найдена: follower_id={follower_id}, {entity_type}_id={entity_id}")
+                error = "following was not found"
+
+        # Всегда получаем актуальный список подписок для возврата клиенту
+        if get_cached_follows_method:
+            logger.debug("Получение актуального списка подписок из кэша")
+            existing_follows = await get_cached_follows_method(follower_id)
+
+            # Если это авторы, получаем безопасную версию
+            if what == "AUTHOR":
+                follows_filtered = []
+
+                for author_data in existing_follows:
+                    # Создаем объект автора для использования метода dict
+                    temp_author = Author()
+                    for key, value in author_data.items():
+                        if hasattr(temp_author, key):
+                            setattr(temp_author, key, value)
+                    # Добавляем отфильтрованную версию
+                    follows_filtered.append(temp_author.dict(access=False))
+
+                follows = follows_filtered
+            else:
+                follows = existing_follows
+
+            logger.debug(f"Актуальный список подписок получен: {len(follows)} элементов")
 
     except Exception as exc:
         logger.exception("Произошла ошибка в функции 'unfollow'")
@@ -253,7 +263,7 @@ async def unfollow(_, info, what, slug="", entity_id=0):
         traceback.print_exc()
         return {"error": str(exc)}
 
-    # logger.debug(f"Функция 'unfollow' завершена успешно с результатом: {entity_type}s={follows}, error={error}")
+    logger.debug(f"Функция 'unfollow' завершена: {entity_type}s={len(follows)}, error={error}")
     return {f"{entity_type}s": follows, "error": error}
 
 
