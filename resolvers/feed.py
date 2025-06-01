@@ -1,5 +1,4 @@
-from typing import List
-
+from graphql import GraphQLResolveInfo
 from sqlalchemy import and_, select
 
 from auth.orm import Author, AuthorFollower
@@ -19,7 +18,7 @@ from utils.logger import root_logger as logger
 
 @query.field("load_shouts_coauthored")
 @login_required
-async def load_shouts_coauthored(_, info, options):
+async def load_shouts_coauthored(_: None, info: GraphQLResolveInfo, options: dict) -> list[Shout]:
     """
     Загрузка публикаций, написанных в соавторстве с пользователем.
 
@@ -38,7 +37,7 @@ async def load_shouts_coauthored(_, info, options):
 
 @query.field("load_shouts_discussed")
 @login_required
-async def load_shouts_discussed(_, info, options):
+async def load_shouts_discussed(_: None, info: GraphQLResolveInfo, options: dict) -> list[Shout]:
     """
     Загрузка публикаций, которые обсуждались пользователем.
 
@@ -55,7 +54,7 @@ async def load_shouts_discussed(_, info, options):
     return get_shouts_with_links(info, q, limit, offset=offset)
 
 
-def shouts_by_follower(info, follower_id: int, options):
+def shouts_by_follower(info: GraphQLResolveInfo, follower_id: int, options: dict) -> list[Shout]:
     """
     Загружает публикации, на которые подписан автор.
 
@@ -85,12 +84,11 @@ def shouts_by_follower(info, follower_id: int, options):
     )
     q = q.filter(Shout.id.in_(followed_subquery))
     q, limit, offset = apply_options(q, options)
-    shouts = get_shouts_with_links(info, q, limit, offset=offset)
-    return shouts
+    return get_shouts_with_links(info, q, limit, offset=offset)
 
 
 @query.field("load_shouts_followed_by")
-async def load_shouts_followed_by(_, info, slug: str, options) -> List[Shout]:
+async def load_shouts_followed_by(_: None, info: GraphQLResolveInfo, slug: str, options: dict) -> list[Shout]:
     """
     Загружает публикации, на которые подписан автор по slug.
 
@@ -103,14 +101,13 @@ async def load_shouts_followed_by(_, info, slug: str, options) -> List[Shout]:
         author = session.query(Author).filter(Author.slug == slug).first()
         if author:
             follower_id = author.dict()["id"]
-            shouts = shouts_by_follower(info, follower_id, options)
-            return shouts
+            return shouts_by_follower(info, follower_id, options)
     return []
 
 
 @query.field("load_shouts_feed")
 @login_required
-async def load_shouts_feed(_, info, options) -> List[Shout]:
+async def load_shouts_feed(_: None, info: GraphQLResolveInfo, options: dict) -> list[Shout]:
     """
     Загружает публикации, на которые подписан авторизованный пользователь.
 
@@ -123,7 +120,7 @@ async def load_shouts_feed(_, info, options) -> List[Shout]:
 
 
 @query.field("load_shouts_authored_by")
-async def load_shouts_authored_by(_, info, slug: str, options) -> List[Shout]:
+async def load_shouts_authored_by(_: None, info: GraphQLResolveInfo, slug: str, options: dict) -> list[Shout]:
     """
     Загружает публикации, написанные автором по slug.
 
@@ -144,15 +141,14 @@ async def load_shouts_authored_by(_, info, slug: str, options) -> List[Shout]:
                 )
                 q = q.filter(Shout.authors.any(id=author_id))
                 q, limit, offset = apply_options(q, options, author_id)
-                shouts = get_shouts_with_links(info, q, limit, offset=offset)
-                return shouts
+                return get_shouts_with_links(info, q, limit, offset=offset)
             except Exception as error:
                 logger.debug(error)
     return []
 
 
 @query.field("load_shouts_with_topic")
-async def load_shouts_with_topic(_, info, slug: str, options) -> List[Shout]:
+async def load_shouts_with_topic(_: None, info: GraphQLResolveInfo, slug: str, options: dict) -> list[Shout]:
     """
     Загружает публикации, связанные с темой по slug.
 
@@ -173,26 +169,7 @@ async def load_shouts_with_topic(_, info, slug: str, options) -> List[Shout]:
                 )
                 q = q.filter(Shout.topics.any(id=topic_id))
                 q, limit, offset = apply_options(q, options)
-                shouts = get_shouts_with_links(info, q, limit, offset=offset)
-                return shouts
+                return get_shouts_with_links(info, q, limit, offset=offset)
             except Exception as error:
                 logger.debug(error)
     return []
-
-
-def apply_filters(q, filters):
-    """
-    Применяет фильтры к запросу
-    """
-    logger.info(f"Applying filters: {filters}")
-
-    if filters.get("published"):
-        q = q.filter(Shout.published_at.is_not(None))
-        logger.info("Added published filter")
-
-    if filters.get("topic"):
-        topic_slug = filters["topic"]
-        q = q.join(ShoutTopic).join(Topic).filter(Topic.slug == topic_slug)
-        logger.info(f"Added topic filter: {topic_slug}")
-
-    return q

@@ -136,28 +136,28 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     const page = parseInt(urlParams.get('page') || '1');
     const limit = parseInt(urlParams.get('limit') || '10');
     const search = urlParams.get('search') || '';
-    
+
     setPagination({ ...pagination(), page, limit });
     setSearchQuery(search);
-    
+
     // Загружаем данные при монтировании
     loadUsers()
     loadRoles()
   })
-  
+
   // Обновление URL при изменении параметров пагинации
   createEffect(() => {
     const pagData = pagination();
     const search = searchQuery();
-    
+
     const urlParams = new URLSearchParams();
     urlParams.set('page', pagData.page.toString());
     urlParams.set('limit', pagData.limit.toString());
-    
+
     if (search) {
       urlParams.set('search', search);
     }
-    
+
     const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
     window.history.replaceState({}, '', newUrl);
   });
@@ -335,7 +335,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         }
       `,
         {
-          user: { 
+          user: {
             id: userId,
             roles: newRoles,
             community: 1 // Добавляем обязательный параметр community
@@ -358,7 +358,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
 
       // Показываем сообщение об успехе и обновляем список пользователей
       setSuccessMessage('Роли пользователя успешно обновлены')
-      
+
       // Перезагружаем список пользователей
       loadUsers()
 
@@ -367,12 +367,12 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     } catch (err) {
       console.error('Ошибка обновления ролей:', err)
       let errorMessage = err instanceof Error ? err.message : 'Ошибка обновления ролей';
-      
+
       // Если ошибка связана с недостающим полем community
       if (errorMessage.includes('author_role.community')) {
         errorMessage = 'Ошибка: для роли author требуется указать community. Обратитесь к администратору.';
       }
-      
+
       setError(errorMessage)
     }
   }
@@ -398,39 +398,39 @@ const AdminPage: Component<AdminPageProps> = (props) => {
    */
   function formatDateRelative(timestamp?: number): string {
     if (!timestamp) return 'Н/Д'
-    
+
     const now = Math.floor(Date.now() / 1000)
     const diff = now - timestamp
-    
+
     // Меньше минуты
     if (diff < 60) {
       return 'только что'
     }
-    
+
     // Меньше часа
     if (diff < 3600) {
       const minutes = Math.floor(diff / 60)
       return `${minutes} ${getMinutesForm(minutes)} назад`
     }
-    
+
     // Меньше суток
     if (diff < 86400) {
       const hours = Math.floor(diff / 3600)
       return `${hours} ${getHoursForm(hours)} назад`
     }
-    
+
     // Меньше 30 дней
     if (diff < 2592000) {
       const days = Math.floor(diff / 86400)
       return `${days} ${getDaysForm(days)} назад`
     }
-    
+
     // Меньше года
     if (diff < 31536000) {
       const months = Math.floor(diff / 2592000)
       return `${months} ${getMonthsForm(months)} назад`
     }
-    
+
     // Больше года
     const years = Math.floor(diff / 31536000)
     return `${years} ${getYearsForm(years)} назад`
@@ -759,7 +759,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     } catch (err) {
       console.error('Ошибка загрузки переменных окружения:', err)
       setError('Не удалось загрузить переменные окружения: ' + (err as Error).message)
-      
+
       // Если ошибка авторизации - перенаправляем на логин
       if (
         err instanceof Error &&
@@ -799,7 +799,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     } catch (err) {
       console.error('Ошибка обновления переменной:', err)
       setError('Ошибка при обновлении переменной: ' + (err as Error).message)
-      
+
       // Если ошибка авторизации - перенаправляем на логин
       if (
         err instanceof Error &&
@@ -855,7 +855,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
    */
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
-    
+
     if (tab === 'env' && envSections().length === 0) {
       loadEnvVariables()
     }
@@ -912,17 +912,17 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         <div class="modal-content">
           <h2>Редактирование переменной</h2>
           <p>Переменная: {variable.key}</p>
-          
+
           <div class="variable-edit-form">
             <div class="form-group">
               <label>Значение:</label>
-              <input 
-                type={variable.isSecret ? 'password' : 'text'} 
-                value={variable.value} 
+              <input
+                type={variable.isSecret ? 'password' : 'text'}
+                value={variable.value}
                 onInput={(e) => handleVariableValueChange(e.target.value)}
               />
             </div>
-            
+
             <Show when={variable.description}>
               <div class="variable-description">
                 <p>{variable.description}</p>
@@ -1005,7 +1005,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                                 </td>
                                 <td>{variable.description || '-'}</td>
                                 <td class="actions">
-                                  <button 
+                                  <button
                                     class="edit-button"
                                     onClick={() => openVariableModal(variable)}
                                   >

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 
 from cache.cache import (
     cache_author,
@@ -15,16 +16,21 @@ CACHE_REVALIDATION_INTERVAL = 300  # 5 minutes
 
 
 class CacheRevalidationManager:
-    def __init__(self, interval=CACHE_REVALIDATION_INTERVAL):
+    def __init__(self, interval=CACHE_REVALIDATION_INTERVAL) -> None:
         """Инициализация менеджера с заданным интервалом проверки (в секундах)."""
         self.interval = interval
-        self.items_to_revalidate = {"authors": set(), "topics": set(), "shouts": set(), "reactions": set()}
+        self.items_to_revalidate: dict[str, set[str]] = {
+            "authors": set(),
+            "topics": set(),
+            "shouts": set(),
+            "reactions": set(),
+        }
         self.lock = asyncio.Lock()
         self.running = True
         self.MAX_BATCH_SIZE = 10  # Максимальное количество элементов для поштучной обработки
         self._redis = redis  # Добавлена инициализация _redis для доступа к Redis-клиенту
 
-    async def start(self):
+    async def start(self) -> None:
         """Запуск фонового воркера для ревалидации кэша."""
         # Проверяем, что у нас есть соединение с Redis
         if not self._redis._client:
@@ -36,7 +42,7 @@ class CacheRevalidationManager:
 
         self.task = asyncio.create_task(self.revalidate_cache())
 
-    async def revalidate_cache(self):
+    async def revalidate_cache(self) -> None:
         """Циклическая проверка и ревалидация кэша каждые self.interval секунд."""
         try:
             while self.running:
@@ -47,7 +53,7 @@ class CacheRevalidationManager:
         except Exception as e:
             logger.error(f"An error occurred in the revalidation worker: {e}")
 
-    async def process_revalidation(self):
+    async def process_revalidation(self) -> None:
         """Обновление кэша для всех сущностей, требующих ревалидации."""
         # Проверяем соединение с Redis
         if not self._redis._client:
@@ -61,9 +67,12 @@ class CacheRevalidationManager:
                     if author_id == "all":
                         await invalidate_cache_by_prefix("authors")
                         break
-                    author = await get_cached_author(author_id, get_with_stat)
-                    if author:
-                        await cache_author(author)
+                    try:
+                        author = await get_cached_author(int(author_id), get_with_stat)
+                        if author:
+                            await cache_author(author)
+                    except ValueError:
+                        logger.warning(f"Invalid author_id: {author_id}")
                 self.items_to_revalidate["authors"].clear()
 
             # Ревалидация кэша тем
@@ -73,9 +82,12 @@ class CacheRevalidationManager:
                     if topic_id == "all":
                         await invalidate_cache_by_prefix("topics")
                         break
-                    topic = await get_cached_topic(topic_id)
-                    if topic:
-                        await cache_topic(topic)
+                    try:
+                        topic = await get_cached_topic(int(topic_id))
+                        if topic:
+                            await cache_topic(topic)
+                    except ValueError:
+                        logger.warning(f"Invalid topic_id: {topic_id}")
                 self.items_to_revalidate["topics"].clear()
 
             # Ревалидация шаутов (публикаций)
@@ -146,26 +158,24 @@ class CacheRevalidationManager:
 
                 self.items_to_revalidate["reactions"].clear()
 
-    def mark_for_revalidation(self, entity_id, entity_type):
+    def mark_for_revalidation(self, entity_id, entity_type) -> None:
         """Отметить сущность для ревалидации."""
         if entity_id and entity_type:
             self.items_to_revalidate[entity_type].add(entity_id)
 
-    def invalidate_all(self, entity_type):
+    def invalidate_all(self, entity_type) -> None:
         """Пометить для инвалидации все элементы указанного типа."""
         logger.debug(f"Marking all {entity_type} for invalidation")
         # Особый флаг для полной инвалидации
         self.items_to_revalidate[entity_type].add("all")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Остановка фонового воркера."""
         self.running = False
         if hasattr(self, "task"):
             self.task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.task
-            except asyncio.CancelledError:
-                pass
 
 
 revalidation_manager = CacheRevalidationManager()

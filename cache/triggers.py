@@ -9,7 +9,7 @@ from services.db import local_session
 from utils.logger import root_logger as logger
 
 
-def mark_for_revalidation(entity, *args):
+def mark_for_revalidation(entity, *args) -> None:
     """Отметка сущности для ревалидации."""
     entity_type = (
         "authors"
@@ -26,7 +26,7 @@ def mark_for_revalidation(entity, *args):
         revalidation_manager.mark_for_revalidation(entity.id, entity_type)
 
 
-def after_follower_handler(mapper, connection, target, is_delete=False):
+def after_follower_handler(mapper, connection, target, is_delete=False) -> None:
     """Обработчик добавления, обновления или удаления подписки."""
     entity_type = None
     if isinstance(target, AuthorFollower):
@@ -44,7 +44,7 @@ def after_follower_handler(mapper, connection, target, is_delete=False):
             revalidation_manager.mark_for_revalidation(target.follower, "authors")
 
 
-def after_shout_handler(mapper, connection, target):
+def after_shout_handler(mapper, connection, target) -> None:
     """Обработчик изменения статуса публикации"""
     if not isinstance(target, Shout):
         return
@@ -63,7 +63,7 @@ def after_shout_handler(mapper, connection, target):
     revalidation_manager.mark_for_revalidation(target.id, "shouts")
 
 
-def after_reaction_handler(mapper, connection, target):
+def after_reaction_handler(mapper, connection, target) -> None:
     """Обработчик для комментариев"""
     if not isinstance(target, Reaction):
         return
@@ -104,7 +104,7 @@ def after_reaction_handler(mapper, connection, target):
                     revalidation_manager.mark_for_revalidation(topic.id, "topics")
 
 
-def events_register():
+def events_register() -> None:
     """Регистрация обработчиков событий для всех сущностей."""
     event.listen(ShoutAuthor, "after_insert", mark_for_revalidation)
     event.listen(ShoutAuthor, "after_update", mark_for_revalidation)
@@ -115,7 +115,7 @@ def events_register():
     event.listen(
         AuthorFollower,
         "after_delete",
-        lambda *args: after_follower_handler(*args, is_delete=True),
+        lambda mapper, connection, target: after_follower_handler(mapper, connection, target, is_delete=True),
     )
 
     event.listen(TopicFollower, "after_insert", after_follower_handler)
@@ -123,7 +123,7 @@ def events_register():
     event.listen(
         TopicFollower,
         "after_delete",
-        lambda *args: after_follower_handler(*args, is_delete=True),
+        lambda mapper, connection, target: after_follower_handler(mapper, connection, target, is_delete=True),
     )
 
     event.listen(ShoutReactionsFollower, "after_insert", after_follower_handler)
@@ -131,7 +131,7 @@ def events_register():
     event.listen(
         ShoutReactionsFollower,
         "after_delete",
-        lambda *args: after_follower_handler(*args, is_delete=True),
+        lambda mapper, connection, target: after_follower_handler(mapper, connection, target, is_delete=True),
     )
 
     event.listen(Reaction, "after_update", mark_for_revalidation)

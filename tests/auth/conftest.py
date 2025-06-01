@@ -1,10 +1,8 @@
-from typing import Dict
-
 import pytest
 
 
 @pytest.fixture
-def oauth_settings() -> Dict[str, Dict[str, str]]:
+def oauth_settings() -> dict[str, dict[str, str]]:
     """Тестовые настройки OAuth"""
     return {
         "GOOGLE": {"id": "test_google_id", "key": "test_google_secret"},

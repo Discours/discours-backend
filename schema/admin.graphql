@@ -66,7 +66,7 @@ extend type Query {
 extend type Mutation {
   updateEnvVariable(key: String!, value: String!): Boolean!
   updateEnvVariables(variables: [EnvVariableInput!]!): Boolean!
-  
+
   # Мутации для управления пользователями
   adminUpdateUser(user: AdminUserUpdateInput!): OperationResult!
-} 
+}

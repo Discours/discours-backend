@@ -117,7 +117,7 @@ export function logout(callback?: () => void): void {
 export async function login(credentials: Credentials): Promise<boolean> {
   try {
     console.log('Отправка запроса авторизации через GraphQL')
-    
+
     const response = await fetch(`${location.origin}/graphql`, {
       method: 'POST',
       headers: {

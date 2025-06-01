@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Any
 
 import colorlog
 
@@ -7,7 +8,7 @@ _lib_path = Path(__file__).parents[1]
 _leng_path = len(_lib_path.as_posix())
 
 
-def filter(record: logging.LogRecord):
+def filter(record: logging.LogRecord) -> bool:
     # Define `package` attribute with the relative path.
     record.package = record.pathname[_leng_path + 1 :].replace(".py", "")
     record.emoji = (
@@ -23,7 +24,7 @@ def filter(record: logging.LogRecord):
         if record.levelno == logging.CRITICAL
         else ""
     )
-    return record
+    return True
 
 
 # Define the color scheme
@@ -57,28 +58,32 @@ fmt_config = {
 
 
 class MultilineColoredFormatter(colorlog.ColoredFormatter):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.log_colors = kwargs.pop("log_colors", {})
         self.secondary_log_colors = kwargs.pop("secondary_log_colors", {})
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         # Add default emoji if not present
         if not hasattr(record, "emoji"):
-            record = filter(record)
+            record.emoji = "📝"
 
-        message = record.getMessage()
-        if "\n" in message:
-            lines = message.split("\n")
-            first_line = lines[0]
-            record.message = first_line
-            formatted_first_line = super().format(record)
+        # Add default package if not present
+        if not hasattr(record, "package"):
+            record.package = getattr(record, "name", "unknown")
+
+        # Format the first line normally
+        formatted_first_line = super().format(record)
+
+        # Check if the message has multiple lines
+        lines = formatted_first_line.split("\n")
+        if len(lines) > 1:
+            # For multiple lines, only apply colors to the first line
+            # Keep subsequent lines without color formatting
             formatted_lines = [formatted_first_line]
-            for line in lines[1:]:
-                formatted_lines.append(line)
+            formatted_lines.extend(lines[1:])
             return "\n".join(formatted_lines)
-        else:
-            return super().format(record)
+        return super().format(record)
 
 
 # Create a MultilineColoredFormatter object for colorized logging
@@ -89,7 +94,7 @@ stream = logging.StreamHandler()
 stream.setFormatter(formatter)
 
 
-def get_colorful_logger(name="main"):
+def get_colorful_logger(name: str = "main") -> logging.Logger:
     # Create and configure the logger
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)

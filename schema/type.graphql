@@ -130,7 +130,7 @@ type Draft {
   cover_caption: String
   lang: String
   seo: String
-  
+
   # auto
   updated_at: Int
   deleted_at: Int
@@ -290,6 +290,12 @@ type AuthResult {
   author: Author
 }
 
+type SecurityUpdateResult {
+  success: Boolean!
+  error: String
+  author: Author
+}
+
 type Permission {
   resource: String!
   action: String!
@@ -321,4 +327,3 @@ type RolesInfo {
 type CountResult {
   count: Int!
 }
-

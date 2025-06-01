@@ -5,7 +5,7 @@ from sqlalchemy import JSON, Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from auth.orm import Author
-from services.db import Base
+from services.db import BaseModel as Base
 
 
 class NotificationEntity(enum.Enum):
@@ -51,13 +51,13 @@ class Notification(Base):
     seen = relationship(Author, secondary="notification_seen")
 
     def set_entity(self, entity: NotificationEntity):
-        self.entity = entity.value
+        self.entity = entity.value  # type: ignore[assignment]
 
     def get_entity(self) -> NotificationEntity:
         return NotificationEntity.from_string(self.entity)
 
     def set_action(self, action: NotificationAction):
-        self.action = action.value
+        self.action = action.value  # type: ignore[assignment]
 
     def get_action(self) -> NotificationAction:
         return NotificationAction.from_string(self.action)

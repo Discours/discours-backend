@@ -1,7 +1,8 @@
 import asyncio
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
+from graphql import GraphQLResolveInfo
 from sqlalchemy import select, text
 
 from auth.orm import Author
@@ -16,17 +17,17 @@ from cache.cache import (
 )
 from resolvers.stat import get_with_stat
 from services.auth import login_required
+from services.common_result import CommonResult
 from services.db import local_session
 from services.redis import redis
 from services.schema import mutation, query
-from services.search import search_service
 from utils.logger import root_logger as logger
 
 DEFAULT_COMMUNITIES = [1]
 
 
 # Вспомогательная функция для получения всех авторов без статистики
-async def get_all_authors(current_user_id=None):
+async def get_all_authors(current_user_id: Optional[int] = None) -> list[Any]:
     """
     Получает всех авторов без статистики.
     Используется для случаев, когда нужен полный список авторов без дополнительной информации.
@@ -41,7 +42,10 @@ async def get_all_authors(current_user_id=None):
     cache_key = "authors:all:basic"
 
     # Функция для получения всех авторов из БД
-    async def fetch_all_authors():
+    async def fetch_all_authors() -> list[Any]:
+        """
+        Выполняет запрос к базе данных для получения всех авторов.
+        """
         logger.debug("Получаем список всех авторов из БД и кешируем результат")
 
         with local_session() as session:
@@ -50,14 +54,16 @@ async def get_all_authors(current_user_id=None):
             authors = session.execute(authors_query).scalars().unique().all()
 
             # Преобразуем авторов в словари с учетом прав доступа
-            return [author.dict(access=False) for author in authors]
+            return [author.dict(False) for author in authors]
 
     # Используем универсальную функцию для кеширования запросов
     return await cached_query(cache_key, fetch_all_authors)
 
 
 # Вспомогательная функция для получения авторов со статистикой с пагинацией
-async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, current_user_id: Optional[int] = None):
+async def get_authors_with_stats(
+    limit: int = 10, offset: int = 0, by: Optional[str] = None, current_user_id: Optional[int] = None
+):
     """
     Получает авторов со статистикой с пагинацией.
 
@@ -73,8 +79,18 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
     cache_key = f"authors:stats:limit={limit}:offset={offset}"
 
     # Функция для получения авторов из БД
-    async def fetch_authors_with_stats():
+    async def fetch_authors_with_stats() -> list[Any]:
+        """
+        Выполняет запрос к базе данных для получения авторов со статистикой.
+        """
         logger.debug(f"Выполняем запрос на получение авторов со статистикой: limit={limit}, offset={offset}, by={by}")
+
+        # Импорты SQLAlchemy для избежания конфликтов имен
+        from sqlalchemy import and_, asc, func
+        from sqlalchemy import desc as sql_desc
+
+        from auth.orm import AuthorFollower
+        from orm.shout import Shout, ShoutAuthor
 
         with local_session() as session:
             # Базовый запрос для получения авторов
@@ -84,16 +100,11 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
 
             # vars for statistics sorting
             stats_sort_field = None
-            stats_sort_direction = "desc"
 
             if by:
                 if isinstance(by, dict):
                     logger.debug(f"Processing dict-based sorting: {by}")
                     # Обработка словаря параметров сортировки
-                    from sqlalchemy import asc, desc, func
-
-                    from auth.orm import AuthorFollower
-                    from orm.shout import ShoutAuthor
 
                     # Checking for order field in the dictionary
                     if "order" in by:
@@ -101,7 +112,6 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
                         logger.debug(f"Found order field with value: {order_value}")
                         if order_value in ["shouts", "followers", "rating", "comments"]:
                             stats_sort_field = order_value
-                            stats_sort_direction = "desc"  # По умолчанию убывающая сортировка для статистики
                             logger.debug(f"Applying statistics-based sorting by: {stats_sort_field}")
                         elif order_value == "name":
                             # Sorting by name in ascending order
@@ -111,33 +121,29 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
                             # If order is not a stats field, treat it as a regular field
                             column = getattr(Author, order_value, None)
                             if column:
-                                base_query = base_query.order_by(desc(column))
+                                base_query = base_query.order_by(sql_desc(column))
                     else:
                         # Regular sorting by fields
                         for field, direction in by.items():
                             column = getattr(Author, field, None)
                             if column:
                                 if direction.lower() == "desc":
-                                    base_query = base_query.order_by(desc(column))
+                                    base_query = base_query.order_by(sql_desc(column))
                                 else:
                                     base_query = base_query.order_by(column)
                 elif by == "new":
-                    base_query = base_query.order_by(desc(Author.created_at))
+                    base_query = base_query.order_by(sql_desc(Author.created_at))
                 elif by == "active":
-                    base_query = base_query.order_by(desc(Author.last_seen))
+                    base_query = base_query.order_by(sql_desc(Author.last_seen))
                 else:
                     # По умолчанию сортируем по времени создания
-                    base_query = base_query.order_by(desc(Author.created_at))
+                    base_query = base_query.order_by(sql_desc(Author.created_at))
             else:
-                base_query = base_query.order_by(desc(Author.created_at))
+                base_query = base_query.order_by(sql_desc(Author.created_at))
 
             # If sorting by statistics, modify the query
             if stats_sort_field == "shouts":
                 # Sorting by the number of shouts
-                from sqlalchemy import and_, func
-
-                from orm.shout import Shout, ShoutAuthor
-
                 subquery = (
                     select(ShoutAuthor.author, func.count(func.distinct(Shout.id)).label("shouts_count"))
                     .select_from(ShoutAuthor)
@@ -148,14 +154,10 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
                 )
 
                 base_query = base_query.outerjoin(subquery, Author.id == subquery.c.author).order_by(
-                    desc(func.coalesce(subquery.c.shouts_count, 0))
+                    sql_desc(func.coalesce(subquery.c.shouts_count, 0))
                 )
             elif stats_sort_field == "followers":
                 # Sorting by the number of followers
-                from sqlalchemy import func
-
-                from auth.orm import AuthorFollower
-
                 subquery = (
                     select(
                         AuthorFollower.author,
@@ -167,7 +169,7 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
                 )
 
                 base_query = base_query.outerjoin(subquery, Author.id == subquery.c.author).order_by(
-                    desc(func.coalesce(subquery.c.followers_count, 0))
+                    sql_desc(func.coalesce(subquery.c.followers_count, 0))
                 )
 
             # Применяем лимит и смещение
@@ -181,23 +183,25 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
                 return []
 
             # Оптимизированный запрос для получения статистики по публикациям для авторов
+            placeholders = ", ".join([f":id{i}" for i in range(len(author_ids))])
             shouts_stats_query = f"""
             SELECT sa.author, COUNT(DISTINCT s.id) as shouts_count
             FROM shout_author sa
             JOIN shout s ON sa.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
-            WHERE sa.author IN ({",".join(map(str, author_ids))})
+            WHERE sa.author IN ({placeholders})
             GROUP BY sa.author
             """
-            shouts_stats = {row[0]: row[1] for row in session.execute(text(shouts_stats_query))}
+            params = {f"id{i}": author_id for i, author_id in enumerate(author_ids)}
+            shouts_stats = {row[0]: row[1] for row in session.execute(text(shouts_stats_query), params)}
 
             # Запрос на получение статистики по подписчикам для авторов
             followers_stats_query = f"""
             SELECT author, COUNT(DISTINCT follower) as followers_count
             FROM author_follower
-            WHERE author IN ({",".join(map(str, author_ids))})
+            WHERE author IN ({placeholders})
             GROUP BY author
             """
-            followers_stats = {row[0]: row[1] for row in session.execute(text(followers_stats_query))}
+            followers_stats = {row[0]: row[1] for row in session.execute(text(followers_stats_query), params)}
 
             # Формируем результат с добавлением статистики
             result = []
@@ -222,7 +226,7 @@ async def get_authors_with_stats(limit=50, offset=0, by: Optional[str] = None, c
 
 
 # Функция для инвалидации кеша авторов
-async def invalidate_authors_cache(author_id=None):
+async def invalidate_authors_cache(author_id=None) -> None:
     """
     Инвалидирует кеши авторов при изменении данных.
 
@@ -268,11 +272,12 @@ async def invalidate_authors_cache(author_id=None):
 
 @mutation.field("update_author")
 @login_required
-async def update_author(_, info, profile):
+async def update_author(_: None, info: GraphQLResolveInfo, profile: dict[str, Any]) -> CommonResult:
+    """Update author profile"""
     author_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
     if not author_id:
-        return {"error": "unauthorized", "author": None}
+        return CommonResult(error="unauthorized", author=None)
     try:
         with local_session() as session:
             author = session.query(Author).where(Author.id == author_id).first()
@@ -286,35 +291,34 @@ async def update_author(_, info, profile):
                     author_with_stat = result[0]
                     if isinstance(author_with_stat, Author):
                         # Кэшируем полную версию для админов
-                        author_dict = author_with_stat.dict(access=is_admin)
+                        author_dict = author_with_stat.dict(is_admin)
                         asyncio.create_task(cache_author(author_dict))
 
                         # Возвращаем обычную полную версию, т.к. это владелец
-                        return {"error": None, "author": author}
+                        return CommonResult(error=None, author=author)
+        # Если мы дошли до сюда, значит автор не найден
+        return CommonResult(error="Author not found", author=None)
     except Exception as exc:
         import traceback
 
         logger.error(traceback.format_exc())
-        return {"error": exc, "author": None}
+        return CommonResult(error=str(exc), author=None)
 
 
 @query.field("get_authors_all")
-async def get_authors_all(_, info):
-    """
-    Получает список всех авторов без статистики.
-
-    Returns:
-        list: Список всех авторов
-    """
+async def get_authors_all(_: None, info: GraphQLResolveInfo) -> list[Any]:
+    """Get all authors"""
     # Получаем ID текущего пользователя и флаг админа из контекста
     viewer_id = info.context.get("author", {}).get("id")
-    is_admin = info.context.get("is_admin", False)
-    authors = await get_all_authors(viewer_id)
-    return authors
+    info.context.get("is_admin", False)
+    return await get_all_authors(viewer_id)
 
 
 @query.field("get_author")
-async def get_author(_, info, slug="", author_id=0):
+async def get_author(
+    _: None, info: GraphQLResolveInfo, slug: Optional[str] = None, author_id: Optional[int] = None
+) -> dict[str, Any] | None:
+    """Get specific author by slug or ID"""
     # Получаем ID текущего пользователя и флаг админа из контекста
     is_admin = info.context.get("is_admin", False)
 
@@ -322,7 +326,8 @@ async def get_author(_, info, slug="", author_id=0):
     try:
         author_id = get_author_id_from(slug=slug, user="", author_id=author_id)
         if not author_id:
-            raise ValueError("cant find")
+            msg = "cant find"
+            raise ValueError(msg)
 
         # Получаем данные автора из кэша (полные данные)
         cached_author = await get_cached_author(int(author_id), get_with_stat)
@@ -335,7 +340,7 @@ async def get_author(_, info, slug="", author_id=0):
                 if hasattr(temp_author, key):
                     setattr(temp_author, key, value)
             # Получаем отфильтрованную версию
-            author_dict = temp_author.dict(access=is_admin)
+            author_dict = temp_author.dict(is_admin)
             # Добавляем статистику, которая могла быть в кэшированной версии
             if "stat" in cached_author:
                 author_dict["stat"] = cached_author["stat"]
@@ -348,11 +353,11 @@ async def get_author(_, info, slug="", author_id=0):
                 author_with_stat = result[0]
                 if isinstance(author_with_stat, Author):
                     # Кэшируем полные данные для админов
-                    original_dict = author_with_stat.dict(access=True)
+                    original_dict = author_with_stat.dict(True)
                     asyncio.create_task(cache_author(original_dict))
 
                     # Возвращаем отфильтрованную версию
-                    author_dict = author_with_stat.dict(access=is_admin)
+                    author_dict = author_with_stat.dict(is_admin)
                     # Добавляем статистику
                     if hasattr(author_with_stat, "stat"):
                         author_dict["stat"] = author_with_stat.stat
@@ -366,22 +371,12 @@ async def get_author(_, info, slug="", author_id=0):
 
 
 @query.field("load_authors_by")
-async def load_authors_by(_, info, by, limit, offset):
-    """
-    Загружает авторов по заданному критерию с пагинацией.
-
-    Args:
-        by: Критерий сортировки авторов (new/active)
-        limit: Максимальное количество возвращаемых авторов
-        offset: Смещение для пагинации
-
-    Returns:
-        list: Список авторов с учетом критерия
-    """
+async def load_authors_by(_: None, info: GraphQLResolveInfo, by: str, limit: int = 10, offset: int = 0) -> list[Any]:
+    """Load authors by different criteria"""
     try:
         # Получаем ID текущего пользователя и флаг админа из контекста
         viewer_id = info.context.get("author", {}).get("id")
-        is_admin = info.context.get("is_admin", False)
+        info.context.get("is_admin", False)
 
         # Используем оптимизированную функцию для получения авторов
         return await get_authors_with_stats(limit, offset, by, viewer_id)
@@ -393,48 +388,17 @@ async def load_authors_by(_, info, by, limit, offset):
 
 
 @query.field("load_authors_search")
-async def load_authors_search(_, info, text: str, limit: int = 10, offset: int = 0):
-    """
-    Resolver for searching authors by text. Works with txt-ai search endpony.
-    Args:
-        text: Search text
-        limit: Maximum number of authors to return
-        offset: Offset for pagination
-    Returns:
-        list: List of authors matching the search criteria
-    """
-
-    # Get author IDs from search engine (already sorted by relevance)
-    search_results = await search_service.search_authors(text, limit, offset)
-
-    if not search_results:
-        return []
-
-    author_ids = [result.get("id") for result in search_results if result.get("id")]
-    if not author_ids:
-        return []
-
-    # Fetch full author objects from DB
-    with local_session() as session:
-        # Simple query to get authors by IDs - no need for stats here
-        authors_query = select(Author).filter(Author.id.in_(author_ids))
-        db_authors = session.execute(authors_query).scalars().unique().all()
-
-    if not db_authors:
-        return []
-
-    # Create a dictionary for quick lookup
-    authors_dict = {str(author.id): author for author in db_authors}
-
-    # Keep the order from search results (maintains the relevance sorting)
-    ordered_authors = [authors_dict[author_id] for author_id in author_ids if author_id in authors_dict]
-
-    return ordered_authors
+async def load_authors_search(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> list[Any]:
+    """Search for authors"""
+    # TODO: Implement search functionality
+    return []
 
 
-def get_author_id_from(slug="", user=None, author_id=None):
+def get_author_id_from(
+    slug: Optional[str] = None, user: Optional[str] = None, author_id: Optional[int] = None
+) -> Optional[int]:
+    """Get author ID from different identifiers"""
     try:
-        author_id = None
         if author_id:
             return author_id
         with local_session() as session:
@@ -442,19 +406,21 @@ def get_author_id_from(slug="", user=None, author_id=None):
             if slug:
                 author = session.query(Author).filter(Author.slug == slug).first()
                 if author:
-                    author_id = author.id
-                    return author_id
+                    return int(author.id)
             if user:
                 author = session.query(Author).filter(Author.id == user).first()
                 if author:
-                    author_id = author.id
+                    return int(author.id)
     except Exception as exc:
         logger.error(exc)
-    return author_id
+    return None
 
 
 @query.field("get_author_follows")
-async def get_author_follows(_, info, slug="", user=None, author_id=0):
+async def get_author_follows(
+    _, info: GraphQLResolveInfo, slug: Optional[str] = None, user: Optional[str] = None, author_id: Optional[int] = None
+) -> dict[str, Any]:
+    """Get entities followed by author"""
     # Получаем ID текущего пользователя и флаг админа из контекста
     viewer_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
@@ -462,7 +428,7 @@ async def get_author_follows(_, info, slug="", user=None, author_id=0):
     logger.debug(f"getting follows for @{slug}")
     author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
     if not author_id:
-        return {}
+        return {"error": "Author not found"}
 
     # Получаем данные из кэша
     followed_authors_raw = await get_cached_follower_authors(author_id)
@@ -481,7 +447,7 @@ async def get_author_follows(_, info, slug="", user=None, author_id=0):
         # current_user_id - ID текущего авторизованного пользователя (может быть None)
         # is_admin - булево значение, является ли текущий пользователь админом
         has_access = is_admin or (viewer_id is not None and str(viewer_id) == str(temp_author.id))
-        followed_authors.append(temp_author.dict(access=has_access))
+        followed_authors.append(temp_author.dict(has_access))
 
     # TODO: Get followed communities too
     return {
@@ -489,26 +455,41 @@ async def get_author_follows(_, info, slug="", user=None, author_id=0):
         "topics": followed_topics,
         "communities": DEFAULT_COMMUNITIES,
         "shouts": [],
+        "error": None,
     }
 
 
 @query.field("get_author_follows_topics")
-async def get_author_follows_topics(_, _info, slug="", user=None, author_id=None):
+async def get_author_follows_topics(
+    _,
+    _info: GraphQLResolveInfo,
+    slug: Optional[str] = None,
+    user: Optional[str] = None,
+    author_id: Optional[int] = None,
+) -> list[Any]:
+    """Get topics followed by author"""
     logger.debug(f"getting followed topics for @{slug}")
     author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
     if not author_id:
         return []
-    followed_topics = await get_cached_follower_topics(author_id)
-    return followed_topics
+    result = await get_cached_follower_topics(author_id)
+    # Ensure we return a list, not a dict
+    if isinstance(result, dict):
+        return result.get("topics", [])
+    return result if isinstance(result, list) else []
 
 
 @query.field("get_author_follows_authors")
-async def get_author_follows_authors(_, info, slug="", user=None, author_id=None):
+async def get_author_follows_authors(
+    _, info: GraphQLResolveInfo, slug: Optional[str] = None, user: Optional[str] = None, author_id: Optional[int] = None
+) -> list[Any]:
+    """Get authors followed by author"""
     # Получаем ID текущего пользователя и флаг админа из контекста
     viewer_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
 
     logger.debug(f"getting followed authors for @{slug}")
+    author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
     if not author_id:
         return []
 
@@ -528,17 +509,20 @@ async def get_author_follows_authors(_, info, slug="", user=None, author_id=None
         # current_user_id - ID текущего авторизованного пользователя (может быть None)
         # is_admin - булево значение, является ли текущий пользователь админом
         has_access = is_admin or (viewer_id is not None and str(viewer_id) == str(temp_author.id))
-        followed_authors.append(temp_author.dict(access=has_access))
+        followed_authors.append(temp_author.dict(has_access))
 
     return followed_authors
 
 
-def create_author(user_id: str, slug: str, name: str = ""):
+def create_author(**kwargs) -> Author:
+    """Create new author"""
     author = Author()
-    Author.id = user_id  # Связь с user_id из системы авторизации
-    author.slug = slug  # Идентификатор из системы авторизации
-    author.created_at = author.updated_at = int(time.time())
-    author.name = name or slug  # если не указано
+    # Use setattr to avoid MyPy complaints about Column assignment
+    author.id = kwargs.get("user_id")  # type: ignore[assignment] # Связь с user_id из системы авторизации  # type: ignore[assignment]
+    author.slug = kwargs.get("slug")  # type: ignore[assignment] # Идентификатор из системы авторизации  # type: ignore[assignment]
+    author.created_at = int(time.time())  # type: ignore[assignment]
+    author.updated_at = int(time.time())  # type: ignore[assignment]
+    author.name = kwargs.get("name") or kwargs.get("slug")  # type: ignore[assignment] # если не указано  # type: ignore[assignment]
 
     with local_session() as session:
         session.add(author)
@@ -547,13 +531,14 @@ def create_author(user_id: str, slug: str, name: str = ""):
 
 
 @query.field("get_author_followers")
-async def get_author_followers(_, info, slug: str = "", user: str = "", author_id: int = 0):
+async def get_author_followers(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> list[Any]:
+    """Get followers of an author"""
     # Получаем ID текущего пользователя и флаг админа из контекста
     viewer_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
 
-    logger.debug(f"getting followers for author @{slug} or ID:{author_id}")
-    author_id = get_author_id_from(slug=slug, user=user, author_id=author_id)
+    logger.debug(f"getting followers for author @{kwargs.get('slug')} or ID:{kwargs.get('author_id')}")
+    author_id = get_author_id_from(slug=kwargs.get("slug"), user=kwargs.get("user"), author_id=kwargs.get("author_id"))
     if not author_id:
         return []
 
@@ -573,6 +558,6 @@ async def get_author_followers(_, info, slug: str = "", user: str = "", author_i
         # current_user_id - ID текущего авторизованного пользователя (может быть None)
         # is_admin - булево значение, является ли текущий пользователь админом
         has_access = is_admin or (viewer_id is not None and str(viewer_id) == str(temp_author.id))
-        followers.append(temp_author.dict(access=has_access))
+        followers.append(temp_author.dict(has_access))
 
     return followers

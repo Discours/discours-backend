@@ -1,16 +1,17 @@
 from asyncio.log import logger
+from typing import List
 
-from ariadne import MutationType, ObjectType, QueryType
+from ariadne import MutationType, ObjectType, QueryType, SchemaBindable
 
 from services.db import create_table_if_not_exists, local_session
 
 query = QueryType()
 mutation = MutationType()
 type_draft = ObjectType("Draft")
-resolvers = [query, mutation, type_draft]
+resolvers: List[SchemaBindable] = [query, mutation, type_draft]
 
 
-def create_all_tables():
+def create_all_tables() -> None:
     """Create all database tables in the correct order."""
     from auth.orm import Author, AuthorBookmark, AuthorFollower, AuthorRating
     from orm import community, draft, notification, reaction, shout, topic
@@ -52,5 +53,6 @@ def create_all_tables():
                 create_table_if_not_exists(session.get_bind(), model)
                 # logger.info(f"Created or verified table: {model.__tablename__}")
             except Exception as e:
-                logger.error(f"Error creating table {model.__tablename__}: {e}")
+                table_name = getattr(model, "__tablename__", str(model))
+                logger.error(f"Error creating table {table_name}: {e}")
                 raise

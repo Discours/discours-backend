@@ -5,8 +5,7 @@ from sqlalchemy import delete, insert
 
 from auth.orm import AuthorBookmark
 from orm.shout import Shout
-from resolvers.feed import apply_options
-from resolvers.reader import get_shouts_with_links, query_with_stat
+from resolvers.reader import apply_options, get_shouts_with_links, query_with_stat
 from services.auth import login_required
 from services.common_result import CommonResult
 from services.db import local_session
@@ -15,7 +14,7 @@ from services.schema import mutation, query
 
 @query.field("load_shouts_bookmarked")
 @login_required
-def load_shouts_bookmarked(_, info, options):
+def load_shouts_bookmarked(_: None, info, options):
     """
     Load bookmarked shouts for the authenticated user.
 
@@ -29,7 +28,8 @@ def load_shouts_bookmarked(_, info, options):
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
     if not author_id:
-        raise GraphQLError("User not authenticated")
+        msg = "User not authenticated"
+        raise GraphQLError(msg)
 
     q = query_with_stat(info)
     q = q.join(AuthorBookmark)
@@ -44,7 +44,7 @@ def load_shouts_bookmarked(_, info, options):
 
 
 @mutation.field("toggle_bookmark_shout")
-def toggle_bookmark_shout(_, info, slug: str) -> CommonResult:
+def toggle_bookmark_shout(_: None, info, slug: str) -> CommonResult:
     """
     Toggle bookmark status for a specific shout.
 
@@ -57,12 +57,14 @@ def toggle_bookmark_shout(_, info, slug: str) -> CommonResult:
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
     if not author_id:
-        raise GraphQLError("User not authenticated")
+        msg = "User not authenticated"
+        raise GraphQLError(msg)
 
     with local_session() as db:
         shout = db.query(Shout).filter(Shout.slug == slug).first()
         if not shout:
-            raise GraphQLError("Shout not found")
+            msg = "Shout not found"
+            raise GraphQLError(msg)
 
         existing_bookmark = (
             db.query(AuthorBookmark)
@@ -74,10 +76,10 @@ def toggle_bookmark_shout(_, info, slug: str) -> CommonResult:
             db.execute(
                 delete(AuthorBookmark).where(AuthorBookmark.author == author_id, AuthorBookmark.shout == shout.id)
             )
-            result = False
+            result = CommonResult()
         else:
             db.execute(insert(AuthorBookmark).values(author=author_id, shout=shout.id))
-            result = True
+            result = CommonResult()
 
         db.commit()
         return result

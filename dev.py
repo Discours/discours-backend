@@ -1,13 +1,15 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 from granian import Granian
+from granian.constants import Interfaces
 
 from utils.logger import root_logger as logger
 
 
-def check_mkcert_installed():
+def check_mkcert_installed() -> Optional[bool]:
     """
     Проверяет, установлен ли инструмент mkcert в системе
 
@@ -18,7 +20,7 @@ def check_mkcert_installed():
     True
     """
     try:
-        subprocess.run(["mkcert", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(["mkcert", "-version"], capture_output=True, check=False)
         return True
     except FileNotFoundError:
         return False
@@ -58,9 +60,9 @@ def generate_certificates(domain="localhost", cert_file="localhost.pem", key_fil
         logger.info(f"Создание сертификатов для {domain} с помощью mkcert...")
         result = subprocess.run(
             ["mkcert", "-cert-file", cert_file, "-key-file", key_file, domain],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
+            check=False,
         )
 
         if result.returncode != 0:
@@ -70,11 +72,11 @@ def generate_certificates(domain="localhost", cert_file="localhost.pem", key_fil
         logger.info(f"Сертификаты созданы: {cert_file}, {key_file}")
         return cert_file, key_file
     except Exception as e:
-        logger.error(f"Не удалось создать сертификаты: {str(e)}")
+        logger.error(f"Не удалось создать сертификаты: {e!s}")
         return None, None
 
 
-def run_server(host="0.0.0.0", port=8000, workers=1):
+def run_server(host="0.0.0.0", port=8000, workers=1) -> None:
     """
     Запускает сервер Granian с поддержкой HTTPS при необходимости
 
@@ -107,7 +109,7 @@ def run_server(host="0.0.0.0", port=8000, workers=1):
             address=host,
             port=port,
             workers=workers,
-            interface="asgi",
+            interface=Interfaces.ASGI,
             target="main:app",
             ssl_cert=Path(cert_file),
             ssl_key=Path(key_file),
@@ -115,7 +117,7 @@ def run_server(host="0.0.0.0", port=8000, workers=1):
         server.serve()
     except Exception as e:
         # В случае проблем с Granian, пробуем запустить через Uvicorn
-        logger.error(f"Ошибка при запуске Granian: {str(e)}")
+        logger.error(f"Ошибка при запуске Granian: {e!s}")
 
 
 if __name__ == "__main__":

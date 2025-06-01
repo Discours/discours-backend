@@ -20,3 +20,13 @@ httpx
 orjson
 pydantic
 trafilatura
+
+types-requests
+types-passlib
+types-Authlib
+types-orjson
+types-PyYAML
+types-python-dateutil
+types-sqlalchemy
+types-redis
+types-PyJWT

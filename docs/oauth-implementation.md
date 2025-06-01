@@ -7,7 +7,7 @@
 // src/context/session.tsx
 const oauth = (provider: string) => {
   console.info('[oauth] Starting OAuth flow for provider:', provider)
-  
+
   if (isServer) {
     console.warn('[oauth] OAuth not available during SSR')
     return
@@ -16,10 +16,10 @@ const oauth = (provider: string) => {
   // Генерируем state для OAuth
   const state = crypto.randomUUID()
   localStorage.setItem('oauth_state', state)
-  
+
   // Формируем URL для OAuth
   const oauthUrl = `${coreApiUrl}/auth/oauth/${provider}?state=${state}&redirect_uri=${encodeURIComponent(window.location.origin)}`
-  
+
   // Перенаправляем на OAuth провайдера
   window.location.href = oauthUrl
 }
@@ -29,7 +29,7 @@ const oauth = (provider: string) => {
 ```typescript
 // Обработка OAuth параметров в SessionProvider
 createEffect(
-  on([() => searchParams?.state, () => searchParams?.access_token, () => searchParams?.token], 
+  on([() => searchParams?.state, () => searchParams?.access_token, () => searchParams?.token],
     ([state, access_token, token]) => {
       // OAuth обработка
       if (state && access_token) {
@@ -54,7 +54,7 @@ createEffect(
         console.info('[SessionProvider] Processing password reset token')
         changeSearchParams({ mode: 'change-password', m: 'auth', token }, { replace: true })
       }
-    }, 
+    },
     { defer: true }
   )
 )
@@ -75,26 +75,26 @@ async def oauth_redirect(
 ):
     """
     Инициация OAuth flow с внешним провайдером
-    
+
     Args:
         provider: Провайдер OAuth (google, facebook, github)
         state: CSRF токен от клиента
         redirect_uri: URL для редиректа после авторизации
-    
+
     Returns:
         RedirectResponse: Редирект на провайдера OAuth
     """
-    
+
     # Валидация провайдера
     if provider not in SUPPORTED_PROVIDERS:
         raise HTTPException(status_code=400, detail="Unsupported OAuth provider")
-    
+
     # Сохранение state в сессии/Redis для проверки
     await store_oauth_state(state, redirect_uri)
-    
+
     # Генерация URL провайдера
     oauth_url = generate_provider_url(provider, state, redirect_uri)
-    
+
     return RedirectResponse(url=oauth_url)
 ```
 
@@ -109,34 +109,34 @@ async def oauth_callback(
 ):
     """
     Обработка callback от OAuth провайдера
-    
+
     Args:
         provider: Провайдер OAuth
         code: Authorization code от провайдера
         state: CSRF токен для проверки
-    
+
     Returns:
         RedirectResponse: Редирект обратно на фронтенд с токеном
     """
-    
+
     # Проверка state
     stored_data = await get_oauth_state(state)
     if not stored_data:
         raise HTTPException(status_code=400, detail="Invalid or expired state")
-    
+
     # Обмен code на access_token
     try:
         user_data = await exchange_code_for_user_data(provider, code)
     except OAuthException as e:
         logger.error(f"OAuth error for {provider}: {e}")
         return RedirectResponse(url=f"{stored_data['redirect_uri']}?error=oauth_failed")
-    
+
     # Поиск/создание пользователя
     user = await get_or_create_user_from_oauth(provider, user_data)
-    
+
     # Генерация JWT токена
     access_token = generate_jwt_token(user.id)
-    
+
     # Редирект обратно на фронтенд
     redirect_url = f"{stored_data['redirect_uri']}?state={state}&access_token={access_token}"
     return RedirectResponse(url=redirect_url)
@@ -196,32 +196,32 @@ class OAuthUser(BaseModel):
 #### User Creation/Linking
 ```python
 async def get_or_create_user_from_oauth(
-    provider: str, 
+    provider: str,
     oauth_data: OAuthUser
 ) -> User:
     """
     Поиск существующего пользователя или создание нового
-    
+
     Args:
         provider: OAuth провайдер
         oauth_data: Данные пользователя от провайдера
-    
+
     Returns:
         User: Пользователь в системе
     """
-    
+
     # Поиск по OAuth связке
     oauth_link = await OAuthLink.get_by_provider_and_id(
         provider=provider,
         provider_id=oauth_data.provider_id
     )
-    
+
     if oauth_link:
         return await User.get(oauth_link.user_id)
-    
+
     # Поиск по email
     existing_user = await User.get_by_email(oauth_data.email)
-    
+
     if existing_user:
         # Привязка OAuth к существующему пользователю
         await OAuthLink.create(
@@ -231,7 +231,7 @@ async def get_or_create_user_from_oauth(
             provider_data=oauth_data.raw_data
         )
         return existing_user
-    
+
     # Создание нового пользователя
     new_user = await User.create(
         email=oauth_data.email,
@@ -241,7 +241,7 @@ async def get_or_create_user_from_oauth(
         registration_method='oauth',
         registration_provider=provider
     )
-    
+
     # Создание OAuth связки
     await OAuthLink.create(
         user_id=new_user.id,
@@ -249,7 +249,7 @@ async def get_or_create_user_from_oauth(
         provider_id=oauth_data.provider_id,
         provider_data=oauth_data.raw_data
     )
-    
+
     return new_user
 ```
 
@@ -263,8 +263,8 @@ from datetime import timedelta
 redis_client = redis.Redis()
 
 async def store_oauth_state(
-    state: str, 
-    redirect_uri: str, 
+    state: str,
+    redirect_uri: str,
     ttl: timedelta = timedelta(minutes=10)
 ):
     """Сохранение OAuth state с TTL"""
@@ -298,7 +298,7 @@ def validate_redirect_uri(uri: str) -> bool:
         "discours.io",
         "new.discours.io"
     ]
-    
+
     parsed = urlparse(uri)
     return any(domain in parsed.netloc for domain in allowed_domains)
 ```
@@ -315,7 +315,7 @@ CREATE TABLE oauth_links (
     provider_data JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     UNIQUE(provider, provider_id),
     INDEX(user_id),
     INDEX(provider, provider_id)
@@ -330,7 +330,7 @@ CREATE TABLE oauth_links (
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 
-# Facebook OAuth  
+# Facebook OAuth
 FACEBOOK_APP_ID=your_facebook_app_id
 FACEBOOK_APP_SECRET=your_facebook_app_secret
 
@@ -389,7 +389,7 @@ def test_oauth_callback():
             email="test@example.com",
             name="Test User"
         )
-        
+
         response = client.get("/auth/oauth/google/callback?code=test_code&state=test_state")
         assert response.status_code == 307
         assert "access_token=" in response.headers["location"]
@@ -402,16 +402,16 @@ def test_oauth_callback():
 // tests/oauth.spec.ts
 test('OAuth flow with Google', async ({ page }) => {
   await page.goto('/login')
-  
+
   // Click Google OAuth button
   await page.click('[data-testid="oauth-google"]')
-  
+
   // Should redirect to Google
   await page.waitForURL(/accounts\.google\.com/)
-  
+
   // Mock successful OAuth (in test environment)
   await page.goto('/?state=test&access_token=mock_token')
-  
+
   // Should be logged in
   await expect(page.locator('[data-testid="user-menu"]')).toBeVisible()
 })

@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from starlette.responses import JSONResponse, RedirectResponse
 
-from auth.oauth import get_user_profile, oauth_callback, oauth_login
+from auth.oauth import get_user_profile, oauth_callback_http, oauth_login_http
 
 # Подменяем настройки для тестов
 with (
@@ -14,6 +14,10 @@ with (
             "GOOGLE": {"id": "test_google_id", "key": "test_google_secret"},
             "GITHUB": {"id": "test_github_id", "key": "test_github_secret"},
             "FACEBOOK": {"id": "test_facebook_id", "key": "test_facebook_secret"},
+            "YANDEX": {"id": "test_yandex_id", "key": "test_yandex_secret"},
+            "TWITTER": {"id": "test_twitter_id", "key": "test_twitter_secret"},
+            "TELEGRAM": {"id": "test_telegram_id", "key": "test_telegram_secret"},
+            "VK": {"id": "test_vk_id", "key": "test_vk_secret"},
         },
     ),
 ):
@@ -114,7 +118,7 @@ with (
         mock_oauth_client.authorize_redirect.return_value = redirect_response
 
         with patch("auth.oauth.oauth.create_client", return_value=mock_oauth_client):
-            response = await oauth_login(mock_request)
+            response = await oauth_login_http(mock_request)
 
             assert isinstance(response, RedirectResponse)
             assert mock_request.session["provider"] == "google"
@@ -128,11 +132,14 @@ with (
         """Тест с неправильным провайдером"""
         mock_request.path_params["provider"] = "invalid"
 
-        response = await oauth_login(mock_request)
+        response = await oauth_login_http(mock_request)
 
         assert isinstance(response, JSONResponse)
         assert response.status_code == 400
-        assert "Invalid provider" in response.body.decode()
+        body_content = response.body
+        if isinstance(body_content, memoryview):
+            body_content = bytes(body_content)
+        assert "Invalid provider" in body_content.decode()
 
     @pytest.mark.asyncio
     async def test_oauth_callback_success(mock_request, mock_oauth_client):
@@ -152,13 +159,14 @@ with (
             patch("auth.oauth.oauth.create_client", return_value=mock_oauth_client),
             patch("auth.oauth.local_session") as mock_session,
             patch("auth.oauth.TokenStorage.create_session", return_value="test_token"),
+            patch("auth.oauth.get_oauth_state", return_value={"provider": "google"}),
         ):
             # Мокаем сессию базы данных
             session = MagicMock()
             session.query.return_value.filter.return_value.first.return_value = None
             mock_session.return_value.__enter__.return_value = session
 
-            response = await oauth_callback(mock_request)
+            response = await oauth_callback_http(mock_request)
 
             assert isinstance(response, RedirectResponse)
             assert response.status_code == 307
@@ -181,11 +189,15 @@ with (
         mock_request.session = {"provider": "google", "state": "correct_state"}
         mock_request.query_params["state"] = "wrong_state"
 
-        response = await oauth_callback(mock_request)
+        with patch("auth.oauth.get_oauth_state", return_value=None):
+            response = await oauth_callback_http(mock_request)
 
-        assert isinstance(response, JSONResponse)
-        assert response.status_code == 400
-        assert "Invalid state" in response.body.decode()
+            assert isinstance(response, JSONResponse)
+            assert response.status_code == 400
+            body_content = response.body
+            if isinstance(body_content, memoryview):
+                body_content = bytes(body_content)
+            assert "Invalid or expired OAuth state" in body_content.decode()
 
     @pytest.mark.asyncio
     async def test_oauth_callback_existing_user(mock_request, mock_oauth_client):
@@ -205,19 +217,25 @@ with (
             patch("auth.oauth.oauth.create_client", return_value=mock_oauth_client),
             patch("auth.oauth.local_session") as mock_session,
             patch("auth.oauth.TokenStorage.create_session", return_value="test_token"),
+            patch("auth.oauth.get_oauth_state", return_value={"provider": "google"}),
         ):
-            # Мокаем существующего пользователя
+            # Создаем мок существующего пользователя с правильными атрибутами
             existing_user = MagicMock()
+            existing_user.name = "Test User"  # Устанавливаем имя напрямую
+            existing_user.email_verified = True  # Устанавливаем значение напрямую
+            existing_user.set_oauth_account = MagicMock()  # Мок метода
+
             session = MagicMock()
             session.query.return_value.filter.return_value.first.return_value = existing_user
             mock_session.return_value.__enter__.return_value = session
 
-            response = await oauth_callback(mock_request)
+            response = await oauth_callback_http(mock_request)
 
             assert isinstance(response, RedirectResponse)
             assert response.status_code == 307
 
             # Проверяем обновление существующего пользователя
             assert existing_user.name == "Test User"
-            assert existing_user.oauth == "google:123"
+            # Проверяем, что OAuth аккаунт установлен через новый метод
+            existing_user.set_oauth_account.assert_called_with("google", "123", email="test@gmail.com")
             assert existing_user.email_verified is True

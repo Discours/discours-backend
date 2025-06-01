@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,7 +19,8 @@ class AuthInput(BaseModel):
     @classmethod
     def validate_user_id(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError("user_id cannot be empty")
+            msg = "user_id cannot be empty"
+            raise ValueError(msg)
         return v
 
 
@@ -35,7 +36,8 @@ class UserRegistrationInput(BaseModel):
     def validate_email(cls, v: str) -> str:
         """Validate email format"""
         if not re.match(EMAIL_PATTERN, v):
-            raise ValueError("Invalid email format")
+            msg = "Invalid email format"
+            raise ValueError(msg)
         return v.lower()
 
     @field_validator("password")
@@ -43,13 +45,17 @@ class UserRegistrationInput(BaseModel):
     def validate_password_strength(cls, v: str) -> str:
         """Validate password meets security requirements"""
         if not any(c.isupper() for c in v):
-            raise ValueError("Password must contain at least one uppercase letter")
+            msg = "Password must contain at least one uppercase letter"
+            raise ValueError(msg)
         if not any(c.islower() for c in v):
-            raise ValueError("Password must contain at least one lowercase letter")
+            msg = "Password must contain at least one lowercase letter"
+            raise ValueError(msg)
         if not any(c.isdigit() for c in v):
-            raise ValueError("Password must contain at least one number")
+            msg = "Password must contain at least one number"
+            raise ValueError(msg)
         if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in v):
-            raise ValueError("Password must contain at least one special character")
+            msg = "Password must contain at least one special character"
+            raise ValueError(msg)
         return v
 
 
@@ -63,7 +69,8 @@ class UserLoginInput(BaseModel):
     @classmethod
     def validate_email(cls, v: str) -> str:
         if not re.match(EMAIL_PATTERN, v):
-            raise ValueError("Invalid email format")
+            msg = "Invalid email format"
+            raise ValueError(msg)
         return v.lower()
 
 
@@ -74,7 +81,7 @@ class TokenPayload(BaseModel):
     username: str
     exp: datetime
     iat: datetime
-    scopes: Optional[List[str]] = []
+    scopes: Optional[list[str]] = []
 
 
 class OAuthInput(BaseModel):
@@ -89,7 +96,8 @@ class OAuthInput(BaseModel):
     def validate_provider(cls, v: str) -> str:
         valid_providers = ["google", "github", "facebook"]
         if v.lower() not in valid_providers:
-            raise ValueError(f"Provider must be one of: {', '.join(valid_providers)}")
+            msg = f"Provider must be one of: {', '.join(valid_providers)}"
+            raise ValueError(msg)
         return v.lower()
 
 
@@ -99,18 +107,20 @@ class AuthResponse(BaseModel):
     success: bool
     token: Optional[str] = None
     error: Optional[str] = None
-    user: Optional[Dict[str, Union[str, int, bool]]] = None
+    user: Optional[dict[str, Union[str, int, bool]]] = None
 
     @field_validator("error")
     @classmethod
     def validate_error_if_not_success(cls, v: Optional[str], info) -> Optional[str]:
         if not info.data.get("success") and not v:
-            raise ValueError("Error message required when success is False")
+            msg = "Error message required when success is False"
+            raise ValueError(msg)
         return v
 
     @field_validator("token")
     @classmethod
     def validate_token_if_success(cls, v: Optional[str], info) -> Optional[str]:
         if info.data.get("success") and not v:
-            raise ValueError("Token required when success is True")
+            msg = "Token required when success is True"
+            raise ValueError(msg)
         return v

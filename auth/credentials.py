@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -25,13 +25,13 @@ class AuthCredentials(BaseModel):
     """
 
     author_id: Optional[int] = Field(None, description="ID автора")
-    scopes: Dict[str, Set[str]] = Field(default_factory=dict, description="Разрешения пользователя")
+    scopes: dict[str, set[str]] = Field(default_factory=dict, description="Разрешения пользователя")
     logged_in: bool = Field(False, description="Флаг, указывающий, авторизован ли пользователь")
     error_message: str = Field("", description="Сообщение об ошибке аутентификации")
     email: Optional[str] = Field(None, description="Email пользователя")
     token: Optional[str] = Field(None, description="JWT токен авторизации")
 
-    def get_permissions(self) -> List[str]:
+    def get_permissions(self) -> list[str]:
         """
         Возвращает список строковых представлений разрешений.
         Например: ["posts:read", "posts:write", "comments:create"].
@@ -71,7 +71,7 @@ class AuthCredentials(BaseModel):
         """
         return self.email in ADMIN_EMAILS if self.email else False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Преобразует учетные данные в словарь
 
@@ -85,11 +85,10 @@ class AuthCredentials(BaseModel):
             "permissions": self.get_permissions(),
         }
 
-    async def permissions(self) -> List[Permission]:
+    async def permissions(self) -> list[Permission]:
         if self.author_id is None:
             # raise Unauthorized("Please login first")
-            return {"error": "Please login first"}
-        else:
-            # TODO: implement permissions logix
-            print(self.author_id)
-        return NotImplemented
+            return []  # Возвращаем пустой список вместо dict
+        # TODO: implement permissions logix
+        print(self.author_id)
+        return []  # Возвращаем пустой список вместо NotImplemented

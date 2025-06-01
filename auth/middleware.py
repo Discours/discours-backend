@@ -3,14 +3,16 @@
 """
 
 import time
-from typing import Any, Dict
+from collections.abc import Awaitable, MutableMapping
+from typing import Any, Callable, Optional
 
+from graphql import GraphQLResolveInfo
 from sqlalchemy.orm import exc
 from starlette.authentication import UnauthenticatedUser
 from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp
 
 from auth.credentials import AuthCredentials
 from auth.orm import Author
@@ -36,8 +38,13 @@ class AuthenticatedUser:
     """Аутентифицированный пользователь"""
 
     def __init__(
-        self, user_id: str, username: str = "", roles: list = None, permissions: dict = None, token: str = None
-    ):
+        self,
+        user_id: str,
+        username: str = "",
+        roles: Optional[list] = None,
+        permissions: Optional[dict] = None,
+        token: Optional[str] = None,
+    ) -> None:
         self.user_id = user_id
         self.username = username
         self.roles = roles or []
@@ -68,33 +75,39 @@ class AuthMiddleware:
     4. Предоставление методов для установки/удаления cookies
     """
 
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
         self._context = None
 
-    async def authenticate_user(self, token: str):
+    async def authenticate_user(self, token: str) -> tuple[AuthCredentials, AuthenticatedUser | UnauthenticatedUser]:
         """Аутентифицирует пользователя по токену"""
         if not token:
-            return AuthCredentials(scopes={}, error_message="no token"), UnauthenticatedUser()
+            return AuthCredentials(
+                author_id=None, scopes={}, logged_in=False, error_message="no token", email=None, token=None
+            ), UnauthenticatedUser()
 
         # Проверяем сессию в Redis
         payload = await SessionManager.verify_session(token)
         if not payload:
             logger.debug("[auth.authenticate] Недействительный токен")
-            return AuthCredentials(scopes={}, error_message="Invalid token"), UnauthenticatedUser()
+            return AuthCredentials(
+                author_id=None, scopes={}, logged_in=False, error_message="Invalid token", email=None, token=None
+            ), UnauthenticatedUser()
 
         with local_session() as session:
             try:
-                author = (
-                    session.query(Author)
-                    .filter(Author.id == payload.user_id)
-                    .filter(Author.is_active == True)  # noqa
-                    .one()
-                )
+                author = session.query(Author).filter(Author.id == payload.user_id).one()
 
                 if author.is_locked():
                     logger.debug(f"[auth.authenticate] Аккаунт заблокирован: {author.id}")
-                    return AuthCredentials(scopes={}, error_message="Account is locked"), UnauthenticatedUser()
+                    return AuthCredentials(
+                        author_id=None,
+                        scopes={},
+                        logged_in=False,
+                        error_message="Account is locked",
+                        email=None,
+                        token=None,
+                    ), UnauthenticatedUser()
 
                 # Получаем разрешения из ролей
                 scopes = author.get_permissions()
@@ -108,7 +121,12 @@ class AuthMiddleware:
 
                 # Создаем объекты авторизации с сохранением токена
                 credentials = AuthCredentials(
-                    author_id=author.id, scopes=scopes, logged_in=True, email=author.email, token=token
+                    author_id=author.id,
+                    scopes=scopes,
+                    logged_in=True,
+                    error_message="",
+                    email=author.email,
+                    token=token,
                 )
 
                 user = AuthenticatedUser(
@@ -124,9 +142,16 @@ class AuthMiddleware:
 
             except exc.NoResultFound:
                 logger.debug("[auth.authenticate] Пользователь не найден")
-                return AuthCredentials(scopes={}, error_message="User not found"), UnauthenticatedUser()
+                return AuthCredentials(
+                    author_id=None, scopes={}, logged_in=False, error_message="User not found", email=None, token=None
+                ), UnauthenticatedUser()
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+    async def __call__(
+        self,
+        scope: MutableMapping[str, Any],
+        receive: Callable[[], Awaitable[MutableMapping[str, Any]]],
+        send: Callable[[MutableMapping[str, Any]], Awaitable[None]],
+    ) -> None:
         """Обработка ASGI запроса"""
         if scope["type"] != "http":
             await self.app(scope, receive, send)
@@ -135,21 +160,18 @@ class AuthMiddleware:
         # Извлекаем заголовки
         headers = Headers(scope=scope)
         token = None
-        token_source = None
 
         # Сначала пробуем получить токен из заголовка авторизации
         auth_header = headers.get(SESSION_TOKEN_HEADER)
         if auth_header:
             if auth_header.startswith("Bearer "):
                 token = auth_header.replace("Bearer ", "", 1).strip()
-                token_source = "header"
                 logger.debug(
                     f"[middleware] Извлечен Bearer токен из заголовка {SESSION_TOKEN_HEADER}, длина: {len(token) if token else 0}"
                 )
             else:
                 # Если заголовок не начинается с Bearer, предполагаем, что это чистый токен
                 token = auth_header.strip()
-                token_source = "header"
                 logger.debug(
                     f"[middleware] Извлечен прямой токен из заголовка {SESSION_TOKEN_HEADER}, длина: {len(token) if token else 0}"
                 )
@@ -159,7 +181,6 @@ class AuthMiddleware:
             auth_header = headers.get("Authorization")
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header.replace("Bearer ", "", 1).strip()
-                token_source = "auth_header"
                 logger.debug(
                     f"[middleware] Извлечен Bearer токен из заголовка Authorization, длина: {len(token) if token else 0}"
                 )
@@ -173,14 +194,13 @@ class AuthMiddleware:
                     name, value = item.split("=", 1)
                     if name.strip() == SESSION_COOKIE_NAME:
                         token = value.strip()
-                        token_source = "cookie"
                         logger.debug(
                             f"[middleware] Извлечен токен из cookie {SESSION_COOKIE_NAME}, длина: {len(token) if token else 0}"
                         )
                         break
 
         # Аутентифицируем пользователя
-        auth, user = await self.authenticate_user(token)
+        auth, user = await self.authenticate_user(token or "")
 
         # Добавляем в scope данные авторизации и пользователя
         scope["auth"] = auth
@@ -188,25 +208,29 @@ class AuthMiddleware:
 
         if token:
             # Обновляем заголовки в scope для совместимости
-            new_headers = []
+            new_headers: list[tuple[bytes, bytes]] = []
             for name, value in scope["headers"]:
-                if name.decode("latin1").lower() != SESSION_TOKEN_HEADER.lower():
-                    new_headers.append((name, value))
+                header_name = name.decode("latin1") if isinstance(name, bytes) else str(name)
+                if header_name.lower() != SESSION_TOKEN_HEADER.lower():
+                    # Ensure both name and value are bytes
+                    name_bytes = name if isinstance(name, bytes) else str(name).encode("latin1")
+                    value_bytes = value if isinstance(value, bytes) else str(value).encode("latin1")
+                    new_headers.append((name_bytes, value_bytes))
             new_headers.append((SESSION_TOKEN_HEADER.encode("latin1"), token.encode("latin1")))
             scope["headers"] = new_headers
 
             logger.debug(f"[middleware] Пользователь аутентифицирован: {user.is_authenticated}")
         else:
-            logger.debug(f"[middleware] Токен не найден, пользователь неаутентифицирован")
+            logger.debug("[middleware] Токен не найден, пользователь неаутентифицирован")
 
         await self.app(scope, receive, send)
 
-    def set_context(self, context):
+    def set_context(self, context) -> None:
         """Сохраняет ссылку на контекст GraphQL запроса"""
         self._context = context
         logger.debug(f"[middleware] Установлен контекст GraphQL: {bool(context)}")
 
-    def set_cookie(self, key, value, **options):
+    def set_cookie(self, key, value, **options) -> None:
         """
         Устанавливает cookie в ответе
 
@@ -224,7 +248,7 @@ class AuthMiddleware:
                 logger.debug(f"[middleware] Установлена cookie {key} через response")
                 success = True
             except Exception as e:
-                logger.error(f"[middleware] Ошибка при установке cookie {key} через response: {str(e)}")
+                logger.error(f"[middleware] Ошибка при установке cookie {key} через response: {e!s}")
 
         # Способ 2: Через собственный response в контексте
         if not success and hasattr(self, "_response") and self._response and hasattr(self._response, "set_cookie"):
@@ -233,12 +257,12 @@ class AuthMiddleware:
                 logger.debug(f"[middleware] Установлена cookie {key} через _response")
                 success = True
             except Exception as e:
-                logger.error(f"[middleware] Ошибка при установке cookie {key} через _response: {str(e)}")
+                logger.error(f"[middleware] Ошибка при установке cookie {key} через _response: {e!s}")
 
         if not success:
             logger.error(f"[middleware] Не удалось установить cookie {key}: объекты response недоступны")
 
-    def delete_cookie(self, key, **options):
+    def delete_cookie(self, key, **options) -> None:
         """
         Удаляет cookie из ответа
 
@@ -255,7 +279,7 @@ class AuthMiddleware:
                 logger.debug(f"[middleware] Удалена cookie {key} через response")
                 success = True
             except Exception as e:
-                logger.error(f"[middleware] Ошибка при удалении cookie {key} через response: {str(e)}")
+                logger.error(f"[middleware] Ошибка при удалении cookie {key} через response: {e!s}")
 
         # Способ 2: Через собственный response в контексте
         if not success and hasattr(self, "_response") and self._response and hasattr(self._response, "delete_cookie"):
@@ -264,12 +288,14 @@ class AuthMiddleware:
                 logger.debug(f"[middleware] Удалена cookie {key} через _response")
                 success = True
             except Exception as e:
-                logger.error(f"[middleware] Ошибка при удалении cookie {key} через _response: {str(e)}")
+                logger.error(f"[middleware] Ошибка при удалении cookie {key} через _response: {e!s}")
 
         if not success:
             logger.error(f"[middleware] Не удалось удалить cookie {key}: объекты response недоступны")
 
-    async def resolve(self, next, root, info, *args, **kwargs):
+    async def resolve(
+        self, next: Callable[..., Any], root: Any, info: GraphQLResolveInfo, *args: Any, **kwargs: Any
+    ) -> Any:
         """
         Middleware для обработки запросов GraphQL.
         Добавляет методы для установки cookie в контекст.
@@ -291,13 +317,11 @@ class AuthMiddleware:
                 context["response"] = JSONResponse({})
                 logger.debug("[middleware] Создан новый response объект в контексте GraphQL")
 
-            logger.debug(
-                f"[middleware] GraphQL resolve: контекст подготовлен, добавлены расширения для работы с cookie"
-            )
+            logger.debug("[middleware] GraphQL resolve: контекст подготовлен, добавлены расширения для работы с cookie")
 
             return await next(root, info, *args, **kwargs)
         except Exception as e:
-            logger.error(f"[AuthMiddleware] Ошибка в GraphQL resolve: {str(e)}")
+            logger.error(f"[AuthMiddleware] Ошибка в GraphQL resolve: {e!s}")
             raise
 
     async def process_result(self, request: Request, result: Any) -> Response:
@@ -321,9 +345,14 @@ class AuthMiddleware:
                 try:
                     import json
 
-                    result_data = json.loads(result.body.decode("utf-8"))
+                    body_content = result.body
+                    if isinstance(body_content, (bytes, memoryview)):
+                        body_text = bytes(body_content).decode("utf-8")
+                        result_data = json.loads(body_text)
+                    else:
+                        result_data = json.loads(str(body_content))
                 except Exception as e:
-                    logger.error(f"[process_result] Не удалось извлечь данные из JSONResponse: {str(e)}")
+                    logger.error(f"[process_result] Не удалось извлечь данные из JSONResponse: {e!s}")
         else:
             response = JSONResponse(result)
             result_data = result
@@ -369,10 +398,18 @@ class AuthMiddleware:
                     )
                     logger.debug(f"[graphql_handler] Удалена cookie {SESSION_COOKIE_NAME} для операции {op_name}")
             except Exception as e:
-                logger.error(f"[process_result] Ошибка при обработке POST запроса: {str(e)}")
+                logger.error(f"[process_result] Ошибка при обработке POST запроса: {e!s}")
 
         return response
 
 
 # Создаем единый экземпляр AuthMiddleware для использования с GraphQL
-auth_middleware = AuthMiddleware(lambda scope, receive, send: None)
+async def _dummy_app(
+    scope: MutableMapping[str, Any],
+    receive: Callable[[], Awaitable[MutableMapping[str, Any]]],
+    send: Callable[[MutableMapping[str, Any]], Awaitable[None]],
+) -> None:
+    """Dummy ASGI app for middleware initialization"""
+
+
+auth_middleware = AuthMiddleware(_dummy_app)

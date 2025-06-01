@@ -5,7 +5,7 @@ from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from auth.identity import Password
-from services.db import Base
+from services.db import BaseModel as Base
 
 # Общие table_args для всех моделей
 DEFAULT_TABLE_ARGS = {"extend_existing": True}
@@ -91,7 +91,7 @@ class RolePermission(Base):
     __tablename__ = "role_permission"
     __table_args__ = {"extend_existing": True}
 
-    id = None
+    id = None  # type: ignore
     role = Column(ForeignKey("role.id"), primary_key=True, index=True)
     permission = Column(ForeignKey("permission.id"), primary_key=True, index=True)
 
@@ -124,7 +124,7 @@ class AuthorRole(Base):
     __tablename__ = "author_role"
     __table_args__ = {"extend_existing": True}
 
-    id = None
+    id = None  # type: ignore
     community = Column(ForeignKey("community.id"), primary_key=True, index=True, default=1)
     author = Column(ForeignKey("author.id"), primary_key=True, index=True)
     role = Column(ForeignKey("role.id"), primary_key=True, index=True)
@@ -152,16 +152,14 @@ class Author(Base):
     pic = Column(String, nullable=True, comment="Picture")
     links = Column(JSON, nullable=True, comment="Links")
 
-    # Дополнительные поля из User
-    oauth = Column(String, nullable=True, comment="OAuth provider")
-    oid = Column(String, nullable=True, comment="OAuth ID")
-    muted = Column(Boolean, default=False, comment="Is author muted")
+    # OAuth аккаунты - JSON с данными всех провайдеров
+    # Формат: {"google": {"id": "123", "email": "user@gmail.com"}, "github": {"id": "456"}}
+    oauth = Column(JSON, nullable=True, default=dict, comment="OAuth accounts data")
 
     # Поля аутентификации
     email = Column(String, unique=True, nullable=True, comment="Email")
     phone = Column(String, unique=True, nullable=True, comment="Phone")
     password = Column(String, nullable=True, comment="Password hash")
-    is_active = Column(Boolean, default=True, nullable=False)
     email_verified = Column(Boolean, default=False)
     phone_verified = Column(Boolean, default=False)
     failed_login_attempts = Column(Integer, default=0)
@@ -205,28 +203,28 @@ class Author(Base):
 
     def verify_password(self, password: str) -> bool:
         """Проверяет пароль пользователя"""
-        return Password.verify(password, self.password) if self.password else False
+        return Password.verify(password, str(self.password)) if self.password else False
 
     def set_password(self, password: str):
         """Устанавливает пароль пользователя"""
-        self.password = Password.encode(password)
+        self.password = Password.encode(password)  # type: ignore[assignment]
 
     def increment_failed_login(self):
         """Увеличивает счетчик неудачных попыток входа"""
-        self.failed_login_attempts += 1
+        self.failed_login_attempts += 1  # type: ignore[assignment]
         if self.failed_login_attempts >= 5:
-            self.account_locked_until = int(time.time()) + 300  # 5 минут
+            self.account_locked_until = int(time.time()) + 300  # type: ignore[assignment] # 5 минут
 
     def reset_failed_login(self):
         """Сбрасывает счетчик неудачных попыток входа"""
-        self.failed_login_attempts = 0
-        self.account_locked_until = None
+        self.failed_login_attempts = 0  # type: ignore[assignment]
+        self.account_locked_until = None  # type: ignore[assignment]
 
     def is_locked(self) -> bool:
         """Проверяет, заблокирован ли аккаунт"""
         if not self.account_locked_until:
             return False
-        return self.account_locked_until > int(time.time())
+        return bool(self.account_locked_until > int(time.time()))
 
     @property
     def username(self) -> str:
@@ -237,9 +235,9 @@ class Author(Base):
         Returns:
             str: slug, email или phone пользователя
         """
-        return self.slug or self.email or self.phone or ""
+        return str(self.slug or self.email or self.phone or "")
 
-    def dict(self, access=False) -> Dict:
+    def dict(self, access: bool = False) -> Dict:
         """
         Сериализует объект Author в словарь с учетом прав доступа.
 
@@ -266,3 +264,66 @@ class Author(Base):
                     result[field] = None
 
         return result
+
+    @classmethod
+    def find_by_oauth(cls, provider: str, provider_id: str, session):
+        """
+        Находит автора по OAuth провайдеру и ID
+
+        Args:
+            provider (str): Имя OAuth провайдера (google, github и т.д.)
+            provider_id (str): ID пользователя у провайдера
+            session: Сессия базы данных
+
+        Returns:
+            Author или None: Найденный автор или None если не найден
+        """
+        # Ищем авторов, у которых есть данный провайдер с данным ID
+        authors = session.query(cls).filter(cls.oauth.isnot(None)).all()
+        for author in authors:
+            if author.oauth and provider in author.oauth:
+                if author.oauth[provider].get("id") == provider_id:
+                    return author
+        return None
+
+    def set_oauth_account(self, provider: str, provider_id: str, email: str = None):
+        """
+        Устанавливает OAuth аккаунт для автора
+
+        Args:
+            provider (str): Имя OAuth провайдера (google, github и т.д.)
+            provider_id (str): ID пользователя у провайдера
+            email (str, optional): Email от провайдера
+        """
+        if not self.oauth:
+            self.oauth = {}  # type: ignore[assignment]
+
+        oauth_data = {"id": provider_id}
+        if email:
+            oauth_data["email"] = email
+
+        self.oauth[provider] = oauth_data  # type: ignore[index]
+
+    def get_oauth_account(self, provider: str):
+        """
+        Получает OAuth аккаунт провайдера
+
+        Args:
+            provider (str): Имя OAuth провайдера
+
+        Returns:
+            dict или None: Данные OAuth аккаунта или None если не найден
+        """
+        if not self.oauth:
+            return None
+        return self.oauth.get(provider)
+
+    def remove_oauth_account(self, provider: str):
+        """
+        Удаляет OAuth аккаунт провайдера
+
+        Args:
+            provider (str): Имя OAuth провайдера
+        """
+        if self.oauth and provider in self.oauth:
+            del self.oauth[provider]

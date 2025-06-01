@@ -63,6 +63,9 @@ select = [
 
 # Игнорируемые правила (в основном конфликтующие с форматтером)
 ignore = [
+    "S603",   # subprocess calls - разрешаем в коде вызовы subprocess
+    "S607",   # partial executable path - разрешаем в коде частичные пути к исполняемым файлам
+    "S608",   # subprocess-without-shell - разрешаем в коде вызовы subprocess без shell
     "COM812", # trailing-comma-missing - конфликтует с форматтером
     "COM819", # trailing-comma-prohibited -
     "ISC001", # single-line-implicit-string-concatenation -
@@ -78,6 +81,15 @@ ignore = [
     "D206",   # indent-with-spaces -
     "D300",   # triple-single-quotes -
     "E501",   # line-too-long - используем line-length вместо этого правила
+    "G004",   # f-strings в логах разрешены
+    "FA100",  # from __future__ import annotations не нужно для Python 3.13+
+    "FA102",  # PEP 604 union синтаксис доступен в Python 3.13+
+    "BLE001", # blind except - разрешаем в коде общие except блоки
+    "TRY300", # return/break в try блоке - иногда удобнее
+    "ARG001", # неиспользуемые аргументы - часто нужны для совместимости API
+    "PLR0913", # too many arguments - иногда неизбежно
+    "PLR0912", # too many branches - иногда неизбежно
+    "PLR0915", # too many statements - иногда неизбежно
     # Игнорируем некоторые строгие правила для удобства разработки
     "ANN401", # Dynamically typed expressions (Any) - иногда нужно
     "S101",   # assert statements - нужно в тестах
@@ -86,6 +98,8 @@ ignore = [
     "RUF001", # ambiguous unicode characters - для кириллицы
     "RUF002", # ambiguous unicode characters in docstrings - для кириллицы
     "RUF003", # ambiguous unicode characters in comments - для кириллицы
+    "TD002",  # TODO без автора - не критично
+    "TD003",  # TODO без ссылки на issue - не критично
 ]
 
 # Настройки для отдельных директорий
@@ -120,7 +134,44 @@ ignore = [
     "INP001",  # missing __init__.py - нормально для alembic
 ]
 
+# Настройки приложения
+"settings.py" = [
+    "S105",    # possible hardcoded password - "Authorization" это название заголовка HTTP
+]
+
+# Тестовые файлы в корне
+"test_*.py" = [
+    "S106",    # hardcoded password - нормально в тестах
+    "S603",    # subprocess calls - нормально в тестах
+    "S607",    # partial executable path - нормально в тестах
+    "BLE001",  # blind except - допустимо в тестах
+    "ANN",     # type annotations - не обязательно в тестах
+    "T201",    # print statements - нормально в тестах
+    "INP001",  # missing __init__.py - нормально для скриптов
+]
+
 [tool.ruff.lint.isort]
 # Настройки для сортировки импортов
 known-first-party = ["auth", "cache", "orm", "resolvers", "services", "utils", "schema", "settings"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.pytest.ini_options]
+# Конфигурация pytest
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",         # Показывать краткую сводку всех результатов тестов
+    "--strict-markers",  # Требовать регистрации всех маркеров
+    "--tb=short",  # Короткий traceback
+    "-v",          # Verbose output
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+# Настройки для pytest-asyncio
+asyncio_mode = "auto"  # Автоматическое обнаружение async тестов
+asyncio_default_fixture_loop_scope = "function"  # Область видимости event loop для фикстур

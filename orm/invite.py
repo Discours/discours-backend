@@ -3,7 +3,7 @@ import enum
 from sqlalchemy import Column, ForeignKey, String
 from sqlalchemy.orm import relationship
 
-from services.db import Base
+from services.db import BaseModel as Base
 
 
 class InviteStatus(enum.Enum):
@@ -29,7 +29,7 @@ class Invite(Base):
     shout = relationship("Shout")
 
     def set_status(self, status: InviteStatus):
-        self.status = status.value
+        self.status = status.value  # type: ignore[assignment]
 
     def get_status(self) -> InviteStatus:
         return InviteStatus.from_string(self.status)

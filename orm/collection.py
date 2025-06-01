@@ -2,7 +2,7 @@ import time
 
 from sqlalchemy import Column, ForeignKey, Integer, String
 
-from services.db import Base
+from services.db import BaseModel as Base
 
 
 class ShoutCollection(Base):

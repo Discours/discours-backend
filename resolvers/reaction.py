@@ -1,7 +1,11 @@
+import contextlib
 import time
+from typing import Any
 
+from graphql import GraphQLResolveInfo
 from sqlalchemy import and_, asc, case, desc, func, select
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql import ColumnElement
 
 from auth.orm import Author
 from orm.rating import PROPOSAL_REACTIONS, RATING_REACTIONS, is_negative, is_positive
@@ -17,7 +21,7 @@ from services.schema import mutation, query
 from utils.logger import root_logger as logger
 
 
-def query_reactions():
+def query_reactions() -> select:
     """
     Base query for fetching reactions with associated authors and shouts.
 
@@ -35,7 +39,7 @@ def query_reactions():
     )
 
 
-def add_reaction_stat_columns(q):
+def add_reaction_stat_columns(q: select) -> select:
     """
     Add statistical columns to a reaction query.
 
@@ -44,7 +48,7 @@ def add_reaction_stat_columns(q):
     """
     aliased_reaction = aliased(Reaction)
     # Join reactions and add statistical columns
-    q = q.outerjoin(
+    return q.outerjoin(
         aliased_reaction,
         and_(
             aliased_reaction.reply_to == Reaction.id,
@@ -64,10 +68,9 @@ def add_reaction_stat_columns(q):
             )
         ).label("rating_stat"),
     )
-    return q
 
 
-def get_reactions_with_stat(q, limit=10, offset=0):
+def get_reactions_with_stat(q: select, limit: int = 10, offset: int = 0) -> list[dict]:
     """
     Execute the reaction query and retrieve reactions with statistics.
 
@@ -102,7 +105,7 @@ def get_reactions_with_stat(q, limit=10, offset=0):
     return reactions
 
 
-def is_featured_author(session, author_id) -> bool:
+def is_featured_author(session: Session, author_id: int) -> bool:
     """
     Check if an author has at least one non-deleted featured article.
 
@@ -118,7 +121,7 @@ def is_featured_author(session, author_id) -> bool:
     ).scalar()
 
 
-def check_to_feature(session, approver_id, reaction) -> bool:
+def check_to_feature(session: Session, approver_id: int, reaction: dict) -> bool:
     """
     Make a shout featured if it receives more than 4 votes from authors.
 
@@ -127,7 +130,7 @@ def check_to_feature(session, approver_id, reaction) -> bool:
     :param reaction: Reaction object.
     :return: True if shout should be featured, else False.
     """
-    if not reaction.reply_to and is_positive(reaction.kind):
+    if not reaction.get("reply_to") and is_positive(reaction.get("kind")):
         # Проверяем, не содержит ли пост более 20% дизлайков
         # Если да, то не должен быть featured независимо от количества лайков
         if check_to_unfeature(session, reaction):
@@ -138,7 +141,7 @@ def check_to_feature(session, approver_id, reaction) -> bool:
         reacted_readers = (
             session.query(Reaction.created_by)
             .filter(
-                Reaction.shout == reaction.shout,
+                Reaction.shout == reaction.get("shout"),
                 is_positive(Reaction.kind),
                 # Рейтинги (LIKE, DISLIKE) физически удаляются, поэтому фильтр deleted_at не нужен
             )
@@ -157,12 +160,12 @@ def check_to_feature(session, approver_id, reaction) -> bool:
                 author_approvers.add(reader_id)
 
         # Публикация становится featured при наличии более 4 лайков от авторов
-        logger.debug(f"Публикация {reaction.shout} имеет {len(author_approvers)} лайков от авторов")
+        logger.debug(f"Публикация {reaction.get('shout')} имеет {len(author_approvers)} лайков от авторов")
         return len(author_approvers) > 4
     return False
 
 
-def check_to_unfeature(session, reaction) -> bool:
+def check_to_unfeature(session: Session, reaction: dict) -> bool:
     """
     Unfeature a shout if 20% of reactions are negative.
 
@@ -170,12 +173,12 @@ def check_to_unfeature(session, reaction) -> bool:
     :param reaction: Reaction object.
     :return: True if shout should be unfeatured, else False.
     """
-    if not reaction.reply_to:
+    if not reaction.get("reply_to"):
         # Проверяем соотношение дизлайков, даже если текущая реакция не дизлайк
         total_reactions = (
             session.query(Reaction)
             .filter(
-                Reaction.shout == reaction.shout,
+                Reaction.shout == reaction.get("shout"),
                 Reaction.reply_to.is_(None),
                 Reaction.kind.in_(RATING_REACTIONS),
                 # Рейтинги физически удаляются при удалении, поэтому фильтр deleted_at не нужен
@@ -186,7 +189,7 @@ def check_to_unfeature(session, reaction) -> bool:
         negative_reactions = (
             session.query(Reaction)
             .filter(
-                Reaction.shout == reaction.shout,
+                Reaction.shout == reaction.get("shout"),
                 is_negative(Reaction.kind),
                 Reaction.reply_to.is_(None),
                 # Рейтинги физически удаляются при удалении, поэтому фильтр deleted_at не нужен
@@ -197,13 +200,13 @@ def check_to_unfeature(session, reaction) -> bool:
         # Проверяем, составляют ли отрицательные реакции 20% или более от всех реакций
         negative_ratio = negative_reactions / total_reactions if total_reactions > 0 else 0
         logger.debug(
-            f"Публикация {reaction.shout}: {negative_reactions}/{total_reactions} отрицательных реакций ({negative_ratio:.2%})"
+            f"Публикация {reaction.get('shout')}: {negative_reactions}/{total_reactions} отрицательных реакций ({negative_ratio:.2%})"
         )
         return total_reactions > 0 and negative_ratio >= 0.2
     return False
 
 
-async def set_featured(session, shout_id):
+async def set_featured(session: Session, shout_id: int) -> None:
     """
     Feature a shout and update the author's role.
 
@@ -213,7 +216,8 @@ async def set_featured(session, shout_id):
     s = session.query(Shout).filter(Shout.id == shout_id).first()
     if s:
         current_time = int(time.time())
-        s.featured_at = current_time
+        # Use setattr to avoid MyPy complaints about Column assignment
+        s.featured_at = current_time  # type: ignore[assignment]
         session.commit()
         author = session.query(Author).filter(Author.id == s.created_by).first()
         if author:
@@ -222,7 +226,7 @@ async def set_featured(session, shout_id):
         session.commit()
 
 
-def set_unfeatured(session, shout_id):
+def set_unfeatured(session: Session, shout_id: int) -> None:
     """
     Unfeature a shout.
 
@@ -233,7 +237,7 @@ def set_unfeatured(session, shout_id):
     session.commit()
 
 
-async def _create_reaction(session, shout_id: int, is_author: bool, author_id: int, reaction) -> dict:
+async def _create_reaction(session: Session, shout_id: int, is_author: bool, author_id: int, reaction: dict) -> dict:
     """
     Create a new reaction and perform related actions such as updating counters and notification.
 
@@ -255,26 +259,28 @@ async def _create_reaction(session, shout_id: int, is_author: bool, author_id: i
 
     # Handle proposal
     if r.reply_to and r.kind in PROPOSAL_REACTIONS and is_author:
-        handle_proposing(r.kind, r.reply_to, shout_id)
+        reply_to = int(r.reply_to)
+        if reply_to:
+            handle_proposing(ReactionKind(r.kind), reply_to, shout_id)
 
     # Handle rating
     if r.kind in RATING_REACTIONS:
         # Проверяем сначала условие для unfeature (дизлайки имеют приоритет)
-        if check_to_unfeature(session, r):
+        if check_to_unfeature(session, rdict):
             set_unfeatured(session, shout_id)
             logger.info(f"Публикация {shout_id} потеряла статус featured из-за высокого процента дизлайков")
         # Только если не было unfeature, проверяем условие для feature
-        elif check_to_feature(session, author_id, r):
+        elif check_to_feature(session, author_id, rdict):
             await set_featured(session, shout_id)
             logger.info(f"Публикация {shout_id} получила статус featured благодаря лайкам от авторов")
 
     # Notify creation
-    await notify_reaction(rdict, "create")
+    await notify_reaction(r, "create")
 
     return rdict
 
 
-def prepare_new_rating(reaction: dict, shout_id: int, session, author_id: int):
+def prepare_new_rating(reaction: dict, shout_id: int, session: Session, author_id: int) -> dict[str, Any] | None:
     """
     Check for the possibility of rating a shout.
 
@@ -306,12 +312,12 @@ def prepare_new_rating(reaction: dict, shout_id: int, session, author_id: int):
     if shout_id in [r.shout for r in existing_ratings]:
         return {"error": "You can't rate your own thing"}
 
-    return
+    return None
 
 
 @mutation.field("create_reaction")
 @login_required
-async def create_reaction(_, info, reaction):
+async def create_reaction(_: None, info: GraphQLResolveInfo, reaction: dict) -> dict:
     """
     Create a new reaction through a GraphQL request.
 
@@ -355,10 +361,8 @@ async def create_reaction(_, info, reaction):
 
             # follow if liked
             if kind == ReactionKind.LIKE.value:
-                try:
+                with contextlib.suppress(Exception):
                     follow(None, info, "shout", shout_id=shout_id)
-                except Exception:
-                    pass
             shout = session.query(Shout).filter(Shout.id == shout_id).first()
             if not shout:
                 return {"error": "Shout not found"}
@@ -375,7 +379,7 @@ async def create_reaction(_, info, reaction):
 
 @mutation.field("update_reaction")
 @login_required
-async def update_reaction(_, info, reaction):
+async def update_reaction(_: None, info: GraphQLResolveInfo, reaction: dict) -> dict:
     """
     Update an existing reaction through a GraphQL request.
 
@@ -419,9 +423,10 @@ async def update_reaction(_, info, reaction):
                     "rating": rating_stat,
                 }
 
-                await notify_reaction(r.dict(), "update")
+                await notify_reaction(r, "update")
 
-                return {"reaction": r}
+                return {"reaction": r.dict()}
+            return {"error": "Reaction not found"}
         except Exception as e:
             logger.error(f"{type(e).__name__}: {e}")
             return {"error": "Cannot update reaction"}
@@ -429,7 +434,7 @@ async def update_reaction(_, info, reaction):
 
 @mutation.field("delete_reaction")
 @login_required
-async def delete_reaction(_, info, reaction_id: int):
+async def delete_reaction(_: None, info: GraphQLResolveInfo, reaction_id: int) -> dict:
     """
     Delete an existing reaction through a GraphQL request.
 
@@ -477,7 +482,7 @@ async def delete_reaction(_, info, reaction_id: int):
             return {"error": "Cannot delete reaction"}
 
 
-def apply_reaction_filters(by, q):
+def apply_reaction_filters(by: dict, q: select) -> select:
     """
     Apply filters to a reaction query.
 
@@ -528,7 +533,9 @@ def apply_reaction_filters(by, q):
 
 
 @query.field("load_reactions_by")
-async def load_reactions_by(_, _info, by, limit=50, offset=0):
+async def load_reactions_by(
+    _: None, _info: GraphQLResolveInfo, by: dict, limit: int = 50, offset: int = 0
+) -> list[dict]:
     """
     Load reactions based on specified parameters.
 
@@ -550,7 +557,7 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
     # Group and sort
     q = q.group_by(Reaction.id, Author.id, Shout.id)
     order_stat = by.get("sort", "").lower()
-    order_by_stmt = desc(Reaction.created_at)
+    order_by_stmt: ColumnElement = desc(Reaction.created_at)
     if order_stat == "oldest":
         order_by_stmt = asc(Reaction.created_at)
     elif order_stat.endswith("like"):
@@ -562,7 +569,9 @@ async def load_reactions_by(_, _info, by, limit=50, offset=0):
 
 
 @query.field("load_shout_ratings")
-async def load_shout_ratings(_, info, shout: int, limit=100, offset=0):
+async def load_shout_ratings(
+    _: None, info: GraphQLResolveInfo, shout: int, limit: int = 100, offset: int = 0
+) -> list[dict[str, Any]]:
     """
     Load ratings for a specified shout with pagination.
 
@@ -590,7 +599,9 @@ async def load_shout_ratings(_, info, shout: int, limit=100, offset=0):
 
 
 @query.field("load_shout_comments")
-async def load_shout_comments(_, info, shout: int, limit=50, offset=0):
+async def load_shout_comments(
+    _: None, info: GraphQLResolveInfo, shout: int, limit: int = 50, offset: int = 0
+) -> list[dict[str, Any]]:
     """
     Load comments for a specified shout with pagination and statistics.
 
@@ -620,7 +631,9 @@ async def load_shout_comments(_, info, shout: int, limit=50, offset=0):
 
 
 @query.field("load_comment_ratings")
-async def load_comment_ratings(_, info, comment: int, limit=50, offset=0):
+async def load_comment_ratings(
+    _: None, info: GraphQLResolveInfo, comment: int, limit: int = 50, offset: int = 0
+) -> list[dict[str, Any]]:
     """
     Load ratings for a specified comment with pagination.
 
@@ -649,16 +662,16 @@ async def load_comment_ratings(_, info, comment: int, limit=50, offset=0):
 
 @query.field("load_comments_branch")
 async def load_comments_branch(
-    _,
-    _info,
+    _: None,
+    _info: GraphQLResolveInfo,
     shout: int,
     parent_id: int | None = None,
-    limit=10,
-    offset=0,
-    sort="newest",
-    children_limit=3,
-    children_offset=0,
-):
+    limit: int = 50,
+    offset: int = 0,
+    sort: str = "newest",
+    children_limit: int = 3,
+    children_offset: int = 0,
+) -> list[dict[str, Any]]:
     """
     Загружает иерархические комментарии с возможностью пагинации корневых и дочерних.
 
@@ -686,12 +699,7 @@ async def load_comments_branch(
     )
 
     # Фильтруем по родительскому ID
-    if parent_id is None:
-        # Загружаем только корневые комментарии
-        q = q.filter(Reaction.reply_to.is_(None))
-    else:
-        # Загружаем только прямые ответы на указанный комментарий
-        q = q.filter(Reaction.reply_to == parent_id)
+    q = q.filter(Reaction.reply_to.is_(None)) if parent_id is None else q.filter(Reaction.reply_to == parent_id)
 
     # Сортировка и группировка
     q = q.group_by(Reaction.id, Author.id, Shout.id)
@@ -721,7 +729,7 @@ async def load_comments_branch(
     return comments
 
 
-async def load_replies_count(comments):
+async def load_replies_count(comments: list[Any]) -> None:
     """
     Загружает количество ответов для списка комментариев и обновляет поле stat.comments_count.
 
@@ -761,7 +769,7 @@ async def load_replies_count(comments):
         comment["stat"]["comments_count"] = replies_count.get(comment["id"], 0)
 
 
-async def load_first_replies(comments, limit, offset, sort="newest"):
+async def load_first_replies(comments: list[Any], limit: int, offset: int, sort: str = "newest") -> None:
     """
     Загружает первые N ответов для каждого комментария.
 
@@ -808,12 +816,13 @@ async def load_first_replies(comments, limit, offset, sort="newest"):
     replies = get_reactions_with_stat(q, limit=100, offset=0)
 
     # Группируем ответы по родительским ID
-    replies_by_parent = {}
+    replies_by_parent: dict[int, list[dict[str, Any]]] = {}
     for reply in replies:
         parent_id = reply.get("reply_to")
-        if parent_id not in replies_by_parent:
+        if parent_id is not None and parent_id not in replies_by_parent:
             replies_by_parent[parent_id] = []
-        replies_by_parent[parent_id].append(reply)
+        if parent_id is not None:
+            replies_by_parent[parent_id].append(reply)
 
     # Добавляем ответы к соответствующим комментариям с учетом смещения и лимита
     for comment in comments:

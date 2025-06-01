@@ -1,6 +1,6 @@
 from ariadne.asgi.handlers import GraphQLHTTPHandler
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 
 from auth.middleware import auth_middleware
 from utils.logger import root_logger as logger
@@ -51,6 +51,6 @@ class EnhancedGraphQLHTTPHandler(GraphQLHTTPHandler):
             # Безопасно логируем информацию о типе объекта auth
             logger.debug(f"[graphql] Добавлены данные авторизации в контекст: {type(request.auth).__name__}")
 
-        logger.debug(f"[graphql] Подготовлен расширенный контекст для запроса")
+        logger.debug("[graphql] Подготовлен расширенный контекст для запроса")
 
         return context

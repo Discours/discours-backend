@@ -1,174 +1,55 @@
+import builtins
+import logging
 import math
 import time
 import traceback
 import warnings
-from typing import Any, Callable, Dict, TypeVar
+from io import TextIOWrapper
+from typing import Any, ClassVar, Type, TypeVar, Union
 
 import orjson
 import sqlalchemy
-from sqlalchemy import (
-    JSON,
-    Column,
-    Engine,
-    Index,
-    Integer,
-    create_engine,
-    event,
-    exc,
-    func,
-    inspect,
-    text,
-)
+from sqlalchemy import JSON, Column, Integer, create_engine, event, exc, func, inspect
+from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session, configure_mappers, declarative_base, joinedload
-from sqlalchemy.sql.schema import Table
+from sqlalchemy.pool import StaticPool
 
 from settings import DB_URL
 from utils.logger import root_logger as logger
 
-if DB_URL.startswith("postgres"):
-    engine = create_engine(
-        DB_URL,
-        echo=False,
-        pool_size=10,
-        max_overflow=20,
-        pool_timeout=30,  # Время ожидания свободного соединения
-        pool_recycle=1800,  # Время жизни соединения
-        pool_pre_ping=True,  # Добавить проверку соединений
-        connect_args={
-            "sslmode": "disable",
-            "connect_timeout": 40,  # Добавить таймаут подключения
-        },
-    )
-else:
-    engine = create_engine(DB_URL, echo=False, connect_args={"check_same_thread": False})
+# Global variables
+REGISTRY: dict[str, type["BaseModel"]] = {}
+logger = logging.getLogger(__name__)
+
+# Database configuration
+engine = create_engine(DB_URL, echo=False, poolclass=StaticPool if "sqlite" in DB_URL else None)
+ENGINE = engine  # Backward compatibility alias
 
 inspector = inspect(engine)
 configure_mappers()
 T = TypeVar("T")
-REGISTRY: Dict[str, type] = {}
 FILTERED_FIELDS = ["_sa_instance_state", "search_vector"]
 
+# Создаем Base для внутреннего использования
+_Base = declarative_base()
 
-def create_table_if_not_exists(engine, table):
-    """
-    Создает таблицу, если она не существует в базе данных.
-
-    Args:
-        engine: SQLAlchemy движок базы данных
-        table: Класс модели SQLAlchemy
-    """
-    inspector = inspect(engine)
-    if table and not inspector.has_table(table.__tablename__):
-        try:
-            table.__table__.create(engine)
-            logger.info(f"Table '{table.__tablename__}' created.")
-        except exc.OperationalError as e:
-            # Проверяем, содержит ли ошибка упоминание о том, что индекс уже существует
-            if "already exists" in str(e):
-                logger.warning(f"Skipping index creation for table '{table.__tablename__}': {e}")
-            else:
-                # Перевыбрасываем ошибку, если она не связана с дублированием
-                raise
-    else:
-        logger.info(f"Table '{table.__tablename__}' ok.")
+# Create proper type alias for Base
+BaseType = Type[_Base]  # type: ignore[valid-type]
 
 
-def sync_indexes():
-    """
-    Синхронизирует индексы в БД с индексами, определенными в моделях SQLAlchemy.
-    Создает недостающие индексы, если они определены в моделях, но отсутствуют в БД.
-
-    Использует pg_catalog для PostgreSQL для получения списка существующих индексов.
-    """
-    if not DB_URL.startswith("postgres"):
-        logger.warning("Функция sync_indexes поддерживается только для PostgreSQL.")
-        return
-
-    logger.info("Начинаем синхронизацию индексов в базе данных...")
-
-    # Получаем все существующие индексы в БД
-    with local_session() as session:
-        existing_indexes_query = text("""
-            SELECT 
-                t.relname AS table_name,
-                i.relname AS index_name
-            FROM 
-                pg_catalog.pg_class i
-            JOIN 
-                pg_catalog.pg_index ix ON ix.indexrelid = i.oid
-            JOIN 
-                pg_catalog.pg_class t ON t.oid = ix.indrelid
-            JOIN 
-                pg_catalog.pg_namespace n ON n.oid = i.relnamespace
-            WHERE 
-                i.relkind = 'i'
-                AND n.nspname = 'public'
-                AND t.relkind = 'r'
-            ORDER BY 
-                t.relname, i.relname;
-        """)
-
-        existing_indexes = {row[1].lower() for row in session.execute(existing_indexes_query)}
-        logger.debug(f"Найдено {len(existing_indexes)} существующих индексов в БД")
-
-        # Проверяем каждую модель и её индексы
-        for _model_name, model_class in REGISTRY.items():
-            if hasattr(model_class, "__table__") and hasattr(model_class, "__table_args__"):
-                table_args = model_class.__table_args__
-
-                # Если table_args - это кортеж, ищем в нём объекты Index
-                if isinstance(table_args, tuple):
-                    for arg in table_args:
-                        if isinstance(arg, Index):
-                            index_name = arg.name.lower()
-
-                            # Проверяем, существует ли индекс в БД
-                            if index_name not in existing_indexes:
-                                logger.info(
-                                    f"Создаем отсутствующий индекс {index_name} для таблицы {model_class.__tablename__}"
-                                )
-
-                                # Создаем индекс если он отсутствует
-                                try:
-                                    arg.create(engine)
-                                    logger.info(f"Индекс {index_name} успешно создан")
-                                except Exception as e:
-                                    logger.error(f"Ошибка при создании индекса {index_name}: {e}")
-                            else:
-                                logger.debug(f"Индекс {index_name} уже существует")
-
-        # Анализируем таблицы для оптимизации запросов
-        for model_name, model_class in REGISTRY.items():
-            if hasattr(model_class, "__tablename__"):
-                try:
-                    session.execute(text(f"ANALYZE {model_class.__tablename__}"))
-                    logger.debug(f"Таблица {model_class.__tablename__} проанализирована")
-                except Exception as e:
-                    logger.error(f"Ошибка при анализе таблицы {model_class.__tablename__}: {e}")
-
-    logger.info("Синхронизация индексов завершена.")
-
-
-# noinspection PyUnusedLocal
-def local_session(src=""):
-    return Session(bind=engine, expire_on_commit=False)
-
-
-class Base(declarative_base()):
-    __table__: Table
-    __tablename__: str
-    __new__: Callable
-    __init__: Callable
-    __allow_unmapped__ = True
+class BaseModel(_Base):  # type: ignore[valid-type,misc]
     __abstract__ = True
-    __table_args__ = {"extend_existing": True}
+    __allow_unmapped__ = True
+    __table_args__: ClassVar[Union[dict[str, Any], tuple]] = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True)
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         REGISTRY[cls.__name__] = cls
+        super().__init_subclass__(**kwargs)
 
-    def dict(self) -> Dict[str, Any]:
+    def dict(self, access: bool = False) -> builtins.dict[str, Any]:
         """
         Конвертирует ORM объект в словарь.
 
@@ -194,7 +75,7 @@ class Base(declarative_base()):
                             try:
                                 data[column_name] = orjson.loads(value)
                             except (TypeError, orjson.JSONDecodeError) as e:
-                                logger.error(f"Error decoding JSON for column '{column_name}': {e}")
+                                logger.exception(f"Error decoding JSON for column '{column_name}': {e}")
                                 data[column_name] = value
                         else:
                             data[column_name] = value
@@ -207,10 +88,10 @@ class Base(declarative_base()):
             if hasattr(self, "stat"):
                 data["stat"] = self.stat
         except Exception as e:
-            logger.error(f"Error occurred while converting object to dictionary: {e}")
+            logger.exception(f"Error occurred while converting object to dictionary: {e}")
         return data
 
-    def update(self, values: Dict[str, Any]) -> None:
+    def update(self, values: builtins.dict[str, Any]) -> None:
         for key, value in values.items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -221,31 +102,38 @@ class Base(declarative_base()):
 
 
 # Функция для вывода полного трейсбека при предупреждениях
-def warning_with_traceback(message: Warning | str, category, filename: str, lineno: int, file=None, line=None):
+def warning_with_traceback(
+    message: Warning | str,
+    category: type[Warning],
+    filename: str,
+    lineno: int,
+    file: TextIOWrapper | None = None,
+    line: str | None = None,
+) -> None:
     tb = traceback.format_stack()
     tb_str = "".join(tb)
-    return f"{message} ({filename}, {lineno}): {category.__name__}\n{tb_str}"
+    print(f"{message} ({filename}, {lineno}): {category.__name__}\n{tb_str}")
 
 
 # Установка функции вывода трейсбека для предупреждений SQLAlchemy
-warnings.showwarning = warning_with_traceback
+warnings.showwarning = warning_with_traceback  # type: ignore[assignment]
 warnings.simplefilter("always", exc.SAWarning)
 
 
 # Функция для извлечения SQL-запроса из контекста
-def get_statement_from_context(context):
+def get_statement_from_context(context: Connection) -> str | None:
     query = ""
-    compiled = context.compiled
+    compiled = getattr(context, "compiled", None)
     if compiled:
-        compiled_statement = compiled.string
-        compiled_parameters = compiled.params
+        compiled_statement = getattr(compiled, "string", None)
+        compiled_parameters = getattr(compiled, "params", None)
         if compiled_statement:
             if compiled_parameters:
                 try:
                     # Безопасное форматирование параметров
                     query = compiled_statement % compiled_parameters
                 except Exception as e:
-                    logger.error(f"Error formatting query: {e}")
+                    logger.exception(f"Error formatting query: {e}")
             else:
                 query = compiled_statement
     if query:
@@ -255,18 +143,32 @@ def get_statement_from_context(context):
 
 # Обработчик события перед выполнением запроса
 @event.listens_for(Engine, "before_cursor_execute")
-def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
-    conn.query_start_time = time.time()
-    conn.cursor_id = id(cursor)  # Отслеживание конкретного курсора
+def before_cursor_execute(
+    conn: Connection,
+    cursor: Any,
+    statement: str,
+    parameters: dict[str, Any] | None,
+    context: Connection,
+    executemany: bool,
+) -> None:
+    conn.query_start_time = time.time()  # type: ignore[attr-defined]
+    conn.cursor_id = id(cursor)  # type: ignore[attr-defined]
 
 
 # Обработчик события после выполнения запроса
 @event.listens_for(Engine, "after_cursor_execute")
-def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+def after_cursor_execute(
+    conn: Connection,
+    cursor: Any,
+    statement: str,
+    parameters: dict[str, Any] | None,
+    context: Connection,
+    executemany: bool,
+) -> None:
     if hasattr(conn, "cursor_id") and conn.cursor_id == id(cursor):
         query = get_statement_from_context(context)
         if query:
-            elapsed = time.time() - conn.query_start_time
+            elapsed = time.time() - getattr(conn, "query_start_time", time.time())
             if elapsed > 1:
                 query_end = query[-16:]
                 query = query.split(query_end)[0] + query_end
@@ -274,10 +176,11 @@ def after_cursor_execute(conn, cursor, statement, parameters, context, executema
                 elapsed_n = math.floor(elapsed)
                 logger.debug("*" * (elapsed_n))
                 logger.debug(f"{elapsed:.3f} s")
-        del conn.cursor_id  # Удаление идентификатора курсора после выполнения
+        if hasattr(conn, "cursor_id"):
+            delattr(conn, "cursor_id")  # Удаление идентификатора курсора после выполнения
 
 
-def get_json_builder():
+def get_json_builder() -> tuple[Any, Any, Any]:
     """
     Возвращает подходящие функции для построения JSON объектов в зависимости от драйвера БД
     """
@@ -286,10 +189,10 @@ def get_json_builder():
     if dialect.startswith("postgres"):
         json_cast = lambda x: func.cast(x, sqlalchemy.Text)  # noqa: E731
         return func.json_build_object, func.json_agg, json_cast
-    elif dialect.startswith("sqlite") or dialect.startswith("mysql"):
+    if dialect.startswith(("sqlite", "mysql")):
         return func.json_object, func.json_group_array, json_cast
-    else:
-        raise NotImplementedError(f"JSON builder not implemented for dialect {dialect}")
+    msg = f"JSON builder not implemented for dialect {dialect}"
+    raise NotImplementedError(msg)
 
 
 # Используем их в коде
@@ -299,7 +202,7 @@ json_builder, json_array_builder, json_cast = get_json_builder()
 # This function is used for search indexing
 
 
-async def fetch_all_shouts(session=None):
+async def fetch_all_shouts(session: Session | None = None) -> list[Any]:
     """Fetch all published shouts for search indexing with authors preloaded"""
     from orm.shout import Shout
 
@@ -313,13 +216,112 @@ async def fetch_all_shouts(session=None):
         query = (
             session.query(Shout)
             .options(joinedload(Shout.authors))
-            .filter(Shout.published_at.is_not(None), Shout.deleted_at.is_(None))
+            .filter(Shout.published_at is not None, Shout.deleted_at is None)
         )
-        shouts = query.all()
-        return shouts
+        return query.all()
     except Exception as e:
-        logger.error(f"Error fetching shouts for search indexing: {e}")
+        logger.exception(f"Error fetching shouts for search indexing: {e}")
         return []
     finally:
         if close_session:
             session.close()
+
+
+def get_column_names_without_virtual(model_cls: type[BaseModel]) -> list[str]:
+    """Получает имена колонок модели без виртуальных полей"""
+    try:
+        column_names: list[str] = [
+            col.name for col in model_cls.__table__.columns if not getattr(col, "_is_virtual", False)
+        ]
+        return column_names
+    except AttributeError:
+        return []
+
+
+def get_primary_key_columns(model_cls: type[BaseModel]) -> list[str]:
+    """Получает имена первичных ключей модели"""
+    try:
+        return [col.name for col in model_cls.__table__.primary_key.columns]
+    except AttributeError:
+        return ["id"]
+
+
+def create_table_if_not_exists(engine: Engine, model_cls: type[BaseModel]) -> None:
+    """Creates table for the given model if it doesn't exist"""
+    if hasattr(model_cls, "__tablename__"):
+        inspector = inspect(engine)
+        if not inspector.has_table(model_cls.__tablename__):
+            model_cls.__table__.create(engine)
+            logger.info(f"Created table: {model_cls.__tablename__}")
+
+
+def format_sql_warning(
+    message: str | Warning,
+    category: type[Warning],
+    filename: str,
+    lineno: int,
+    file: TextIOWrapper | None = None,
+    line: str | None = None,
+) -> str:
+    """Custom warning formatter for SQL warnings"""
+    return f"SQL Warning: {message}\n"
+
+
+# Apply the custom warning formatter
+def _set_warning_formatter() -> None:
+    """Set custom warning formatter"""
+    import warnings
+
+    original_formatwarning = warnings.formatwarning
+
+    def custom_formatwarning(
+        message: Warning | str,
+        category: type[Warning],
+        filename: str,
+        lineno: int,
+        file: TextIOWrapper | None = None,
+        line: str | None = None,
+    ) -> str:
+        return format_sql_warning(message, category, filename, lineno, file, line)
+
+    warnings.formatwarning = custom_formatwarning  # type: ignore[assignment]
+
+
+_set_warning_formatter()
+
+
+def upsert_on_duplicate(table: sqlalchemy.Table, **values: Any) -> sqlalchemy.sql.Insert:
+    """
+    Performs an upsert operation (insert or update on conflict)
+    """
+    if engine.dialect.name == "sqlite":
+        return insert(table).values(**values).on_conflict_do_update(index_elements=["id"], set_=values)
+    # For other databases, implement appropriate upsert logic
+    return table.insert().values(**values)
+
+
+def get_sql_functions() -> dict[str, Any]:
+    """Returns database-specific SQL functions"""
+    if engine.dialect.name == "sqlite":
+        return {
+            "now": sqlalchemy.func.datetime("now"),
+            "extract_epoch": lambda x: sqlalchemy.func.strftime("%s", x),
+            "coalesce": sqlalchemy.func.coalesce,
+        }
+    return {
+        "now": sqlalchemy.func.now(),
+        "extract_epoch": sqlalchemy.func.extract("epoch", sqlalchemy.text("?")),
+        "coalesce": sqlalchemy.func.coalesce,
+    }
+
+
+# noinspection PyUnusedLocal
+def local_session(src: str = "") -> Session:
+    """Create a new database session"""
+    return Session(bind=engine, expire_on_commit=False)
+
+
+# Export Base for backward compatibility
+Base = _Base
+# Also export the type for type hints
+__all__ = ["Base", "BaseModel", "BaseType", "engine", "local_session"]

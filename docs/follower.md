@@ -137,7 +137,7 @@ if sub:
 else:
     return {"error": "following was not found", f"{entity_type}s": follows}  # follows was []
 
-# UNFOLLOW - After (FIXED)  
+# UNFOLLOW - After (FIXED)
 if sub:
     # ... process unfollow
     # Invalidate cache
@@ -166,7 +166,7 @@ if existing_sub:
 else:
     # ... create subscription
 
-# Always invalidate cache and get current state  
+# Always invalidate cache and get current state
 await redis.execute("DEL", f"author:follows-{entity_type}s:{follower_id}")
 existing_follows = await get_cached_follows_method(follower_id)
 return {f"{entity_type}s": existing_follows, "error": error}
@@ -213,7 +213,7 @@ python test_unfollow_fix.py
 
 ### Test Coverage
 - ✅ Unfollow existing subscription
-- ✅ Unfollow non-existent subscription  
+- ✅ Unfollow non-existent subscription
 - ✅ Cache invalidation
 - ✅ Proper error handling
-- ✅ UI state consistency 
+- ✅ UI state consistency

@@ -14,7 +14,7 @@ logger.addHandler(sentry_logging_handler)
 logger.setLevel(logging.DEBUG)  # Более подробное логирование
 
 
-def start_sentry():
+def start_sentry() -> None:
     try:
         logger.info("[services.sentry] Sentry init started...")
         sentry_sdk.init(
@@ -26,5 +26,5 @@ def start_sentry():
             send_default_pii=True,  # Отправка информации о пользователе (PII)
         )
         logger.info("[services.sentry] Sentry initialized successfully.")
-    except Exception as _e:
+    except (sentry_sdk.utils.BadDsn, ImportError, ValueError, TypeError) as _e:
         logger.warning("[services.sentry] Failed to initialize Sentry", exc_info=True)

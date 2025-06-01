@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional, Union
 
 import jwt
 from pydantic import BaseModel
 
-from auth.exceptions import ExpiredToken, InvalidToken
 from settings import JWT_ALGORITHM, JWT_SECRET_KEY
 from utils.logger import root_logger as logger
 
@@ -19,7 +18,7 @@ class TokenPayload(BaseModel):
 
 class JWTCodec:
     @staticmethod
-    def encode(user, exp: Optional[datetime] = None) -> str:
+    def encode(user: Union[dict[str, Any], Any], exp: Optional[datetime] = None) -> str:
         # Поддержка как объектов, так и словарей
         if isinstance(user, dict):
             # В SessionManager.create_session передается словарь {"id": user_id, "email": username}
@@ -59,13 +58,16 @@ class JWTCodec:
         try:
             token = jwt.encode(payload, JWT_SECRET_KEY, JWT_ALGORITHM)
             logger.debug(f"[JWTCodec.encode] Токен успешно создан, длина: {len(token) if token else 0}")
-            return token
+            # Ensure we always return str, not bytes
+            if isinstance(token, bytes):
+                return token.decode("utf-8")
+            return str(token)
         except Exception as e:
             logger.error(f"[JWTCodec.encode] Ошибка при кодировании JWT: {e}")
             raise
 
     @staticmethod
-    def decode(token: str, verify_exp: bool = True):
+    def decode(token: str, verify_exp: bool = True) -> Optional[TokenPayload]:
         logger.debug(f"[JWTCodec.decode] Начало декодирования токена длиной {len(token) if token else 0}")
 
         if not token:
@@ -87,7 +89,7 @@ class JWTCodec:
 
             # Убедимся, что exp существует (добавим обработку если exp отсутствует)
             if "exp" not in payload:
-                logger.warning(f"[JWTCodec.decode] В токене отсутствует поле exp")
+                logger.warning("[JWTCodec.decode] В токене отсутствует поле exp")
                 # Добавим exp по умолчанию, чтобы избежать ошибки при создании TokenPayload
                 payload["exp"] = int((datetime.now(tz=timezone.utc) + timedelta(days=30)).timestamp())
 

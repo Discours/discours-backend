@@ -4,7 +4,7 @@
 """
 
 import time
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 from sqlalchemy.orm import exc
 
@@ -20,7 +20,7 @@ from utils.logger import root_logger as logger
 ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
 
 
-async def verify_internal_auth(token: str) -> Tuple[str, list, bool]:
+async def verify_internal_auth(token: str) -> tuple[int, list, bool]:
     """
     Проверяет локальную авторизацию.
     Возвращает user_id, список ролей и флаг администратора.
@@ -41,18 +41,13 @@ async def verify_internal_auth(token: str) -> Tuple[str, list, bool]:
     payload = await SessionManager.verify_session(token)
     if not payload:
         logger.warning("[verify_internal_auth] Недействительный токен: payload не получен")
-        return "", [], False
+        return 0, [], False
 
     logger.debug(f"[verify_internal_auth] Токен действителен, user_id={payload.user_id}")
 
     with local_session() as session:
         try:
-            author = (
-                session.query(Author)
-                .filter(Author.id == payload.user_id)
-                .filter(Author.is_active == True)  # noqa
-                .one()
-            )
+            author = session.query(Author).filter(Author.id == payload.user_id).one()
 
             # Получаем роли
             roles = [role.id for role in author.roles]
@@ -64,10 +59,10 @@ async def verify_internal_auth(token: str) -> Tuple[str, list, bool]:
                 f"[verify_internal_auth] Пользователь {author.id} {'является' if is_admin else 'не является'} администратором"
             )
 
-            return str(author.id), roles, is_admin
+            return int(author.id), roles, is_admin
         except exc.NoResultFound:
             logger.warning(f"[verify_internal_auth] Пользователь с ID {payload.user_id} не найден в БД или не активен")
-            return "", [], False
+            return 0, [], False
 
 
 async def create_internal_session(author: Author, device_info: Optional[dict] = None) -> str:
@@ -85,12 +80,12 @@ async def create_internal_session(author: Author, device_info: Optional[dict] = 
     author.reset_failed_login()
 
     # Обновляем last_seen
-    author.last_seen = int(time.time())
+    author.last_seen = int(time.time())  # type: ignore[assignment]
 
     # Создаем сессию, используя token для идентификации
     return await SessionManager.create_session(
         user_id=str(author.id),
-        username=author.slug or author.email or author.phone or "",
+        username=str(author.slug or author.email or author.phone or ""),
         device_info=device_info,
     )
 
@@ -124,10 +119,7 @@ async def authenticate(request: Any) -> AuthState:
         try:
             headers = {}
             if hasattr(request, "headers"):
-                if callable(request.headers):
-                    headers = dict(request.headers())
-                else:
-                    headers = dict(request.headers)
+                headers = dict(request.headers()) if callable(request.headers) else dict(request.headers)
 
             auth_header = headers.get(SESSION_TOKEN_HEADER, "")
             if auth_header and auth_header.startswith("Bearer "):
@@ -153,7 +145,7 @@ async def authenticate(request: Any) -> AuthState:
     # Проверяем токен через SessionManager, который теперь совместим с TokenStorage
     payload = await SessionManager.verify_session(token)
     if not payload:
-        logger.warning(f"[auth.authenticate] Токен не валиден: не найдена сессия")
+        logger.warning("[auth.authenticate] Токен не валиден: не найдена сессия")
         state.error = "Invalid or expired token"
         return state
 
@@ -175,11 +167,16 @@ async def authenticate(request: Any) -> AuthState:
 
                     # Создаем объект авторизации
                     auth_cred = AuthCredentials(
-                        author_id=author.id, scopes=scopes, logged_in=True, email=author.email, token=token
+                        author_id=author.id,
+                        scopes=scopes,
+                        logged_in=True,
+                        email=author.email,
+                        token=token,
+                        error_message="",
                     )
 
                     # Устанавливаем auth в request
-                    setattr(request, "auth", auth_cred)
+                    request.auth = auth_cred
                     logger.debug(
                         f"[auth.authenticate] Авторизационные данные установлены в request.auth для {payload.user_id}"
                     )

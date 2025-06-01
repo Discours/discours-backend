@@ -10,6 +10,9 @@ type Mutation {
   changePassword(oldPassword: String!, newPassword: String!): AuthSuccess!
   resetPassword(token: String!, newPassword: String!): AuthSuccess!
   requestPasswordReset(email: String!, lang: String): AuthSuccess!
+  updateSecurity(email: String, old_password: String, new_password: String): SecurityUpdateResult!
+  confirmEmailChange(token: String!): SecurityUpdateResult!
+  cancelEmailChange: SecurityUpdateResult!
 
   # author
   rate_author(rated_slug: String!, value: Int!): CommonResult!

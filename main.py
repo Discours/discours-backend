@@ -9,7 +9,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -30,11 +30,11 @@ DEVMODE = os.getenv("DOKKU_APP_TYPE", "false").lower() == "false"
 DIST_DIR = join(os.path.dirname(__file__), "dist")  # Директория для собранных файлов
 INDEX_HTML = join(os.path.dirname(__file__), "index.html")
 
-# Импортируем резолверы
+# Импортируем резолверы ПЕРЕД созданием схемы
 import_module("resolvers")
 
 # Создаем схему GraphQL
-schema = make_executable_schema(load_schema_from_path("schema/"), resolvers)
+schema = make_executable_schema(load_schema_from_path("schema/"), list(resolvers))
 
 # Создаем middleware с правильным порядком
 middleware = [
@@ -96,12 +96,11 @@ async def graphql_handler(request: Request):
         # Применяем middleware для установки cookie
         # Используем метод process_result из auth_middleware для корректной обработки
         # cookie на основе результатов операций login/logout
-        response = await auth_middleware.process_result(request, result)
-        return response
+        return await auth_middleware.process_result(request, result)
     except asyncio.CancelledError:
         return JSONResponse({"error": "Request cancelled"}, status_code=499)
     except Exception as e:
-        logger.error(f"GraphQL error: {str(e)}")
+        logger.error(f"GraphQL error: {e!s}")
         # Логируем более подробную информацию для отладки
         import traceback
 
@@ -109,7 +108,7 @@ async def graphql_handler(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-async def shutdown():
+async def shutdown() -> None:
     """Остановка сервера и освобождение ресурсов"""
     logger.info("Остановка сервера")
 
@@ -126,7 +125,7 @@ async def shutdown():
         os.unlink(DEV_SERVER_PID_FILE_NAME)
 
 
-async def dev_start():
+async def dev_start() -> None:
     """
     Инициализация сервера в DEV режиме.
 
@@ -142,10 +141,9 @@ async def dev_start():
         # Если PID-файл уже существует, проверяем, не запущен ли уже сервер с этим PID
         if exists(pid_path):
             try:
-                with open(pid_path, "r", encoding="utf-8") as f:
+                with open(pid_path, encoding="utf-8") as f:
                     old_pid = int(f.read().strip())
                 # Проверяем, существует ли процесс с таким PID
-                import signal
 
                 try:
                     os.kill(old_pid, 0)  # Сигнал 0 только проверяет существование процесса
@@ -153,16 +151,16 @@ async def dev_start():
                 except OSError:
                     print(f"[info] Stale PID file found, previous process {old_pid} not running")
             except (ValueError, FileNotFoundError):
-                print(f"[warning] Invalid PID file found, recreating")
+                print("[warning] Invalid PID file found, recreating")
 
         # Создаем или перезаписываем PID-файл
         with open(pid_path, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
         print(f"[main] process started in DEV mode with PID {os.getpid()}")
     except Exception as e:
-        logger.error(f"[main] Error during server startup: {str(e)}")
+        logger.error(f"[main] Error during server startup: {e!s}")
         # Не прерываем запуск сервера из-за ошибки в этой функции
-        print(f"[warning] Error during DEV mode initialization: {str(e)}")
+        print(f"[warning] Error during DEV mode initialization: {e!s}")
 
 
 async def lifespan(_app):

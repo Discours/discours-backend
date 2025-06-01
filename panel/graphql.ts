@@ -71,7 +71,7 @@ function prepareUrl(url: string): string {
   if (location.hostname === 'localhost') {
     return `${location.origin}/graphql`
   }
-  
+
   // Если это относительный путь, добавляем к нему origin
   if (url.startsWith('/')) {
     return `${location.origin}${url}`

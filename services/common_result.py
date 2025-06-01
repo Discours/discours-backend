@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any
 
 from auth.orm import Author
 from orm.community import Community
+from orm.draft import Draft
 from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic
@@ -10,15 +11,29 @@ from orm.topic import Topic
 
 @dataclass
 class CommonResult:
-    error: Optional[str] = None
-    slugs: Optional[List[str]] = None
-    shout: Optional[Shout] = None
-    shouts: Optional[List[Shout]] = None
-    author: Optional[Author] = None
-    authors: Optional[List[Author]] = None
-    reaction: Optional[Reaction] = None
-    reactions: Optional[List[Reaction]] = None
-    topic: Optional[Topic] = None
-    topics: Optional[List[Topic]] = None
-    community: Optional[Community] = None
-    communities: Optional[List[Community]] = None
+    """Общий результат для GraphQL запросов"""
+
+    error: str | None = None
+    drafts: list[Draft] | None = None  # Draft objects
+    draft: Draft | None = None  # Draft object
+    slugs: list[str] | None = None
+    shout: Shout | None = None
+    shouts: list[Shout] | None = None
+    author: Author | None = None
+    authors: list[Author] | None = None
+    reaction: Reaction | None = None
+    reactions: list[Reaction] | None = None
+    topic: Topic | None = None
+    topics: list[Topic] | None = None
+    community: Community | None = None
+    communities: list[Community] | None = None
+
+
+@dataclass
+class AuthorFollowsResult:
+    """Результат для get_author_follows запроса"""
+
+    topics: list[Any] | None = None  # Topic dicts
+    authors: list[Any] | None = None  # Author dicts
+    communities: list[Any] | None = None  # Community dicts
+    error: str | None = None

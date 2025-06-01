@@ -15,7 +15,6 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from auth.orm import Author
 from cache.cache import get_cached_follower_topics
 from orm.topic import Topic, TopicFollower
 from services.db import local_session
@@ -56,7 +55,7 @@ async def test_unfollow_logic_directly():
     logger.info("=== Тест логики unfollow напрямую ===")
 
     # Импортируем функции напрямую из модуля
-    from resolvers.follower import follow, unfollow
+    from resolvers.follower import unfollow
 
     # Создаём мок контекста
     mock_info = MockInfo(999)

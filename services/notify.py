@@ -1,46 +1,82 @@
+from collections.abc import Collection
+from typing import Any, Dict, Union
+
 import orjson
 
 from orm.notification import Notification
+from orm.reaction import Reaction
+from orm.shout import Shout
 from services.db import local_session
 from services.redis import redis
 from utils.logger import root_logger as logger
 
 
-def save_notification(action: str, entity: str, payload):
+def save_notification(action: str, entity: str, payload: Union[Dict[Any, Any], str, int, None]) -> None:
+    """Save notification with proper payload handling"""
+    if payload is None:
+        payload = ""
+    elif isinstance(payload, (Reaction, Shout)):
+        # Convert ORM objects to dict representation
+        payload = {"id": payload.id}
+    elif isinstance(payload, Collection) and not isinstance(payload, (str, bytes)):
+        # Convert collections to string representation
+        payload = str(payload)
+
     with local_session() as session:
         n = Notification(action=action, entity=entity, payload=payload)
         session.add(n)
         session.commit()
 
 
-async def notify_reaction(reaction, action: str = "create"):
+async def notify_reaction(reaction: Union[Reaction, int], action: str = "create") -> None:
     channel_name = "reaction"
-    data = {"payload": reaction, "action": action}
+
+    # Преобразуем объект Reaction в словарь для сериализации
+    if isinstance(reaction, Reaction):
+        reaction_payload = {
+            "id": reaction.id,
+            "kind": reaction.kind,
+            "body": reaction.body,
+            "shout": reaction.shout,
+            "created_by": reaction.created_by,
+            "created_at": getattr(reaction, "created_at", None),
+        }
+    else:
+        # Если передан просто ID
+        reaction_payload = {"id": reaction}
+
+    data = {"payload": reaction_payload, "action": action}
     try:
-        save_notification(action, channel_name, data.get("payload"))
+        save_notification(action, channel_name, reaction_payload)
         await redis.publish(channel_name, orjson.dumps(data))
-    except Exception as e:
+    except (ConnectionError, TimeoutError, ValueError) as e:
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
 
 
-async def notify_shout(shout, action: str = "update"):
+async def notify_shout(shout: Dict[str, Any], action: str = "update") -> None:
     channel_name = "shout"
     data = {"payload": shout, "action": action}
     try:
-        save_notification(action, channel_name, data.get("payload"))
+        payload = data.get("payload")
+        if isinstance(payload, Collection) and not isinstance(payload, (str, bytes, dict)):
+            payload = str(payload)
+        save_notification(action, channel_name, payload)
         await redis.publish(channel_name, orjson.dumps(data))
-    except Exception as e:
+    except (ConnectionError, TimeoutError, ValueError) as e:
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
 
 
-async def notify_follower(follower: dict, author_id: int, action: str = "follow"):
+async def notify_follower(follower: Dict[str, Any], author_id: int, action: str = "follow") -> None:
     channel_name = f"follower:{author_id}"
     try:
         # Simplify dictionary before publishing
         simplified_follower = {k: follower[k] for k in ["id", "name", "slug", "pic"]}
         data = {"payload": simplified_follower, "action": action}
         # save in channel
-        save_notification(action, channel_name, data.get("payload"))
+        payload = data.get("payload")
+        if isinstance(payload, Collection) and not isinstance(payload, (str, bytes, dict)):
+            payload = str(payload)
+        save_notification(action, channel_name, payload)
 
         # Convert data to JSON string
         json_data = orjson.dumps(data)
@@ -50,12 +86,12 @@ async def notify_follower(follower: dict, author_id: int, action: str = "follow"
             # Use the 'await' keyword when publishing
             await redis.publish(channel_name, json_data)
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, KeyError, ValueError) as e:
         # Log the error and re-raise it
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
 
 
-async def notify_draft(draft_data, action: str = "publish"):
+async def notify_draft(draft_data: Dict[str, Any], action: str = "publish") -> None:
     """
     Отправляет уведомление о публикации или обновлении черновика.
 
@@ -63,8 +99,8 @@ async def notify_draft(draft_data, action: str = "publish"):
     связанные атрибуты (topics, authors).
 
     Args:
-        draft_data (dict): Словарь с данными черновика. Должен содержать минимум id и title
-        action (str, optional): Действие ("publish", "update"). По умолчанию "publish"
+        draft_data: Словарь с данными черновика или ORM объект. Должен содержать минимум id и title
+        action: Действие ("publish", "update"). По умолчанию "publish"
 
     Returns:
         None
@@ -109,12 +145,15 @@ async def notify_draft(draft_data, action: str = "publish"):
         data = {"payload": draft_payload, "action": action}
 
         # Сохраняем уведомление
-        save_notification(action, channel_name, data.get("payload"))
+        payload = data.get("payload")
+        if isinstance(payload, Collection) and not isinstance(payload, (str, bytes, dict)):
+            payload = str(payload)
+        save_notification(action, channel_name, payload)
 
         # Публикуем в Redis
         json_data = orjson.dumps(data)
         if json_data:
             await redis.publish(channel_name, json_data)
 
-    except Exception as e:
+    except (ConnectionError, TimeoutError, AttributeError, ValueError) as e:
         logger.error(f"Failed to publish to channel {channel_name}: {e}")

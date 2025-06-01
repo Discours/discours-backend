@@ -1,6 +1,8 @@
 import time
+from typing import Any
 
-from sqlalchemy.orm import joinedload
+from graphql import GraphQLResolveInfo
+from sqlalchemy.orm import Session, joinedload
 
 from auth.orm import Author
 from cache.cache import (
@@ -18,7 +20,7 @@ from utils.extract_text import extract_text
 from utils.logger import root_logger as logger
 
 
-def create_shout_from_draft(session, draft, author_id):
+def create_shout_from_draft(session: Session | None, draft: Draft, author_id: int) -> Shout:
     """
     Создаёт новый объект публикации (Shout) на основе черновика.
 
@@ -69,11 +71,11 @@ def create_shout_from_draft(session, draft, author_id):
 
 @query.field("load_drafts")
 @login_required
-async def load_drafts(_, info):
+async def load_drafts(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
     """
     Загружает все черновики, доступные текущему пользователю.
 
-    Предварительно загружает связанные объекты (topics, authors, publication),
+    Предварительно загружает связанные объекты (topics, authors),
     чтобы избежать ошибок с отсоединенными объектами при сериализации.
 
     Returns:
@@ -87,13 +89,12 @@ async def load_drafts(_, info):
 
     try:
         with local_session() as session:
-            # Предзагружаем authors, topics и связанную publication
+            # Предзагружаем authors и topics
             drafts_query = (
                 session.query(Draft)
                 .options(
                     joinedload(Draft.topics),
                     joinedload(Draft.authors),
-                    joinedload(Draft.publication),  # Загружаем связанную публикацию
                 )
                 .filter(Draft.authors.any(Author.id == author_id))
             )
@@ -106,28 +107,17 @@ async def load_drafts(_, info):
                 # Всегда возвращаем массив для topics, даже если он пустой
                 draft_dict["topics"] = [topic.dict() for topic in (draft.topics or [])]
                 draft_dict["authors"] = [author.dict() for author in (draft.authors or [])]
-
-                # Добавляем информацию о публикации, если она есть
-                if draft.publication:
-                    draft_dict["publication"] = {
-                        "id": draft.publication.id,
-                        "slug": draft.publication.slug,
-                        "published_at": draft.publication.published_at,
-                    }
-                else:
-                    draft_dict["publication"] = None
-
                 drafts_data.append(draft_dict)
 
             return {"drafts": drafts_data}
     except Exception as e:
         logger.error(f"Failed to load drafts: {e}", exc_info=True)
-        return {"error": f"Failed to load drafts: {str(e)}"}
+        return {"error": f"Failed to load drafts: {e!s}"}
 
 
 @mutation.field("create_draft")
 @login_required
-async def create_draft(_, info, draft_input):
+async def create_draft(_: None, info: GraphQLResolveInfo, draft_input: dict[str, Any]) -> dict[str, Any]:
     """Create a new draft.
 
     Args:
@@ -155,7 +145,7 @@ async def create_draft(_, info, draft_input):
     author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
-    if not author_id:
+    if not author_id or not isinstance(author_id, int):
         return {"error": "Author ID is required"}
 
     # Проверяем обязательные поля
@@ -173,8 +163,7 @@ async def create_draft(_, info, draft_input):
     try:
         with local_session() as session:
             # Remove id from input if present since it's auto-generated
-            if "id" in draft_input:
-                del draft_input["id"]
+            draft_input.pop("id", None)
 
             # Добавляем текущее время создания и ID автора
             draft_input["created_at"] = int(time.time())
@@ -191,18 +180,17 @@ async def create_draft(_, info, draft_input):
             return {"draft": draft}
     except Exception as e:
         logger.error(f"Failed to create draft: {e}", exc_info=True)
-        return {"error": f"Failed to create draft: {str(e)}"}
+        return {"error": f"Failed to create draft: {e!s}"}
 
 
-def generate_teaser(body, limit=300):
+def generate_teaser(body: str, limit: int = 300) -> str:
     body_text = extract_text(body)
-    body_teaser = ". ".join(body_text[:limit].split(". ")[:-1])
-    return body_teaser
+    return ". ".join(body_text[:limit].split(". ")[:-1])
 
 
 @mutation.field("update_draft")
 @login_required
-async def update_draft(_, info, draft_id: int, draft_input):
+async def update_draft(_: None, info: GraphQLResolveInfo, draft_id: int, draft_input: dict[str, Any]) -> dict[str, Any]:
     """Обновляет черновик публикации.
 
     Args:
@@ -229,8 +217,8 @@ async def update_draft(_, info, draft_id: int, draft_input):
     author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
-    if not author_id:
-        return {"error": "Author ID are required"}
+    if not author_id or not isinstance(author_id, int):
+        return {"error": "Author ID is required"}
 
     try:
         with local_session() as session:
@@ -306,8 +294,8 @@ async def update_draft(_, info, draft_id: int, draft_input):
                 setattr(draft, key, value)
 
             # Обновляем метаданные
-            draft.updated_at = int(time.time())
-            draft.updated_by = author_id
+            draft.updated_at = int(time.time())  # type: ignore[assignment]
+            draft.updated_by = author_id  # type: ignore[assignment]
 
             session.commit()
 
@@ -322,12 +310,12 @@ async def update_draft(_, info, draft_id: int, draft_input):
 
     except Exception as e:
         logger.error(f"Failed to update draft: {e}", exc_info=True)
-        return {"error": f"Failed to update draft: {str(e)}"}
+        return {"error": f"Failed to update draft: {e!s}"}
 
 
 @mutation.field("delete_draft")
 @login_required
-async def delete_draft(_, info, draft_id: int):
+async def delete_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> dict[str, Any]:
     author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
@@ -372,12 +360,12 @@ def validate_html_content(html_content: str) -> tuple[bool, str]:
         return bool(extracted), extracted or ""
     except Exception as e:
         logger.error(f"HTML validation error: {e}", exc_info=True)
-        return False, f"Invalid HTML content: {str(e)}"
+        return False, f"Invalid HTML content: {e!s}"
 
 
 @mutation.field("publish_draft")
 @login_required
-async def publish_draft(_, info, draft_id: int):
+async def publish_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> dict[str, Any]:
     """
     Публикует черновик, создавая новый Shout или обновляя существующий.
 
@@ -390,7 +378,7 @@ async def publish_draft(_, info, draft_id: int):
     author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
-    if not author_id:
+    if not author_id or not isinstance(author_id, int):
         return {"error": "Author ID is required"}
 
     try:
@@ -407,7 +395,8 @@ async def publish_draft(_, info, draft_id: int):
                 return {"error": "Draft not found"}
 
             # Проверка валидности HTML в body
-            is_valid, error = validate_html_content(draft.body)
+            draft_body = str(draft.body) if draft.body else ""
+            is_valid, error = validate_html_content(draft_body)
             if not is_valid:
                 return {"error": f"Cannot publish draft: {error}"}
 
@@ -415,19 +404,24 @@ async def publish_draft(_, info, draft_id: int):
             if draft.publication:
                 shout = draft.publication
                 # Обновляем существующую публикацию
-                for field in [
-                    "body",
-                    "title",
-                    "subtitle",
-                    "lead",
-                    "cover",
-                    "cover_caption",
-                    "media",
-                    "lang",
-                    "seo",
-                ]:
-                    if hasattr(draft, field):
-                        setattr(shout, field, getattr(draft, field))
+                if hasattr(draft, "body"):
+                    shout.body = draft.body
+                if hasattr(draft, "title"):
+                    shout.title = draft.title
+                if hasattr(draft, "subtitle"):
+                    shout.subtitle = draft.subtitle
+                if hasattr(draft, "lead"):
+                    shout.lead = draft.lead
+                if hasattr(draft, "cover"):
+                    shout.cover = draft.cover
+                if hasattr(draft, "cover_caption"):
+                    shout.cover_caption = draft.cover_caption
+                if hasattr(draft, "media"):
+                    shout.media = draft.media
+                if hasattr(draft, "lang"):
+                    shout.lang = draft.lang
+                if hasattr(draft, "seo"):
+                    shout.seo = draft.seo
                 shout.updated_at = int(time.time())
                 shout.updated_by = author_id
             else:
@@ -466,7 +460,7 @@ async def publish_draft(_, info, draft_id: int):
             await notify_shout(shout.id)
 
             # Обновляем поисковый индекс
-            search_service.perform_index(shout)
+            await search_service.perform_index(shout)
 
             logger.info(f"Successfully published shout #{shout.id} from draft #{draft_id}")
             logger.debug(f"Shout data: {shout.dict()}")
@@ -475,12 +469,12 @@ async def publish_draft(_, info, draft_id: int):
 
     except Exception as e:
         logger.error(f"Failed to publish draft {draft_id}: {e}", exc_info=True)
-        return {"error": f"Failed to publish draft: {str(e)}"}
+        return {"error": f"Failed to publish draft: {e!s}"}
 
 
 @mutation.field("unpublish_draft")
 @login_required
-async def unpublish_draft(_, info, draft_id: int):
+async def unpublish_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> dict[str, Any]:
     """
     Снимает с публикации черновик, обновляя связанный Shout.
 
@@ -493,7 +487,7 @@ async def unpublish_draft(_, info, draft_id: int):
     author_dict = info.context.get("author") or {}
     author_id = author_dict.get("id")
 
-    if author_id:
+    if not author_id or not isinstance(author_id, int):
         return {"error": "Author ID is required"}
 
     try:
@@ -538,4 +532,4 @@ async def unpublish_draft(_, info, draft_id: int):
 
     except Exception as e:
         logger.error(f"Failed to unpublish draft {draft_id}: {e}", exc_info=True)
-        return {"error": f"Failed to unpublish draft: {str(e)}"}
+        return {"error": f"Failed to unpublish draft: {e!s}"}

@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from auth.orm import Author
 from orm.reaction import Reaction
 from orm.topic import Topic
-from services.db import Base
+from services.db import BaseModel as Base
 
 
 class ShoutTopic(Base):
@@ -71,70 +71,41 @@ class ShoutAuthor(Base):
 class Shout(Base):
     """
     Публикация в системе.
-
-    Attributes:
-        body (str)
-        slug (str)
-        cover (str) : "Cover image url"
-        cover_caption (str) : "Cover image alt caption"
-        lead (str)
-        title (str)
-        subtitle (str)
-        layout (str)
-        media (dict)
-        authors (list[Author])
-        topics (list[Topic])
-        reactions (list[Reaction])
-        lang (str)
-        version_of (int)
-        oid (str)
-        seo (str) : JSON
-        draft (int)
-        created_at (int)
-        updated_at (int)
-        published_at (int)
-        featured_at (int)
-        deleted_at (int)
-        created_by (int)
-        updated_by (int)
-        deleted_by (int)
-        community (int)
     """
 
     __tablename__ = "shout"
 
-    created_at: int = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    updated_at: int | None = Column(Integer, nullable=True, index=True)
-    published_at: int | None = Column(Integer, nullable=True, index=True)
-    featured_at: int | None = Column(Integer, nullable=True, index=True)
-    deleted_at: int | None = Column(Integer, nullable=True, index=True)
+    created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
+    updated_at = Column(Integer, nullable=True, index=True)
+    published_at = Column(Integer, nullable=True, index=True)
+    featured_at = Column(Integer, nullable=True, index=True)
+    deleted_at = Column(Integer, nullable=True, index=True)
 
-    created_by: int = Column(ForeignKey("author.id"), nullable=False)
-    updated_by: int | None = Column(ForeignKey("author.id"), nullable=True)
-    deleted_by: int | None = Column(ForeignKey("author.id"), nullable=True)
-    community: int = Column(ForeignKey("community.id"), nullable=False)
+    created_by = Column(ForeignKey("author.id"), nullable=False)
+    updated_by = Column(ForeignKey("author.id"), nullable=True)
+    deleted_by = Column(ForeignKey("author.id"), nullable=True)
+    community = Column(ForeignKey("community.id"), nullable=False)
 
-    body: str = Column(String, nullable=False, comment="Body")
-    slug: str = Column(String, unique=True)
-    cover: str | None = Column(String, nullable=True, comment="Cover image url")
-    cover_caption: str | None = Column(String, nullable=True, comment="Cover image alt caption")
-    lead: str | None = Column(String, nullable=True)
-    title: str = Column(String, nullable=False)
-    subtitle: str | None = Column(String, nullable=True)
-    layout: str = Column(String, nullable=False, default="article")
-    media: dict | None = Column(JSON, nullable=True)
+    body = Column(String, nullable=False, comment="Body")
+    slug = Column(String, unique=True)
+    cover = Column(String, nullable=True, comment="Cover image url")
+    cover_caption = Column(String, nullable=True, comment="Cover image alt caption")
+    lead = Column(String, nullable=True)
+    title = Column(String, nullable=False)
+    subtitle = Column(String, nullable=True)
+    layout = Column(String, nullable=False, default="article")
+    media = Column(JSON, nullable=True)
 
     authors = relationship(Author, secondary="shout_author")
     topics = relationship(Topic, secondary="shout_topic")
     reactions = relationship(Reaction)
 
-    lang: str = Column(String, nullable=False, default="ru", comment="Language")
-    version_of: int | None = Column(ForeignKey("shout.id"), nullable=True)
-    oid: str | None = Column(String, nullable=True)
+    lang = Column(String, nullable=False, default="ru", comment="Language")
+    version_of = Column(ForeignKey("shout.id"), nullable=True)
+    oid = Column(String, nullable=True)
+    seo = Column(String, nullable=True)  # JSON
 
-    seo: str | None = Column(String, nullable=True)  # JSON
-
-    draft: int | None = Column(ForeignKey("draft.id"), nullable=True)
+    draft = Column(ForeignKey("draft.id"), nullable=True)
 
     # Определяем индексы
     __table_args__ = (

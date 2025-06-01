@@ -578,28 +578,28 @@ tr:hover {
     flex-direction: column;
     align-items: start;
   }
-  
+
   .actions {
     flex-direction: column;
   }
-  
+
   .users-list {
     font-size: 14px;
   }
-  
+
   th, td {
     padding: 8px 5px;
   }
-  
+
   .pagination-per-page {
     margin-top: 10px;
   }
-  
+
   .header-container {
     flex-direction: column;
     gap: 10px;
   }
-} 
+}
 
 .loading-spinner {
   width: 40px;

@@ -64,10 +64,10 @@ python -m granian main:app --interface asgi
 
 ```shell
 # Linting and import sorting
-ruff check . --fix --select I 
+ruff check . --fix --select I
 
 # Code formatting
-ruff format . --line-length=120 
+ruff format . --line-length=120
 
 # Run tests
 pytest

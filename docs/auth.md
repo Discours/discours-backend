@@ -247,12 +247,12 @@ import { useAuthContext } from '../auth'
 
 export const AdminPanel: Component = () => {
   const auth = useAuthContext()
-  
+
   // Проверяем наличие роли админа
   if (!auth.hasRole('admin')) {
     return <div>Доступ запрещен</div>
   }
-  
+
   return (
     <div>
       <h1>Панель администратора</h1>
@@ -349,25 +349,25 @@ from auth.decorators import login_required
 from auth.models import Author
 
 @login_required
-async def update_article(_, info, article_id: int, data: dict):
+async def update_article(_: None,info, article_id: int, data: dict):
     """
     Обновление статьи с проверкой прав
     """
     user: Author = info.context.user
-    
+
     # Получаем статью
     article = db.query(Article).get(article_id)
     if not article:
         raise GraphQLError('Статья не найдена')
-        
+
     # Проверяем права на редактирование
     if not user.has_permission('articles', 'edit'):
         raise GraphQLError('Недостаточно прав')
-        
+
     # Обновляем поля
     article.title = data.get('title', article.title)
     article.content = data.get('content', article.content)
-    
+
     db.commit()
     return article
 ```
@@ -381,25 +381,24 @@ from auth.password import hash_password
 
 def create_admin(email: str, password: str):
     """Создание администратора"""
-    
+
     # Получаем роль админа
     admin_role = db.query(Role).filter(Role.id == 'admin').first()
-    
+
     # Создаем пользователя
     admin = Author(
         email=email,
         password=hash_password(password),
-        is_active=True,
         email_verified=True
     )
-    
+
     # Назначаем роль
     admin.roles.append(admin_role)
-    
+
     # Сохраняем
     db.add(admin)
     db.commit()
-    
+
     return admin
 ```
 
@@ -554,19 +553,19 @@ export const ProfileForm: Component = () => {
 // validators/auth.ts
 export const validatePassword = (password: string): string[] => {
   const errors: string[] = []
-  
+
   if (password.length < 8) {
     errors.push('Пароль должен быть не менее 8 символов')
   }
-  
+
   if (!/[A-Z]/.test(password)) {
     errors.push('Пароль должен содержать заглавную букву')
   }
-  
+
   if (!/[0-9]/.test(password)) {
     errors.push('Пароль должен содержать цифру')
   }
-  
+
   return errors
 }
 
@@ -575,24 +574,24 @@ import { validatePassword } from '../validators/auth'
 
 export const RegisterForm: Component = () => {
   const [errors, setErrors] = createSignal<string[]>([])
-  
+
   const handleSubmit = async (e: Event) => {
     e.preventDefault()
     const form = e.target as HTMLFormElement
     const data = new FormData(form)
-    
+
     // Валидация пароля
     const password = data.get('password') as string
     const passwordErrors = validatePassword(password)
-    
+
     if (passwordErrors.length > 0) {
       setErrors(passwordErrors)
       return
     }
-    
+
     // Отправка формы...
   }
-  
+
   return (
     <form onSubmit={handleSubmit}>
       <input name="password" type="password" />
@@ -613,7 +612,7 @@ from auth.models import Author
 
 async def notify_login(user: Author, ip: str, device: str):
     """Отправка уведомления о новом входе"""
-    
+
     # Формируем текст
     text = f"""
     Новый вход в аккаунт:
@@ -621,14 +620,14 @@ async def notify_login(user: Author, ip: str, device: str):
     Устройство: {device}
     Время: {datetime.now()}
     """
-    
+
     # Отправляем email
     await send_email(
         to=user.email,
         subject='Новый вход в аккаунт',
         text=text
     )
-    
+
     # Логируем
     logger.info(f'New login for user {user.id} from {ip}')
 ```
@@ -647,14 +646,14 @@ async def test_google_oauth_success(client, mock_google):
         'email': 'test@gmail.com',
         'name': 'Test User'
     }
-    
+
     # Запрос на авторизацию
     response = await client.get('/auth/login/google')
     assert response.status_code == 302
-    
+
     # Проверяем редирект
     assert 'accounts.google.com' in response.headers['location']
-    
+
     # Проверяем сессию
     assert 'state' in client.session
     assert 'code_verifier' in client.session
@@ -673,10 +672,10 @@ def test_user_permissions():
         operation='edit'
     )
     role.permissions.append(permission)
-    
+
     user = Author(email='test@test.com')
     user.roles.append(role)
-    
+
     # Проверяем разрешения
     assert user.has_permission('articles', 'edit')
     assert not user.has_permission('articles', 'delete')
@@ -696,23 +695,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         # Получаем IP
         ip = request.client.host
-        
+
         # Проверяем лимиты в Redis
         redis = Redis()
         key = f'rate_limit:{ip}'
-        
+
         # Увеличиваем счетчик
         count = redis.incr(key)
         if count == 1:
             redis.expire(key, 60)  # TTL 60 секунд
-            
+
         # Проверяем лимит
         if count > 100:  # 100 запросов в минуту
             return JSONResponse(
                 {'error': 'Too many requests'},
                 status_code=429
             )
-            
+
         return await call_next(request)
 ```
 
@@ -722,11 +721,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 # auth/login.py
 async def handle_login_attempt(user: Author, success: bool):
     """Обработка попытки входа"""
-    
+
     if not success:
         # Увеличиваем счетчик неудачных попыток
         user.increment_failed_login()
-        
+
         if user.is_locked():
             # Аккаунт заблокирован
             raise AuthError(
@@ -756,7 +755,7 @@ def log_auth_event(
 ):
     """
     Логирование событий авторизации
-    
+
     Args:
         event_type: Тип события (login, logout, etc)
         user_id: ID пользователя
@@ -796,4 +795,4 @@ login_duration = Histogram(
     'auth_login_duration_seconds',
     'Time spent processing login'
 )
-``` 
+```

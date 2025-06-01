@@ -52,7 +52,7 @@ Rate another author (karma system).
 - Excludes deleted reactions
 - Excludes comment reactions
 
-#### Comments Rating  
+#### Comments Rating
 - Calculated from LIKE/DISLIKE reactions on author's comments
 - Each LIKE: +1
 - Each DISLIKE: -1
@@ -79,4 +79,4 @@ Rate another author (karma system).
 - All ratings exclude deleted content
 - Reactions are unique per user/content
 - Rating calculations are optimized with SQLAlchemy
-- System supports both direct author rating and content-based rating 
+- System supports both direct author rating and content-based rating

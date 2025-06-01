@@ -22,6 +22,11 @@ JWT_SECRET_KEY = "your-secret-key"  # секретный ключ для JWT т�
 SESSION_TOKEN_LIFE_SPAN = 60 * 60 * 24 * 30  # время жизни сессии (30 дней)
 ```
 
+### Authentication & Security
+- [Security System](security.md) - Password and email management
+- [OAuth Token Management](oauth.md) - OAuth provider token storage in Redis
+- [Following System](follower.md) - User subscription system
+
 ### Реакции и комментарии
 
 Модуль обработки пользовательских реакций и комментариев.
@@ -51,7 +56,7 @@ SESSION_TOKEN_LIFE_SPAN = 60 * 60 * 24 * 30  # время жизни сесси�
 - Проверка доступа по email или правам в системе RBAC
 
 Маршруты:
-- `/admin` - административная панель с проверкой прав доступа 
+- `/admin` - административная панель с проверкой прав доступа
 
 ## Запуск сервера
 
@@ -93,4 +98,4 @@ python run.py --https --domain "localhost.localdomain"
 **Преимущества mkcert:**
 - Сертификаты распознаются браузером как доверенные (нет предупреждений)
 - Работает на всех платформах (macOS, Linux, Windows)
-- Простая установка и настройка 
+- Простая установка и настройка

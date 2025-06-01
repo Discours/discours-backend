@@ -2,7 +2,8 @@ import asyncio
 import os
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+from pathlib import Path
+from typing import ClassVar, Optional
 
 # ga
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
@@ -32,9 +33,9 @@ class ViewedStorage:
     """
 
     lock = asyncio.Lock()
-    views_by_shout = {}
-    shouts_by_topic = {}
-    shouts_by_author = {}
+    views_by_shout: ClassVar[dict] = {}
+    shouts_by_topic: ClassVar[dict] = {}
+    shouts_by_author: ClassVar[dict] = {}
     views = None
     period = 60 * 60  # каждый час
     analytics_client: Optional[BetaAnalyticsDataClient] = None
@@ -42,10 +43,11 @@ class ViewedStorage:
     running = False
     redis_views_key = None
     last_update_timestamp = 0
-    start_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    _background_task: Optional[asyncio.Task] = None
 
     @staticmethod
-    async def init():
+    async def init() -> None:
         """Подключение к клиенту Google Analytics и загрузка данных о просмотрах из Redis"""
         self = ViewedStorage
         async with self.lock:
@@ -53,25 +55,27 @@ class ViewedStorage:
             await self.load_views_from_redis()
 
             os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", GOOGLE_KEYFILE_PATH)
-            if GOOGLE_KEYFILE_PATH and os.path.isfile(GOOGLE_KEYFILE_PATH):
+            if GOOGLE_KEYFILE_PATH and Path(GOOGLE_KEYFILE_PATH).is_file():
                 # Using a default constructor instructs the client to use the credentials
                 # specified in GOOGLE_APPLICATION_CREDENTIALS environment variable.
                 self.analytics_client = BetaAnalyticsDataClient()
                 logger.info(" * Google Analytics credentials accepted")
 
                 # Запуск фоновой задачи
-                _task = asyncio.create_task(self.worker())
+                task = asyncio.create_task(self.worker())
+                # Store reference to prevent garbage collection
+                self._background_task = task
             else:
                 logger.warning(" * please, add Google Analytics credentials file")
                 self.running = False
 
     @staticmethod
-    async def load_views_from_redis():
+    async def load_views_from_redis() -> None:
         """Загрузка предварительно подсчитанных просмотров из Redis"""
         self = ViewedStorage
 
         # Подключаемся к Redis если соединение не установлено
-        if not redis._client:
+        if not await redis.ping():
             await redis.connect()
 
         # Логируем настройки Redis соединения
@@ -79,12 +83,12 @@ class ViewedStorage:
 
         # Получаем список всех ключей migrated_views_* и находим самый последний
         keys = await redis.execute("KEYS", "migrated_views_*")
-        logger.info(f" * Raw Redis result for 'KEYS migrated_views_*': {len(keys)}")
+        logger.info("Raw Redis result for 'KEYS migrated_views_*': %d", len(keys))
 
         # Декодируем байтовые строки, если есть
         if keys and isinstance(keys[0], bytes):
             keys = [k.decode("utf-8") for k in keys]
-            logger.info(f" * Decoded keys: {keys}")
+            logger.info("Decoded keys: %s", keys)
 
         if not keys:
             logger.warning(" * No migrated_views keys found in Redis")
@@ -92,7 +96,7 @@ class ViewedStorage:
 
         # Фильтруем только ключи timestamp формата (исключаем migrated_views_slugs)
         timestamp_keys = [k for k in keys if k != "migrated_views_slugs"]
-        logger.info(f" * Timestamp keys after filtering: {timestamp_keys}")
+        logger.info("Timestamp keys after filtering: %s", timestamp_keys)
 
         if not timestamp_keys:
             logger.warning(" * No migrated_views timestamp keys found in Redis")
@@ -102,32 +106,32 @@ class ViewedStorage:
         timestamp_keys.sort()
         latest_key = timestamp_keys[-1]
         self.redis_views_key = latest_key
-        logger.info(f" * Selected latest key: {latest_key}")
+        logger.info("Selected latest key: %s", latest_key)
 
         # Получаем метку времени создания для установки start_date
         timestamp = await redis.execute("HGET", latest_key, "_timestamp")
         if timestamp:
             self.last_update_timestamp = int(timestamp)
-            timestamp_dt = datetime.fromtimestamp(int(timestamp))
+            timestamp_dt = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
             self.start_date = timestamp_dt.strftime("%Y-%m-%d")
 
             # Если данные сегодняшние, считаем их актуальными
-            now_date = datetime.now().strftime("%Y-%m-%d")
+            now_date = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
             if now_date == self.start_date:
                 logger.info(" * Views data is up to date!")
             else:
-                logger.warning(f" * Views data is from {self.start_date}, may need update")
+                logger.warning("Views data is from %s, may need update", self.start_date)
 
         # Выводим информацию о количестве загруженных записей
         total_entries = await redis.execute("HGET", latest_key, "_total")
         if total_entries:
-            logger.info(f" * {total_entries} shouts with views loaded from Redis key: {latest_key}")
+            logger.info("%s shouts with views loaded from Redis key: %s", total_entries, latest_key)
 
-        logger.info(f" * Found migrated_views keys: {keys}")
+        logger.info("Found migrated_views keys: %s", keys)
 
     # noinspection PyTypeChecker
     @staticmethod
-    async def update_pages():
+    async def update_pages() -> None:
         """Запрос всех страниц от Google Analytics, отсортированных по количеству просмотров"""
         self = ViewedStorage
         logger.info(" ⎧ views update from Google Analytics ---")
@@ -164,16 +168,16 @@ class ViewedStorage:
                                     # Запись путей страниц для логирования
                                     slugs.add(slug)
 
-                                logger.info(f" ⎪ collected pages: {len(slugs)} ")
+                                logger.info("collected pages: %d", len(slugs))
 
                         end = time.time()
-                        logger.info(" ⎪ views update time: %fs " % (end - start))
-            except Exception as error:
+                        logger.info("views update time: %.2fs", end - start)
+            except (ConnectionError, TimeoutError, ValueError) as error:
                 logger.error(error)
                 self.running = False
 
     @staticmethod
-    async def get_shout(shout_slug="", shout_id=0) -> int:
+    async def get_shout(shout_slug: str = "", shout_id: int = 0) -> int:
         """
         Получение метрики просмотров shout по slug или id.
 
@@ -187,7 +191,7 @@ class ViewedStorage:
         self = ViewedStorage
 
         # Получаем данные из Redis для новой схемы хранения
-        if not redis._client:
+        if not await redis.ping():
             await redis.connect()
 
         fresh_views = self.views_by_shout.get(shout_slug, 0)
@@ -206,7 +210,7 @@ class ViewedStorage:
         return fresh_views
 
     @staticmethod
-    async def get_shout_media(shout_slug) -> Dict[str, int]:
+    async def get_shout_media(shout_slug: str) -> dict[str, int]:
         """Получение метрики воспроизведения shout по slug."""
         self = ViewedStorage
 
@@ -215,7 +219,7 @@ class ViewedStorage:
         return self.views_by_shout.get(shout_slug, 0)
 
     @staticmethod
-    async def get_topic(topic_slug) -> int:
+    async def get_topic(topic_slug: str) -> int:
         """Получение суммарного значения просмотров темы."""
         self = ViewedStorage
         views_count = 0
@@ -224,7 +228,7 @@ class ViewedStorage:
         return views_count
 
     @staticmethod
-    async def get_author(author_slug) -> int:
+    async def get_author(author_slug: str) -> int:
         """Получение суммарного значения просмотров автора."""
         self = ViewedStorage
         views_count = 0
@@ -233,13 +237,13 @@ class ViewedStorage:
         return views_count
 
     @staticmethod
-    def update_topics(shout_slug):
+    def update_topics(shout_slug: str) -> None:
         """Обновление счетчиков темы по slug shout"""
         self = ViewedStorage
         with local_session() as session:
             # Определение вспомогательной функции для избежания повторения кода
-            def update_groups(dictionary, key, value):
-                dictionary[key] = list(set(dictionary.get(key, []) + [value]))
+            def update_groups(dictionary: dict, key: str, value: str) -> None:
+                dictionary[key] = list({*dictionary.get(key, []), value})
 
             # Обновление тем и авторов с использованием вспомогательной функции
             for [_st, topic] in (
@@ -253,7 +257,7 @@ class ViewedStorage:
                 update_groups(self.shouts_by_author, author.slug, shout_slug)
 
     @staticmethod
-    async def stop():
+    async def stop() -> None:
         """Остановка фоновой задачи"""
         self = ViewedStorage
         async with self.lock:
@@ -261,7 +265,7 @@ class ViewedStorage:
             logger.info("ViewedStorage worker was stopped.")
 
     @staticmethod
-    async def worker():
+    async def worker() -> None:
         """Асинхронная задача обновления"""
         failed = 0
         self = ViewedStorage
@@ -270,10 +274,10 @@ class ViewedStorage:
             try:
                 await self.update_pages()
                 failed = 0
-            except Exception as exc:
+            except (ConnectionError, TimeoutError, ValueError) as exc:
                 failed += 1
                 logger.debug(exc)
-                logger.info(" - update failed #%d, wait 10 secs" % failed)
+                logger.info("update failed #%d, wait 10 secs", failed)
                 if failed > 3:
                     logger.info(" - views update failed, not trying anymore")
                     self.running = False
@@ -281,7 +285,7 @@ class ViewedStorage:
             if failed == 0:
                 when = datetime.now(timezone.utc) + timedelta(seconds=self.period)
                 t = format(when.astimezone().isoformat())
-                logger.info("       ⎩ next update: %s" % (t.split("T")[0] + " " + t.split("T")[1].split(".")[0]))
+                logger.info("       ⎩ next update: %s", t.split("T")[0] + " " + t.split("T")[1].split(".")[0])
                 await asyncio.sleep(self.period)
             else:
                 await asyncio.sleep(10)
@@ -326,10 +330,10 @@ class ViewedStorage:
                 return 0
 
             views = int(response.rows[0].metric_values[0].value)
+        except (ConnectionError, ValueError, AttributeError):
+            logger.exception("Google Analytics API Error")
+            return 0
+        else:
             # Кэшируем результат
             self.views_by_shout[slug] = views
             return views
-
-        except Exception as e:
-            logger.error(f"Google Analytics API Error: {e}")
-            return 0

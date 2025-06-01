@@ -8,7 +8,7 @@ from services.schema import mutation
 
 @mutation.field("accept_invite")
 @login_required
-async def accept_invite(_, info, invite_id: int):
+async def accept_invite(_: None, info, invite_id: int):
     author_dict = info.context["author"]
     author_id = author_dict.get("id")
     if author_id:
@@ -29,17 +29,15 @@ async def accept_invite(_, info, invite_id: int):
                             session.delete(invite)
                             session.commit()
                     return {"success": True, "message": "Invite accepted"}
-                else:
-                    return {"error": "Shout not found"}
-            else:
-                return {"error": "Invalid invite or already accepted/rejected"}
+                return {"error": "Shout not found"}
+            return {"error": "Invalid invite or already accepted/rejected"}
     else:
         return {"error": "Unauthorized"}
 
 
 @mutation.field("reject_invite")
 @login_required
-async def reject_invite(_, info, invite_id: int):
+async def reject_invite(_: None, info, invite_id: int):
     author_dict = info.context["author"]
     author_id = author_dict.get("id")
 
@@ -54,14 +52,13 @@ async def reject_invite(_, info, invite_id: int):
                 session.delete(invite)
                 session.commit()
                 return {"success": True, "message": "Invite rejected"}
-            else:
-                return {"error": "Invalid invite or already accepted/rejected"}
+            return {"error": "Invalid invite or already accepted/rejected"}
     return {"error": "User not found"}
 
 
 @mutation.field("create_invite")
 @login_required
-async def create_invite(_, info, slug: str = "", author_id: int = 0):
+async def create_invite(_: None, info, slug: str = "", author_id: int = 0):
     author_dict = info.context["author"]
     viewer_id = author_dict.get("id")
     roles = info.context.get("roles", [])
@@ -99,15 +96,14 @@ async def create_invite(_, info, slug: str = "", author_id: int = 0):
                 session.commit()
 
                 return {"error": None, "invite": new_invite}
-            else:
-                return {"error": "Invalid author"}
+            return {"error": "Invalid author"}
     else:
         return {"error": "Access denied"}
 
 
 @mutation.field("remove_author")
 @login_required
-async def remove_author(_, info, slug: str = "", author_id: int = 0):
+async def remove_author(_: None, info, slug: str = "", author_id: int = 0):
     viewer_id = info.context.get("author", {}).get("id")
     is_admin = info.context.get("is_admin", False)
     roles = info.context.get("roles", [])
@@ -127,7 +123,7 @@ async def remove_author(_, info, slug: str = "", author_id: int = 0):
 
 @mutation.field("remove_invite")
 @login_required
-async def remove_invite(_, info, invite_id: int):
+async def remove_invite(_: None, info, invite_id: int):
     author_dict = info.context["author"]
     author_id = author_dict.get("id")
     if isinstance(author_id, int):
@@ -144,7 +140,9 @@ async def remove_invite(_, info, invite_id: int):
                             session.delete(invite)
                             session.commit()
                             return {}
-            else:
-                return {"error": "Invalid invite or already accepted/rejected"}
+                        return None
+                    return None
+                return None
+            return {"error": "Invalid invite or already accepted/rejected"}
     else:
         return {"error": "Author not found"}

@@ -1,247 +1,260 @@
+import json
 import logging
+from typing import TYPE_CHECKING, Any, Optional, Set, Union
 
+import redis.asyncio as aioredis
 from redis.asyncio import Redis
 
+if TYPE_CHECKING:
+    pass  # type: ignore[attr-defined]
+
 from settings import REDIS_URL
+from utils.logger import root_logger as logger
+
+logger = logging.getLogger(__name__)
 
 # Set redis logging level to suppress DEBUG messages
-logger = logging.getLogger("redis")
-logger.setLevel(logging.WARNING)
+redis_logger = logging.getLogger("redis")
+redis_logger.setLevel(logging.WARNING)
 
 
 class RedisService:
-    def __init__(self, uri=REDIS_URL):
-        self._uri: str = uri
-        self.pubsub_channels = []
-        self._client = None
+    """
+    Сервис для работы с Redis с поддержкой пулов соединений.
 
-    async def connect(self):
-        if self._uri and self._client is None:
-            self._client = await Redis.from_url(self._uri, decode_responses=True)
-            logger.info("Redis connection was established.")
+    Provides connection pooling and proper error handling for Redis operations.
+    """
 
-    async def disconnect(self):
-        if isinstance(self._client, Redis):
-            await self._client.close()
-            logger.info("Redis connection was closed.")
+    def __init__(self, redis_url: str = REDIS_URL) -> None:
+        self._client: Optional[Redis[Any]] = None
+        self._redis_url = redis_url
+        self._is_available = aioredis is not None
 
-    async def execute(self, command, *args, **kwargs):
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
-            logger.info(f"[redis] Автоматически установлено соединение при выполнении команды {command}")
+        if not self._is_available:
+            logger.warning("Redis is not available - aioredis not installed")
 
-        if self._client:
-            try:
-                logger.debug(f"{command}")  # {args[0]}") # {args} {kwargs}")
-                for arg in args:
-                    if isinstance(arg, dict):
-                        if arg.get("_sa_instance_state"):
-                            del arg["_sa_instance_state"]
-                r = await self._client.execute_command(command, *args, **kwargs)
-                # logger.debug(type(r))
-                # logger.debug(r)
-                return r
-            except Exception as e:
-                logger.error(e)
-
-    def pipeline(self):
-        """
-        Возвращает пайплайн Redis для выполнения нескольких команд в одной транзакции.
-
-        Returns:
-            Pipeline: объект pipeline Redis
-        """
-        if self._client is None:
-            # Выбрасываем исключение, так как pipeline нельзя создать до подключения
-            raise Exception("Redis client is not initialized. Call redis.connect() first.")
-
-        return self._client.pipeline()
-
-    async def subscribe(self, *channels):
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
-
-        async with self._client.pubsub() as pubsub:
-            for channel in channels:
-                await pubsub.subscribe(channel)
-                self.pubsub_channels.append(channel)
-
-    async def unsubscribe(self, *channels):
-        if self._client is None:
+    async def connect(self) -> None:
+        """Establish Redis connection"""
+        if not self._is_available:
             return
 
-        async with self._client.pubsub() as pubsub:
-            for channel in channels:
-                await pubsub.unsubscribe(channel)
-                self.pubsub_channels.remove(channel)
+        # Закрываем существующее соединение если есть
+        if self._client:
+            try:
+                await self._client.close()
+            except Exception:
+                pass
+            self._client = None
 
-    async def publish(self, channel, data):
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
+        try:
+            self._client = aioredis.from_url(
+                self._redis_url,
+                encoding="utf-8",
+                decode_responses=False,  # We handle decoding manually
+                socket_keepalive=True,
+                socket_keepalive_options={},
+                retry_on_timeout=True,
+                health_check_interval=30,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+            )
+            # Test connection
+            await self._client.ping()
+            logger.info("Successfully connected to Redis")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            if self._client:
+                try:
+                    await self._client.close()
+                except Exception:
+                    pass
+            self._client = None
+
+    async def disconnect(self) -> None:
+        """Close Redis connection"""
+        if self._client:
+            await self._client.close()
+            self._client = None
+
+    @property
+    def is_connected(self) -> bool:
+        """Check if Redis is connected"""
+        return self._client is not None and self._is_available
+
+    def pipeline(self) -> Any:  # Returns Pipeline but we can't import it safely
+        """Create a Redis pipeline"""
+        if self._client:
+            return self._client.pipeline()
+        return None
+
+    async def execute(self, command: str, *args: Any) -> Any:
+        """Execute a Redis command"""
+        if not self._is_available:
+            logger.debug(f"Redis not available, skipping command: {command}")
+            return None
+
+        # Проверяем и восстанавливаем соединение при необходимости
+        if not self.is_connected:
+            logger.info("Redis not connected, attempting to reconnect...")
             await self.connect()
 
-        await self._client.publish(channel, data)
+        if not self.is_connected:
+            logger.error(f"Failed to establish Redis connection for command: {command}")
+            return None
 
-    async def set(self, key, data, ex=None):
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
+        try:
+            # Get the command method from the client
+            cmd_method = getattr(self._client, command.lower(), None)
+            if cmd_method is None:
+                logger.error(f"Unknown Redis command: {command}")
+                return None
+
+            result = await cmd_method(*args)
+            return result
+        except (ConnectionError, AttributeError, OSError) as e:
+            logger.warning(f"Redis connection lost during {command}, attempting to reconnect: {e}")
+            # Попытка переподключения
             await self.connect()
+            if self.is_connected:
+                try:
+                    cmd_method = getattr(self._client, command.lower(), None)
+                    if cmd_method is not None:
+                        result = await cmd_method(*args)
+                        return result
+                except Exception as retry_e:
+                    logger.error(f"Redis retry failed for {command}: {retry_e}")
+            return None
+        except Exception as e:
+            logger.error(f"Redis command failed {command}: {e}")
+            return None
 
-        # Prepare the command arguments
-        args = [key, data]
-
-        # If an expiration time is provided, add it to the arguments
-        if ex is not None:
-            args.append("EX")
-            args.append(ex)
-
-        # Execute the command with the provided arguments
-        await self.execute("set", *args)
-
-    async def get(self, key):
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
-
+    async def get(self, key: str) -> Optional[Union[str, bytes]]:
+        """Get value by key"""
         return await self.execute("get", key)
 
-    async def delete(self, *keys):
-        """
-        Удаляет ключи из Redis.
+    async def set(self, key: str, value: Any, ex: Optional[int] = None) -> bool:
+        """Set key-value pair with optional expiration"""
+        if ex is not None:
+            result = await self.execute("setex", key, ex, value)
+        else:
+            result = await self.execute("set", key, value)
+        return result is not None
 
-        Args:
-            *keys: Ключи для удаления
+    async def delete(self, *keys: str) -> int:
+        """Delete keys"""
+        result = await self.execute("delete", *keys)
+        return result or 0
 
-        Returns:
-            int: Количество удаленных ключей
-        """
-        if not keys:
-            return 0
+    async def exists(self, key: str) -> bool:
+        """Check if key exists"""
+        result = await self.execute("exists", key)
+        return bool(result)
 
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
+    async def publish(self, channel: str, data: Any) -> None:
+        """Publish message to channel"""
+        if not self.is_connected or self._client is None:
+            logger.debug(f"Redis not available, skipping publish to {channel}")
+            return
 
-        return await self._client.delete(*keys)
+        try:
+            await self._client.publish(channel, data)
+        except Exception as e:
+            logger.error(f"Failed to publish to channel {channel}: {e}")
 
-    async def hmset(self, key, mapping):
-        """
-        Устанавливает несколько полей хеша.
+    async def hset(self, key: str, field: str, value: Any) -> None:
+        """Set hash field"""
+        await self.execute("hset", key, field, value)
 
-        Args:
-            key: Ключ хеша
-            mapping: Словарь с полями и значениями
-        """
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
+    async def hget(self, key: str, field: str) -> Optional[Union[str, bytes]]:
+        """Get hash field"""
+        return await self.execute("hget", key, field)
 
-        await self._client.hset(key, mapping=mapping)
+    async def hgetall(self, key: str) -> dict[str, Any]:
+        """Get all hash fields"""
+        result = await self.execute("hgetall", key)
+        return result or {}
 
-    async def expire(self, key, seconds):
-        """
-        Устанавливает время жизни ключа.
+    async def keys(self, pattern: str) -> list[str]:
+        """Get keys matching pattern"""
+        result = await self.execute("keys", pattern)
+        return result or []
 
-        Args:
-            key: Ключ
-            seconds: Время жизни в секундах
-        """
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
+    async def smembers(self, key: str) -> Set[str]:
+        """Get set members"""
+        if not self.is_connected or self._client is None:
+            return set()
+        try:
+            result = await self._client.smembers(key)
+            if result:
+                return {str(item.decode("utf-8") if isinstance(item, bytes) else item) for item in result}
+            return set()
+        except Exception as e:
+            logger.error(f"Redis smembers command failed for {key}: {e}")
+            return set()
 
-        await self._client.expire(key, seconds)
+    async def sadd(self, key: str, *members: str) -> int:
+        """Add members to set"""
+        result = await self.execute("sadd", key, *members)
+        return result or 0
 
-    async def sadd(self, key, *values):
-        """
-        Добавляет значения в множество.
+    async def srem(self, key: str, *members: str) -> int:
+        """Remove members from set"""
+        result = await self.execute("srem", key, *members)
+        return result or 0
 
-        Args:
-            key: Ключ множества
-            *values: Значения для добавления
-        """
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
+    async def expire(self, key: str, seconds: int) -> bool:
+        """Set key expiration"""
+        result = await self.execute("expire", key, seconds)
+        return bool(result)
 
-        await self._client.sadd(key, *values)
+    async def serialize_and_set(self, key: str, data: Any, ex: Optional[int] = None) -> bool:
+        """Serialize data to JSON and store in Redis"""
+        try:
+            if isinstance(data, (str, bytes)):
+                serialized_data: bytes = data.encode("utf-8") if isinstance(data, str) else data
+            else:
+                serialized_data = json.dumps(data).encode("utf-8")
 
-    async def srem(self, key, *values):
-        """
-        Удаляет значения из множества.
+            return await self.set(key, serialized_data, ex=ex)
+        except Exception as e:
+            logger.error(f"Failed to serialize and set {key}: {e}")
+            return False
 
-        Args:
-            key: Ключ множества
-            *values: Значения для удаления
-        """
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
+    async def get_and_deserialize(self, key: str) -> Any:
+        """Get data from Redis and deserialize from JSON"""
+        try:
+            data = await self.get(key)
+            if data is None:
+                return None
 
-        await self._client.srem(key, *values)
+            if isinstance(data, bytes):
+                data = data.decode("utf-8")
 
-    async def smembers(self, key):
-        """
-        Получает все элементы множества.
+            return json.loads(data)
+        except Exception as e:
+            logger.error(f"Failed to get and deserialize {key}: {e}")
+            return None
 
-        Args:
-            key: Ключ множества
-
-        Returns:
-            set: Множество элементов
-        """
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
-
-        return await self._client.smembers(key)
-
-    async def exists(self, key):
-        """
-        Проверяет, существует ли ключ в Redis.
-
-        Args:
-            key: Ключ для проверки
-
-        Returns:
-            bool: True, если ключ существует, False в противном случае
-        """
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
-
-        return await self._client.exists(key)
-
-    async def expire(self, key, seconds):
-        """
-        Устанавливает время жизни ключа.
-
-        Args:
-            key: Ключ
-            seconds: Время жизни в секундах
-        """
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
-
-        return await self._client.expire(key, seconds)
-
-    async def keys(self, pattern):
-        """
-        Возвращает все ключи, соответствующие шаблону.
-
-        Args:
-            pattern: Шаблон для поиска ключей
-        """
-        # Автоматически подключаемся к Redis, если соединение не установлено
-        if self._client is None:
-            await self.connect()
-
-        return await self._client.keys(pattern)
+    async def ping(self) -> bool:
+        """Ping Redis server"""
+        if not self.is_connected or self._client is None:
+            return False
+        try:
+            result = await self._client.ping()
+            return bool(result)
+        except Exception:
+            return False
 
 
+# Global Redis instance
 redis = RedisService()
 
-__all__ = ["redis"]
+
+async def init_redis() -> None:
+    """Initialize Redis connection"""
+    await redis.connect()
+
+
+async def close_redis() -> None:
+    """Close Redis connection"""
+    await redis.disconnect()

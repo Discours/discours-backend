@@ -150,15 +150,15 @@ class CacheRevalidationManager:
     def __init__(self, interval=CACHE_REVALIDATION_INTERVAL):
         # ...
         self._redis = redis  # Прямая ссылка на сервис Redis
-        
+
     async def start(self):
         # Проверка и установка соединения с Redis
         # ...
-        
+
     async def process_revalidation(self):
         # Обработка элементов для ревалидации
         # ...
-        
+
     def mark_for_revalidation(self, entity_id, entity_type):
         # Добавляет сущность в очередь на ревалидацию
         # ...
@@ -213,14 +213,14 @@ async def precache_data():
 async def get_topics_with_stats(limit=10, offset=0, by="title"):
     # Формирование ключа кеша по конвенции
     cache_key = f"topics:stats:limit={limit}:offset={offset}:sort={by}"
-    
+
     cached_data = await get_cached_data(cache_key)
     if cached_data:
         return cached_data
-        
+
     # Выполнение запроса к базе данных
     result = ... # логика получения данных
-    
+
     await cache_data(cache_key, result, ttl=300)
     return result
 ```
@@ -232,16 +232,16 @@ async def get_topics_with_stats(limit=10, offset=0, by="title"):
     async def fetch_data(limit, offset, by):
         # Логика получения данных
         return result
-        
+
     # Формирование ключа кеша по конвенции
     cache_key = f"topics:stats:limit={limit}:offset={offset}:sort={by}"
-    
+
     return await cached_query(
-        cache_key, 
-        fetch_data, 
-        ttl=300, 
-        limit=limit, 
-        offset=offset, 
+        cache_key,
+        fetch_data,
+        ttl=300,
+        limit=limit,
+        offset=offset,
         by=by
     )
 ```
@@ -252,10 +252,10 @@ async def get_topics_with_stats(limit=10, offset=0, by="title"):
 async def update_author(author_id, data):
     # Обновление данных в базе
     # ...
-    
+
     # Инвалидация только кеша этого автора
     await invalidate_authors_cache(author_id)
-    
+
     return result
 ```
 

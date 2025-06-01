@@ -40,7 +40,7 @@ CREATE TABLE oauth_links (
     provider_data JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     UNIQUE(provider, provider_id)
 );
 
@@ -86,13 +86,13 @@ async def oauth_redirect(provider: str, state: str, redirect_uri: str):
     # Валидация провайдера
     if provider not in ["google", "facebook", "github", "vk", "yandex"]:
         raise HTTPException(400, "Unsupported provider")
-    
+
     # Сохранение state в Redis
     await store_oauth_state(state, redirect_uri)
-    
+
     # Генерация URL провайдера
     oauth_url = generate_provider_url(provider, state, redirect_uri)
-    
+
     return RedirectResponse(url=oauth_url)
 
 @router.get("/{provider}/callback")
@@ -101,16 +101,16 @@ async def oauth_callback(provider: str, code: str, state: str):
     stored_data = await get_oauth_state(state)
     if not stored_data:
         raise HTTPException(400, "Invalid state")
-    
+
     # Обмен code на user_data
     user_data = await exchange_code_for_user_data(provider, code)
-    
+
     # Создание/поиск пользователя
     user = await get_or_create_user_from_oauth(provider, user_data)
-    
+
     # Генерация JWT
     access_token = generate_jwt_token(user.id)
-    
+
     # Редирект с токеном
     return RedirectResponse(
         url=f"{stored_data['redirect_uri']}?state={state}&access_token={access_token}"
@@ -196,4 +196,4 @@ tail -f /var/log/app/oauth.log | grep "oauth"
 
 # Frontend логи (browser console)
 # Фильтр: "[oauth]" или "[SessionProvider]"
-``` 
+```

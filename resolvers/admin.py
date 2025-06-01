@@ -1,7 +1,10 @@
 from math import ceil
+from typing import Any
 
+from graphql import GraphQLResolveInfo
 from graphql.error import GraphQLError
 from sqlalchemy import String, cast, or_
+from sqlalchemy.orm import joinedload
 
 from auth.decorators import admin_auth_required
 from auth.orm import Author, AuthorRole, Role
@@ -13,7 +16,9 @@ from utils.logger import root_logger as logger
 
 @query.field("adminGetUsers")
 @admin_auth_required
-async def admin_get_users(_, info, limit=10, offset=0, search=None):
+async def admin_get_users(
+    _: None, _info: GraphQLResolveInfo, limit: int = 10, offset: int = 0, search: str = ""
+) -> dict[str, Any]:
     """
     Получает список пользователей для админ-панели с поддержкой пагинации и поиска
 
@@ -58,7 +63,7 @@ async def admin_get_users(_, info, limit=10, offset=0, search=None):
             users = query.order_by(Author.id).offset(offset).limit(limit).all()
 
             # Преобразуем в формат для API
-            result = {
+            return {
                 "users": [
                     {
                         "id": user.id,
@@ -77,34 +82,34 @@ async def admin_get_users(_, info, limit=10, offset=0, search=None):
                 "totalPages": total_pages,
             }
 
-            return result
     except Exception as e:
         import traceback
 
-        logger.error(f"Ошибка при получении списка пользователей: {str(e)}")
+        logger.error(f"Ошибка при получении списка пользователей: {e!s}")
         logger.error(traceback.format_exc())
-        raise GraphQLError(f"Не удалось получить список пользователей: {str(e)}")
+        msg = f"Не удалось получить список пользователей: {e!s}"
+        raise GraphQLError(msg)
 
 
 @query.field("adminGetRoles")
 @admin_auth_required
-async def admin_get_roles(_, info):
+async def admin_get_roles(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
     """
-    Получает список всех ролей для админ-панели
+    Получает список всех ролей в системе
 
     Args:
         info: Контекст GraphQL запроса
 
     Returns:
-        Список ролей с их описаниями
+        Список ролей
     """
     try:
         with local_session() as session:
-            # Получаем все роли из базы данных
-            roles = session.query(Role).all()
+            # Загружаем роли с их разрешениями
+            roles = session.query(Role).options(joinedload(Role.permissions)).all()
 
             # Преобразуем их в формат для API
-            result = [
+            roles_list = [
                 {
                     "id": role.id,
                     "name": role.name,
@@ -115,15 +120,17 @@ async def admin_get_roles(_, info):
                 for role in roles
             ]
 
-            return result
+            return {"roles": roles_list}
+
     except Exception as e:
-        logger.error(f"Ошибка при получении списка ролей: {str(e)}")
-        raise GraphQLError(f"Не удалось получить список ролей: {str(e)}")
+        logger.error(f"Ошибка при получении списка ролей: {e!s}")
+        msg = f"Не удалось получить список ролей: {e!s}"
+        raise GraphQLError(msg)
 
 
 @query.field("getEnvVariables")
 @admin_auth_required
-async def get_env_variables(_, info):
+async def get_env_variables(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
     """
     Получает список переменных окружения, сгруппированных по секциям
 
@@ -138,10 +145,10 @@ async def get_env_variables(_, info):
         env_manager = EnvManager()
 
         # Получаем все переменные
-        sections = env_manager.get_all_variables()
+        sections = await env_manager.get_all_variables()
 
         # Преобразуем к формату GraphQL API
-        result = [
+        sections_list = [
             {
                 "name": section.name,
                 "description": section.description,
@@ -159,15 +166,17 @@ async def get_env_variables(_, info):
             for section in sections
         ]
 
-        return result
+        return {"sections": sections_list}
+
     except Exception as e:
-        logger.error(f"Ошибка при получении переменных окружения: {str(e)}")
-        raise GraphQLError(f"Не удалось получить переменные окружения: {str(e)}")
+        logger.error(f"Ошибка при получении переменных окружения: {e!s}")
+        msg = f"Не удалось получить переменные окружения: {e!s}"
+        raise GraphQLError(msg)
 
 
 @mutation.field("updateEnvVariable")
 @admin_auth_required
-async def update_env_variable(_, info, key, value):
+async def update_env_variable(_: None, _info: GraphQLResolveInfo, key: str, value: str) -> dict[str, Any]:
     """
     Обновляет значение переменной окружения
 
@@ -184,22 +193,22 @@ async def update_env_variable(_, info, key, value):
         env_manager = EnvManager()
 
         # Обновляем переменную
-        result = env_manager.update_variable(key, value)
+        result = env_manager.update_variables([EnvVariable(key=key, value=value)])
 
         if result:
             logger.info(f"Переменная окружения '{key}' успешно обновлена")
         else:
             logger.error(f"Не удалось обновить переменную окружения '{key}'")
 
-        return result
+        return {"success": result}
     except Exception as e:
-        logger.error(f"Ошибка при обновлении переменной окружения: {str(e)}")
-        return False
+        logger.error(f"Ошибка при обновлении переменной окружения: {e!s}")
+        return {"success": False, "error": str(e)}
 
 
 @mutation.field("updateEnvVariables")
 @admin_auth_required
-async def update_env_variables(_, info, variables):
+async def update_env_variables(_: None, info: GraphQLResolveInfo, variables: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Массовое обновление переменных окружения
 
@@ -226,17 +235,17 @@ async def update_env_variables(_, info, variables):
         if result:
             logger.info(f"Переменные окружения успешно обновлены ({len(variables)} шт.)")
         else:
-            logger.error(f"Не удалось обновить переменные окружения")
+            logger.error("Не удалось обновить переменные окружения")
 
-        return result
+        return {"success": result}
     except Exception as e:
-        logger.error(f"Ошибка при массовом обновлении переменных окружения: {str(e)}")
-        return False
+        logger.error(f"Ошибка при массовом обновлении переменных окружения: {e!s}")
+        return {"success": False, "error": str(e)}
 
 
 @mutation.field("adminUpdateUser")
 @admin_auth_required
-async def admin_update_user(_, info, user):
+async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, Any]) -> dict[str, Any]:
     """
     Обновляет роли пользователя
 
@@ -275,7 +284,7 @@ async def admin_update_user(_, info, user):
                 role_objects = session.query(Role).filter(Role.id.in_(roles)).all()
 
                 # Проверяем, все ли запрошенные роли найдены
-                found_role_ids = [role.id for role in role_objects]
+                found_role_ids = [str(role.id) for role in role_objects]
                 missing_roles = set(roles) - set(found_role_ids)
 
                 if missing_roles:
@@ -292,7 +301,7 @@ async def admin_update_user(_, info, user):
                 session.commit()
 
                 # Проверяем, добавлена ли пользователю роль reader
-                has_reader = "reader" in [role.id for role in role_objects]
+                has_reader = "reader" in [str(role.id) for role in role_objects]
                 if not has_reader:
                     logger.warning(
                         f"Пользователю {author.email or author.id} не назначена роль 'reader'. Доступ в систему будет ограничен."
@@ -304,13 +313,13 @@ async def admin_update_user(_, info, user):
             except Exception as e:
                 # Обработка вложенных исключений
                 session.rollback()
-                error_msg = f"Ошибка при изменении ролей: {str(e)}"
+                error_msg = f"Ошибка при изменении ролей: {e!s}"
                 logger.error(error_msg)
                 return {"success": False, "error": error_msg}
     except Exception as e:
         import traceback
 
-        error_msg = f"Ошибка при обновлении ролей пользователя: {str(e)}"
+        error_msg = f"Ошибка при обновлении ролей пользователя: {e!s}"
         logger.error(error_msg)
         logger.error(traceback.format_exc())
         return {"success": False, "error": error_msg}

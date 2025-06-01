@@ -1,5 +1,5 @@
 from starlette.requests import Request
-from starlette.responses import JSONResponse, RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
 from auth.internal import verify_internal_auth
@@ -17,7 +17,7 @@ from settings import (
 from utils.logger import root_logger as logger
 
 
-async def logout(request: Request):
+async def logout(request: Request) -> Response:
     """
     Выход из системы с удалением сессии и cookie.
 
@@ -54,10 +54,10 @@ async def logout(request: Request):
     if token:
         try:
             # Декодируем токен для получения user_id
-            user_id, _ = await verify_internal_auth(token)
+            user_id, _, _ = await verify_internal_auth(token)
             if user_id:
                 # Отзываем сессию
-                await SessionManager.revoke_session(user_id, token)
+                await SessionManager.revoke_session(str(user_id), token)
                 logger.info(f"[auth] logout: Токен успешно отозван для пользователя {user_id}")
             else:
                 logger.warning("[auth] logout: Не удалось получить user_id из токена")
@@ -81,7 +81,7 @@ async def logout(request: Request):
     return response
 
 
-async def refresh_token(request: Request):
+async def refresh_token(request: Request) -> JSONResponse:
     """
     Обновление токена аутентификации.
 
@@ -128,7 +128,7 @@ async def refresh_token(request: Request):
 
     try:
         # Получаем информацию о пользователе из токена
-        user_id, _ = await verify_internal_auth(token)
+        user_id, _, _ = await verify_internal_auth(token)
         if not user_id:
             logger.warning("[auth] refresh_token: Недействительный токен")
             return JSONResponse({"success": False, "error": "Недействительный токен"}, status_code=401)
@@ -142,7 +142,10 @@ async def refresh_token(request: Request):
                 return JSONResponse({"success": False, "error": "Пользователь не найден"}, status_code=404)
 
             # Обновляем сессию (создаем новую и отзываем старую)
-            device_info = {"ip": request.client.host, "user_agent": request.headers.get("user-agent")}
+            device_info = {
+                "ip": request.client.host if request.client else "unknown",
+                "user_agent": request.headers.get("user-agent"),
+            }
             new_token = await SessionManager.refresh_session(user_id, token, device_info)
 
             if not new_token:

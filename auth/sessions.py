@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
 from auth.jwtcodec import JWTCodec, TokenPayload
 from services.redis import redis
-from settings import SESSION_TOKEN_LIFE_SPAN
 from utils.logger import root_logger as logger
 
 
@@ -103,7 +102,7 @@ class SessionManager:
         pipeline.hset(token_key, mapping={"user_id": user_id, "username": username})
         pipeline.expire(token_key, 30 * 24 * 60 * 60)
 
-        result = await pipeline.execute()
+        await pipeline.execute()
         logger.info(f"[SessionManager.create_session] Сессия успешно создана для пользователя {user_id}")
 
         return token
@@ -130,7 +129,7 @@ class SessionManager:
 
             logger.debug(f"[SessionManager.verify_session] Успешно декодирован токен, user_id={payload.user_id}")
         except Exception as e:
-            logger.error(f"[SessionManager.verify_session] Ошибка при декодировании токена: {str(e)}")
+            logger.error(f"[SessionManager.verify_session] Ошибка при декодировании токена: {e!s}")
             return None
 
         # Получаем данные из payload
@@ -205,9 +204,9 @@ class SessionManager:
         return payload
 
     @classmethod
-    async def get_user_sessions(cls, user_id: str) -> List[Dict[str, Any]]:
+    async def get_user_sessions(cls, user_id: str) -> list[dict[str, Any]]:
         """
-        Получает список активных сессий пользователя.
+        Получает все активные сессии пользователя.
 
         Args:
             user_id: ID пользователя
@@ -219,13 +218,15 @@ class SessionManager:
         tokens = await redis.smembers(user_sessions_key)
 
         sessions = []
-        for token in tokens:
-            session_key = cls._make_session_key(user_id, token)
+        # Convert set to list for iteration
+        for token in list(tokens):
+            token_str: str = str(token)
+            session_key = cls._make_session_key(user_id, token_str)
             session_data = await redis.hgetall(session_key)
 
-            if session_data:
+            if session_data and token:
                 session = dict(session_data)
-                session["token"] = token
+                session["token"] = token_str
                 sessions.append(session)
 
         return sessions
@@ -275,17 +276,19 @@ class SessionManager:
         tokens = await redis.smembers(user_sessions_key)
 
         count = 0
-        for token in tokens:
-            session_key = cls._make_session_key(user_id, token)
+        # Convert set to list for iteration
+        for token in list(tokens):
+            token_str: str = str(token)
+            session_key = cls._make_session_key(user_id, token_str)
 
             # Удаляем данные сессии
             deleted = await redis.delete(session_key)
             count += deleted
 
             # Также удаляем ключ в формате TokenStorage
-            token_payload = JWTCodec.decode(token)
+            token_payload = JWTCodec.decode(token_str)
             if token_payload:
-                token_key = f"{user_id}-{token_payload.username}-{token}"
+                token_key = f"{user_id}-{token_payload.username}-{token_str}"
                 await redis.delete(token_key)
 
         # Очищаем список токенов
@@ -294,7 +297,7 @@ class SessionManager:
         return count
 
     @classmethod
-    async def get_session_data(cls, user_id: str, token: str) -> Optional[Dict[str, Any]]:
+    async def get_session_data(cls, user_id: str, token: str) -> Optional[dict[str, Any]]:
         """
         Получает данные сессии.
 
@@ -310,7 +313,7 @@ class SessionManager:
             session_data = await redis.execute("HGETALL", session_key)
             return session_data if session_data else None
         except Exception as e:
-            logger.error(f"[SessionManager.get_session_data] Ошибка: {str(e)}")
+            logger.error(f"[SessionManager.get_session_data] Ошибка: {e!s}")
             return None
 
     @classmethod
@@ -336,7 +339,7 @@ class SessionManager:
             await pipe.execute()
             return True
         except Exception as e:
-            logger.error(f"[SessionManager.revoke_session] Ошибка: {str(e)}")
+            logger.error(f"[SessionManager.revoke_session] Ошибка: {e!s}")
             return False
 
     @classmethod
@@ -362,8 +365,10 @@ class SessionManager:
             pipe = redis.pipeline()
 
             # Формируем список ключей для удаления
-            for token in tokens:
-                session_key = cls._make_session_key(user_id, token)
+            # Convert set to list for iteration
+            for token in list(tokens):
+                token_str: str = str(token)
+                session_key = cls._make_session_key(user_id, token_str)
                 await pipe.delete(session_key)
 
             # Удаляем список сессий
@@ -372,11 +377,11 @@ class SessionManager:
 
             return True
         except Exception as e:
-            logger.error(f"[SessionManager.revoke_all_sessions] Ошибка: {str(e)}")
+            logger.error(f"[SessionManager.revoke_all_sessions] Ошибка: {e!s}")
             return False
 
     @classmethod
-    async def refresh_session(cls, user_id: str, old_token: str, device_info: dict = None) -> Optional[str]:
+    async def refresh_session(cls, user_id: int, old_token: str, device_info: Optional[dict] = None) -> Optional[str]:
         """
         Обновляет сессию пользователя, заменяя старый токен новым.
 
@@ -389,8 +394,9 @@ class SessionManager:
             str: Новый токен сессии или None в случае ошибки
         """
         try:
+            user_id_str = str(user_id)
             # Получаем данные старой сессии
-            old_session_key = cls._make_session_key(user_id, old_token)
+            old_session_key = cls._make_session_key(user_id_str, old_token)
             old_session_data = await redis.hgetall(old_session_key)
 
             if not old_session_data:
@@ -402,12 +408,12 @@ class SessionManager:
                 device_info = old_session_data.get("device_info")
 
             # Создаем новую сессию
-            new_token = await cls.create_session(user_id, old_session_data.get("username", ""), device_info)
+            new_token = await cls.create_session(user_id_str, old_session_data.get("username", ""), device_info)
 
             # Отзываем старую сессию
-            await cls.revoke_session(user_id, old_token)
+            await cls.revoke_session(user_id_str, old_token)
 
             return new_token
         except Exception as e:
-            logger.error(f"[SessionManager.refresh_session] Ошибка: {str(e)}")
+            logger.error(f"[SessionManager.refresh_session] Ошибка: {e!s}")
             return None

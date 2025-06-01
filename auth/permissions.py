@@ -5,7 +5,7 @@
 на основе его роли в этом сообществе.
 """
 
-from typing import List, Union
+from typing import Union
 
 from sqlalchemy.orm import Session
 
@@ -98,7 +98,7 @@ class ContextualPermissionCheck:
         permission_id = f"{resource}:{operation}"
 
         # Запрос на проверку разрешений для указанных ролей
-        has_permission = (
+        return (
             session.query(RolePermission)
             .join(Role, Role.id == RolePermission.role)
             .join(Permission, Permission.id == RolePermission.permission)
@@ -107,10 +107,8 @@ class ContextualPermissionCheck:
             is not None
         )
 
-        return has_permission
-
     @staticmethod
-    def get_user_community_roles(session: Session, author_id: int, community_slug: str) -> List[CommunityRole]:
+    def get_user_community_roles(session: Session, author_id: int, community_slug: str) -> list[CommunityRole]:
         """
         Получает список ролей пользователя в сообществе.
 
@@ -180,7 +178,7 @@ class ContextualPermissionCheck:
 
         if not community_follower:
             # Создаем новую запись CommunityFollower
-            community_follower = CommunityFollower(author=author_id, community=community.id)
+            community_follower = CommunityFollower(follower=author_id, community=community.id)
             session.add(community_follower)
 
         # Назначаем роль

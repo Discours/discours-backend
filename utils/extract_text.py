@@ -4,24 +4,31 @@
 
 import trafilatura
 
+from utils.logger import root_logger as logger
+
 
 def extract_text(html: str) -> str:
     """
-    Извлекает текст из HTML-фрагмента.
+    Извлекает чистый текст из HTML
 
     Args:
-        html: HTML-фрагмент
+        html: HTML строка
 
     Returns:
-        str: Текст из HTML-фрагмента
+        str: Извлеченный текст или пустая строка
     """
-    return trafilatura.extract(
-        wrap_html_fragment(html),
-        include_comments=False,
-        include_tables=False,
-        include_images=False,
-        include_formatting=False,
-    )
+    try:
+        result = trafilatura.extract(
+            html,
+            include_comments=False,
+            include_tables=True,
+            include_formatting=False,
+            favor_precision=True,
+        )
+        return result or ""
+    except Exception as e:
+        logger.error(f"Error extracting text: {e}")
+        return ""
 
 
 def wrap_html_fragment(fragment: str) -> str:

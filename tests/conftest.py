@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 
 from services.redis import redis
@@ -7,25 +5,17 @@ from tests.test_config import get_test_client
 
 
 @pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
 def test_app():
     """Create a test client and session factory."""
-    client, SessionLocal = get_test_client()
-    return client, SessionLocal
+    client, session_local = get_test_client()
+    return client, session_local
 
 
 @pytest.fixture
 def db_session(test_app):
     """Create a new database session for a test."""
-    _, SessionLocal = test_app
-    session = SessionLocal()
+    _, session_local = test_app
+    session = session_local()
 
     yield session
 

@@ -1,4 +1,7 @@
-from sqlalchemy import desc, select, text
+from typing import Any, Optional
+
+from graphql import GraphQLResolveInfo
+from sqlalchemy import desc, func, select, text
 
 from auth.orm import Author
 from cache.cache import (
@@ -9,8 +12,9 @@ from cache.cache import (
     get_cached_topic_followers,
     invalidate_cache_by_prefix,
 )
-from orm.reaction import ReactionKind
-from orm.topic import Topic
+from orm.reaction import Reaction, ReactionKind
+from orm.shout import Shout, ShoutAuthor, ShoutTopic
+from orm.topic import Topic, TopicFollower
 from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session
@@ -20,7 +24,7 @@ from utils.logger import root_logger as logger
 
 
 # Вспомогательная функция для получения всех тем без статистики
-async def get_all_topics():
+async def get_all_topics() -> list[Any]:
     """
     Получает все темы без статистики.
     Используется для случаев, когда нужен полный список тем без дополнительной информации.
@@ -31,7 +35,7 @@ async def get_all_topics():
     cache_key = "topics:all:basic"
 
     # Функция для получения всех тем из БД
-    async def fetch_all_topics():
+    async def fetch_all_topics() -> list[dict]:
         logger.debug("Получаем список всех тем из БД и кешируем результат")
 
         with local_session() as session:
@@ -47,7 +51,9 @@ async def get_all_topics():
 
 
 # Вспомогательная функция для получения тем со статистикой с пагинацией
-async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None):
+async def get_topics_with_stats(
+    limit: int = 100, offset: int = 0, community_id: Optional[int] = None, by: Optional[str] = None
+) -> dict[str, Any]:
     """
     Получает темы со статистикой с пагинацией.
 
@@ -55,17 +61,21 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
         limit: Максимальное количество возвращаемых тем
         offset: Смещение для пагинации
         community_id: Опциональный ID сообщества для фильтрации
-        by: Опциональный параметр сортировки
+        by: Опциональный параметр сортировки ('popular', 'authors', 'followers', 'comments')
+            - 'popular' - по количеству публикаций (по умолчанию)
+            - 'authors' - по количеству авторов
+            - 'followers' - по количеству подписчиков
+            - 'comments' - по количеству комментариев
 
     Returns:
-        list: Список тем с их статистикой
+        list: Список тем с их статистикой, отсортированный по популярности
     """
     # Формируем ключ кеша с помощью универсальной функции
-    cache_key = f"topics:stats:limit={limit}:offset={offset}:community_id={community_id}"
+    cache_key = f"topics:stats:limit={limit}:offset={offset}:community_id={community_id}:by={by}"
 
     # Функция для получения тем из БД
-    async def fetch_topics_with_stats():
-        logger.debug(f"Выполняем запрос на получение тем со статистикой: limit={limit}, offset={offset}")
+    async def fetch_topics_with_stats() -> list[dict]:
+        logger.debug(f"Выполняем запрос на получение тем со статистикой: limit={limit}, offset={offset}, by={by}")
 
         with local_session() as session:
             # Базовый запрос для получения тем
@@ -87,17 +97,89 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
                             else:
                                 base_query = base_query.order_by(column)
                 elif by == "popular":
-                    # Сортировка по популярности (количеству публикаций)
-                    # Примечание: это требует дополнительного запроса или подзапроса
-                    base_query = base_query.order_by(
-                        desc(Topic.id)
-                    )  # Временно, нужно заменить на proper implementation
+                    # Сортировка по популярности - по количеству публикаций
+                    shouts_subquery = (
+                        select(ShoutTopic.topic, func.count(ShoutTopic.shout).label("shouts_count"))
+                        .join(Shout, ShoutTopic.shout == Shout.id)
+                        .where(Shout.deleted_at.is_(None), Shout.published_at.isnot(None))
+                        .group_by(ShoutTopic.topic)
+                        .subquery()
+                    )
+
+                    base_query = base_query.outerjoin(shouts_subquery, Topic.id == shouts_subquery.c.topic).order_by(
+                        desc(func.coalesce(shouts_subquery.c.shouts_count, 0))
+                    )
+                elif by == "authors":
+                    # Сортировка по количеству авторов
+                    authors_subquery = (
+                        select(ShoutTopic.topic, func.count(func.distinct(ShoutAuthor.author)).label("authors_count"))
+                        .join(Shout, ShoutTopic.shout == Shout.id)
+                        .join(ShoutAuthor, ShoutAuthor.shout == Shout.id)
+                        .where(Shout.deleted_at.is_(None), Shout.published_at.isnot(None))
+                        .group_by(ShoutTopic.topic)
+                        .subquery()
+                    )
+
+                    base_query = base_query.outerjoin(authors_subquery, Topic.id == authors_subquery.c.topic).order_by(
+                        desc(func.coalesce(authors_subquery.c.authors_count, 0))
+                    )
+                elif by == "followers":
+                    # Сортировка по количеству подписчиков
+                    followers_subquery = (
+                        select(TopicFollower.topic, func.count(TopicFollower.follower).label("followers_count"))
+                        .group_by(TopicFollower.topic)
+                        .subquery()
+                    )
+
+                    base_query = base_query.outerjoin(
+                        followers_subquery, Topic.id == followers_subquery.c.topic
+                    ).order_by(desc(func.coalesce(followers_subquery.c.followers_count, 0)))
+                elif by == "comments":
+                    # Сортировка по количеству комментариев
+                    comments_subquery = (
+                        select(ShoutTopic.topic, func.count(func.distinct(Reaction.id)).label("comments_count"))
+                        .join(Shout, ShoutTopic.shout == Shout.id)
+                        .join(Reaction, Reaction.shout == Shout.id)
+                        .where(
+                            Shout.deleted_at.is_(None),
+                            Shout.published_at.isnot(None),
+                            Reaction.kind == ReactionKind.COMMENT.value,
+                            Reaction.deleted_at.is_(None),
+                        )
+                        .group_by(ShoutTopic.topic)
+                        .subquery()
+                    )
+
+                    base_query = base_query.outerjoin(
+                        comments_subquery, Topic.id == comments_subquery.c.topic
+                    ).order_by(desc(func.coalesce(comments_subquery.c.comments_count, 0)))
                 else:
-                    # По умолчанию сортируем по ID в обратном порядке
-                    base_query = base_query.order_by(desc(Topic.id))
+                    # Неизвестный параметр сортировки - используем дефолтную (по популярности)
+                    shouts_subquery = (
+                        select(ShoutTopic.topic, func.count(ShoutTopic.shout).label("shouts_count"))
+                        .join(Shout, ShoutTopic.shout == Shout.id)
+                        .where(Shout.deleted_at.is_(None), Shout.published_at.isnot(None))
+                        .group_by(ShoutTopic.topic)
+                        .subquery()
+                    )
+
+                    base_query = base_query.outerjoin(shouts_subquery, Topic.id == shouts_subquery.c.topic).order_by(
+                        desc(func.coalesce(shouts_subquery.c.shouts_count, 0))
+                    )
             else:
-                # По умолчанию сортируем по ID в обратном порядке
-                base_query = base_query.order_by(desc(Topic.id))
+                # По умолчанию сортируем по популярности (количество публикаций)
+                # Это более логично для списка топиков сообщества
+                shouts_subquery = (
+                    select(ShoutTopic.topic, func.count(ShoutTopic.shout).label("shouts_count"))
+                    .join(Shout, ShoutTopic.shout == Shout.id)
+                    .where(Shout.deleted_at.is_(None), Shout.published_at.isnot(None))
+                    .group_by(ShoutTopic.topic)
+                    .subquery()
+                )
+
+                base_query = base_query.outerjoin(shouts_subquery, Topic.id == shouts_subquery.c.topic).order_by(
+                    desc(func.coalesce(shouts_subquery.c.shouts_count, 0))
+                )
 
             # Применяем лимит и смещение
             base_query = base_query.limit(limit).offset(offset)
@@ -109,47 +191,53 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
             if not topic_ids:
                 return []
 
-            # Запрос на получение статистики по публикациям для выбранных тем
-            shouts_stats_query = f"""
-            SELECT st.topic, COUNT(DISTINCT s.id) as shouts_count
-            FROM shout_topic st
-            JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
-            WHERE st.topic IN ({",".join(map(str, topic_ids))})
-            GROUP BY st.topic
-            """
-            shouts_stats = {row[0]: row[1] for row in session.execute(text(shouts_stats_query))}
+            # Исправляю S608 - используем параметризированные запросы
+            if topic_ids:
+                placeholders = ",".join([f":id{i}" for i in range(len(topic_ids))])
 
-            # Запрос на получение статистики по подписчикам для выбранных тем
-            followers_stats_query = f"""
-            SELECT topic, COUNT(DISTINCT follower) as followers_count
-            FROM topic_followers tf
-            WHERE topic IN ({",".join(map(str, topic_ids))})
-            GROUP BY topic
-            """
-            followers_stats = {row[0]: row[1] for row in session.execute(text(followers_stats_query))}
+                # Запрос на получение статистики по публикациям для выбранных тем
+                shouts_stats_query = f"""
+                SELECT st.topic, COUNT(DISTINCT s.id) as shouts_count
+                FROM shout_topic st
+                JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
+                WHERE st.topic IN ({placeholders})
+                GROUP BY st.topic
+                """
+                params = {f"id{i}": topic_id for i, topic_id in enumerate(topic_ids)}
+                shouts_stats = {row[0]: row[1] for row in session.execute(text(shouts_stats_query), params)}
 
-            # Запрос на получение статистики авторов для выбранных тем
-            authors_stats_query = f"""
-            SELECT st.topic, COUNT(DISTINCT sa.author) as authors_count
-            FROM shout_topic st
-            JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
-            JOIN shout_author sa ON sa.shout = s.id
-            WHERE st.topic IN ({",".join(map(str, topic_ids))})
-            GROUP BY st.topic
-            """
-            authors_stats = {row[0]: row[1] for row in session.execute(text(authors_stats_query))}
+                # Запрос на получение статистики по подписчикам для выбранных тем
+                followers_stats_query = f"""
+                SELECT topic, COUNT(DISTINCT follower) as followers_count
+                FROM topic_followers tf
+                WHERE topic IN ({placeholders})
+                GROUP BY topic
+                """
+                followers_stats = {row[0]: row[1] for row in session.execute(text(followers_stats_query), params)}
 
-            # Запрос на получение статистики комментариев для выбранных тем
-            comments_stats_query = f"""
-            SELECT st.topic, COUNT(DISTINCT r.id) as comments_count
-            FROM shout_topic st
-            JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
-            JOIN reaction r ON r.shout = s.id AND r.kind = '{ReactionKind.COMMENT.value}' AND r.deleted_at IS NULL
-            JOIN author a ON r.created_by = a.id AND a.deleted_at IS NULL
-            WHERE st.topic IN ({",".join(map(str, topic_ids))})
-            GROUP BY st.topic
-            """
-            comments_stats = {row[0]: row[1] for row in session.execute(text(comments_stats_query))}
+                # Запрос на получение статистики авторов для выбранных тем
+                authors_stats_query = f"""
+                SELECT st.topic, COUNT(DISTINCT sa.author) as authors_count
+                FROM shout_topic st
+                JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
+                JOIN shout_author sa ON sa.shout = s.id
+                WHERE st.topic IN ({placeholders})
+                GROUP BY st.topic
+                """
+                authors_stats = {row[0]: row[1] for row in session.execute(text(authors_stats_query), params)}
+
+                # Запрос на получение статистики комментариев для выбранных тем
+                comments_stats_query = f"""
+                SELECT st.topic, COUNT(DISTINCT r.id) as comments_count
+                FROM shout_topic st
+                JOIN shout s ON st.shout = s.id AND s.deleted_at IS NULL AND s.published_at IS NOT NULL
+                JOIN reaction r ON r.shout = s.id AND r.kind = :comment_kind AND r.deleted_at IS NULL
+                JOIN author a ON r.created_by = a.id
+                WHERE st.topic IN ({placeholders})
+                GROUP BY st.topic
+                """
+                params["comment_kind"] = ReactionKind.COMMENT.value
+                comments_stats = {row[0]: row[1] for row in session.execute(text(comments_stats_query), params)}
 
             # Формируем результат с добавлением статистики
             result = []
@@ -173,7 +261,7 @@ async def get_topics_with_stats(limit=100, offset=0, community_id=None, by=None)
 
 
 # Функция для инвалидации кеша тем
-async def invalidate_topics_cache(topic_id=None):
+async def invalidate_topics_cache(topic_id: Optional[int] = None) -> None:
     """
     Инвалидирует кеши тем при изменении данных.
 
@@ -218,7 +306,7 @@ async def invalidate_topics_cache(topic_id=None):
 
 # Запрос на получение всех тем
 @query.field("get_topics_all")
-async def get_topics_all(_, _info):
+async def get_topics_all(_: None, _info: GraphQLResolveInfo) -> list[Any]:
     """
     Получает список всех тем без статистики.
 
@@ -230,7 +318,9 @@ async def get_topics_all(_, _info):
 
 # Запрос на получение тем по сообществу
 @query.field("get_topics_by_community")
-async def get_topics_by_community(_, _info, community_id: int, limit=100, offset=0, by=None):
+async def get_topics_by_community(
+    _: None, _info: GraphQLResolveInfo, community_id: int, limit: int = 100, offset: int = 0, by: Optional[str] = None
+) -> list[Any]:
     """
     Получает список тем, принадлежащих указанному сообществу с пагинацией и статистикой.
 
@@ -243,12 +333,15 @@ async def get_topics_by_community(_, _info, community_id: int, limit=100, offset
     Returns:
         list: Список тем с их статистикой
     """
-    return await get_topics_with_stats(limit, offset, community_id, by)
+    result = await get_topics_with_stats(limit, offset, community_id, by)
+    return result.get("topics", []) if isinstance(result, dict) else result
 
 
 # Запрос на получение тем по автору
 @query.field("get_topics_by_author")
-async def get_topics_by_author(_, _info, author_id=0, slug="", user=""):
+async def get_topics_by_author(
+    _: None, _info: GraphQLResolveInfo, author_id: int = 0, slug: str = "", user: str = ""
+) -> list[Any]:
     topics_by_author_query = select(Topic)
     if author_id:
         topics_by_author_query = topics_by_author_query.join(Author).where(Author.id == author_id)
@@ -262,16 +355,17 @@ async def get_topics_by_author(_, _info, author_id=0, slug="", user=""):
 
 # Запрос на получение одной темы по её slug
 @query.field("get_topic")
-async def get_topic(_, _info, slug: str):
+async def get_topic(_: None, _info: GraphQLResolveInfo, slug: str) -> Optional[Any]:
     topic = await get_cached_topic_by_slug(slug, get_with_stat)
     if topic:
         return topic
+    return None
 
 
 # Мутация для создания новой темы
 @mutation.field("create_topic")
 @login_required
-async def create_topic(_, _info, topic_input):
+async def create_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str, Any]) -> dict[str, Any]:
     with local_session() as session:
         # TODO: проверить права пользователя на создание темы для конкретного сообщества
         # и разрешение на создание
@@ -288,50 +382,49 @@ async def create_topic(_, _info, topic_input):
 # Мутация для обновления темы
 @mutation.field("update_topic")
 @login_required
-async def update_topic(_, _info, topic_input):
+async def update_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str, Any]) -> dict[str, Any]:
     slug = topic_input["slug"]
     with local_session() as session:
         topic = session.query(Topic).filter(Topic.slug == slug).first()
         if not topic:
             return {"error": "topic not found"}
-        else:
-            old_slug = topic.slug
-            Topic.update(topic, topic_input)
-            session.add(topic)
-            session.commit()
+        old_slug = str(getattr(topic, "slug", ""))
+        Topic.update(topic, topic_input)
+        session.add(topic)
+        session.commit()
 
-            # Инвалидируем кеш только для этой конкретной темы
-            await invalidate_topics_cache(topic.id)
+        # Инвалидируем кеш только для этой конкретной темы
+        await invalidate_topics_cache(int(getattr(topic, "id", 0)))
 
-            # Если slug изменился, удаляем старый ключ
-            if old_slug != topic.slug:
-                await redis.execute("DEL", f"topic:slug:{old_slug}")
-                logger.debug(f"Удален ключ кеша для старого slug: {old_slug}")
+        # Если slug изменился, удаляем старый ключ
+        if old_slug != str(getattr(topic, "slug", "")):
+            await redis.execute("DEL", f"topic:slug:{old_slug}")
+            logger.debug(f"Удален ключ кеша для старого slug: {old_slug}")
 
-            return {"topic": topic}
+        return {"topic": topic}
 
 
 # Мутация для удаления темы
 @mutation.field("delete_topic")
 @login_required
-async def delete_topic(_, info, slug: str):
+async def delete_topic(_: None, info: GraphQLResolveInfo, slug: str) -> dict[str, Any]:
     viewer_id = info.context.get("author", {}).get("id")
     with local_session() as session:
-        t: Topic = session.query(Topic).filter(Topic.slug == slug).first()
-        if not t:
+        topic = session.query(Topic).filter(Topic.slug == slug).first()
+        if not topic:
             return {"error": "invalid topic slug"}
         author = session.query(Author).filter(Author.id == viewer_id).first()
         if author:
-            if t.created_by != author.id:
+            if getattr(topic, "created_by", None) != author.id:
                 return {"error": "access denied"}
 
-            session.delete(t)
+            session.delete(topic)
             session.commit()
 
             # Инвалидируем кеш всех тем и конкретной темы
             await invalidate_topics_cache()
             await redis.execute("DEL", f"topic:slug:{slug}")
-            await redis.execute("DEL", f"topic:id:{t.id}")
+            await redis.execute("DEL", f"topic:id:{getattr(topic, 'id', 0)}")
 
             return {}
     return {"error": "access denied"}
@@ -339,19 +432,17 @@ async def delete_topic(_, info, slug: str):
 
 # Запрос на получение подписчиков темы
 @query.field("get_topic_followers")
-async def get_topic_followers(_, _info, slug: str):
+async def get_topic_followers(_: None, _info: GraphQLResolveInfo, slug: str) -> list[Any]:
     logger.debug(f"getting followers for @{slug}")
     topic = await get_cached_topic_by_slug(slug, get_with_stat)
-    topic_id = topic.id if isinstance(topic, Topic) else topic.get("id")
-    followers = await get_cached_topic_followers(topic_id)
-    return followers
+    topic_id = getattr(topic, "id", None) if isinstance(topic, Topic) else topic.get("id") if topic else None
+    return await get_cached_topic_followers(topic_id) if topic_id else []
 
 
 # Запрос на получение авторов темы
 @query.field("get_topic_authors")
-async def get_topic_authors(_, _info, slug: str):
+async def get_topic_authors(_: None, _info: GraphQLResolveInfo, slug: str) -> list[Any]:
     logger.debug(f"getting authors for @{slug}")
     topic = await get_cached_topic_by_slug(slug, get_with_stat)
-    topic_id = topic.id if isinstance(topic, Topic) else topic.get("id")
-    authors = await get_cached_topic_authors(topic_id)
-    return authors
+    topic_id = getattr(topic, "id", None) if isinstance(topic, Topic) else topic.get("id") if topic else None
+    return await get_cached_topic_authors(topic_id) if topic_id else []

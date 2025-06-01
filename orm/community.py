@@ -1,11 +1,12 @@
 import enum
 import time
 
-from sqlalchemy import Column, ForeignKey, Integer, String, Text, distinct, func
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text, distinct, func
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import relationship
 
 from auth.orm import Author
-from services.db import Base
+from services.db import BaseModel
 
 
 class CommunityRole(enum.Enum):
@@ -14,28 +15,36 @@ class CommunityRole(enum.Enum):
     ARTIST = "artist"  # + can be credited as featured artist
     EXPERT = "expert"  # + can add proof or disproof to shouts, can manage topics
     EDITOR = "editor"  # + can manage topics, comments and community settings
+    ADMIN = "admin"
 
     @classmethod
     def as_string_array(cls, roles):
         return [role.value for role in roles]
 
+    @classmethod
+    def from_string(cls, value: str) -> "CommunityRole":
+        return cls(value)
 
-class CommunityFollower(Base):
-    __tablename__ = "community_author"
 
-    author = Column(ForeignKey("author.id"), primary_key=True)
+class CommunityFollower(BaseModel):
+    __tablename__ = "community_follower"
+
     community = Column(ForeignKey("community.id"), primary_key=True)
-    joined_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    roles = Column(Text, nullable=True, comment="Roles (comma-separated)")
+    follower = Column(ForeignKey("author.id"), primary_key=True)
+    roles = Column(String, nullable=True)
 
-    def set_roles(self, roles):
-        self.roles = CommunityRole.as_string_array(roles)
+    def __init__(self, community: int, follower: int, roles: list[str] | None = None) -> None:
+        self.community = community  # type: ignore[assignment]
+        self.follower = follower  # type: ignore[assignment]
+        if roles:
+            self.roles = ",".join(roles)  # type: ignore[assignment]
 
-    def get_roles(self):
-        return [CommunityRole(role) for role in self.roles]
+    def get_roles(self) -> list[CommunityRole]:
+        roles_str = getattr(self, "roles", "")
+        return [CommunityRole(role) for role in roles_str.split(",")] if roles_str else []
 
 
-class Community(Base):
+class Community(BaseModel):
     __tablename__ = "community"
 
     name = Column(String, nullable=False)
@@ -44,6 +53,12 @@ class Community(Base):
     pic = Column(String, nullable=False, default="")
     created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
     created_by = Column(ForeignKey("author.id"), nullable=False)
+    settings = Column(JSON, nullable=True)
+    updated_at = Column(Integer, nullable=True)
+    deleted_at = Column(Integer, nullable=True)
+    private = Column(Boolean, default=False)
+
+    followers = relationship("Author", secondary="community_follower")
 
     @hybrid_property
     def stat(self):
@@ -54,12 +69,39 @@ class Community(Base):
         return self.roles.split(",") if self.roles else []
 
     @role_list.setter
-    def role_list(self, value):
-        self.roles = ",".join(value) if value else None
+    def role_list(self, value) -> None:
+        self.roles = ",".join(value) if value else None  # type: ignore[assignment]
+
+    def is_followed_by(self, author_id: int) -> bool:
+        # Check if the author follows this community
+        from services.db import local_session
+
+        with local_session() as session:
+            follower = (
+                session.query(CommunityFollower)
+                .filter(CommunityFollower.community == self.id, CommunityFollower.follower == author_id)
+                .first()
+            )
+            return follower is not None
+
+    def get_role(self, author_id: int) -> CommunityRole | None:
+        # Get the role of the author in this community
+        from services.db import local_session
+
+        with local_session() as session:
+            follower = (
+                session.query(CommunityFollower)
+                .filter(CommunityFollower.community == self.id, CommunityFollower.follower == author_id)
+                .first()
+            )
+            if follower and follower.roles:
+                roles = follower.roles.split(",")
+                return CommunityRole.from_string(roles[0]) if roles else None
+            return None
 
 
 class CommunityStats:
-    def __init__(self, community):
+    def __init__(self, community) -> None:
         self.community = community
 
     @property
@@ -71,7 +113,7 @@ class CommunityStats:
     @property
     def followers(self):
         return (
-            self.community.session.query(func.count(CommunityFollower.author))
+            self.community.session.query(func.count(CommunityFollower.follower))
             .filter(CommunityFollower.community == self.community.id)
             .scalar()
         )
@@ -93,7 +135,7 @@ class CommunityStats:
         )
 
 
-class CommunityAuthor(Base):
+class CommunityAuthor(BaseModel):
     __tablename__ = "community_author"
 
     id = Column(Integer, primary_key=True)
@@ -106,5 +148,5 @@ class CommunityAuthor(Base):
         return self.roles.split(",") if self.roles else []
 
     @role_list.setter
-    def role_list(self, value):
-        self.roles = ",".join(value) if value else None
+    def role_list(self, value) -> None:
+        self.roles = ",".join(value) if value else None  # type: ignore[assignment]

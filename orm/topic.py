@@ -2,7 +2,7 @@ import time
 
 from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
 
-from services.db import Base
+from services.db import BaseModel as Base
 
 
 class TopicFollower(Base):

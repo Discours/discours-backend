@@ -2,7 +2,7 @@ import re
 from difflib import ndiff
 
 
-def get_diff(original, modified):
+def get_diff(original: str, modified: str) -> list[str]:
     """
     Get the difference between two strings using difflib.
 
@@ -13,11 +13,10 @@ def get_diff(original, modified):
     Returns:
     A list of differences.
     """
-    diff = list(ndiff(original.split(), modified.split()))
-    return diff
+    return list(ndiff(original.split(), modified.split()))
 
 
-def apply_diff(original, diff):
+def apply_diff(original: str, diff: list[str]) -> str:
     """
     Apply the difference to the original string.
 

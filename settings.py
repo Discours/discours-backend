@@ -1,9 +1,9 @@
 """Настройки приложения"""
 
 import os
-import sys
 from os import environ
 from pathlib import Path
+from typing import Literal
 
 # Корневая директория проекта
 ROOT_DIR = Path(__file__).parent.absolute()
@@ -65,7 +65,7 @@ JWT_REFRESH_TOKEN_EXPIRE_DAYS = 30
 SESSION_COOKIE_NAME = "auth_token"
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "lax"
+SESSION_COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
 SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 дней
 
 MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY", "")

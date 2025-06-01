@@ -1,404 +1,354 @@
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Literal, Optional
 
-from redis import Redis
-
-from settings import REDIS_URL, ROOT_DIR
+from services.redis import redis
 from utils.logger import root_logger as logger
 
 
 @dataclass
 class EnvVariable:
+    """Представление переменной окружения"""
+
     key: str
-    value: str
-    description: Optional[str] = None
-    type: str = "string"
+    value: str = ""
+    description: str = ""
+    type: Literal["string", "integer", "boolean", "json"] = "string"  # string, integer, boolean, json
     is_secret: bool = False
 
 
 @dataclass
 class EnvSection:
+    """Группа переменных окружения"""
+
     name: str
+    description: str
     variables: List[EnvVariable]
-    description: Optional[str] = None
 
 
 class EnvManager:
     """
-    Менеджер переменных окружения с хранением в Redis и синхронизацией с .env файлом
+    Менеджер переменных окружения с поддержкой Redis кеширования
     """
 
-    # Стандартные переменные окружения, которые следует исключить
-    EXCLUDED_ENV_VARS: Set[str] = {
-        "PATH",
-        "SHELL",
-        "USER",
-        "HOME",
-        "PWD",
-        "TERM",
-        "LANG",
-        "PYTHONPATH",
-        "_",
-        "TMPDIR",
-        "TERM_PROGRAM",
-        "TERM_SESSION_ID",
-        "XPC_SERVICE_NAME",
-        "XPC_FLAGS",
-        "SHLVL",
-        "SECURITYSESSIONID",
-        "LOGNAME",
-        "OLDPWD",
-        "ZSH",
-        "PAGER",
-        "LESS",
-        "LC_CTYPE",
-        "LSCOLORS",
-        "SSH_AUTH_SOCK",
-        "DISPLAY",
-        "COLORTERM",
-        "EDITOR",
-        "VISUAL",
-        "PYTHONDONTWRITEBYTECODE",
-        "VIRTUAL_ENV",
-        "PYTHONUNBUFFERED",
-    }
-
-    # Секции для группировки переменных
+    # Определение секций с их описаниями
     SECTIONS = {
-        "AUTH": {
-            "pattern": r"^(JWT|AUTH|SESSION|OAUTH|GITHUB|GOOGLE|FACEBOOK)_",
-            "name": "Авторизация",
-            "description": "Настройки системы авторизации",
-        },
-        "DATABASE": {
-            "pattern": r"^(DB|DATABASE|POSTGRES|MYSQL|SQL)_",
-            "name": "База данных",
-            "description": "Настройки подключения к базам данных",
-        },
-        "CACHE": {
-            "pattern": r"^(REDIS|CACHE|MEMCACHED)_",
-            "name": "Кэширование",
-            "description": "Настройки систем кэширования",
-        },
-        "SEARCH": {
-            "pattern": r"^(ELASTIC|SEARCH|OPENSEARCH)_",
-            "name": "Поиск",
-            "description": "Настройки поисковых систем",
-        },
-        "APP": {
-            "pattern": r"^(APP|PORT|HOST|DEBUG|DOMAIN|ENVIRONMENT|ENV|FRONTEND)_",
-            "name": "Общие настройки",
-            "description": "Общие настройки приложения",
-        },
-        "LOGGING": {
-            "pattern": r"^(LOG|LOGGING|SENTRY|GLITCH|GLITCHTIP)_",
-            "name": "Мониторинг",
-            "description": "Настройки логирования и мониторинга",
-        },
-        "EMAIL": {
-            "pattern": r"^(MAIL|EMAIL|SMTP|IMAP|POP3|POST)_",
-            "name": "Электронная почта",
-            "description": "Настройки отправки электронной почты",
-        },
-        "ANALYTICS": {
-            "pattern": r"^(GA|GOOGLE_ANALYTICS|ANALYTICS)_",
-            "name": "Аналитика",
-            "description": "Настройки систем аналитики",
-        },
+        "database": "Настройки базы данных",
+        "auth": "Настройки аутентификации",
+        "redis": "Настройки Redis",
+        "search": "Настройки поиска",
+        "integrations": "Внешние интеграции",
+        "security": "Настройки безопасности",
+        "logging": "Настройки логирования",
+        "features": "Флаги функций",
+        "other": "Прочие настройки",
     }
 
-    # Переменные, которые следует всегда помечать как секретные
-    SECRET_VARS_PATTERNS = [
-        r".*TOKEN.*",
-        r".*SECRET.*",
-        r".*PASSWORD.*",
-        r".*KEY.*",
-        r".*PWD.*",
-        r".*PASS.*",
-        r".*CRED.*",
-        r".*_DSN.*",
-        r".*JWT.*",
-        r".*SESSION.*",
-        r".*OAUTH.*",
-        r".*GITHUB.*",
-        r".*GOOGLE.*",
-        r".*FACEBOOK.*",
-    ]
+    # Маппинг переменных на секции
+    VARIABLE_SECTIONS = {
+        # Database
+        "DB_URL": "database",
+        "DATABASE_URL": "database",
+        "POSTGRES_USER": "database",
+        "POSTGRES_PASSWORD": "database",
+        "POSTGRES_DB": "database",
+        "POSTGRES_HOST": "database",
+        "POSTGRES_PORT": "database",
+        # Auth
+        "JWT_SECRET": "auth",
+        "JWT_ALGORITHM": "auth",
+        "JWT_EXPIRATION": "auth",
+        "SECRET_KEY": "auth",
+        "AUTH_SECRET": "auth",
+        "OAUTH_GOOGLE_CLIENT_ID": "auth",
+        "OAUTH_GOOGLE_CLIENT_SECRET": "auth",
+        "OAUTH_GITHUB_CLIENT_ID": "auth",
+        "OAUTH_GITHUB_CLIENT_SECRET": "auth",
+        # Redis
+        "REDIS_URL": "redis",
+        "REDIS_HOST": "redis",
+        "REDIS_PORT": "redis",
+        "REDIS_PASSWORD": "redis",
+        "REDIS_DB": "redis",
+        # Search
+        "SEARCH_API_KEY": "search",
+        "ELASTICSEARCH_URL": "search",
+        "SEARCH_INDEX": "search",
+        # Integrations
+        "GOOGLE_ANALYTICS_ID": "integrations",
+        "SENTRY_DSN": "integrations",
+        "SMTP_HOST": "integrations",
+        "SMTP_PORT": "integrations",
+        "SMTP_USER": "integrations",
+        "SMTP_PASSWORD": "integrations",
+        "EMAIL_FROM": "integrations",
+        # Security
+        "CORS_ORIGINS": "security",
+        "ALLOWED_HOSTS": "security",
+        "SECURE_SSL_REDIRECT": "security",
+        "SESSION_COOKIE_SECURE": "security",
+        "CSRF_COOKIE_SECURE": "security",
+        # Logging
+        "LOG_LEVEL": "logging",
+        "LOG_FORMAT": "logging",
+        "LOG_FILE": "logging",
+        "DEBUG": "logging",
+        # Features
+        "FEATURE_REGISTRATION": "features",
+        "FEATURE_COMMENTS": "features",
+        "FEATURE_ANALYTICS": "features",
+        "FEATURE_SEARCH": "features",
+    }
 
-    def __init__(self):
-        self.redis = Redis.from_url(REDIS_URL)
-        self.prefix = "env:"
-        self.env_file_path = os.path.join(ROOT_DIR, ".env")
+    # Секретные переменные (не показываем их значения в UI)
+    SECRET_VARIABLES = {
+        "JWT_SECRET",
+        "SECRET_KEY",
+        "AUTH_SECRET",
+        "OAUTH_GOOGLE_CLIENT_SECRET",
+        "OAUTH_GITHUB_CLIENT_SECRET",
+        "POSTGRES_PASSWORD",
+        "REDIS_PASSWORD",
+        "SEARCH_API_KEY",
+        "SENTRY_DSN",
+        "SMTP_PASSWORD",
+    }
 
-    def get_all_variables(self) -> List[EnvSection]:
-        """
-        Получение всех переменных окружения, сгруппированных по секциям
-        """
-        try:
-            # Получаем все переменные окружения из системы
-            system_env = self._get_system_env_vars()
+    def __init__(self) -> None:
+        self.redis_prefix = "env_vars:"
 
-            # Получаем переменные из .env файла, если он существует
-            dotenv_vars = self._get_dotenv_vars()
+    def _get_variable_type(self, key: str, value: str) -> Literal["string", "integer", "boolean", "json"]:
+        """Определяет тип переменной на основе ключа и значения"""
 
-            # Получаем все переменные из Redis
-            redis_vars = self._get_redis_env_vars()
-
-            # Объединяем переменные, при этом redis_vars имеют наивысший приоритет,
-            # за ними следуют переменные из .env, затем системные
-            env_vars = {**system_env, **dotenv_vars, **redis_vars}
-
-            # Группируем переменные по секциям
-            return self._group_variables_by_sections(env_vars)
-        except Exception as e:
-            logger.error(f"Ошибка получения переменных: {e}")
-            return []
-
-    def _get_system_env_vars(self) -> Dict[str, str]:
-        """
-        Получает переменные окружения из системы, исключая стандартные
-        """
-        env_vars = {}
-        for key, value in os.environ.items():
-            # Пропускаем стандартные переменные
-            if key in self.EXCLUDED_ENV_VARS:
-                continue
-            # Пропускаем переменные с пустыми значениями
-            if not value:
-                continue
-            env_vars[key] = value
-        return env_vars
-
-    def _get_dotenv_vars(self) -> Dict[str, str]:
-        """
-        Получает переменные из .env файла, если он существует
-        """
-        env_vars = {}
-        if os.path.exists(self.env_file_path):
-            try:
-                with open(self.env_file_path, "r") as f:
-                    for line in f:
-                        line = line.strip()
-                        # Пропускаем пустые строки и комментарии
-                        if not line or line.startswith("#"):
-                            continue
-                        # Разделяем строку на ключ и значение
-                        if "=" in line:
-                            key, value = line.split("=", 1)
-                            key = key.strip()
-                            value = value.strip()
-                            # Удаляем кавычки, если они есть
-                            if value.startswith('"') and value.endswith('"'):
-                                value = value[1:-1]
-                            env_vars[key] = value
-            except Exception as e:
-                logger.error(f"Ошибка чтения .env файла: {e}")
-        return env_vars
-
-    def _get_redis_env_vars(self) -> Dict[str, str]:
-        """
-        Получает переменные окружения из Redis
-        """
-        redis_vars = {}
-        try:
-            # Получаем все ключи с префиксом env:
-            keys = self.redis.keys(f"{self.prefix}*")
-            for key in keys:
-                var_key = key.decode("utf-8").replace(self.prefix, "")
-                value = self.redis.get(key)
-                if value:
-                    redis_vars[var_key] = value.decode("utf-8")
-        except Exception as e:
-            logger.error(f"Ошибка получения переменных из Redis: {e}")
-        return redis_vars
-
-    def _is_secret_variable(self, key: str) -> bool:
-        """
-        Проверяет, является ли переменная секретной.
-        Секретными считаются:
-        - переменные, подходящие под SECRET_VARS_PATTERNS
-        - переменные с ключами DATABASE_URL, REDIS_URL, DB_URL (точное совпадение, без учета регистра)
-
-        >>> EnvManager()._is_secret_variable('MY_SECRET_TOKEN')
-        True
-        >>> EnvManager()._is_secret_variable('database_url')
-        True
-        >>> EnvManager()._is_secret_variable('REDIS_URL')
-        True
-        >>> EnvManager()._is_secret_variable('DB_URL')
-        True
-        >>> EnvManager()._is_secret_variable('SOME_PUBLIC_KEY')
-        True
-        >>> EnvManager()._is_secret_variable('SOME_PUBLIC_VAR')
-        False
-        """
-        key_upper = key.upper()
-        if key_upper in {"DATABASE_URL", "REDIS_URL", "DB_URL"}:
-            return True
-        return any(re.match(pattern, key_upper) for pattern in self.SECRET_VARS_PATTERNS)
-
-    def _determine_variable_type(self, value: str) -> str:
-        """
-        Определяет тип переменной на основе ее значения
-        """
-        if value.lower() in ("true", "false"):
+        # Boolean переменные
+        if value.lower() in ("true", "false", "1", "0", "yes", "no"):
             return "boolean"
-        if value.isdigit():
+
+        # Integer переменные
+        if key.endswith(("_PORT", "_TIMEOUT", "_LIMIT", "_SIZE")) or value.isdigit():
             return "integer"
-        if re.match(r"^\d+\.\d+$", value):
-            return "float"
-        # Проверяем на JSON объект или массив
-        if (value.startswith("{") and value.endswith("}")) or (value.startswith("[") and value.endswith("]")):
+
+        # JSON переменные
+        if value.startswith(("{", "[")) and value.endswith(("}", "]")):
             return "json"
-        # Проверяем на URL
-        if value.startswith(("http://", "https://", "redis://", "postgresql://")):
-            return "url"
+
         return "string"
 
-    def _group_variables_by_sections(self, variables: Dict[str, str]) -> List[EnvSection]:
-        """
-        Группирует переменные по секциям
-        """
-        # Создаем словарь для группировки переменных
-        sections_dict = {section: [] for section in self.SECTIONS}
-        other_variables = []  # Для переменных, которые не попали ни в одну секцию
+    def _get_variable_description(self, key: str) -> str:
+        """Генерирует описание для переменной на основе её ключа"""
 
-        # Распределяем переменные по секциям
-        for key, value in variables.items():
-            is_secret = self._is_secret_variable(key)
-            var_type = self._determine_variable_type(value)
+        descriptions = {
+            "DB_URL": "URL подключения к базе данных",
+            "REDIS_URL": "URL подключения к Redis",
+            "JWT_SECRET": "Секретный ключ для подписи JWT токенов",
+            "CORS_ORIGINS": "Разрешенные CORS домены",
+            "DEBUG": "Режим отладки (true/false)",
+            "LOG_LEVEL": "Уровень логирования (DEBUG, INFO, WARNING, ERROR)",
+            "SENTRY_DSN": "DSN для интеграции с Sentry",
+            "GOOGLE_ANALYTICS_ID": "ID для Google Analytics",
+            "OAUTH_GOOGLE_CLIENT_ID": "Client ID для OAuth Google",
+            "OAUTH_GOOGLE_CLIENT_SECRET": "Client Secret для OAuth Google",
+            "OAUTH_GITHUB_CLIENT_ID": "Client ID для OAuth GitHub",
+            "OAUTH_GITHUB_CLIENT_SECRET": "Client Secret для OAuth GitHub",
+            "SMTP_HOST": "SMTP сервер для отправки email",
+            "SMTP_PORT": "Порт SMTP сервера",
+            "SMTP_USER": "Пользователь SMTP",
+            "SMTP_PASSWORD": "Пароль SMTP",
+            "EMAIL_FROM": "Email отправителя по умолчанию",
+        }
 
-            var = EnvVariable(key=key, value=value, type=var_type, is_secret=is_secret)
+        return descriptions.get(key, f"Переменная окружения {key}")
 
-            # Определяем секцию для переменной
-            placed = False
-            for section_id, section_config in self.SECTIONS.items():
-                if re.match(section_config["pattern"], key, re.IGNORECASE):
-                    sections_dict[section_id].append(var)
-                    placed = True
-                    break
+    async def get_variables_from_redis(self) -> Dict[str, str]:
+        """Получает переменные из Redis"""
 
-            # Если переменная не попала ни в одну секцию
-            # if not placed:
-            #    other_variables.append(var)
+        try:
+            # Get all keys matching our prefix
+            pattern = f"{self.redis_prefix}*"
+            keys = await redis.execute("KEYS", pattern)
 
-        # Формируем результат
-        result = []
-        for section_id, variables in sections_dict.items():
-            if variables:  # Добавляем только непустые секции
-                section_config = self.SECTIONS[section_id]
-                result.append(
+            if not keys:
+                return {}
+
+            redis_vars: Dict[str, str] = {}
+            for key in keys:
+                var_key = key.replace(self.redis_prefix, "")
+                value = await redis.get(key)
+                if value:
+                    if isinstance(value, bytes):
+                        redis_vars[var_key] = value.decode("utf-8")
+                    else:
+                        redis_vars[var_key] = str(value)
+
+            return redis_vars
+
+        except Exception as e:
+            logger.error(f"Ошибка при получении переменных из Redis: {e}")
+            return {}
+
+    async def set_variables_to_redis(self, variables: Dict[str, str]) -> bool:
+        """Сохраняет переменные в Redis"""
+
+        try:
+            for key, value in variables.items():
+                redis_key = f"{self.redis_prefix}{key}"
+                await redis.set(redis_key, value)
+
+            logger.info(f"Сохранено {len(variables)} переменных в Redis")
+            return True
+
+        except Exception as e:
+            logger.error(f"Ошибка при сохранении переменных в Redis: {e}")
+            return False
+
+    def get_variables_from_env(self) -> Dict[str, str]:
+        """Получает переменные из системного окружения"""
+
+        env_vars = {}
+
+        # Получаем все переменные известные системе
+        for key in self.VARIABLE_SECTIONS.keys():
+            value = os.getenv(key)
+            if value is not None:
+                env_vars[key] = value
+
+        # Также ищем переменные по паттернам
+        for env_key, env_value in os.environ.items():
+            # Переменные проекта обычно начинаются с определенных префиксов
+            if any(env_key.startswith(prefix) for prefix in ["APP_", "SITE_", "FEATURE_", "OAUTH_"]):
+                env_vars[env_key] = env_value
+
+        return env_vars
+
+    async def get_all_variables(self) -> List[EnvSection]:
+        """Получает все переменные окружения, сгруппированные по секциям"""
+
+        # Получаем переменные из разных источников
+        env_vars = self.get_variables_from_env()
+        redis_vars = await self.get_variables_from_redis()
+
+        # Объединяем переменные (приоритет у Redis)
+        all_vars = {**env_vars, **redis_vars}
+
+        # Группируем по секциям
+        sections_dict: Dict[str, List[EnvVariable]] = {section: [] for section in self.SECTIONS}
+        other_variables: List[EnvVariable] = []  # Для переменных, которые не попали ни в одну секцию
+
+        for key, value in all_vars.items():
+            section_name = self.VARIABLE_SECTIONS.get(key, "other")
+            is_secret = key in self.SECRET_VARIABLES
+
+            var = EnvVariable(
+                key=key,
+                value=value if not is_secret else "***",  # Скрываем секретные значения
+                description=self._get_variable_description(key),
+                type=self._get_variable_type(key, value),
+                is_secret=is_secret,
+            )
+
+            if section_name in sections_dict:
+                sections_dict[section_name].append(var)
+            else:
+                other_variables.append(var)
+
+        # Добавляем переменные без секции в раздел "other"
+        if other_variables:
+            sections_dict["other"].extend(other_variables)
+
+        # Создаем объекты секций
+        sections = []
+        for section_key, variables in sections_dict.items():
+            if variables:  # Добавляем только секции с переменными
+                sections.append(
                     EnvSection(
-                        name=section_config["name"], description=section_config["description"], variables=variables
+                        name=section_key,
+                        description=self.SECTIONS[section_key],
+                        variables=sorted(variables, key=lambda x: x.key),
                     )
                 )
 
-        # Добавляем прочие переменные, если они есть
-        if other_variables:
-            result.append(
-                EnvSection(
-                    name="Прочие переменные",
-                    description="Переменные, не вошедшие в основные категории",
-                    variables=other_variables,
-                )
-            )
+        return sorted(sections, key=lambda x: x.name)
 
-        return result
+    async def update_variables(self, variables: List[EnvVariable]) -> bool:
+        """Обновляет переменные окружения"""
 
-    def update_variable(self, key: str, value: str) -> bool:
-        """
-        Обновление значения переменной в Redis и .env файле
-        """
         try:
+            # Подготавливаем данные для сохранения
+            vars_to_save = {}
+
+            for var in variables:
+                # Валидация
+                if not var.key or not isinstance(var.key, str):
+                    logger.error(f"Неверный ключ переменной: {var.key}")
+                    continue
+
+                # Проверяем формат ключа (только буквы, цифры и подчеркивания)
+                if not re.match(r"^[A-Z_][A-Z0-9_]*$", var.key):
+                    logger.error(f"Неверный формат ключа: {var.key}")
+                    continue
+
+                vars_to_save[var.key] = var.value
+
+            if not vars_to_save:
+                logger.warning("Нет переменных для сохранения")
+                return False
+
             # Сохраняем в Redis
-            full_key = f"{self.prefix}{key}"
-            self.redis.set(full_key, value)
+            success = await self.set_variables_to_redis(vars_to_save)
 
-            # Обновляем значение в .env файле
-            self._update_dotenv_var(key, value)
+            if success:
+                logger.info(f"Обновлено {len(vars_to_save)} переменных окружения")
 
-            # Обновляем переменную в текущем процессе
-            os.environ[key] = value
+            return success
 
-            return True
         except Exception as e:
-            logger.error(f"Ошибка обновления переменной {key}: {e}")
+            logger.error(f"Ошибка при обновлении переменных: {e}")
             return False
 
-    def _update_dotenv_var(self, key: str, value: str) -> bool:
-        """
-        Обновляет переменную в .env файле
-        """
+    async def delete_variable(self, key: str) -> bool:
+        """Удаляет переменную окружения"""
+
         try:
-            # Если файл .env не существует, создаем его
-            if not os.path.exists(self.env_file_path):
-                with open(self.env_file_path, "w") as f:
-                    f.write(f"{key}={value}\n")
+            redis_key = f"{self.redis_prefix}{key}"
+            result = await redis.delete(redis_key)
+
+            if result > 0:
+                logger.info(f"Переменная {key} удалена")
                 return True
-
-            # Если файл существует, читаем его содержимое
-            lines = []
-            found = False
-
-            with open(self.env_file_path, "r") as f:
-                for line in f:
-                    if line.strip() and not line.strip().startswith("#"):
-                        if line.strip().startswith(f"{key}="):
-                            # Экранируем значение, если необходимо
-                            if " " in value or "," in value or '"' in value or "'" in value:
-                                escaped_value = f'"{value}"'
-                            else:
-                                escaped_value = value
-                            lines.append(f"{key}={escaped_value}\n")
-                            found = True
-                        else:
-                            lines.append(line)
-                    else:
-                        lines.append(line)
-
-            # Если переменной не было в файле, добавляем ее
-            if not found:
-                # Экранируем значение, если необходимо
-                if " " in value or "," in value or '"' in value or "'" in value:
-                    escaped_value = f'"{value}"'
-                else:
-                    escaped_value = value
-                lines.append(f"{key}={escaped_value}\n")
-
-            # Записываем обновленный файл
-            with open(self.env_file_path, "w") as f:
-                f.writelines(lines)
-
-            return True
-        except Exception as e:
-            logger.error(f"Ошибка обновления .env файла: {e}")
+            logger.warning(f"Переменная {key} не найдена")
             return False
 
-    def update_variables(self, variables: List[EnvVariable]) -> bool:
-        """
-        Массовое обновление переменных
-        """
-        try:
-            # Обновляем переменные в Redis
-            pipe = self.redis.pipeline()
-            for var in variables:
-                full_key = f"{self.prefix}{var.key}"
-                pipe.set(full_key, var.value)
-            pipe.execute()
-
-            # Обновляем переменные в .env файле
-            for var in variables:
-                self._update_dotenv_var(var.key, var.value)
-
-                # Обновляем переменную в текущем процессе
-                os.environ[var.key] = var.value
-
-            return True
         except Exception as e:
-            logger.error(f"Ошибка массового обновления переменных: {e}")
+            logger.error(f"Ошибка при удалении переменной {key}: {e}")
+            return False
+
+    async def get_variable(self, key: str) -> Optional[str]:
+        """Получает значение конкретной переменной"""
+
+        # Сначала проверяем Redis
+        try:
+            redis_key = f"{self.redis_prefix}{key}"
+            value = await redis.get(redis_key)
+            if value:
+                return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+        except Exception as e:
+            logger.error(f"Ошибка при получении переменной {key} из Redis: {e}")
+
+        # Fallback на системное окружение
+        return os.getenv(key)
+
+    async def set_variable(self, key: str, value: str) -> bool:
+        """Устанавливает значение переменной"""
+
+        try:
+            redis_key = f"{self.redis_prefix}{key}"
+            await redis.set(redis_key, value)
+            logger.info(f"Переменная {key} установлена")
+            return True
+
+        except Exception as e:
+            logger.error(f"Ошибка при установке переменной {key}: {e}")
             return False
 
 

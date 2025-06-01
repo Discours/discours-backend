@@ -38,11 +38,11 @@ const App: Component = () => {
   const checkAuthentication = async () => {
     setCheckingAuth(true)
     setLoading(true)
-    
+
     try {
       // Проверяем состояние авторизации
       const authed = isAuthenticated()
-      
+
       // Если токен есть, но он невалидный, авторизация не удалась
       if (authed) {
         const token = getAuthTokenFromCookie() || localStorage.getItem('auth_token')

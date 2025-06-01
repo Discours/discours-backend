@@ -1,6 +1,6 @@
-from typing import List
+from __future__ import annotations
 
-from graphql import GraphQLError
+from graphql import GraphQLResolveInfo
 from sqlalchemy import select
 from sqlalchemy.sql import and_
 
@@ -12,7 +12,6 @@ from cache.cache import (
     get_cached_follower_topics,
 )
 from orm.community import Community, CommunityFollower
-from orm.reaction import Reaction
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.topic import Topic, TopicFollower
 from resolvers.stat import get_with_stat
@@ -26,16 +25,14 @@ from utils.logger import root_logger as logger
 
 @mutation.field("follow")
 @login_required
-async def follow(_, info, what, slug="", entity_id=0):
+async def follow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "", entity_id: int = 0) -> dict:
     logger.debug("Начало выполнения функции 'follow'")
     viewer_id = info.context.get("author", {}).get("id")
-    if not viewer_id:
-        return {"error": "Access denied"}
     follower_dict = info.context.get("author") or {}
     logger.debug(f"follower: {follower_dict}")
 
     if not viewer_id or not follower_dict:
-        return GraphQLError("Access denied")
+        return {"error": "Access denied"}
 
     follower_id = follower_dict.get("id")
     logger.debug(f"follower_id: {follower_id}")
@@ -70,11 +67,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                 entity_id = entity.id
 
             # Если это автор, учитываем фильтрацию данных
-            if what == "AUTHOR":
-                # Полная версия для кэширования
-                entity_dict = entity.dict(access=True)
-            else:
-                entity_dict = entity.dict()
+            entity_dict = entity.dict(True) if what == "AUTHOR" else entity.dict()
 
             logger.debug(f"entity_id: {entity_id}, entity_dict: {entity_dict}")
 
@@ -84,8 +77,8 @@ async def follow(_, info, what, slug="", entity_id=0):
                 existing_sub = (
                     session.query(follower_class)
                     .filter(
-                        follower_class.follower == follower_id,
-                        getattr(follower_class, entity_type) == entity_id,
+                        follower_class.follower == follower_id,  # type: ignore[attr-defined]
+                        getattr(follower_class, entity_type) == entity_id,  # type: ignore[attr-defined]
                     )
                     .first()
                 )
@@ -111,10 +104,11 @@ async def follow(_, info, what, slug="", entity_id=0):
 
                 if what == "AUTHOR" and not existing_sub:
                     logger.debug("Отправка уведомления автору о подписке")
-                    await notify_follower(follower=follower_dict, author_id=entity_id, action="follow")
+                    if isinstance(follower_dict, dict) and isinstance(entity_id, int):
+                        await notify_follower(follower=follower_dict, author_id=entity_id, action="follow")
 
         # Всегда получаем актуальный список подписок для возврата клиенту
-        if get_cached_follows_method:
+        if get_cached_follows_method and isinstance(follower_id, int):
             logger.debug("Получение актуального списка подписок из кэша")
             existing_follows = await get_cached_follows_method(follower_id)
 
@@ -129,7 +123,7 @@ async def follow(_, info, what, slug="", entity_id=0):
                         if hasattr(temp_author, key):
                             setattr(temp_author, key, value)
                     # Добавляем отфильтрованную версию
-                    follows_filtered.append(temp_author.dict(access=False))
+                    follows_filtered.append(temp_author.dict(False))
 
                 follows = follows_filtered
             else:
@@ -147,17 +141,17 @@ async def follow(_, info, what, slug="", entity_id=0):
 
 @mutation.field("unfollow")
 @login_required
-async def unfollow(_, info, what, slug="", entity_id=0):
+async def unfollow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "", entity_id: int = 0) -> dict:
     logger.debug("Начало выполнения функции 'unfollow'")
     viewer_id = info.context.get("author", {}).get("id")
     if not viewer_id:
-        return GraphQLError("Access denied")
+        return {"error": "Access denied"}
     follower_dict = info.context.get("author") or {}
     logger.debug(f"follower: {follower_dict}")
 
     if not viewer_id or not follower_dict:
         logger.warning("Неавторизованный доступ при попытке отписаться")
-        return GraphQLError("Unauthorized")
+        return {"error": "Unauthorized"}
 
     follower_id = follower_dict.get("id")
     logger.debug(f"follower_id: {follower_id}")
@@ -187,15 +181,15 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                 logger.warning(f"{what.lower()} не найден по slug: {slug}")
                 return {"error": f"{what.lower()} not found"}
             if entity and not entity_id:
-                entity_id = entity.id
+                entity_id = int(entity.id)  # Convert Column to int
                 logger.debug(f"entity_id: {entity_id}")
 
             sub = (
                 session.query(follower_class)
                 .filter(
                     and_(
-                        getattr(follower_class, "follower") == follower_id,
-                        getattr(follower_class, entity_type) == entity_id,
+                        follower_class.follower == follower_id,  # type: ignore[attr-defined]
+                        getattr(follower_class, entity_type) == entity_id,  # type: ignore[attr-defined]
                     )
                 )
                 .first()
@@ -215,20 +209,21 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                     logger.debug("Обновление кэша после отписки")
                     # Если это автор, кэшируем полную версию
                     if what == "AUTHOR":
-                        await cache_method(entity.dict(access=True))
+                        await cache_method(entity.dict(True))
                     else:
                         await cache_method(entity.dict())
 
                 if what == "AUTHOR":
                     logger.debug("Отправка уведомления автору об отписке")
-                    await notify_follower(follower=follower_dict, author_id=entity_id, action="unfollow")
+                    if isinstance(follower_dict, dict) and isinstance(entity_id, int):
+                        await notify_follower(follower=follower_dict, author_id=entity_id, action="unfollow")
             else:
                 # Подписка не найдена, но это не критическая ошибка
                 logger.warning(f"Подписка не найдена: follower_id={follower_id}, {entity_type}_id={entity_id}")
                 error = "following was not found"
 
         # Всегда получаем актуальный список подписок для возврата клиенту
-        if get_cached_follows_method:
+        if get_cached_follows_method and isinstance(follower_id, int):
             logger.debug("Получение актуального списка подписок из кэша")
             existing_follows = await get_cached_follows_method(follower_id)
 
@@ -243,7 +238,7 @@ async def unfollow(_, info, what, slug="", entity_id=0):
                         if hasattr(temp_author, key):
                             setattr(temp_author, key, value)
                     # Добавляем отфильтрованную версию
-                    follows_filtered.append(temp_author.dict(access=False))
+                    follows_filtered.append(temp_author.dict(False))
 
                 follows = follows_filtered
             else:
@@ -263,7 +258,7 @@ async def unfollow(_, info, what, slug="", entity_id=0):
 
 
 @query.field("get_shout_followers")
-def get_shout_followers(_, _info, slug: str = "", shout_id: int | None = None) -> List[Author]:
+def get_shout_followers(_: None, _info: GraphQLResolveInfo, slug: str = "", shout_id: int | None = None) -> list[dict]:
     logger.debug("Начало выполнения функции 'get_shout_followers'")
     followers = []
     try:
@@ -277,11 +272,20 @@ def get_shout_followers(_, _info, slug: str = "", shout_id: int | None = None) -
                 logger.debug(f"Найден shout по ID: {shout_id} -> {shout}")
 
             if shout:
-                reactions = session.query(Reaction).filter(Reaction.shout == shout.id).all()
-                logger.debug(f"Полученные реакции для shout ID {shout.id}: {reactions}")
-                for r in reactions:
-                    followers.append(r.created_by)
-                    logger.debug(f"Добавлен follower: {r.created_by}")
+                shout_id = int(shout.id)  # Convert Column to int
+                logger.debug(f"shout_id для получения подписчиков: {shout_id}")
+
+                # Получение подписчиков из таблицы ShoutReactionsFollower
+                shout_followers = (
+                    session.query(Author)
+                    .join(ShoutReactionsFollower, Author.id == ShoutReactionsFollower.follower)
+                    .filter(ShoutReactionsFollower.shout == shout_id)
+                    .all()
+                )
+
+                # Convert Author objects to dicts
+                followers = [author.dict() for author in shout_followers]
+                logger.debug(f"Найдено {len(followers)} подписчиков для shout {shout_id}")
 
     except Exception as _exc:
         import traceback

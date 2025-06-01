@@ -1,3 +1,5 @@
+from typing import Any, Optional
+
 import orjson
 from graphql import GraphQLResolveInfo
 from sqlalchemy import and_, nulls_last, text
@@ -15,7 +17,7 @@ from services.viewed import ViewedStorage
 from utils.logger import root_logger as logger
 
 
-def apply_options(q, options, reactions_created_by=0):
+def apply_options(q: select, options: dict[str, Any], reactions_created_by: int = 0) -> tuple[select, int, int]:
     """
     Применяет опции фильтрации и сортировки
     [опционально] выбирая те публикации, на которые есть реакции/комментарии от указанного автора
@@ -39,7 +41,7 @@ def apply_options(q, options, reactions_created_by=0):
     return q, limit, offset
 
 
-def has_field(info, fieldname: str) -> bool:
+def has_field(info: GraphQLResolveInfo, fieldname: str) -> bool:
     """
     Проверяет, запрошено ли поле :fieldname: в GraphQL запросе
 
@@ -48,13 +50,15 @@ def has_field(info, fieldname: str) -> bool:
     :return: True, если поле запрошено, False в противном случае
     """
     field_node = info.field_nodes[0]
+    if field_node.selection_set is None:
+        return False
     for selection in field_node.selection_set.selections:
         if hasattr(selection, "name") and selection.name.value == fieldname:
             return True
     return False
 
 
-def query_with_stat(info):
+def query_with_stat(info: GraphQLResolveInfo) -> select:
     """
     :param info: Информация о контексте GraphQL - для получения id авторизованного пользователя
     :return: Запрос с подзапросами статистики.
@@ -63,8 +67,8 @@ def query_with_stat(info):
     """
     q = select(Shout).filter(
         and_(
-            Shout.published_at.is_not(None),  # Проверяем published_at
-            Shout.deleted_at.is_(None),  # Проверяем deleted_at
+            Shout.published_at.is_not(None),  # type: ignore[union-attr]
+            Shout.deleted_at.is_(None),  # type: ignore[union-attr]
         )
     )
 
@@ -188,7 +192,7 @@ def query_with_stat(info):
     return q
 
 
-def get_shouts_with_links(info, q, limit=20, offset=0):
+def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, offset: int = 0) -> list[Shout]:
     """
     получение публикаций с применением пагинации
     """
@@ -219,12 +223,13 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
                         if has_field(info, "created_by") and shout_dict.get("created_by"):
                             main_author_id = shout_dict.get("created_by")
                             a = session.query(Author).filter(Author.id == main_author_id).first()
-                            shout_dict["created_by"] = {
-                                "id": main_author_id,
-                                "name": a.name,
-                                "slug": a.slug,
-                                "pic": a.pic,
-                            }
+                            if a:
+                                shout_dict["created_by"] = {
+                                    "id": main_author_id,
+                                    "name": a.name,
+                                    "slug": a.slug,
+                                    "pic": a.pic,
+                                }
 
                         # Обработка поля updated_by
                         if has_field(info, "updated_by"):
@@ -266,10 +271,11 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
 
                         if has_field(info, "stat"):
                             stat = {}
-                            if isinstance(row.stat, str):
-                                stat = orjson.loads(row.stat)
-                            elif isinstance(row.stat, dict):
-                                stat = row.stat
+                            if hasattr(row, "stat"):
+                                if isinstance(row.stat, str):
+                                    stat = orjson.loads(row.stat)
+                                elif isinstance(row.stat, dict):
+                                    stat = row.stat
                             viewed = ViewedStorage.get_shout(shout_id=shout_id) or 0
                             shout_dict["stat"] = {**stat, "viewed": viewed}
 
@@ -337,7 +343,7 @@ def get_shouts_with_links(info, q, limit=20, offset=0):
         return shouts
 
 
-def apply_filters(q, filters):
+def apply_filters(q: select, filters: dict[str, Any]) -> select:
     """
     Применение общих фильтров к запросу.
 
@@ -348,10 +354,9 @@ def apply_filters(q, filters):
     if isinstance(filters, dict):
         if "featured" in filters:
             featured_filter = filters.get("featured")
-            if featured_filter:
-                q = q.filter(Shout.featured_at.is_not(None))
-            else:
-                q = q.filter(Shout.featured_at.is_(None))
+            featured_at_col = getattr(Shout, "featured_at", None)
+            if featured_at_col is not None:
+                q = q.filter(featured_at_col.is_not(None)) if featured_filter else q.filter(featured_at_col.is_(None))
         by_layouts = filters.get("layouts")
         if by_layouts and isinstance(by_layouts, list):
             q = q.filter(Shout.layout.in_(by_layouts))
@@ -370,7 +375,7 @@ def apply_filters(q, filters):
 
 
 @query.field("get_shout")
-async def get_shout(_, info: GraphQLResolveInfo, slug="", shout_id=0):
+async def get_shout(_: None, info: GraphQLResolveInfo, slug: str = "", shout_id: int = 0) -> Optional[Shout]:
     """
     Получение публикации по slug или id.
 
@@ -396,14 +401,16 @@ async def get_shout(_, info: GraphQLResolveInfo, slug="", shout_id=0):
         shouts = get_shouts_with_links(info, q, limit=1)
 
         # Возвращаем первую (и единственную) публикацию, если она найдена
-        return shouts[0] if shouts else None
+        if shouts:
+            return shouts[0]
+        return None
 
     except Exception as exc:
         logger.error(f"Error in get_shout: {exc}", exc_info=True)
         return None
 
 
-def apply_sorting(q, options):
+def apply_sorting(q: select, options: dict[str, Any]) -> select:
     """
     Применение сортировки с сохранением порядка
     """
@@ -414,13 +421,14 @@ def apply_sorting(q, options):
             nulls_last(query_order_by), Shout.id
         )
     else:
-        q = q.distinct(Shout.published_at, Shout.id).order_by(Shout.published_at.desc(), Shout.id)
+        published_at_col = getattr(Shout, "published_at", Shout.id)
+        q = q.distinct(published_at_col, Shout.id).order_by(published_at_col.desc(), Shout.id)
 
     return q
 
 
 @query.field("load_shouts_by")
-async def load_shouts_by(_, info: GraphQLResolveInfo, options):
+async def load_shouts_by(_: None, info: GraphQLResolveInfo, options: dict[str, Any]) -> list[Shout]:
     """
     Загрузка публикаций с фильтрацией, сортировкой и пагинацией.
 
@@ -436,11 +444,12 @@ async def load_shouts_by(_, info: GraphQLResolveInfo, options):
     q, limit, offset = apply_options(q, options)
 
     # Передача сформированного запроса в метод получения публикаций с учетом сортировки и пагинации
-    return get_shouts_with_links(info, q, limit, offset)
+    shouts_dicts = get_shouts_with_links(info, q, limit, offset)
+    return shouts_dicts
 
 
 @query.field("load_shouts_search")
-async def load_shouts_search(_, info, text, options):
+async def load_shouts_search(_: None, info: GraphQLResolveInfo, text: str, options: dict[str, Any]) -> list[Shout]:
     """
     Поиск публикаций по тексту.
 
@@ -471,16 +480,16 @@ async def load_shouts_search(_, info, text, options):
         q = q.filter(Shout.id.in_(hits_ids))
         q = apply_filters(q, options)
         q = apply_sorting(q, options)
-        shouts = get_shouts_with_links(info, q, limit, offset)
-        for shout in shouts:
-            shout["score"] = scores[f"{shout['id']}"]
-        shouts.sort(key=lambda x: x["score"], reverse=True)
-        return shouts
+        shouts_dicts = get_shouts_with_links(info, q, limit, offset)
+        for shout_dict in shouts_dicts:
+            shout_dict["score"] = scores[f"{shout_dict['id']}"]
+        shouts_dicts.sort(key=lambda x: x["score"], reverse=True)
+        return shouts_dicts
     return []
 
 
 @query.field("load_shouts_unrated")
-async def load_shouts_unrated(_, info, options):
+async def load_shouts_unrated(_: None, info: GraphQLResolveInfo, options: dict[str, Any]) -> list[Shout]:
     """
     Загрузка публикаций с менее чем 3 реакциями типа LIKE/DISLIKE
 
@@ -515,11 +524,12 @@ async def load_shouts_unrated(_, info, options):
 
     limit = options.get("limit", 5)
     offset = options.get("offset", 0)
-    return get_shouts_with_links(info, q, limit, offset)
+    shouts_dicts = get_shouts_with_links(info, q, limit, offset)
+    return shouts_dicts
 
 
 @query.field("load_shouts_random_top")
-async def load_shouts_random_top(_, info, options):
+async def load_shouts_random_top(_: None, info: GraphQLResolveInfo, options: dict[str, Any]) -> list[Shout]:
     """
     Загрузка случайных публикаций, упорядоченных по топовым реакциям.
 
@@ -555,4 +565,5 @@ async def load_shouts_random_top(_, info, options):
     q = q.filter(Shout.id.in_(subquery))
     q = q.order_by(func.random())
     limit = options.get("limit", 10)
-    return get_shouts_with_links(info, q, limit)
+    shouts_dicts = get_shouts_with_links(info, q, limit)
+    return shouts_dicts
