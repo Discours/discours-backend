@@ -3,27 +3,10 @@ on: [push]
 
 jobs:
   type-check:
-    runs-on: ubuntu-latest
+    runs-on: python-3.13
     steps:
       - name: Cloning repo
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Debug Python setup
-        run: |
-          echo "🔍 Отладка установки Python..."
-          which python || echo "❌ python не найден"
-          which python3 || echo "❌ python3 не найден"
-          python --version 2>&1 || echo "❌ python --version failed"
-          python3 --version 2>&1 || echo "❌ python3 --version failed"
-          ls -la /usr/bin/python* || echo "❌ Нет python в /usr/bin/"
-          echo "PATH: $PATH"
-          echo "RUNNER_OS: $RUNNER_OS"
-          echo "✅ Отладка завершена"
 
       - name: Cache pip packages
         uses: actions/cache@v3
