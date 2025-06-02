@@ -35,7 +35,7 @@ jobs:
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Push to dokku for staging branch
-        if: github.ref == 'refs/heads/feat/sv-search-v4'
+        if: github.ref == 'refs/heads/staging'
         uses: dokku/github-action@master
         with:
           branch: 'dev'
