@@ -46,10 +46,9 @@ middleware = [
             "https://localhost:3000",
             "https://testing.discours.io",
             "https://testing3.discours.io",
+            "https://coretest.discours.io",
             "https://discours.io",
             "https://new.discours.io",
-            "https://discours.ru",
-            "https://new.discours.ru",
         ],
         allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
         allow_headers=["*"],
