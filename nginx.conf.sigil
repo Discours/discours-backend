@@ -20,22 +20,9 @@ server {
         listen {{ $listen_port }} ssl http2;
         server_name {{ $.NOSSL_SERVER_NAME }};
 
-        # SSL конфигурация
+        # SSL конфигурация (dokku дефолты)
         ssl_certificate {{ $.APP_SSL_PATH }}/server.crt;
         ssl_certificate_key {{ $.APP_SSL_PATH }}/server.key;
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_prefer_server_ciphers off;
-
-        # SSL оптимизация
-        ssl_session_cache shared:SSL:10m;
-        ssl_session_timeout 1d;
-        ssl_session_tickets off;
-
-        # OCSP Stapling
-        ssl_stapling on;
-        ssl_stapling_verify on;
-        resolver 1.1.1.1 1.0.0.1 valid=300s;
-        resolver_timeout 5s;
 
         # Базовые заголовки безопасности
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
