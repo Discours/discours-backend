@@ -63,7 +63,7 @@ JWT_REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 # Настройки для HTTP cookies (используется в auth middleware)
 SESSION_COOKIE_NAME = "auth_token"
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"
 SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60  # 30 дней

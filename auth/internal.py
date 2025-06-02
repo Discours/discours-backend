@@ -10,8 +10,8 @@ from sqlalchemy.orm import exc
 
 from auth.credentials import AuthCredentials
 from auth.orm import Author
-from auth.sessions import SessionManager
 from auth.state import AuthState
+from auth.tokens.storage import TokenStorage as TokenManager
 from services.db import local_session
 from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 from settings import SESSION_COOKIE_NAME, SESSION_TOKEN_HEADER
@@ -38,7 +38,7 @@ async def verify_internal_auth(token: str) -> tuple[int, list, bool]:
         token = token.replace("Bearer ", "", 1).strip()
 
     # Проверяем сессию
-    payload = await SessionManager.verify_session(token)
+    payload = await TokenManager.verify_session(token)
     if not payload:
         logger.warning("[verify_internal_auth] Недействительный токен: payload не получен")
         return 0, [], False
@@ -83,7 +83,7 @@ async def create_internal_session(author: Author, device_info: Optional[dict] = 
     author.last_seen = int(time.time())  # type: ignore[assignment]
 
     # Создаем сессию, используя token для идентификации
-    return await SessionManager.create_session(
+    return await TokenManager.create_session(
         user_id=str(author.id),
         username=str(author.slug or author.email or author.phone or ""),
         device_info=device_info,
@@ -142,8 +142,8 @@ async def authenticate(request: Any) -> AuthState:
         logger.debug("[auth.authenticate] Токен не найден")
         return state
 
-    # Проверяем токен через SessionManager, который теперь совместим с TokenStorage
-    payload = await SessionManager.verify_session(token)
+    # Проверяем токен через TokenStorage, который теперь совместим с TokenStorage
+    payload = await TokenManager.verify_session(token)
     if not payload:
         logger.warning("[auth.authenticate] Токен не валиден: не найдена сессия")
         state.error = "Invalid or expired token"

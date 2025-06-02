@@ -150,12 +150,34 @@ def login_required(f: Callable) -> Callable:
         )
         logger.debug(f"[login_required] Заголовки: {req.headers if req else 'none'}")
 
+        # Извлекаем токен из заголовков для сохранения в контексте
+        token = None
+        if req:
+            # Проверяем заголовок с учетом регистра
+            headers_dict = dict(req.headers.items())
+
+            # Ищем заголовок Authorization независимо от регистра
+            for header_name, header_value in headers_dict.items():
+                if header_name.lower() == SESSION_TOKEN_HEADER.lower():
+                    token = header_value
+                    logger.debug(
+                        f"[login_required] Найден заголовок {header_name}: {token[:10] if token else 'None'}..."
+                    )
+                    break
+
+            # Очищаем токен от префикса Bearer если он есть
+            if token and token.startswith("Bearer "):
+                token = token.split("Bearer ")[-1].strip()
+
         # Для тестового режима: если req отсутствует, но в контексте есть author и roles
         if not req and info.context.get("author") and info.context.get("roles"):
             logger.debug("[login_required] Тестовый режим: используем данные из контекста")
             user_id = info.context["author"]["id"]
             user_roles = info.context["roles"]
             is_admin = info.context.get("is_admin", False)
+            # В тестовом режиме токен может быть в контексте
+            if not token:
+                token = info.context.get("token")
         else:
             # Обычный режим: проверяем через HTTP заголовки
             user_id, user_roles, is_admin = await check_auth(req)
@@ -178,6 +200,11 @@ def login_required(f: Callable) -> Callable:
 
         # Проверяем права администратора
         info.context["is_admin"] = is_admin
+
+        # Сохраняем токен в контексте для доступа в резолверах
+        if token:
+            info.context["token"] = token
+            logger.debug(f"[login_required] Токен сохранен в контексте: {token[:10] if token else 'None'}...")
 
         # В тестовом режиме автор уже может быть в контексте
         if (

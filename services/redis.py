@@ -245,6 +245,43 @@ class RedisService:
         except Exception:
             return False
 
+    async def execute_pipeline(self, commands: list[tuple[str, tuple[Any, ...]]]) -> list[Any]:
+        """
+        Выполняет список команд через pipeline для лучшей производительности.
+        Избегает использования async context manager для pipeline чтобы избежать deprecated warnings.
+
+        Args:
+            commands: Список кортежей (команда, аргументы)
+
+        Returns:
+            Список результатов выполнения команд
+        """
+        if not self.is_connected or self._client is None:
+            logger.warning("Redis not connected, cannot execute pipeline")
+            return []
+
+        try:
+            pipe = self.pipeline()
+            if pipe is None:
+                logger.error("Failed to create Redis pipeline")
+                return []
+
+            # Добавляем команды в pipeline
+            for command, args in commands:
+                cmd_method = getattr(pipe, command.lower(), None)
+                if cmd_method is not None:
+                    cmd_method(*args)
+                else:
+                    logger.error(f"Unknown Redis command in pipeline: {command}")
+
+            # Выполняем pipeline
+            results = await pipe.execute()
+            return results
+
+        except Exception as e:
+            logger.error(f"Redis pipeline execution failed: {e}")
+            return []
+
 
 # Global Redis instance
 redis = RedisService()

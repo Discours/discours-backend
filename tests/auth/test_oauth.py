@@ -142,8 +142,8 @@ with (
         assert "Invalid provider" in body_content.decode()
 
     @pytest.mark.asyncio
-    async def test_oauth_callback_success(mock_request, mock_oauth_client):
-        """Тест успешного OAuth callback"""
+    async def test_oauth_callback_success(mock_request, mock_oauth_client, oauth_db_session):
+        """Тест успешного OAuth callback с правильной БД"""
         mock_request.session = {
             "provider": "google",
             "code_verifier": "test_verifier",
@@ -157,15 +157,9 @@ with (
 
         with (
             patch("auth.oauth.oauth.create_client", return_value=mock_oauth_client),
-            patch("auth.oauth.local_session") as mock_session,
             patch("auth.oauth.TokenStorage.create_session", return_value="test_token"),
             patch("auth.oauth.get_oauth_state", return_value={"provider": "google"}),
         ):
-            # Мокаем сессию базы данных
-            session = MagicMock()
-            session.query.return_value.filter.return_value.first.return_value = None
-            mock_session.return_value.__enter__.return_value = session
-
             response = await oauth_callback_http(mock_request)
 
             assert isinstance(response, RedirectResponse)
@@ -200,8 +194,13 @@ with (
             assert "Invalid or expired OAuth state" in body_content.decode()
 
     @pytest.mark.asyncio
-    async def test_oauth_callback_existing_user(mock_request, mock_oauth_client):
-        """Тест OAuth callback с существующим пользователем"""
+    async def test_oauth_callback_existing_user(mock_request, mock_oauth_client, oauth_db_session):
+        """Тест OAuth callback с существующим пользователем через реальную БД"""
+        from auth.orm import Author
+
+        # Сессия уже предоставлена через oauth_db_session fixture
+        session = oauth_db_session
+
         mock_request.session = {
             "provider": "google",
             "code_verifier": "test_verifier",
@@ -215,27 +214,16 @@ with (
 
         with (
             patch("auth.oauth.oauth.create_client", return_value=mock_oauth_client),
-            patch("auth.oauth.local_session") as mock_session,
             patch("auth.oauth.TokenStorage.create_session", return_value="test_token"),
             patch("auth.oauth.get_oauth_state", return_value={"provider": "google"}),
         ):
-            # Создаем мок существующего пользователя с правильными атрибутами
-            existing_user = MagicMock()
-            existing_user.name = "Test User"  # Устанавливаем имя напрямую
-            existing_user.email_verified = True  # Устанавливаем значение напрямую
-            existing_user.set_oauth_account = MagicMock()  # Мок метода
-
-            session = MagicMock()
-            session.query.return_value.filter.return_value.first.return_value = existing_user
-            mock_session.return_value.__enter__.return_value = session
-
             response = await oauth_callback_http(mock_request)
 
             assert isinstance(response, RedirectResponse)
             assert response.status_code == 307
 
-            # Проверяем обновление существующего пользователя
-            assert existing_user.name == "Test User"
-            # Проверяем, что OAuth аккаунт установлен через новый метод
-            existing_user.set_oauth_account.assert_called_with("google", "123", email="test@gmail.com")
-            assert existing_user.email_verified is True
+            # Проверяем что пользователь был создан в БД через OAuth flow
+            created_user = session.query(Author).filter(Author.email == "test@gmail.com").first()
+            assert created_user is not None
+            assert created_user.name == "Test User"
+            assert created_user.email_verified is True

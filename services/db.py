@@ -202,7 +202,7 @@ json_builder, json_array_builder, json_cast = get_json_builder()
 # This function is used for search indexing
 
 
-async def fetch_all_shouts(session: Session | None = None) -> list[Any]:
+def fetch_all_shouts(session: Session | None = None) -> list[Any]:
     """Fetch all published shouts for search indexing with authors preloaded"""
     from orm.shout import Shout
 
@@ -224,7 +224,12 @@ async def fetch_all_shouts(session: Session | None = None) -> list[Any]:
         return []
     finally:
         if close_session:
-            session.close()
+            # Подавляем SQLAlchemy deprecated warning для синхронной сессии
+            import warnings
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                session.close()
 
 
 def get_column_names_without_virtual(model_cls: type[BaseModel]) -> list[str]:

@@ -78,6 +78,7 @@ ignore = [
     "E111",   # indentation-with-invalid-multiple -
     "E114",   # indentation-with-invalid-multiple-comment -
     "E117",   # over-indented -
+    "EM101",  # exception can use f-string
     "D206",   # indent-with-spaces -
     "D300",   # triple-single-quotes -
     "E501",   # line-too-long - используем line-length вместо этого правила
@@ -85,6 +86,7 @@ ignore = [
     "FA100",  # from __future__ import annotations не нужно для Python 3.13+
     "FA102",  # PEP 604 union синтаксис доступен в Python 3.13+
     "BLE001", # blind except - разрешаем в коде общие except блоки
+    "TRY301", # Abstract `raise` to an inner function - иногда удобнее
     "TRY300", # return/break в try блоке - иногда удобнее
     "ARG001", # неиспользуемые аргументы - часто нужны для совместимости API
     "PLR0913", # too many arguments - иногда неизбежно
@@ -94,6 +96,7 @@ ignore = [
     "ANN401", # Dynamically typed expressions (Any) - иногда нужно
     "S101",   # assert statements - нужно в тестах
     "T201",   # print statements - нужно для отладки
+    "TRY003", # Avoid specifying long messages outside the exception class - иногда допустимо
     "PLR2004", # Magic values - иногда допустимо
     "RUF001", # ambiguous unicode characters - для кириллицы
     "RUF002", # ambiguous unicode characters in docstrings - для кириллицы

@@ -1,10 +1,9 @@
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
-from starlette.routing import Route
 
 from auth.internal import verify_internal_auth
 from auth.orm import Author
-from auth.sessions import SessionManager
+from auth.tokens.storage import TokenStorage
 from services.db import local_session
 from settings import (
     SESSION_COOKIE_HTTPONLY,
@@ -57,7 +56,7 @@ async def logout(request: Request) -> Response:
             user_id, _, _ = await verify_internal_auth(token)
             if user_id:
                 # Отзываем сессию
-                await SessionManager.revoke_session(str(user_id), token)
+                await TokenStorage.revoke_session(token)
                 logger.info(f"[auth] logout: Токен успешно отозван для пользователя {user_id}")
             else:
                 logger.warning("[auth] logout: Не удалось получить user_id из токена")
@@ -146,7 +145,7 @@ async def refresh_token(request: Request) -> JSONResponse:
                 "ip": request.client.host if request.client else "unknown",
                 "user_agent": request.headers.get("user-agent"),
             }
-            new_token = await SessionManager.refresh_session(user_id, token, device_info)
+            new_token = await TokenStorage.refresh_session(user_id, token, device_info)
 
             if not new_token:
                 logger.error(f"[auth] refresh_token: Не удалось обновить токен для пользователя {user_id}")

@@ -5,14 +5,14 @@ import traceback
 from typing import Any
 
 from graphql import GraphQLResolveInfo
+from graphql.error import GraphQLError
 
 from auth.email import send_auth_email
 from auth.exceptions import InvalidToken, ObjectNotExist
 from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
 from auth.orm import Author, Role
-from auth.sessions import SessionManager
-from auth.tokenstorage import TokenStorage
+from auth.tokens.storage import TokenStorage
 
 # import asyncio # Убираем, так как резолвер будет синхронным
 from services.auth import login_required
@@ -44,32 +44,53 @@ async def get_current_user(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
         info: Контекст GraphQL запроса
 
     Returns:
-        Dict[str, Any]: Информация о пользователе или сообщение об ошибке
+        Dict[str, Any]: Информация о пользователе и токене для SessionInfo
     """
-    author_dict = info.context.get("author", {})
-    author_id = author_dict.get("id")
+    # Получаем токен из контекста (установлен в декораторе login_required)
+    token = info.context.get("token")
 
+    # Получаем данные автора из контекста (установлены в декораторе login_required)
+    author_dict = info.context.get("author", {})
+    author_id = author_dict.get("id") if author_dict else None
+
+    # Проверяем наличие токена - это обязательное поле в GraphQL схеме
+    if not token:
+        logger.error("[getSession] Токен не найден в контексте после login_required")
+        # Поскольку SessionInfo.token не может быть null, выбрасываем GraphQL ошибку
+        error_msg = "Токен авторизации не найден"
+        raise GraphQLError(error_msg)
+
+    # Проверяем наличие автора - это также обязательное поле
     if not author_id:
-        logger.error("[getSession] Пользователь не авторизован")
-        return {"error": "User not found"}
+        logger.error("[getSession] Автор не найден в контексте после login_required")
+        # Поскольку SessionInfo.author не может быть null, выбрасываем GraphQL ошибку
+        error_msg = "Данные пользователя не найдены"
+        raise GraphQLError(error_msg)
 
     try:
-        # Используем кешированные данные если возможно
-        if "name" in author_dict and "slug" in author_dict:
-            return {"author": author_dict}
+        # Если у нас есть полные данные автора в контексте, используем их
+        if author_dict and isinstance(author_dict, dict) and "name" in author_dict and "slug" in author_dict:
+            logger.debug(f"[getSession] Возвращаем кешированные данные автора для пользователя {author_id}")
+            return {"author": author_dict, "token": token}
 
-        # Если кеша нет, загружаем из базы
+        # Если данных автора недостаточно, загружаем из базы
+        logger.debug(f"[getSession] Загружаем данные автора {author_id} из базы данных")
         with local_session() as session:
             author = session.query(Author).filter(Author.id == author_id).first()
             if not author:
                 logger.error(f"[getSession] Автор с ID {author_id} не найден в БД")
-                return {"error": "User not found"}
+                raise GraphQLError("Пользователь не найден в базе данных")
 
-            return {"author": author.dict()}
+            # Возвращаем полные данные автора
+            return {"author": author.dict(), "token": token}
 
+    except GraphQLError:
+        # Перебрасываем GraphQL ошибки как есть
+        raise
     except Exception as e:
-        logger.error(f"Failed to get current user: {e}")
-        return {"error": "Internal error"}
+        logger.error(f"[getSession] Внутренняя ошибка при получении данных пользователя: {e}")
+        error_msg = f"Внутренняя ошибка сервера: {e}"
+        raise GraphQLError(error_msg) from e
 
 
 @mutation.field("confirmEmail")
@@ -78,18 +99,21 @@ async def confirm_email(_: None, _info: GraphQLResolveInfo, token: str) -> dict[
     """confirm owning email address"""
     try:
         logger.info("[auth] confirmEmail: Начало подтверждения email по токену.")
+        # Вместо TokenStorage.get используем verify_session для проверки токена
+        # Создаем временный токен для подтверждения email (можно использовать JWT токен напрямую)
         payload = JWTCodec.decode(token)
-        if payload is None:
-            logger.warning("[auth] confirmEmail: Невозможно декодировать токен.")
+        if not payload:
+            logger.warning("[auth] confirmEmail: Невалидный токен.")
             return {"success": False, "token": None, "author": None, "error": "Невалидный токен"}
+
+        # Проверяем что токен еще действителен в системе
+        token_verification = await TokenStorage.verify_session(token)
+        if not token_verification:
+            logger.warning("[auth] confirmEmail: Токен не найден в системе или истек.")
+            return {"success": False, "token": None, "author": None, "error": "Токен не найден или истек"}
 
         user_id = payload.user_id
         username = payload.username
-
-        # Если TokenStorage.get асинхронный, это нужно будет переделать или вызывать синхронно
-        # Для теста пока оставим, но это потенциальная точка отказа в синхронном резолвере
-        token_key = f"{user_id}-{username}-{token}"
-        await TokenStorage.get(token_key)
 
         with local_session() as session:
             user = session.query(Author).where(Author.id == user_id).first()
@@ -229,18 +253,19 @@ async def send_link(
             raise ObjectNotExist(msg)
         # Если TokenStorage.create_onetime асинхронный...
         try:
-            if hasattr(TokenStorage, "create_onetime"):
-                token = await TokenStorage.create_onetime(user)
-            else:
-                # Fallback if create_onetime doesn't exist
-                token = await TokenStorage.create_session(
-                    user_id=str(user.id),
-                    username=str(user.username or user.email or user.slug or ""),
-                    device_info={"email": user.email} if hasattr(user, "email") else None,
-                )
+            from auth.tokens.verification import VerificationTokenManager
+
+            verification_manager = VerificationTokenManager()
+            token = await verification_manager.create_verification_token(
+                str(user.id), "email_confirmation", {"email": user.email, "template": template}
+            )
         except (AttributeError, ImportError):
-            # Fallback if TokenStorage doesn't exist or doesn't have the method
-            token = "temporary_token"
+            # Fallback if VerificationTokenManager doesn't exist
+            token = await TokenStorage.create_session(
+                user_id=str(user.id),
+                username=str(user.username or user.email or user.slug or ""),
+                device_info={"email": user.email} if hasattr(user, "email") else None,
+            )
         # Если send_auth_email асинхронный...
         await send_auth_email(user, token, lang, template)
         return user
@@ -496,7 +521,7 @@ async def logout_resolver(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> d
 
         if token:
             # Отзываем сессию используя данные из контекста
-            await SessionManager.revoke_session(user_id, token)
+            await TokenStorage.revoke_session(token)
             logger.info(f"[auth] logout_resolver: Токен успешно отозван для пользователя {user_id}")
             success = True
             message = "Выход выполнен успешно"
@@ -574,7 +599,7 @@ async def refresh_token_resolver(_: None, info: GraphQLResolveInfo, **kwargs: An
         }
 
         # Обновляем сессию (создаем новую и отзываем старую)
-        new_token = await SessionManager.refresh_session(user_id, token, device_info)
+        new_token = await TokenStorage.refresh_session(user_id, token, device_info)
 
         if not new_token:
             logger.error(f"[auth] refresh_token_resolver: Не удалось обновить токен для пользователя {user_id}")
@@ -637,20 +662,19 @@ async def request_password_reset(_: None, _info: GraphQLResolveInfo, **kwargs: A
 
             # Создаем токен сброса пароля
             try:
-                from auth.tokenstorage import TokenStorage
+                from auth.tokens.verification import VerificationTokenManager
 
-                if hasattr(TokenStorage, "create_onetime"):
-                    token = await TokenStorage.create_onetime(author)
-                else:
-                    # Fallback if create_onetime doesn't exist
-                    token = await TokenStorage.create_session(
-                        user_id=str(author.id),
-                        username=str(author.username or author.email or author.slug or ""),
-                        device_info={"email": author.email} if hasattr(author, "email") else None,
-                    )
+                verification_manager = VerificationTokenManager()
+                token = await verification_manager.create_verification_token(
+                    str(author.id), "password_reset", {"email": author.email}
+                )
             except (AttributeError, ImportError):
-                # Fallback if TokenStorage doesn't exist or doesn't have the method
-                token = "temporary_token"
+                # Fallback if VerificationTokenManager doesn't exist
+                token = await TokenStorage.create_session(
+                    user_id=str(author.id),
+                    username=str(author.username or author.email or author.slug or ""),
+                    device_info={"email": author.email} if hasattr(author, "email") else None,
+                )
 
             # Отправляем email с токеном
             await send_auth_email(author, token, kwargs.get("lang", "ru"), "password_reset")

@@ -651,7 +651,7 @@ class SearchService:
         )
 
         try:
-            results = await response.json()
+            results = response.json()
             if not results or not isinstance(results, list):
                 return []
 

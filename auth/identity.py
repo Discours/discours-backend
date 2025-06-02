@@ -6,8 +6,8 @@ from passlib.hash import bcrypt
 
 from auth.exceptions import ExpiredToken, InvalidPassword, InvalidToken
 from auth.jwtcodec import JWTCodec
-from auth.tokenstorage import TokenStorage
 from services.db import local_session
+from services.redis import redis
 from utils.logger import root_logger as logger
 
 # Для типизации
@@ -146,8 +146,7 @@ class Identity:
 
             # Проверяем существование токена в хранилище
             token_key = f"{payload.user_id}-{payload.username}-{token}"
-            token_storage = TokenStorage()
-            if not await token_storage.exists(token_key):
+            if not await redis.exists(token_key):
                 logger.warning(f"[Identity.token] Токен не найден в хранилище: {token_key}")
                 return {"error": "Token not found"}
 

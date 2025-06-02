@@ -16,7 +16,7 @@ from starlette.types import ASGIApp
 
 from auth.credentials import AuthCredentials
 from auth.orm import Author
-from auth.sessions import SessionManager
+from auth.tokens.storage import TokenStorage as TokenManager
 from services.db import local_session
 from settings import (
     ADMIN_EMAILS as ADMIN_EMAILS_LIST,
@@ -70,7 +70,7 @@ class AuthMiddleware:
 
     Основные функции:
     1. Извлечение Bearer токена из заголовка Authorization или cookie
-    2. Проверка сессии через SessionManager
+    2. Проверка сессии через TokenStorage
     3. Создание request.user и request.auth
     4. Предоставление методов для установки/удаления cookies
     """
@@ -87,7 +87,7 @@ class AuthMiddleware:
             ), UnauthenticatedUser()
 
         # Проверяем сессию в Redis
-        payload = await SessionManager.verify_session(token)
+        payload = await TokenManager.verify_session(token)
         if not payload:
             logger.debug("[auth.authenticate] Недействительный токен")
             return AuthCredentials(
@@ -230,7 +230,7 @@ class AuthMiddleware:
         self._context = context
         logger.debug(f"[middleware] Установлен контекст GraphQL: {bool(context)}")
 
-    def set_cookie(self, key, value, **options) -> None:
+    def set_cookie(self, key: str, value: str, **options: Any) -> None:
         """
         Устанавливает cookie в ответе
 
@@ -262,13 +262,9 @@ class AuthMiddleware:
         if not success:
             logger.error(f"[middleware] Не удалось установить cookie {key}: объекты response недоступны")
 
-    def delete_cookie(self, key, **options) -> None:
+    def delete_cookie(self, key: str, **options: Any) -> None:
         """
         Удаляет cookie из ответа
-
-        Args:
-            key: Имя cookie для удаления
-            **options: Дополнительные параметры
         """
         success = False
 
@@ -294,7 +290,7 @@ class AuthMiddleware:
             logger.error(f"[middleware] Не удалось удалить cookie {key}: объекты response недоступны")
 
     async def resolve(
-        self, next: Callable[..., Any], root: Any, info: GraphQLResolveInfo, *args: Any, **kwargs: Any
+        self, next_resolver: Callable[..., Any], root: Any, info: GraphQLResolveInfo, *args: Any, **kwargs: Any
     ) -> Any:
         """
         Middleware для обработки запросов GraphQL.
@@ -319,7 +315,7 @@ class AuthMiddleware:
 
             logger.debug("[middleware] GraphQL resolve: контекст подготовлен, добавлены расширения для работы с cookie")
 
-            return await next(root, info, *args, **kwargs)
+            return await next_resolver(root, info, *args, **kwargs)
         except Exception as e:
             logger.error(f"[AuthMiddleware] Ошибка в GraphQL resolve: {e!s}")
             raise
