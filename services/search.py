@@ -649,7 +649,7 @@ class SearchService:
 
         try:
             response = await self.client.post(
-                "/search",
+                "/search-combined",
                 json={"text": text, "limit": search_limit},
             )
 
