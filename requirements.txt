@@ -1,7 +1,7 @@
 bcrypt
 PyJWT
 authlib
-passlib
+passlib==1.7.4
 opensearch-py
 google-analytics-data
 colorlog
