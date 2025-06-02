@@ -76,6 +76,7 @@ async def precache_topics_followers(topic_id: int, session) -> None:
 
 async def precache_data() -> None:
     logger.info("precaching...")
+    logger.debug("Entering precache_data")
     try:
         # Список паттернов ключей, которые нужно сохранить при FLUSHDB
         preserve_patterns = [
@@ -116,6 +117,7 @@ async def precache_data() -> None:
                     continue
 
         await redis.execute("FLUSHDB")
+        logger.debug("Redis database flushed")
         logger.info("redis: FLUSHDB")
 
         # Восстанавливаем все сохранённые ключи
@@ -150,17 +152,22 @@ async def precache_data() -> None:
                     logger.error(f"Ошибка при восстановлении ключа {key}: {e}")
                     continue
 
+        logger.info("Beginning topic precache phase")
         with local_session() as session:
             # topics
             q = select(Topic).where(Topic.community == 1)
             topics = get_with_stat(q)
+            logger.info(f"Found {len(topics)} topics to precache")
             for topic in topics:
                 topic_dict = topic.dict() if hasattr(topic, "dict") else topic
+                logger.debug(f"Precaching topic id={topic_dict.get('id')}")
                 await cache_topic(topic_dict)
+                logger.debug(f"Cached topic id={topic_dict.get('id')}")
                 await asyncio.gather(
                     precache_topics_followers(topic_dict["id"], session),
                     precache_topics_authors(topic_dict["id"], session),
                 )
+                logger.debug(f"Finished precaching followers and authors for topic id={topic_dict.get('id')}")
             logger.info(f"{len(topics)} topics and their followings precached")
 
             # authors
@@ -177,6 +184,7 @@ async def precache_data() -> None:
                             precache_authors_followers(author_id, session),
                             precache_authors_follows(author_id, session),
                         )
+                        logger.debug(f"Finished precaching followers and follows for author id={author_id}")
                 else:
                     logger.error(f"fail caching {author}")
             logger.info(f"{len(authors)} authors and their followings precached")

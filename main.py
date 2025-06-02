@@ -1,7 +1,8 @@
 import asyncio
 import os
 from importlib import import_module
-from os.path import exists, join
+from pathlib import Path
+from typing import Any, AsyncGenerator
 
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
@@ -9,7 +10,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -18,7 +19,6 @@ from auth.middleware import AuthMiddleware, auth_middleware
 from auth.oauth import oauth_callback, oauth_login
 from cache.precache import precache_data
 from cache.revalidator import revalidation_manager
-from services.exception import ExceptionHandlerMiddleware
 from services.redis import redis
 from services.schema import create_all_tables, resolvers
 from services.search import check_search_service, initialize_search_index_background, search_service
@@ -27,8 +27,8 @@ from settings import DEV_SERVER_PID_FILE_NAME
 from utils.logger import root_logger as logger
 
 DEVMODE = os.getenv("DOKKU_APP_TYPE", "false").lower() == "false"
-DIST_DIR = join(os.path.dirname(__file__), "dist")  # Директория для собранных файлов
-INDEX_HTML = join(os.path.dirname(__file__), "index.html")
+DIST_DIR = Path(__file__).parent / "dist"  # Директория для собранных файлов
+INDEX_HTML = Path(__file__).parent / "index.html"
 
 # Импортируем резолверы ПЕРЕД созданием схемы
 import_module("resolvers")
@@ -38,8 +38,6 @@ schema = make_executable_schema(load_schema_from_path("schema/"), list(resolvers
 
 # Создаем middleware с правильным порядком
 middleware = [
-    # Начинаем с обработки ошибок
-    Middleware(ExceptionHandlerMiddleware),
     # CORS должен быть перед другими middleware для корректной обработки preflight-запросов
     Middleware(
         CORSMiddleware,
@@ -66,7 +64,7 @@ graphql_app = GraphQL(schema, debug=DEVMODE, http_handler=EnhancedGraphQLHTTPHan
 
 
 # Оборачиваем GraphQL-обработчик для лучшей обработки ошибок
-async def graphql_handler(request: Request):
+async def graphql_handler(request: Request) -> Response:
     """
     Обработчик GraphQL запросов с поддержкой middleware и обработкой ошибок.
 
@@ -121,8 +119,9 @@ async def shutdown() -> None:
     # Удаляем PID-файл, если он существует
     from settings import DEV_SERVER_PID_FILE_NAME
 
-    if exists(DEV_SERVER_PID_FILE_NAME):
-        os.unlink(DEV_SERVER_PID_FILE_NAME)
+    pid_file = Path(DEV_SERVER_PID_FILE_NAME)
+    if pid_file.exists():
+        pid_file.unlink()
 
 
 async def dev_start() -> None:
@@ -137,11 +136,11 @@ async def dev_start() -> None:
     Используется только при запуске сервера с флагом "dev".
     """
     try:
-        pid_path = DEV_SERVER_PID_FILE_NAME
+        pid_path = Path(DEV_SERVER_PID_FILE_NAME)
         # Если PID-файл уже существует, проверяем, не запущен ли уже сервер с этим PID
-        if exists(pid_path):
+        if pid_path.exists():
             try:
-                with open(pid_path, encoding="utf-8") as f:
+                with pid_path.open(encoding="utf-8") as f:
                     old_pid = int(f.read().strip())
                 # Проверяем, существует ли процесс с таким PID
 
@@ -154,7 +153,7 @@ async def dev_start() -> None:
                 print("[warning] Invalid PID file found, recreating")
 
         # Создаем или перезаписываем PID-файл
-        with open(pid_path, "w", encoding="utf-8") as f:
+        with pid_path.open("w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
         print(f"[main] process started in DEV mode with PID {os.getpid()}")
     except Exception as e:
@@ -163,7 +162,11 @@ async def dev_start() -> None:
         print(f"[warning] Error during DEV mode initialization: {e!s}")
 
 
-async def lifespan(_app):
+# Глобальная переменная для background tasks
+background_tasks = []
+
+
+async def lifespan(_app: Any) -> AsyncGenerator[None, None]:
     """
     Функция жизненного цикла приложения.
 
@@ -198,11 +201,23 @@ async def lifespan(_app):
         await asyncio.sleep(10)  # 10-second delay to let the system stabilize
 
         # Start search indexing as a background task with lower priority
-        asyncio.create_task(initialize_search_index_background())
+        search_task = asyncio.create_task(initialize_search_index_background())
+        background_tasks.append(search_task)
+        # Не ждем завершения задачи, позволяем ей выполняться в фоне
 
         yield
     finally:
         print("[lifespan] Shutting down application services")
+
+        # Отменяем все background tasks
+        for task in background_tasks:
+            if not task.done():
+                task.cancel()
+
+        # Ждем завершения отмены tasks
+        if background_tasks:
+            await asyncio.gather(*background_tasks, return_exceptions=True)
+
         tasks = [redis.disconnect(), ViewedStorage.stop(), revalidation_manager.stop()]
         await asyncio.gather(*tasks, return_exceptions=True)
         print("[lifespan] Shutdown complete")
@@ -215,7 +230,7 @@ app = Starlette(
         # OAuth маршруты
         Route("/oauth/{provider}", oauth_login, methods=["GET"]),
         Route("/oauth/{provider}/callback", oauth_callback, methods=["GET"]),
-        Mount("/", app=StaticFiles(directory=DIST_DIR, html=True)),
+        Mount("/", app=StaticFiles(directory=str(DIST_DIR), html=True)),
     ],
     lifespan=lifespan,
     middleware=middleware,  # Явно указываем список middleware
