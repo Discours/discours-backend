@@ -1,146 +1,89 @@
-# Документация проекта
+# Документация Discours.io API
 
-## Модули
+## 🚀 Быстрый старт
 
-### Система авторизации (v0.5.1)
+### Запуск локально
+```bash
+# Стандартный запуск
+python main.py
 
-**Новая архитектура после рефакторинга:**
-
-#### Основная документация
-- **[Полная документация системы авторизации](auth-system.md)** - Обзор всех компонентов
-- **[Архитектура и диаграммы](auth-architecture.md)** - Схемы потоков данных и компонентов
-- **[Руководство по миграции](auth-migration.md)** - Переход на новую версию
-- **[Система безопасности](security.md)** - Управление паролями и email
-- **[OAuth управление](oauth.md)** - OAuth провайдеры и токены
-- **[Система подписок](follower.md)** - Подписки пользователей
-
-#### Основные возможности
-- **Модульная архитектура токенов**:
-  - `SessionTokenManager` - управление сессиями
-  - `VerificationTokenManager` - токены подтверждения
-  - `OAuthTokenManager` - OAuth токены
-  - `BatchTokenOperations` - пакетные операции
-  - `TokenMonitoring` - мониторинг и статистика
-- **OAuth провайдеры**: Google, GitHub, Facebook, X, Telegram, VK, Yandex
-- **Система разрешений (RBAC)**: роли user/moderator/admin с детальными правами
-- **Redis оптимизации**: Pipeline операции, connection pooling, автоматическая очистка
-- **Безопасность**: bcrypt + SHA256, JWT HS256, PKCE для OAuth, защита от брутфорса
-
-#### Производительность (v0.6.0)
-- ✅ **50%** ускорение Redis операций (pipeline использование)
-- ✅ **30%** снижение потребления памяти
-- ✅ **Устранение** proxy overhead
-- ✅ **Real-time** мониторинг и статистика
-- ✅ **Type-safe** codebase (mypy clean)
-
-#### Использование
-```python
-# Новый API (рекомендуется)
-from auth.tokens.sessions import SessionTokenManager
-from auth.tokens.monitoring import TokenMonitoring
-
-# Создание сессии
-sessions = SessionTokenManager()
-token = await sessions.create_session(user_id, username=username)
-
-# Мониторинг
-monitoring = TokenMonitoring()
-health = await monitoring.health_check()
-stats = await monitoring.get_token_statistics()
-
-# Совместимость (упрощенный фасад)
-from auth.tokens.storage import TokenStorage
-await TokenStorage.create_session(user_id, username=username)
+# С HTTPS (требует mkcert)
+python run.py --https --workers 4
 ```
 
-#### Конфигурация
+## 📚 Документация
+
+### Авторизация и безопасность
+- [Система авторизации](auth-system.md) - Токены, сессии, OAuth
+- [Архитектура](auth-architecture.md) - Диаграммы и схемы
+- [Миграция](auth-migration.md) - Переход на новую версию
+- [Безопасность](security.md) - Пароли, email, RBAC
+- [OAuth](oauth.md) - Google, GitHub, Facebook, X, Telegram, VK, Yandex
+
+### Функциональность
+- [Система рейтингов](rating.md) - Лайки, дизлайки, featured статьи
+- [Подписки](follower.md) - Follow/unfollow логика
+- [Кэширование](caching.md) - Redis, производительность
+- [Пагинация комментариев](comments-pagination.md) - Иерархические комментарии
+- [Загрузка контента](load_shouts.md) - Оптимизированные запросы
+
+### API и инфраструктура
+- [API методы](api.md) - GraphQL эндпоинты
+- [Функции системы](features.md) - Полный список возможностей
+
+## ⚡ Ключевые возможности (v0.5.4)
+
+### Авторизация
+- **Модульная архитектура**: SessionTokenManager, VerificationTokenManager, OAuthTokenManager
+- **OAuth провайдеры**: 7 поддерживаемых провайдеров с PKCE
+- **RBAC**: user/moderator/admin роли
+- **Производительность**: 50% ускорение Redis, 30% меньше памяти
+
+### Nginx (упрощенная конфигурация)
+- **KISS принцип**: ~60 строк вместо сложной конфигурации
+- **Dokku дефолты**: Максимальное использование встроенных настроек
+- **SSL/TLS**: TLS 1.2/1.3, HSTS, OCSP stapling
+- **Статические файлы**: Кэширование на 1 год, gzip сжатие
+- **Безопасность**: X-Frame-Options, X-Content-Type-Options
+
+### Реакции и комментарии
+- **Иерархические комментарии** с эффективной пагинацией
+- **Физическое/логическое удаление** (рейтинги/комментарии)
+- **Автоматический featured статус** на основе лайков
+- **Distinct() оптимизация** для JOIN запросов
+
+### Производительность
+- **Redis pipeline операции** для пакетных запросов
+- **Автоматическая очистка** истекших токенов
+- **Connection pooling** и keepalive
+- **Type-safe codebase** (mypy clean)
+
+## 🔧 Конфигурация
+
 ```python
-# settings.py - JWT
+# JWT
 JWT_SECRET_KEY = "your-secret-key"
 JWT_EXPIRATION_HOURS = 720  # 30 дней
 
 # Redis
 REDIS_URL = "redis://localhost:6379/0"
-REDIS_SOCKET_KEEPALIVE = True
-REDIS_HEALTH_CHECK_INTERVAL = 30
 
-# OAuth провайдеры
+# OAuth (необходимые провайдеры)
 GOOGLE_CLIENT_ID = "..."
 GITHUB_CLIENT_ID = "..."
-VK_APP_ID = "..."
-YANDEX_CLIENT_ID = "..."
-# ... и другие
+# ... другие провайдеры
 ```
 
-### Реакции и комментарии
+## 🛠 Использование API
 
-Модуль обработки пользовательских реакций и комментариев.
+```python
+# Сессии
+from auth.tokens.sessions import SessionTokenManager
+sessions = SessionTokenManager()
+token = await sessions.create_session(user_id, username=username)
 
-Основные возможности:
-- Создание, обновление и удаление реакций (лайки, дизлайки, комментарии)
-- Иерархические комментарии с пагинацией корневых и дочерних
-- Расчет статистики (счетчик комментариев, рейтинг)
-- Автоматическое добавление/снятие статуса "featured" для публикаций
-- Оптимизация запросов с использованием distinct() для предотвращения дублирования
-
-Особенности реализации:
-- Физическое удаление рейтинговых реакций и логическое удаление комментариев (поле deleted_at)
-- Использование distinct() для предотвращения дублирования результатов при JOIN с eager loading
-- Эффективная обработка иерархических данных с помощью специализированных GraphQL запросов
-
-Ключевые функции:
-- `get_reactions_with_stat(q, limit, offset)` - получение реакций со статистикой
-- `load_comments_branch(shout, parent_id, limit, offset, sort, children_limit, children_offset)` - загрузка иерархических комментариев с пагинацией
-
-### Административный интерфейс
-
-Основные возможности:
-- Защищенный доступ только для авторизованных пользователей с ролью admin
-- Автоматическая проверка прав пользователя
-- Отдельная страница входа для неавторизованных пользователей
-- Проверка доступа по email или правам в системе RBAC
-
-Маршруты:
-- `/admin` - административная панель с проверкой прав доступа
-
-## Запуск сервера
-
-### Стандартный запуск
-```bash
-python main.py
+# Мониторинг
+from auth.tokens.monitoring import TokenMonitoring
+monitoring = TokenMonitoring()
+stats = await monitoring.get_token_statistics()
 ```
-
-### Запуск с поддержкой HTTPS
-Для локальной разработки с HTTPS используйте скрипт `run.py` с инструментом mkcert:
-
-```bash
-# Установите mkcert
-# macOS:
-brew install mkcert
-# Linux:
-# sudo apt install mkcert (или эквивалент для вашего дистрибутива)
-# Windows:
-# choco install mkcert
-
-# Установите локальный CA
-mkcert -install
-
-# Запуск с HTTPS на порту 8000 через Granian
-python run.py --https
-
-# Запуск с HTTPS на другом порту
-python run.py --https --port 8443
-
-# Запуск с несколькими рабочими процессами
-python run.py --https --workers 4
-
-# Запуск с указанием домена для сертификата
-python run.py --https --domain "localhost.localdomain"
-```
-
-При первом запуске будут автоматически сгенерированы доверенные локальные сертификаты с помощью mkcert.
-
-**Преимущества mkcert:**
-- Сертификаты распознаются браузером как доверенные (нет предупреждений)
-- Работает на всех платформах (macOS, Linux, Windows)
-- Простая установка и настройка
