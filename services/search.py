@@ -635,9 +635,11 @@ class SearchService:
     async def search(self, text: str, limit: int, offset: int) -> list[dict]:
         """Search documents"""
         if not self.available:
+            logger.warning("Search service not available")
             return []
 
         if not text or not text.strip():
+            logger.warning("Empty search query provided")
             return []
 
         # Устанавливаем общий размер выборки поиска
@@ -645,37 +647,55 @@ class SearchService:
 
         logger.info("Searching for: '%s' (limit=%d, offset=%d, search_limit=%d)", text, limit, offset, search_limit)
 
-        response = await self.client.post(
-            "/search",
-            json={"text": text, "limit": search_limit},
-        )
-
         try:
+            response = await self.client.post(
+                "/search",
+                json={"text": text, "limit": search_limit},
+            )
+
+            logger.debug(f"Search service response status: {response.status_code}")
+
+            if response.status_code != 200:
+                logger.error(f"Search service returned status {response.status_code}: {response.text}")
+                return []
+
             results = response.json()
+            logger.debug(f"Raw search results: {len(results) if results else 0} items")
+
             if not results or not isinstance(results, list):
+                logger.warning(f"No search results or invalid format for query '{text}'")
                 return []
 
             # Обрабатываем каждый результат
             formatted_results = []
-            for item in results:
+            for i, item in enumerate(results):
                 if isinstance(item, dict):
                     formatted_result = self._format_search_result(item)
                     formatted_results.append(formatted_result)
+                    logger.debug(
+                        f"Formatted result {i}: id={formatted_result.get('id')}, title={formatted_result.get('title', '')[:50]}..."
+                    )
+                else:
+                    logger.warning(f"Invalid search result item {i}: {type(item)}")
+
+            logger.info(f"Successfully formatted {len(formatted_results)} search results for '{text}'")
 
             # Сохраняем результаты в кеше
             if SEARCH_CACHE_ENABLED and self.cache:
                 await self.cache.store(text, formatted_results)
+                logger.debug(f"Stored {len(formatted_results)} results in cache for '{text}'")
 
             # Если включен кеш и есть лишние результаты
             if SEARCH_CACHE_ENABLED and self.cache and await self.cache.has_query(text):
                 cached_result = await self.cache.get(text, limit, offset)
+                logger.debug(f"Retrieved {len(cached_result) if cached_result else 0} results from cache for '{text}'")
                 return cached_result or []
 
-        except Exception:
-            logger.exception("Search error for '%s'", text)
-            return []
-        else:
             return formatted_results
+
+        except Exception as e:
+            logger.error(f"Search error for '{text}': {e}", exc_info=True)
+            return []
 
     async def search_authors(self, text: str, limit: int = 10, offset: int = 0) -> list[dict]:
         """Search only for authors using the specialized endpoint"""

@@ -338,9 +338,9 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
     except Exception as e:
         logger.error(f"Fatal error in get_shouts_with_links: {e}", exc_info=True)
         raise
-    finally:
-        logger.info(f"Returning {len(shouts)} shouts from get_shouts_with_links")
-        return shouts
+
+    logger.info(f"Returning {len(shouts)} shouts from get_shouts_with_links")
+    return shouts
 
 
 def apply_filters(q: select, filters: dict[str, Any]) -> select:
@@ -444,8 +444,7 @@ async def load_shouts_by(_: None, info: GraphQLResolveInfo, options: dict[str, A
     q, limit, offset = apply_options(q, options)
 
     # Передача сформированного запроса в метод получения публикаций с учетом сортировки и пагинации
-    shouts_dicts = get_shouts_with_links(info, q, limit, offset)
-    return shouts_dicts
+    return get_shouts_with_links(info, q, limit, offset)
 
 
 @query.field("load_shouts_search")
@@ -461,16 +460,32 @@ async def load_shouts_search(_: None, info: GraphQLResolveInfo, text: str, optio
     """
     limit = options.get("limit", 10)
     offset = options.get("offset", 0)
+
+    logger.info(f"[load_shouts_search] Starting search for '{text}' with limit={limit}, offset={offset}")
+
     if isinstance(text, str) and len(text) > 2:
+        logger.debug(f"[load_shouts_search] Calling search_text service for '{text}'")
         results = await search_text(text, limit, offset)
+
+        logger.debug(f"[load_shouts_search] Search service returned {len(results)} results for '{text}'")
+
         scores = {}
         hits_ids = []
-        for sr in results:
+        for i, sr in enumerate(results):
             shout_id = sr.get("id")
             if shout_id:
                 shout_id = str(shout_id)
-                scores[shout_id] = sr.get("score")
+                scores[shout_id] = sr.get("score", 0.0)
                 hits_ids.append(shout_id)
+                logger.debug(f"[load_shouts_search] Result {i}: id={shout_id}, score={scores[shout_id]}")
+            else:
+                logger.warning(f"[load_shouts_search] Result {i} missing id: {sr}")
+
+        logger.debug(f"[load_shouts_search] Extracted {len(hits_ids)} shout IDs: {hits_ids}")
+
+        if not hits_ids:
+            logger.warning(f"[load_shouts_search] No valid shout IDs found for query '{text}'")
+            return []
 
         q = (
             query_with_stat(info)
@@ -480,11 +495,22 @@ async def load_shouts_search(_: None, info: GraphQLResolveInfo, text: str, optio
         q = q.filter(Shout.id.in_(hits_ids))
         q = apply_filters(q, options)
         q = apply_sorting(q, options)
+
+        logger.debug(f"[load_shouts_search] Executing database query for {len(hits_ids)} shout IDs")
         shouts_dicts = get_shouts_with_links(info, q, limit, offset)
+
+        logger.debug(f"[load_shouts_search] Database returned {len(shouts_dicts)} shouts")
+
         for shout_dict in shouts_dicts:
-            shout_dict["score"] = scores[f"{shout_dict['id']}"]
-        shouts_dicts.sort(key=lambda x: x["score"], reverse=True)
+            shout_id_str = f"{shout_dict['id']}"
+            shout_dict["score"] = scores.get(shout_id_str, 0.0)
+
+        shouts_dicts.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+
+        logger.info(f"[load_shouts_search] Returning {len(shouts_dicts)} sorted shouts for '{text}'")
         return shouts_dicts
+    logger.warning(f"[load_shouts_search] Invalid search query: '{text}' (length={len(text) if text else 0})")
+
     return []
 
 
@@ -524,8 +550,7 @@ async def load_shouts_unrated(_: None, info: GraphQLResolveInfo, options: dict[s
 
     limit = options.get("limit", 5)
     offset = options.get("offset", 0)
-    shouts_dicts = get_shouts_with_links(info, q, limit, offset)
-    return shouts_dicts
+    return get_shouts_with_links(info, q, limit, offset)
 
 
 @query.field("load_shouts_random_top")
@@ -565,5 +590,4 @@ async def load_shouts_random_top(_: None, info: GraphQLResolveInfo, options: dic
     q = q.filter(Shout.id.in_(subquery))
     q = q.order_by(func.random())
     limit = options.get("limit", 10)
-    shouts_dicts = get_shouts_with_links(info, q, limit)
-    return shouts_dicts
+    return get_shouts_with_links(info, q, limit)

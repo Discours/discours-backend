@@ -89,9 +89,14 @@ ignore = [
     "TRY301", # Abstract `raise` to an inner function - иногда удобнее
     "TRY300", # return/break в try блоке - иногда удобнее
     "ARG001", # неиспользуемые аргументы - часто нужны для совместимости API
+    "PLR0911", #
     "PLR0913", # too many arguments - иногда неизбежно
     "PLR0912", # too many branches - иногда неизбежно
     "PLR0915", # too many statements - иногда неизбежно
+    "PLR0911", # too many return statements - иногда неизбежно для обработки различных case'ов
+    "FBT001",  # boolean positional arguments - иногда удобно для API совместимости
+    "FBT002",  # boolean default arguments - иногда удобно для API совместимости
+    "PERF203", # try-except in loop - иногда нужно для обработки отдельных элементов
     # Игнорируем некоторые строгие правила для удобства разработки
     "ANN401", # Dynamically typed expressions (Any) - иногда нужно
     "S101",   # assert statements - нужно в тестах
