@@ -4,7 +4,6 @@ on: [push]
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    needs: type-check
     steps:
       - name: Cloning repo
         uses: actions/checkout@v4
