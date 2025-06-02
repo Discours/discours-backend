@@ -9,7 +9,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Debug Python setup
+        run: |
+          echo "🔍 Отладка установки Python..."
+          which python || echo "❌ python не найден"
+          which python3 || echo "❌ python3 не найден"
+          python --version 2>&1 || echo "❌ python --version failed"
+          python3 --version 2>&1 || echo "❌ python3 --version failed"
+          ls -la /usr/bin/python* || echo "❌ Нет python в /usr/bin/"
+          echo "PATH: $PATH"
+          echo "RUNNER_OS: $RUNNER_OS"
+          echo "✅ Отладка завершена"
 
       - name: Cache pip packages
         uses: actions/cache@v3
@@ -21,15 +35,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements.dev.txt
-          pip install mypy types-redis types-requests
+          python3 -m pip install --upgrade pip
+          pip3 install -r requirements.txt
+          pip3 install -r requirements.dev.txt
+          pip3 install mypy types-redis types-requests
 
       - name: Run type checking with mypy
         run: |
           echo "🔍 Проверка типобезопасности с mypy..."
-          mypy . --show-error-codes --no-error-summary --pretty
+          python3 -m mypy . --show-error-codes --no-error-summary --pretty
           echo "✅ Все проверки типов прошли успешно!"
 
   deploy:
