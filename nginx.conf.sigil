@@ -1,4 +1,10 @@
-{{ $proxy_settings := "proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $http_connection; proxy_set_header Host $http_host; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; proxy_set_header X-Forwarded-Port $server_port; proxy_set_header X-Request-Start $msec;" }}
+{{ $proxy_settings := "proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $http_connection; proxy_set_header Host $http_host; proxy_set_header X-Request-Start $msec;" }}
+{{ $gzip_settings := "gzip on; gzip_min_length  1100; gzip_buffers  4 32k; gzip_types text/css text/javascript text/xml text/plain text/x-component application/javascript application/x-javascript application/json application/xml application/rss+xml font/truetype application/x-font-ttf font/opentype application/vnd.ms-fontobject image/svg+xml; gzip_vary on; gzip_comp_level  6;" }}
+
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=1g
+                 inactive=60m use_temp_path=off;
+limit_conn_zone $binary_remote_addr zone=addr:10m;
+limit_req_zone $binary_remote_addr zone=req_zone:10m rate=20r/s;
 
 {{ range $port_map := .PROXY_PORT_MAP | split " " }}
 {{ $port_map_list := $port_map | split ":" }}
@@ -19,54 +25,45 @@ server {
         listen [::]:{{ $listen_port }} ssl http2;
         listen {{ $listen_port }} ssl http2;
         server_name {{ $.NOSSL_SERVER_NAME }};
-
-        # SSL конфигурация (dokku дефолты)
         ssl_certificate {{ $.APP_SSL_PATH }}/server.crt;
         ssl_certificate_key {{ $.APP_SSL_PATH }}/server.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers off;
 
-        # Базовые заголовки безопасности
-        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-Content-Type-Options "nosniff" always;
-
-        # Скрыть версию nginx
-        server_tokens off;
+        keepalive_timeout   70;
+        keepalive_requests 500;
+        proxy_read_timeout 3600;
+        limit_conn addr 10000;
+        client_max_body_size 100M;
     {{ end }}
 
-    # Логирование (dokku дефолты)
-    access_log /var/log/nginx/{{ $.APP }}-access.log;
-    error_log /var/log/nginx/{{ $.APP }}-error.log;
-
-    # Размер загружаемых файлов
-    client_max_body_size 100M;
-
-    # Улучшенное сжатие
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1000;
-    gzip_comp_level 6;
-    gzip_types text/plain text/css text/xml text/javascript application/javascript application/json image/svg+xml;
 
     location / {
         proxy_pass http://{{ $.APP }}-{{ $upstream_port }};
         {{ $proxy_settings }}
+        {{ $gzip_settings }}
+
+        proxy_cache my_cache;
+        proxy_cache_revalidate on;
+        proxy_cache_min_uses 2;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+        proxy_cache_lock on;
+
+        # Connections and request limits increase (bad for DDos)
+        limit_req zone=req_zone burst=10 nodelay;
     }
 
-    # Статические файлы с долгим кэшированием
-    location ~* \.(css|js|ico|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot)$ {
-        proxy_pass http://{{ $.APP }}-{{ $upstream_port }};
-        {{ $proxy_settings }}
-
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        add_header Vary "Accept-Encoding";
-        access_log off;
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
+        proxy_pass  http://{{ $.APP }}-{{ $upstream_port }};
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
     }
 
-    # Включение дополнительных конфигураций dokku
-    include {{ $.DOKKU_ROOT }}/{{ $.APP }}/nginx.conf.d/*.conf;
+  include {{ $.DOKKU_ROOT }}/{{ $.APP }}/nginx.conf.d/*.conf;
 }
 {{ end }}
+
 
 {{ range $upstream_port := $.PROXY_UPSTREAM_PORTS | split " " }}
 upstream {{ $.APP }}-{{ $upstream_port }} {
@@ -74,7 +71,7 @@ upstream {{ $.APP }}-{{ $upstream_port }} {
 {{ $listener_list := $listeners | split ":" }}
 {{ $listener_ip := index $listener_list 0 }}
 {{ $listener_port := index $listener_list 1 }}
-    server {{ $listener_ip }}:{{ $upstream_port }};
+  server {{ $listener_ip }}:{{ $upstream_port }};
 {{ end }}
 }
 {{ end }}

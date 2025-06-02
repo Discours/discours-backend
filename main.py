@@ -45,8 +45,10 @@ middleware = [
         allow_origins=[
             "https://localhost:3000",
             "https://testing.discours.io",
+            "https://testing.dscrs.site",
             "https://testing3.discours.io",
             "https://coretest.discours.io",
+            "https://core.discours.io",
             "https://discours.io",
             "https://new.discours.io",
         ],
