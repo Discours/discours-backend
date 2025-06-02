@@ -1,8 +1,9 @@
 import asyncio
 import os
+from collections.abc import AsyncGenerator
 from importlib import import_module
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any
 
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
