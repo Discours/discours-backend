@@ -7,6 +7,7 @@ from os.path import exists
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -73,6 +74,24 @@ async def graphql_handler(request: Request):
         print(f"GraphQL error: {str(e)}")
         return JSONResponse({"error": str(e)}, status_code=500)
 
+middleware = [
+	    # Начинаем с обработки ошибок
+    Middleware(ExceptionHandlerMiddleware),
+    # CORS должен быть перед другими middleware для корректной обработки preflight-запросов
+    Middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://localhost:3000",
+            "https://testing.discours.io",
+            "https://testing3.discours.io",
+            "https://discours.io",
+            "https://new.discours.io"
+        ],
+        allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
+        allow_headers=["*"],
+        allow_credentials=True,
+    ),
+]
 
 # Обновляем маршрут в Starlette
 app = Starlette(
@@ -80,6 +99,7 @@ app = Starlette(
         Route("/", graphql_handler, methods=["GET", "POST"]),
         Route("/new-author", WebhookEndpoint),
     ],
+    middleware=middleware,
     lifespan=lifespan,
     debug=True,
 )
