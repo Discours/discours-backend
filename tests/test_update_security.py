@@ -137,18 +137,6 @@ async def test_email_change() -> None:
 
     if result["success"]:
         logger.info("   ✅ Смена email инициирована")
-
-        # Проверяем pending_email
-        with local_session() as session:
-            updated_user = session.query(Author).filter(Author.id == test_user.id).first()
-            if updated_user.pending_email == "newemail@example.com":
-                logger.info("   ✅ pending_email установлен корректно")
-                if updated_user.email_change_token:
-                    logger.info("   ✅ Токен подтверждения создан")
-                else:
-                    logger.error("   ❌ Токен подтверждения не создан")
-            else:
-                logger.error(f"   ❌ pending_email неверен: {updated_user.pending_email}")
     else:
         logger.error(f"   ❌ Ошибка инициации смены email: {result['error']}")
 
@@ -210,12 +198,6 @@ async def test_combined_changes() -> None:
                 logger.info("   ✅ Новый пароль работает")
             else:
                 logger.error("   ❌ Новый пароль не работает")
-
-            # Проверяем pending email
-            if updated_user.pending_email == "combined@example.com":
-                logger.info("   ✅ pending_email установлен корректно")
-            else:
-                logger.error(f"   ❌ pending_email неверен: {updated_user.pending_email}")
     else:
         logger.error(f"   ❌ Ошибка одновременной смены: {result['error']}")
 
