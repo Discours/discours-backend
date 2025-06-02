@@ -28,13 +28,13 @@ class BaseTokenManager:
         Returns:
             str: Ключ токена
         """
-        if token_type == TokenType.SESSION:
+        if token_type == "session":  # noqa: S105
             return f"session:{identifier}:{token}"
-        if token_type == TokenType.VERIFICATION:
+        if token_type == "verification":  # noqa: S105
             return f"verification_token:{token}"
-        if token_type == TokenType.OAUTH_ACCESS:
+        if token_type == "oauth_access":  # noqa: S105
             return f"oauth_access:{identifier}"
-        if token_type == TokenType.OAUTH_REFRESH:
+        if token_type == "oauth_refresh":  # noqa: S105
             return f"oauth_refresh:{identifier}"
 
         error_msg = f"Неизвестный тип токена: {token_type}"
@@ -44,7 +44,7 @@ class BaseTokenManager:
     @lru_cache(maxsize=500)
     def _make_user_tokens_key(user_id: str, token_type: TokenType) -> str:
         """Создает ключ для списка токенов пользователя"""
-        if token_type == TokenType.SESSION:
+        if token_type == "session":  # noqa: S105
             return f"user_sessions:{user_id}"
         return f"user_tokens:{user_id}:{token_type}"
 

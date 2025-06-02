@@ -81,10 +81,8 @@ class OAuthTokenManager(BaseTokenManager):
 
     async def get_token(self, user_id: int, provider: str, token_type: TokenType) -> Optional[TokenData]:
         """Получает токен"""
-        if isinstance(token_type, TokenType):
-            if token_type.startswith("oauth_"):
-                return await self._get_oauth_data_optimized(token_type, str(user_id), provider)  # type: ignore[arg-type]
-            return await self._get_token_data_optimized(token_type, str(user_id), provider)  # type: ignore[arg-type]
+        if token_type.startswith("oauth_"):
+            return await self._get_oauth_data_optimized(token_type, str(user_id), provider)
         return None
 
     async def _get_oauth_data_optimized(
