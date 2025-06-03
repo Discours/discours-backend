@@ -1,9 +1,7 @@
 import asyncio
 import os
-from collections.abc import AsyncGenerator
 from importlib import import_module
 from pathlib import Path
-from typing import Any
 
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
@@ -116,7 +114,7 @@ async def shutdown() -> None:
     await redis.disconnect()
 
     # Останавливаем поисковый сервис
-    search_service.close()
+    await search_service.close()
 
     # Удаляем PID-файл, если он существует
     from settings import DEV_SERVER_PID_FILE_NAME
@@ -168,7 +166,7 @@ async def dev_start() -> None:
 background_tasks = []
 
 
-async def lifespan(_app: Any) -> AsyncGenerator[None, None]:
+async def lifespan(app: Starlette):
     """
     Функция жизненного цикла приложения.
 
@@ -179,7 +177,7 @@ async def lifespan(_app: Any) -> AsyncGenerator[None, None]:
     4. Корректное завершение работы при остановке сервера
 
     Args:
-        _app: экземпляр Starlette приложения
+        app: экземпляр Starlette приложения
 
     Yields:
         None: генератор для управления жизненным циклом

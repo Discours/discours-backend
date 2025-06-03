@@ -88,7 +88,7 @@ async def admin_get_users(
         logger.error(f"Ошибка при получении списка пользователей: {e!s}")
         logger.error(traceback.format_exc())
         msg = f"Не удалось получить список пользователей: {e!s}"
-        raise GraphQLError(msg)
+        raise GraphQLError(msg) from e
 
 
 @query.field("adminGetRoles")
@@ -125,12 +125,12 @@ async def admin_get_roles(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Ошибка при получении списка ролей: {e!s}")
         msg = f"Не удалось получить список ролей: {e!s}"
-        raise GraphQLError(msg)
+        raise GraphQLError(msg) from e
 
 
 @query.field("getEnvVariables")
 @admin_auth_required
-async def get_env_variables(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
+async def get_env_variables(_: None, info: GraphQLResolveInfo) -> list[dict[str, Any]]:
     """
     Получает список переменных окружения, сгруппированных по секциям
 
@@ -166,12 +166,12 @@ async def get_env_variables(_: None, info: GraphQLResolveInfo) -> dict[str, Any]
             for section in sections
         ]
 
-        return {"sections": sections_list}
+        return sections_list
 
     except Exception as e:
         logger.error(f"Ошибка при получении переменных окружения: {e!s}")
         msg = f"Не удалось получить переменные окружения: {e!s}"
-        raise GraphQLError(msg)
+        raise GraphQLError(msg) from e
 
 
 @mutation.field("updateEnvVariable")

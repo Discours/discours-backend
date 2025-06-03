@@ -44,12 +44,12 @@ class EnhancedGraphQLHTTPHandler(GraphQLHTTPHandler):
         context["extensions"] = auth_middleware
 
         # Добавляем данные авторизации только если они доступны
-        # Без проверки hasattr, так как это вызывает ошибку до обработки AuthenticationMiddleware
-        if hasattr(request, "auth") and request.auth:
-            # Используем request.auth вместо request.user, так как user еще не доступен
-            context["auth"] = request.auth
+        # Проверяем наличие данных авторизации в scope
+        if hasattr(request, "scope") and isinstance(request.scope, dict) and "auth" in request.scope:
+            auth_cred = request.scope.get("auth")
+            context["auth"] = auth_cred
             # Безопасно логируем информацию о типе объекта auth
-            logger.debug(f"[graphql] Добавлены данные авторизации в контекст: {type(request.auth).__name__}")
+            logger.debug(f"[graphql] Добавлены данные авторизации в контекст из scope: {type(auth_cred).__name__}")
 
         logger.debug("[graphql] Подготовлен расширенный контекст для запроса")
 

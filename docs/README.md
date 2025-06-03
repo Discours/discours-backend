@@ -24,6 +24,7 @@ python run.py --https --workers 4
 - [Система рейтингов](rating.md) - Лайки, дизлайки, featured статьи
 - [Подписки](follower.md) - Follow/unfollow логика
 - [Кэширование](caching.md) - Redis, производительность
+- [Схема данных Redis](redis-schema.md) - Полная документация структур данных
 - [Пагинация комментариев](comments-pagination.md) - Иерархические комментарии
 - [Загрузка контента](load_shouts.md) - Оптимизированные запросы
 
