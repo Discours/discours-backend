@@ -28,26 +28,26 @@ Backend service providing GraphQL API for content management system with reactio
 
 ## Tech Stack
 
-- **(Python)[https://www.python.org/]** 3.12+
+- [Python](https://www.python.org/) 3.12+
 - **GraphQL** with [Ariadne](https://ariadnegraphql.org/)
-- **(SQLAlchemy)[https://docs.sqlalchemy.org/en/20/orm/]**
-- **(PostgreSQL)[https://www.postgresql.org/]/(SQLite)[https://www.sqlite.org/]** support
-- **(Starlette)[https://www.starlette.io/]** for ASGI server
-- **(Redis)[https://redis.io/]** for caching
+- [SQLAlchemy](https://docs.sqlalchemy.org/en/20/orm/)
+- [PostgreSQL](https://www.postgresql.org/)/[SQLite](https://www.sqlite.org/) support
+- [Starlette](https://www.starlette.io/) for ASGI server
+- [Redis](https://redis.io/) for caching
 
 ## Development
 
 ### Prepare environment:
 
 ```shell
-mkdir .venv
 python3.12 -m venv venv
 source venv/bin/activate
+pip install -r requirements.dev.txt
 ```
 
 ### Run server
 
-First, certifcates are required to run the server.
+First, certificates are required to run the server with HTTPS.
 
 ```shell
 mkcert -install

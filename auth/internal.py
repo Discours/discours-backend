@@ -156,7 +156,7 @@ async def authenticate(request: Any) -> AuthState:
     state.username = payload.username
 
     # Если запрос имеет атрибут auth, устанавливаем в него авторизационные данные
-    if hasattr(request, "auth") or hasattr(request, "__setattr__"):
+    if hasattr(request, "scope") and isinstance(request.scope, dict):
         try:
             # Получаем информацию о пользователе для создания AuthCredentials
             with local_session() as session:
@@ -175,13 +175,13 @@ async def authenticate(request: Any) -> AuthState:
                         error_message="",
                     )
 
-                    # Устанавливаем auth в request
-                    request.auth = auth_cred
+                    # Устанавливаем auth в request.scope вместо прямого присваивания к request.auth
+                    request.scope["auth"] = auth_cred
                     logger.debug(
-                        f"[auth.authenticate] Авторизационные данные установлены в request.auth для {payload.user_id}"
+                        f"[auth.authenticate] Авторизационные данные установлены в request.scope['auth'] для {payload.user_id}"
                     )
         except Exception as e:
-            logger.error(f"[auth.authenticate] Ошибка при установке auth в request: {e}")
+            logger.error(f"[auth.authenticate] Ошибка при установке auth в request.scope: {e}")
 
     logger.info(f"[auth.authenticate] Успешная аутентификация пользователя {state.author_id}")
 

@@ -8,7 +8,7 @@
 python main.py
 
 # С HTTPS (требует mkcert)
-python run.py --https --workers 4
+python dev.py
 ```
 
 ## 📚 Документация
@@ -19,11 +19,13 @@ python run.py --https --workers 4
 - [Миграция](auth-migration.md) - Переход на новую версию
 - [Безопасность](security.md) - Пароли, email, RBAC
 - [OAuth](oauth.md) - Google, GitHub, Facebook, X, Telegram, VK, Yandex
+- [OAuth настройка](oauth-setup.md) - Инструкции по настройке OAuth провайдеров
 
 ### Функциональность
 - [Система рейтингов](rating.md) - Лайки, дизлайки, featured статьи
 - [Подписки](follower.md) - Follow/unfollow логика
 - [Кэширование](caching.md) - Redis, производительность
+- [Схема данных Redis](redis-schema.md) - Полная документация структур данных
 - [Пагинация комментариев](comments-pagination.md) - Иерархические комментарии
 - [Загрузка контента](load_shouts.md) - Оптимизированные запросы
 
@@ -69,8 +71,8 @@ JWT_EXPIRATION_HOURS = 720  # 30 дней
 REDIS_URL = "redis://localhost:6379/0"
 
 # OAuth (необходимые провайдеры)
-GOOGLE_CLIENT_ID = "..."
-GITHUB_CLIENT_ID = "..."
+OAUTH_CLIENTS_GOOGLE_ID = "..."
+OAUTH_CLIENTS_GITHUB_ID = "..."
 # ... другие провайдеры
 ```
 
