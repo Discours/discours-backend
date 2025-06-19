@@ -2,7 +2,6 @@ bcrypt
 PyJWT
 authlib
 passlib==1.7.4
-opensearch-py
 google-analytics-data
 colorlog
 psycopg2-binary

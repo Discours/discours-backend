@@ -33,7 +33,7 @@ python dev.py
 - [API методы](api.md) - GraphQL эндпоинты
 - [Функции системы](features.md) - Полный список возможностей
 
-## ⚡ Ключевые возможности (v0.5.4)
+## ⚡ Ключевые возможности
 
 ### Авторизация
 - **Модульная архитектура**: SessionTokenManager, VerificationTokenManager, OAuthTokenManager

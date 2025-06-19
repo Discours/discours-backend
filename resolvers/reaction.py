@@ -167,20 +167,35 @@ def check_to_feature(session: Session, approver_id: int, reaction: dict) -> bool
 
 def check_to_unfeature(session: Session, reaction: dict) -> bool:
     """
-    Unfeature a shout if 20% of reactions are negative.
+    Unfeature a shout if:
+    1. Less than 5 positive votes, OR
+    2. 20% or more of reactions are negative.
 
     :param session: Database session.
     :param reaction: Reaction object.
     :return: True if shout should be unfeatured, else False.
     """
     if not reaction.get("reply_to"):
+        shout_id = reaction.get("shout")
+
         # Проверяем соотношение дизлайков, даже если текущая реакция не дизлайк
         total_reactions = (
             session.query(Reaction)
             .filter(
-                Reaction.shout == reaction.get("shout"),
+                Reaction.shout == shout_id,
                 Reaction.reply_to.is_(None),
                 Reaction.kind.in_(RATING_REACTIONS),
+                # Рейтинги физически удаляются при удалении, поэтому фильтр deleted_at не нужен
+            )
+            .count()
+        )
+
+        positive_reactions = (
+            session.query(Reaction)
+            .filter(
+                Reaction.shout == shout_id,
+                is_positive(Reaction.kind),
+                Reaction.reply_to.is_(None),
                 # Рейтинги физически удаляются при удалении, поэтому фильтр deleted_at не нужен
             )
             .count()
@@ -189,7 +204,7 @@ def check_to_unfeature(session: Session, reaction: dict) -> bool:
         negative_reactions = (
             session.query(Reaction)
             .filter(
-                Reaction.shout == reaction.get("shout"),
+                Reaction.shout == shout_id,
                 is_negative(Reaction.kind),
                 Reaction.reply_to.is_(None),
                 # Рейтинги физически удаляются при удалении, поэтому фильтр deleted_at не нужен
@@ -197,12 +212,19 @@ def check_to_unfeature(session: Session, reaction: dict) -> bool:
             .count()
         )
 
-        # Проверяем, составляют ли отрицательные реакции 20% или более от всех реакций
+        # Условие 1: Меньше 5 голосов "за"
+        if positive_reactions < 5:
+            logger.debug(f"Публикация {shout_id}: {positive_reactions} лайков (меньше 5) - должна быть unfeatured")
+            return True
+
+        # Условие 2: Проверяем, составляют ли отрицательные реакции 20% или более от всех реакций
         negative_ratio = negative_reactions / total_reactions if total_reactions > 0 else 0
         logger.debug(
-            f"Публикация {reaction.get('shout')}: {negative_reactions}/{total_reactions} отрицательных реакций ({negative_ratio:.2%})"
+            f"Публикация {shout_id}: {negative_reactions}/{total_reactions} отрицательных реакций ({negative_ratio:.2%})"
         )
-        return total_reactions > 0 and negative_ratio >= 0.2
+        if total_reactions > 0 and negative_ratio >= 0.2:
+            return True
+
     return False
 
 
@@ -265,12 +287,16 @@ async def _create_reaction(session: Session, shout_id: int, is_author: bool, aut
 
     # Handle rating
     if r.kind in RATING_REACTIONS:
-        # Проверяем сначала условие для unfeature (дизлайки имеют приоритет)
-        if check_to_unfeature(session, rdict):
+        # Проверяем, является ли публикация featured
+        shout = session.query(Shout).filter(Shout.id == shout_id).first()
+        is_currently_featured = shout and shout.featured_at is not None
+
+        # Проверяем сначала условие для unfeature (для уже featured публикаций)
+        if is_currently_featured and check_to_unfeature(session, rdict):
             set_unfeatured(session, shout_id)
-            logger.info(f"Публикация {shout_id} потеряла статус featured из-за высокого процента дизлайков")
+            logger.info(f"Публикация {shout_id} потеряла статус featured из-за условий unfeaturing")
         # Только если не было unfeature, проверяем условие для feature
-        elif check_to_feature(session, author_id, rdict):
+        elif not is_currently_featured and check_to_feature(session, author_id, rdict):
             await set_featured(session, shout_id)
             logger.info(f"Публикация {shout_id} получила статус featured благодаря лайкам от авторов")
 
@@ -468,9 +494,16 @@ async def delete_reaction(_: None, info: GraphQLResolveInfo, reaction_id: int) -
                 # TODO: add more reaction types here
             else:
                 logger.debug(f"{author_id} user removing his #{reaction_id} reaction")
+                reaction_dict = r.dict()
+                # Проверяем, является ли публикация featured до удаления реакции
+                shout = session.query(Shout).filter(Shout.id == r.shout).first()
+                is_currently_featured = shout and shout.featured_at is not None
+
                 session.delete(r)
                 session.commit()
-                if check_to_unfeature(session, r):
+
+                # Проверяем условие unfeatured только для уже featured публикаций
+                if is_currently_featured and check_to_unfeature(session, reaction_dict):
                     set_unfeatured(session, r.shout)
 
             reaction_dict = r.dict()
