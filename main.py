@@ -18,6 +18,7 @@ from auth.middleware import AuthMiddleware, auth_middleware
 from auth.oauth import oauth_callback, oauth_login
 from cache.precache import precache_data
 from cache.revalidator import revalidation_manager
+from services.exception import ExceptionHandlerMiddleware
 from services.redis import redis
 from services.schema import create_all_tables, resolvers
 from services.search import check_search_service, initialize_search_index_background, search_service
@@ -223,6 +224,19 @@ async def lifespan(app: Starlette):
         print("[lifespan] Shutdown complete")
 
 
+middleware = [
+    # Начинаем с обработки ошибок
+    Middleware(ExceptionHandlerMiddleware),
+    # CORS должен быть перед другими middleware для корректной обработки preflight-запросов
+    Middleware(
+        CORSMiddleware,
+        allow_origins=["https://localhost:3000", "https://testing.discours.io", "https://testing3.discours.io"],
+        allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
+        allow_headers=["*"],
+        allow_credentials=True,
+    ),
+]
+
 # Обновляем маршрут в Starlette
 app = Starlette(
     routes=[
@@ -232,8 +246,8 @@ app = Starlette(
         Route("/oauth/{provider}/callback", oauth_callback, methods=["GET"]),
         Mount("/", app=StaticFiles(directory=str(DIST_DIR), html=True)),
     ],
+    middleware=middleware,
     lifespan=lifespan,
-    middleware=middleware,  # Явно указываем список middleware
     debug=True,
 )
 

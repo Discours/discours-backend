@@ -128,9 +128,6 @@ dmypy.json
 .idea
 temp.*
 
-# Debug
-DEBUG.log
-
 discours.key
 discours.crt
 discours.pem
@@ -165,6 +162,5 @@ views.json
 *.crt
 *cache.json
 .cursor
-.devcontainer/
 
 node_modules/
