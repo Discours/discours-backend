@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 from graphql import GraphQLResolveInfo
 from sqlalchemy import select, text
@@ -24,6 +24,32 @@ from services.schema import mutation, query
 from utils.logger import root_logger as logger
 
 DEFAULT_COMMUNITIES = [1]
+
+
+# Определение типа AuthorsBy на основе схемы GraphQL
+class AuthorsBy(TypedDict, total=False):
+    """
+    Тип для параметра сортировки авторов, соответствующий схеме GraphQL.
+
+    Поля:
+        last_seen: Временная метка последнего посещения
+        created_at: Временная метка создания
+        slug: Уникальный идентификатор автора
+        name: Имя автора
+        topic: Тема, связанная с автором
+        order: Поле для сортировки (shouts, followers, rating, comments, name)
+        after: Временная метка для фильтрации "после"
+        stat: Поле статистики
+    """
+
+    last_seen: Optional[int]
+    created_at: Optional[int]
+    slug: Optional[str]
+    name: Optional[str]
+    topic: Optional[str]
+    order: Optional[str]
+    after: Optional[int]
+    stat: Optional[str]
 
 
 # Вспомогательная функция для получения всех авторов без статистики
@@ -62,7 +88,7 @@ async def get_all_authors(current_user_id: Optional[int] = None) -> list[Any]:
 
 # Вспомогательная функция для получения авторов со статистикой с пагинацией
 async def get_authors_with_stats(
-    limit: int = 10, offset: int = 0, by: Optional[str] = None, current_user_id: Optional[int] = None
+    limit: int = 10, offset: int = 0, by: Optional[AuthorsBy] = None, current_user_id: Optional[int] = None
 ):
     """
     Получает авторов со статистикой с пагинацией.
@@ -70,13 +96,14 @@ async def get_authors_with_stats(
     Args:
         limit: Максимальное количество возвращаемых авторов
         offset: Смещение для пагинации
-        by: Опциональный параметр сортировки (new/active)
+        by: Опциональный параметр сортировки (AuthorsBy)
         current_user_id: ID текущего пользователя
     Returns:
         list: Список авторов с их статистикой
     """
     # Формируем ключ кеша с помощью универсальной функции
-    cache_key = f"authors:stats:limit={limit}:offset={offset}"
+    order_value = by.get("order", "default") if by else "default"
+    cache_key = f"authors:stats:limit={limit}:offset={offset}:order={order_value}"
 
     # Функция для получения авторов из БД
     async def fetch_authors_with_stats() -> list[Any]:
@@ -96,54 +123,56 @@ async def get_authors_with_stats(
             # Базовый запрос для получения авторов
             base_query = select(Author).where(Author.deleted_at.is_(None))
 
-            # Применяем сортировку
-
             # vars for statistics sorting
             stats_sort_field = None
+            default_sort_applied = False
 
             if by:
-                if isinstance(by, dict):
-                    logger.debug(f"Processing dict-based sorting: {by}")
-                    # Обработка словаря параметров сортировки
-
-                    # Checking for order field in the dictionary
-                    if "order" in by:
-                        order_value = by["order"]
-                        logger.debug(f"Found order field with value: {order_value}")
-                        if order_value in ["shouts", "followers", "rating", "comments"]:
-                            stats_sort_field = order_value
-                            logger.debug(f"Applying statistics-based sorting by: {stats_sort_field}")
-                        elif order_value == "name":
-                            # Sorting by name in ascending order
-                            base_query = base_query.order_by(asc(Author.name))
-                            logger.debug("Applying alphabetical sorting by name")
-                        else:
-                            # If order is not a stats field, treat it as a regular field
-                            column = getattr(Author, order_value, None)
-                            if column:
-                                base_query = base_query.order_by(sql_desc(column))
+                if "order" in by:
+                    order_value = by["order"]
+                    logger.debug(f"Found order field with value: {order_value}")
+                    if order_value in ["shouts", "followers", "rating", "comments"]:
+                        stats_sort_field = order_value
+                        logger.debug(f"Applying statistics-based sorting by: {stats_sort_field}")
+                        # Не применяем другую сортировку, так как будем использовать stats_sort_field
+                        default_sort_applied = True
+                    elif order_value == "name":
+                        # Sorting by name in ascending order
+                        base_query = base_query.order_by(asc(Author.name))
+                        logger.debug("Applying alphabetical sorting by name")
+                        default_sort_applied = True
                     else:
-                        # Regular sorting by fields
-                        for field, direction in by.items():
-                            column = getattr(Author, field, None)
-                            if column:
-                                if direction.lower() == "desc":
-                                    base_query = base_query.order_by(sql_desc(column))
-                                else:
-                                    base_query = base_query.order_by(column)
-                elif by == "new":
-                    base_query = base_query.order_by(sql_desc(Author.created_at))
-                elif by == "active":
-                    base_query = base_query.order_by(sql_desc(Author.last_seen))
+                        # If order is not a stats field, treat it as a regular field
+                        column = getattr(Author, order_value, None)
+                        if column:
+                            base_query = base_query.order_by(sql_desc(column))
+                            logger.debug(f"Applying sorting by column: {order_value}")
+                            default_sort_applied = True
+                        else:
+                            logger.warning(f"Unknown order field: {order_value}")
                 else:
-                    # По умолчанию сортируем по времени создания
-                    base_query = base_query.order_by(sql_desc(Author.created_at))
-            else:
+                    # Regular sorting by fields
+                    for field, direction in by.items():
+                        column = getattr(Author, field, None)
+                        if column:
+                            if direction.lower() == "desc":
+                                base_query = base_query.order_by(sql_desc(column))
+                            else:
+                                base_query = base_query.order_by(column)
+                            logger.debug(f"Applying sorting by field: {field}, direction: {direction}")
+                            default_sort_applied = True
+                        else:
+                            logger.warning(f"Unknown field: {field}")
+
+            # Если сортировка еще не применена, используем сортировку по умолчанию
+            if not default_sort_applied and not stats_sort_field:
                 base_query = base_query.order_by(sql_desc(Author.created_at))
+                logger.debug("Applying default sorting by created_at (no by parameter)")
 
             # If sorting by statistics, modify the query
             if stats_sort_field == "shouts":
                 # Sorting by the number of shouts
+                logger.debug("Building subquery for shouts sorting")
                 subquery = (
                     select(ShoutAuthor.author, func.count(func.distinct(Shout.id)).label("shouts_count"))
                     .select_from(ShoutAuthor)
@@ -153,11 +182,22 @@ async def get_authors_with_stats(
                     .subquery()
                 )
 
+                # Сбрасываем предыдущую сортировку и применяем новую
                 base_query = base_query.outerjoin(subquery, Author.id == subquery.c.author).order_by(
                     sql_desc(func.coalesce(subquery.c.shouts_count, 0))
                 )
+                logger.debug("Applied sorting by shouts count")
+
+                # Логирование для отладки сортировки
+                try:
+                    # Получаем SQL запрос для проверки
+                    sql_query = str(base_query.compile(compile_kwargs={"literal_binds": True}))
+                    logger.debug(f"Generated SQL query for shouts sorting: {sql_query}")
+                except Exception as e:
+                    logger.error(f"Error generating SQL query: {e}")
             elif stats_sort_field == "followers":
                 # Sorting by the number of followers
+                logger.debug("Building subquery for followers sorting")
                 subquery = (
                     select(
                         AuthorFollower.author,
@@ -168,9 +208,19 @@ async def get_authors_with_stats(
                     .subquery()
                 )
 
+                # Сбрасываем предыдущую сортировку и применяем новую
                 base_query = base_query.outerjoin(subquery, Author.id == subquery.c.author).order_by(
                     sql_desc(func.coalesce(subquery.c.followers_count, 0))
                 )
+                logger.debug("Applied sorting by followers count")
+
+                # Логирование для отладки сортировки
+                try:
+                    # Получаем SQL запрос для проверки
+                    sql_query = str(base_query.compile(compile_kwargs={"literal_binds": True}))
+                    logger.debug(f"Generated SQL query for followers sorting: {sql_query}")
+                except Exception as e:
+                    logger.error(f"Error generating SQL query: {e}")
 
             # Применяем лимит и смещение
             base_query = base_query.limit(limit).offset(offset)
@@ -181,6 +231,10 @@ async def get_authors_with_stats(
 
             if not author_ids:
                 return []
+
+            # Логирование результатов для отладки сортировки
+            if stats_sort_field:
+                logger.debug(f"Query returned {len(authors)} authors with sorting by {stats_sort_field}")
 
             # Оптимизированный запрос для получения статистики по публикациям для авторов
             placeholders = ", ".join([f":id{i}" for i in range(len(author_ids))])
@@ -292,7 +346,7 @@ async def update_author(_: None, info: GraphQLResolveInfo, profile: dict[str, An
                     if isinstance(author_with_stat, Author):
                         # Кэшируем полную версию для админов
                         author_dict = author_with_stat.dict(is_admin)
-                        asyncio.create_task(cache_author(author_dict))
+                        _t = asyncio.create_task(cache_author(author_dict))
 
                         # Возвращаем обычную полную версию, т.к. это владелец
                         return CommonResult(error=None, author=author)
@@ -354,7 +408,7 @@ async def get_author(
                 if isinstance(author_with_stat, Author):
                     # Кэшируем полные данные для админов
                     original_dict = author_with_stat.dict(True)
-                    asyncio.create_task(cache_author(original_dict))
+                    _t = asyncio.create_task(cache_author(original_dict))
 
                     # Возвращаем отфильтрованную версию
                     author_dict = author_with_stat.dict(is_admin)
@@ -371,12 +425,21 @@ async def get_author(
 
 
 @query.field("load_authors_by")
-async def load_authors_by(_: None, info: GraphQLResolveInfo, by: str, limit: int = 10, offset: int = 0) -> list[Any]:
+async def load_authors_by(
+    _: None, info: GraphQLResolveInfo, by: AuthorsBy, limit: int = 10, offset: int = 0
+) -> list[Any]:
     """Load authors by different criteria"""
     try:
         # Получаем ID текущего пользователя и флаг админа из контекста
         viewer_id = info.context.get("author", {}).get("id")
         info.context.get("is_admin", False)
+
+        # Логирование для отладки
+        logger.debug(f"load_authors_by called with by={by}, limit={limit}, offset={offset}")
+
+        # Проверяем наличие параметра order в словаре
+        if "order" in by:
+            logger.debug(f"Sorting by order={by['order']}")
 
         # Используем оптимизированную функцию для получения авторов
         return await get_authors_with_stats(limit, offset, by, viewer_id)

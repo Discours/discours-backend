@@ -98,14 +98,16 @@ ignore = [
     "FBT002",  # boolean default arguments - иногда удобно для API совместимости
     "PERF203", # try-except in loop - иногда нужно для обработки отдельных элементов
     # Игнорируем некоторые строгие правила для удобства разработки
+    "ANN003", # Missing type annotation for `*args` - иногда нужно
     "ANN401", # Dynamically typed expressions (Any) - иногда нужно
     "S101",   # assert statements - нужно в тестах
     "T201",   # print statements - нужно для отладки
     "TRY003", # Avoid specifying long messages outside the exception class - иногда допустимо
     "PLR2004", # Magic values - иногда допустимо
     "RUF001", # ambiguous unicode characters - для кириллицы
-    "RUF002", # ambiguous unicode characters in docstrings - для кириллицы
-    "RUF003", # ambiguous unicode characters in comments - для кириллицы
+    "RUF002", #
+    "RUF003", #
+    "RUF006", #
     "TD002",  # TODO без автора - не критично
     "TD003",  # TODO без ссылки на issue - не критично
 ]
