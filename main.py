@@ -235,7 +235,7 @@ middleware = [
             "https://testing.discours.io",
             "https://testing3.discours.io",
             "https://coretest.discours.io",
-            "https://*.vercel.app",
+            "https://session-daily.vercel.app",
         ],
         allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
         allow_headers=["*"],
