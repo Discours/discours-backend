@@ -230,7 +230,13 @@ middleware = [
     # CORS должен быть перед другими middleware для корректной обработки preflight-запросов
     Middleware(
         CORSMiddleware,
-        allow_origins=["https://localhost:3000", "https://testing.discours.io", "https://testing3.discours.io"],
+        allow_origins=[
+            "https://localhost:3000",
+            "https://testing.discours.io",
+            "https://testing3.discours.io",
+            "https://coretest.discours.io",
+            "https://*.vercel.app",
+        ],
         allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
         allow_headers=["*"],
         allow_credentials=True,
