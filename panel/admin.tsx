@@ -14,54 +14,59 @@ import 'prismjs/themes/prism-tomorrow.css'
 // Определяем GraphQL запрос
 const ADMIN_GET_SHOUTS_QUERY = `
   query AdminGetShouts($limit: Int, $offset: Int, $status: String) {
-    admin_get_shouts(limit: $limit, offset: $offset, status: $status) {
-      id
-      title
-      slug
-      body
-      lead
-      subtitle
-      layout
-      lang
-      cover
-      cover_caption
-      media {
-        url
+    adminGetShouts(limit: $limit, offset: $offset, status: $status) {
+      shouts {
+        id
         title
+        slug
         body
-        source
-        pic
-        date
-        genre
-        artist
-        lyrics
+        lead
+        subtitle
+        layout
+        lang
+        cover
+        cover_caption
+        media {
+          url
+          title
+          body
+          source
+          pic
+          date
+          genre
+          artist
+          lyrics
+        }
+        seo
+        created_at
+        updated_at
+        published_at
+        featured_at
+        deleted_at
+        created_by {
+          id
+          email
+          name
+        }
+        authors {
+          id
+          email
+          name
+          slug
+        }
+        topics {
+          id
+          title
+          slug
+        }
+        version_of
+        draft
       }
-      seo
-      created_at
-      updated_at
-      published_at
-      featured_at
-      deleted_at
-      created_by {
-        id
-        email
-        name
-      }
-      authors {
-        id
-        email
-        name
-        slug
-      }
-      topics {
-        id
-        title
-        slug
-      }
-      version_of
-      draft
+      total
+      page
+      perPage
+      totalPages
     }
-    admin_get_shouts_count
   }
 `
 
@@ -204,8 +209,13 @@ interface Shout {
  * Интерфейс для ответа API с публикациями
  */
 interface AdminGetShoutsData {
-  admin_get_shouts: any[]
-  admin_get_shouts_count: number
+  adminGetShouts: {
+    shouts: any[]
+    total: number
+    page: number
+    perPage: number
+    totalPages: number
+  }
 }
 
 /**
@@ -414,13 +424,13 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         }
       )
 
-      if (result?.admin_get_shouts) {
-        setShouts(result.admin_get_shouts)
+      if (result?.adminGetShouts) {
+        setShouts(result.adminGetShouts.shouts)
         // Обновляем пагинацию с учетом общего количества
         setShoutsPagination({
           ...pagination,
-          total: result.admin_get_shouts_count || 0,
-          totalPages: Math.ceil((result.admin_get_shouts_count || 0) / pagination.limit)
+          total: result.adminGetShouts.total,
+          totalPages: result.adminGetShouts.totalPages
         })
       }
     } catch (error) {
