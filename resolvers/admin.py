@@ -95,7 +95,7 @@ async def admin_get_users(
 
 @query.field("adminGetRoles")
 @admin_auth_required
-async def admin_get_roles(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
+async def admin_get_roles(_: None, info: GraphQLResolveInfo) -> list[dict[str, Any]]:
     """
     Получает список всех ролей в системе
 
@@ -111,7 +111,7 @@ async def admin_get_roles(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
             roles = session.query(Role).options(joinedload(Role.permissions)).all()
 
             # Преобразуем их в формат для API
-            roles_list = [
+            return [
                 {
                     "id": role.id,
                     "name": role.name,
@@ -121,8 +121,6 @@ async def admin_get_roles(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
                 }
                 for role in roles
             ]
-
-            return {"roles": roles_list}
 
     except Exception as e:
         logger.error(f"Ошибка при получении списка ролей: {e!s}")
