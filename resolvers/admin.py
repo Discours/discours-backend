@@ -403,7 +403,7 @@ async def admin_get_shouts(
 
                 for row in shouts_result:
                     # Get the Shout object from the row
-                    shout = row[0] if isinstance(row, tuple) else row
+                    shout = row[0] if isinstance(row, tuple) else row.Shout if hasattr(row, "Shout") else row
                     # Обрабатываем поле media
                     media_data = []
                     if hasattr(shout, "media") and shout.media:
