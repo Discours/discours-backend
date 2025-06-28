@@ -315,42 +315,53 @@ async def oauth_callback(request: Any) -> JSONResponse | RedirectResponse:
     Создает или обновляет пользователя и устанавливает сессионный токен.
     """
     try:
-        # Получаем state из query параметров
-        state = request.query_params.get("state")
-        if not state:
-            return JSONResponse({"error": "State parameter missing"}, status_code=400)
-
-        # Получаем сохраненные данные OAuth из Redis
-        oauth_data = await get_oauth_state(state)
-        if not oauth_data:
-            return JSONResponse({"error": "Invalid or expired OAuth state"}, status_code=400)
-
-        provider = oauth_data.get("provider")
-        code_verifier = oauth_data.get("code_verifier")
-        stored_redirect_uri = oauth_data.get("redirect_uri", FRONTEND_URL)
-
+        provider = request.path_params.get("provider")
         if not provider:
-            return JSONResponse({"error": "No active OAuth session"}, status_code=400)
+            return JSONResponse({"error": "Provider not specified"}, status_code=400)
 
+        # Получаем OAuth клиента
         client = oauth.create_client(provider)
         if not client:
-            return JSONResponse({"error": "Provider not configured"}, status_code=400)
+            return JSONResponse({"error": "Invalid provider"}, status_code=400)
 
-        # Получаем токен с PKCE verifier
-        token = await client.authorize_access_token(request, code_verifier=code_verifier)
+        # Получаем токен
+        token = await client.authorize_access_token(request)
+        if not token:
+            return JSONResponse({"error": "Failed to get access token"}, status_code=400)
 
         # Получаем профиль пользователя
         profile = await get_user_profile(provider, client, token)
+        if not profile:
+            return JSONResponse({"error": "Failed to get user profile"}, status_code=400)
 
-        # Создаем или обновляем пользователя используя helper функцию
+        # Создаем или обновляем пользователя
         author = await _create_or_update_user(provider, profile)
+        if not author:
+            return JSONResponse({"error": "Failed to create/update user"}, status_code=500)
 
-        # Создаем токен сессии
-        session_token = await TokenStorage.create_session(str(author.id))
+        # Создаем сессию
+        session_token = await TokenStorage.create_session(
+            str(author.id),
+            auth_data={
+                "provider": provider,
+                "profile": profile,
+            },
+            username=author.name,
+            device_info={
+                "user_agent": request.headers.get("user-agent"),
+                "ip": request.client.host if hasattr(request, "client") else None,
+            },
+        )
 
-        # Формируем URL для редиректа с токеном
-        redirect_url = f"{stored_redirect_uri}?state={state}&access_token={session_token}"
-        response = RedirectResponse(url=redirect_url)
+        # Получаем state из Redis для редиректа
+        state = request.query_params.get("state")
+        state_data = await get_oauth_state(state) if state else None
+        redirect_uri = state_data.get("redirect_uri") if state_data else FRONTEND_URL
+
+        # Создаем ответ с редиректом
+        response = RedirectResponse(url=redirect_uri)
+
+        # Устанавливаем cookie с сессией
         response.set_cookie(
             SESSION_COOKIE_NAME,
             session_token,
@@ -358,14 +369,17 @@ async def oauth_callback(request: Any) -> JSONResponse | RedirectResponse:
             secure=SESSION_COOKIE_SECURE,
             samesite=SESSION_COOKIE_SAMESITE,
             max_age=SESSION_COOKIE_MAX_AGE,
+            path="/",  # Важно: устанавливаем path="/" для доступности cookie во всех путях
         )
+
+        logger.info(f"OAuth успешно завершен для {provider}, user_id={author.id}")
         return response
 
     except Exception as e:
         logger.error(f"OAuth callback error: {e!s}")
         # В случае ошибки редиректим на фронтенд с ошибкой
         fallback_redirect = request.query_params.get("redirect_uri", FRONTEND_URL)
-        return RedirectResponse(url=f"{fallback_redirect}?error=oauth_failed&message={e!s}")
+        return RedirectResponse(url=f"{fallback_redirect}?error=auth_failed")
 
 
 async def store_oauth_state(state: str, data: dict) -> None:

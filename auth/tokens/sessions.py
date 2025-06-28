@@ -236,8 +236,8 @@ class SessionTokenManager(BaseTokenManager):
 
         logger.debug(f"Проверка сессии для токена: {token[:20]}...")
 
-        # Декодируем токен для получения payload
         try:
+            # Декодируем токен для получения payload
             payload = JWTCodec.decode(token)
             if not payload:
                 logger.error("Не удалось декодировать токен")
@@ -248,18 +248,20 @@ class SessionTokenManager(BaseTokenManager):
                 return None
 
             logger.debug(f"Успешно декодирован токен, user_id={payload.user_id}")
-        except Exception as e:
-            logger.error(f"Ошибка при декодировании токена: {e}")
-            return None
 
-        # Проверяем валидность токена
-        try:
-            valid, error = await self.validate_session_token(token)
-            if valid:
-                logger.debug(f"Сессия найдена для пользователя {payload.user_id}")
-                return payload
-            logger.warning(f"Сессия не найдена: {payload.user_id}, ошибка: {error}")
-            return None
+            # Проверяем наличие сессии в Redis
+            token_key = self._make_token_key("session", str(payload.user_id), token)
+            session_exists = await redis_adapter.exists(token_key)
+
+            if not session_exists:
+                logger.warning(f"Сессия не найдена в Redis для user_id={payload.user_id}")
+                return None
+
+            # Обновляем last_activity
+            await redis_adapter.hset(token_key, "last_activity", str(int(time.time())))
+
+            return payload
+
         except Exception as e:
-            logger.error(f"Ошибка при валидации сессии: {e}")
+            logger.error(f"Ошибка при проверке сессии: {e}")
             return None
