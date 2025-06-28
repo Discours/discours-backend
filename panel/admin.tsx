@@ -282,39 +282,6 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   })
   const [shoutsSearchQuery, setShoutsSearchQuery] = createSignal('')
 
-  // Периодическая проверка авторизации
-  onMount(() => {
-    // Получаем параметры из URL при загрузке
-    const urlParams = new URLSearchParams(window.location.search);
-    const page = parseInt(urlParams.get('page') || '1');
-    const limit = parseInt(urlParams.get('limit') || '10');
-    const search = urlParams.get('search') || '';
-
-    setPagination({ ...pagination(), page, limit });
-    setSearchQuery(search);
-
-    // Загружаем данные при монтировании
-    loadUsers()
-    loadRoles()
-  })
-
-  // Обновление URL при изменении параметров пагинации
-  createEffect(() => {
-    const pagData = pagination();
-    const search = searchQuery();
-
-    const urlParams = new URLSearchParams();
-    urlParams.set('page', pagData.page.toString());
-    urlParams.set('limit', pagData.limit.toString());
-
-    if (search) {
-      urlParams.set('search', search);
-    }
-
-    const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-    window.history.replaceState({}, '', newUrl);
-  });
-
   /**
    * Загрузка списка пользователей с учетом пагинации и поиска
    */
