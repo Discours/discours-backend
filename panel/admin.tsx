@@ -240,6 +240,8 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   const [successMessage, setSuccessMessage] = createSignal<string | null>(null)
   const [showBodyModal, setShowBodyModal] = createSignal(false)
   const [selectedShoutBody, setSelectedShoutBody] = createSignal<string>('')
+  const [showMediaBodyModal, setShowMediaBodyModal] = createSignal(false)
+  const [selectedMediaBody, setSelectedMediaBody] = createSignal<string>('')
 
   // Переменные среды
   const [envSections, setEnvSections] = createSignal<EnvSection[]>([])
@@ -1326,6 +1328,39 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   }
 
   /**
+   * Компонент модального окна для просмотра содержимого media.body
+   */
+  const MediaBodyModal: Component = () => {
+    const language = () => detectLanguage(selectedMediaBody())
+    const formattedCode = () => formatCode(selectedMediaBody())
+
+    return (
+      <Show when={showMediaBodyModal()}>
+        <div class="modal-overlay" onClick={() => setShowMediaBodyModal(false)}>
+          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div class="modal-header">
+              <div class="modal-title">
+                <h3>Содержимое media.body</h3>
+                <span class="language-badge">
+                  {language() === 'markup' ? 'HTML' :
+                   language() === 'json' ? 'JSON' :
+                   'Plain Text'}
+                </span>
+              </div>
+              <button class="close-button" onClick={() => setShowMediaBodyModal(false)}>×</button>
+            </div>
+            <div class="modal-body">
+              <pre class="body-content">
+                <code class={`language-${language()}`} innerHTML={formattedCode()} />
+              </pre>
+            </div>
+          </div>
+        </div>
+      </Show>
+    )
+  }
+
+  /**
    * Обработчик изменения страницы для публикаций
    * @param page - Номер страницы
    */
@@ -1667,7 +1702,26 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                         </td>
                         <td>
                           <Show when={shout.media && shout.media.length > 0}>
-                            <span class="media-count">{shout.media!.length} файл(ов)</span>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                              <For each={shout.media}>
+                                {(mediaItem, idx) => (
+                                  <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span class="media-count">{mediaItem.title || `media[${idx()}]`}</span>
+                                    <Show when={mediaItem.body}>
+                                      <button
+                                        class="edit-button"
+                                        style="padding: 2px 8px; font-size: 12px;"
+                                        title="Показать содержимое body"
+                                        onClick={() => {
+                                          setSelectedMediaBody(mediaItem.body)
+                                          setShowMediaBodyModal(true)
+                                        }}
+                                      >👁 body</button>
+                                    </Show>
+                                  </div>
+                                )}
+                              </For>
+                            </div>
                           </Show>
                           <Show when={!shout.media || shout.media.length === 0}>
                             <span class="no-data">-</span>
@@ -1697,6 +1751,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
       </Show>
 
       <BodyModal />
+      <MediaBodyModal />
     </div>
   )
 }

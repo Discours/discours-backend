@@ -622,9 +622,9 @@ tr:hover {
   flex-wrap: wrap;
   gap: var(--spacing-4);
   padding: var(--spacing-4);
-  background-color: var(--primary-light);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-sm);
+  background: #ededed;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
 }
 
 .pagination-info {
@@ -644,53 +644,52 @@ tr:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  padding: var(--spacing-2) var(--spacing-3);
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  border-radius: var(--border-radius-md);
-  user-select: none;
-}
-
-.pagination-button:hover:not(:disabled) {
-  background-color: var(--primary-light);
-  border-color: var(--primary-color);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-.pagination-button:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  background: #181818;
+  color: #fff;
+  border: 1px solid #222;
+  font-size: 18px;
+  font-weight: 500;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin-bottom: 8px;
+  transition: background 0.15s, color 0.15s, border 0.15s;
 }
 
 .pagination-button.active {
-  background-color: var(--primary-color);
-  color: var(--bg-color);
-  border-color: var(--primary-color);
-  font-weight: var(--font-semibold);
+  background: #fff;
+  color: #111;
+  border: 2px solid #fff;
+  font-weight: 700;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background: #333;
+  color: #fff;
+  border-color: #111;
+  transform: none;
+  box-shadow: none;
 }
 
 .pagination-button:disabled {
+  background: #aaa;
+  color: #fff;
   opacity: 0.5;
-  cursor: not-allowed;
-  background-color: var(--primary-light);
+  border-color: #888;
 }
 
 .pagination-ellipsis {
-  display: inline-flex;
+  background: transparent;
+  color: #888;
+  min-width: 44px;
+  height: 44px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  padding: var(--spacing-2);
-  color: var(--text-secondary);
-  user-select: none;
+  border: none;
+  margin-bottom: 8px;
 }
 
 .pagination-per-page {
@@ -702,24 +701,11 @@ tr:hover {
 }
 
 .pagination-per-page select {
-  padding: var(--spacing-2) var(--spacing-3);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-md);
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.pagination-per-page select:hover {
-  border-color: var(--primary-color);
-}
-
-.pagination-per-page select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: var(--shadow-sm);
+  background: #181818;
+  color: #fff;
+  border: 1px solid #222;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 /* Поиск */
@@ -1413,4 +1399,76 @@ button:hover,
 .focus-visible:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: 2px;
+}
+
+/* Убираем скругления и делаем строгий стиль для пагинации и кнопок */
+button,
+.pagination,
+.pagination-button,
+.pagination-per-page select {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.pagination {
+  background: #ededed;
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+
+.pagination-button {
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  background: #181818;
+  color: #fff;
+  border: 1px solid #222;
+  font-size: 18px;
+  font-weight: 500;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin-bottom: 8px;
+  transition: background 0.15s, color 0.15s, border 0.15s;
+}
+
+.pagination-button.active {
+  background: #fff;
+  color: #111;
+  border: 2px solid #fff;
+  font-weight: 700;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background: #333;
+  color: #fff;
+  border-color: #111;
+  transform: none;
+  box-shadow: none;
+}
+
+.pagination-button:disabled {
+  background: #aaa;
+  color: #fff;
+  opacity: 0.5;
+  border-color: #888;
+}
+
+.pagination-ellipsis {
+  background: transparent;
+  color: #888;
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  margin-bottom: 8px;
+}
+
+.pagination-per-page select {
+  background: #181818;
+  color: #fff;
+  border: 1px solid #222;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
