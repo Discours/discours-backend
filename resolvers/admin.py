@@ -398,7 +398,7 @@ async def admin_get_shouts(
             if status == "all":
                 # Для статуса "all" используем простой запрос без статистики
                 q = q.limit(limit).offset(offset)
-                shouts_result = session.execute(q).all()
+                shouts_result = session.execute(q).unique().all()
                 shouts_data = []
 
                 for row in shouts_result:
