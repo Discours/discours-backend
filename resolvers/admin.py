@@ -402,10 +402,11 @@ async def admin_get_shouts(
                 shouts_data = []
 
                 for row in shouts_result:
+                    # Get the Shout object from the row
                     shout = row[0] if isinstance(row, tuple) else row
                     # Обрабатываем поле media
                     media_data = []
-                    if shout.media:
+                    if hasattr(shout, "media") and shout.media:
                         if isinstance(shout.media, str):
                             try:
                                 import orjson
