@@ -6,6 +6,64 @@
 import { Component, For, Show, createSignal, onMount, createEffect } from 'solid-js'
 import { logout } from './auth'
 import { query } from './graphql'
+import Prism from 'prismjs'
+import 'prismjs/components/prism-json'
+import 'prismjs/components/prism-markup'
+import 'prismjs/themes/prism-tomorrow.css'
+
+// Определяем GraphQL запрос
+const ADMIN_GET_SHOUTS_QUERY = `
+  query AdminGetShouts($limit: Int, $offset: Int, $status: String) {
+    admin_get_shouts(limit: $limit, offset: $offset, status: $status) {
+      id
+      title
+      slug
+      body
+      lead
+      subtitle
+      layout
+      lang
+      cover
+      cover_caption
+      media {
+        url
+        title
+        body
+        source
+        pic
+        date
+        genre
+        artist
+        lyrics
+      }
+      seo
+      created_at
+      updated_at
+      published_at
+      featured_at
+      deleted_at
+      created_by {
+        id
+        email
+        name
+      }
+      authors {
+        id
+        email
+        name
+        slug
+      }
+      topics {
+        id
+        title
+        slug
+      }
+      version_of
+      draft
+    }
+    admin_get_shouts_count
+  }
+`
 
 /**
  * Интерфейс для данных пользователя
@@ -145,14 +203,9 @@ interface Shout {
 /**
  * Интерфейс для ответа API с публикациями
  */
-interface AdminGetShoutsResponse {
-  adminGetShouts: {
-    shouts: Shout[]
-    total: number
-    page: number
-    perPage: number
-    totalPages: number
-  }
+interface AdminGetShoutsData {
+  admin_get_shouts: any[]
+  admin_get_shouts_count: number
 }
 
 /**
@@ -175,6 +228,8 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   const [selectedUser, setSelectedUser] = createSignal<User | null>(null)
   const [showRolesModal, setShowRolesModal] = createSignal(false)
   const [successMessage, setSuccessMessage] = createSignal<string | null>(null)
+  const [showBodyModal, setShowBodyModal] = createSignal(false)
+  const [selectedShoutBody, setSelectedShoutBody] = createSignal<string>('')
 
   // Переменные среды
   const [envSections, setEnvSections] = createSignal<EnvSection[]>([])
@@ -209,9 +264,9 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     totalPages: number
   }>({
     page: 1,
-    limit: 10,
+    limit: 20,
     total: 0,
-    totalPages: 1
+    totalPages: 0
   })
   const [shoutsSearchQuery, setShoutsSearchQuery] = createSignal('')
 
@@ -344,89 +399,32 @@ const AdminPage: Component<AdminPageProps> = (props) => {
    * Загрузка списка публикаций с учетом пагинации и поиска
    */
   async function loadShouts() {
+    setShowRolesModal(false)
     setShoutsLoading(true)
-    setError(null)
+    const pagination = shoutsPagination()
 
     try {
-      const { page, limit } = shoutsPagination()
-      const offset = (page - 1) * limit
-      const search = shoutsSearchQuery().trim()
-      const status = shoutsStatus()
-
-      const data = await query<AdminGetShoutsResponse>(
+      const result = await query<AdminGetShoutsData>(
         `${location.origin}/graphql`,
-        `
-        query AdminGetShouts($limit: Int, $offset: Int, $search: String, $status: String) {
-          adminGetShouts(limit: $limit, offset: $offset, search: $search, status: $status) {
-            shouts {
-              id
-              title
-              slug
-              body
-              lead
-              subtitle
-              layout
-              lang
-              cover
-              cover_caption
-              media {
-                url
-                title
-                body
-                source
-                pic
-                date
-                genre
-                artist
-                lyrics
-              }
-              seo
-              created_at
-              updated_at
-              published_at
-              featured_at
-              deleted_at
-              created_by {
-                id
-                email
-                name
-              }
-              authors {
-                id
-                email
-                name
-                slug
-              }
-              topics {
-                id
-                title
-                slug
-              }
-              version_of
-              draft
-            }
-            total
-            page
-            perPage
-            totalPages
-          }
+        ADMIN_GET_SHOUTS_QUERY,
+        {
+          offset: (pagination.page - 1) * pagination.limit,
+          limit: pagination.limit,
+          status: shoutsStatus()
         }
-        `,
-        { limit, offset, search: search || undefined, status }
       )
 
-      if (data?.adminGetShouts) {
-        setShouts(data.adminGetShouts.shouts)
+      if (result?.admin_get_shouts) {
+        setShouts(result.admin_get_shouts)
+        // Обновляем пагинацию с учетом общего количества
         setShoutsPagination({
-          page: data.adminGetShouts.page,
-          limit: data.adminGetShouts.perPage,
-          total: data.adminGetShouts.total,
-          totalPages: data.adminGetShouts.totalPages
+          ...pagination,
+          total: result.admin_get_shouts_count || 0,
+          totalPages: Math.ceil((result.admin_get_shouts_count || 0) / pagination.limit)
         })
       }
-    } catch (err) {
-      console.error('Ошибка при загрузке публикаций:', err)
-      setError('Не удалось загрузить публикации')
+    } catch (error) {
+      console.error('Error loading shouts:', error)
     } finally {
       setShoutsLoading(false)
     }
@@ -1219,8 +1217,398 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     return text.substring(0, maxLength) + '...'
   }
 
+  /**
+   * Определяет язык контента (html или json)
+   */
+  function detectLanguage(content: string): string {
+    // Пробуем распарсить как JSON
+    try {
+      JSON.parse(content)
+      return 'json'
+    } catch {
+      // Проверяем на наличие HTML тегов
+      if (/<[^>]*>/g.test(content)) {
+        return 'markup'
+      }
+    }
+    return 'plaintext'
+  }
+
+  /**
+   * Форматирует и подсвечивает код
+   */
+  function formatCode(content: string): string {
+    const language = detectLanguage(content)
+
+    if (language === 'json') {
+      try {
+        // Форматируем JSON с отступами
+        const formatted = JSON.stringify(JSON.parse(content), null, 2)
+        return Prism.highlight(formatted, Prism.languages[language], language)
+      } catch {
+        return content
+      }
+    } else if (language === 'markup') {
+      // Для HTML используем как есть
+      return Prism.highlight(content, Prism.languages[language], language)
+    }
+
+    return content
+  }
+
+  /**
+   * Компонент модального окна для просмотра содержимого публикации
+   */
+  const BodyModal: Component = () => {
+    const language = () => detectLanguage(selectedShoutBody())
+    const formattedCode = () => formatCode(selectedShoutBody())
+
+    return (
+      <Show when={showBodyModal()}>
+        <div class="modal-overlay" onClick={() => setShowBodyModal(false)}>
+          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div class="modal-header">
+              <div class="modal-title">
+                <h3>Содержимое публикации</h3>
+                <span class="language-badge">
+                  {language() === 'markup' ? 'HTML' :
+                   language() === 'json' ? 'JSON' :
+                   'Plain Text'}
+                </span>
+              </div>
+              <button class="close-button" onClick={() => setShowBodyModal(false)}>×</button>
+            </div>
+            <div class="modal-body">
+              <pre class="body-content">
+                <code class={`language-${language()}`} innerHTML={formattedCode()} />
+              </pre>
+            </div>
+          </div>
+        </div>
+      </Show>
+    )
+  }
+
+  /**
+   * Обработчик изменения страницы для публикаций
+   * @param page - Номер страницы
+   */
+  function handleShoutsPageChange(page: number) {
+    setShoutsPagination({ ...shoutsPagination(), page })
+    loadShouts()
+  }
+
+  /**
+   * Обработчик изменения количества публикаций на странице
+   * @param limit - Количество элементов
+   */
+  function handleShoutsPerPageChange(limit: number) {
+    setShoutsPagination({ ...shoutsPagination(), page: 1, limit })
+    loadShouts()
+  }
+
+  /**
+   * Компонент пагинации для публикаций
+   */
+  const ShoutsPagination: Component = () => {
+    const pagination = shoutsPagination()
+    const totalPages = pagination.totalPages
+    const currentPage = pagination.page
+
+    // Генерируем массив страниц для отображения
+    const pages = []
+    const maxVisiblePages = 5 // Максимальное количество видимых страниц
+
+    // Всегда показываем первую страницу
+    pages.push(1)
+
+    // Вычисляем диапазон страниц вокруг текущей
+    let startPage = Math.max(2, currentPage - Math.floor(maxVisiblePages / 2))
+    let endPage = Math.min(totalPages - 1, startPage + maxVisiblePages - 2)
+
+    // Корректируем диапазон, если он выходит за границы
+    if (endPage - startPage < maxVisiblePages - 2) {
+      startPage = Math.max(2, endPage - maxVisiblePages + 2)
+    }
+
+    // Добавляем многоточие после первой страницы, если нужно
+    if (startPage > 2) {
+      pages.push('...')
+    }
+
+    // Добавляем страницы из диапазона
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i)
+    }
+
+    // Добавляем многоточие перед последней страницей, если нужно
+    if (endPage < totalPages - 1) {
+      pages.push('...')
+    }
+
+    // Всегда показываем последнюю страницу, если есть больше одной страницы
+    if (totalPages > 1) {
+      pages.push(totalPages)
+    }
+
+    return (
+      <div class="pagination">
+        <div class="pagination-info">
+          Показано {((currentPage - 1) * pagination.limit) + 1} - {Math.min(currentPage * pagination.limit, pagination.total)} из {pagination.total}
+        </div>
+
+        <div class="pagination-controls">
+          <button
+            class="pagination-button"
+            onClick={() => handleShoutsPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            ←
+          </button>
+
+          <For each={pages}>
+            {(page) => (
+              <>
+                {page === '...' ? (
+                  <span class="pagination-ellipsis">...</span>
+                ) : (
+                  <button
+                    class={`pagination-button ${page === currentPage ? 'active' : ''}`}
+                    onClick={() => handleShoutsPageChange(Number(page))}
+                  >
+                    {page}
+                  </button>
+                )}
+              </>
+            )}
+          </For>
+
+          <button
+            class="pagination-button"
+            onClick={() => handleShoutsPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            →
+          </button>
+        </div>
+
+        <div class="pagination-per-page">
+          На странице:
+          <select
+            value={pagination.limit}
+            onChange={(e) => handleShoutsPerPageChange(Number(e.target.value))}
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+    )
+  }
+
+  // Добавляем стили для пагинации
+  const styles = `
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .pagination-info {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .pagination-controls {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .pagination-button {
+      padding: 5px 10px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      min-width: 35px;
+      text-align: center;
+    }
+
+    .pagination-button:hover:not(:disabled) {
+      background: #f0f0f0;
+    }
+
+    .pagination-button.active {
+      background: #007bff;
+      color: white;
+      border-color: #0056b3;
+    }
+
+    .pagination-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination-ellipsis {
+      padding: 5px;
+      color: #666;
+    }
+
+    .pagination-per-page {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pagination-per-page select {
+      padding: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 1200px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 1.2em;
+    }
+
+    .close-button {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0 8px;
+      color: #666;
+    }
+
+    .close-button:hover {
+      color: #333;
+    }
+
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .body-content {
+      font-family: 'JetBrains Mono', 'Fira Code', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      tab-size: 2;
+      hyphens: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+      padding: 16px;
+      background: #2d2d2d;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+
+    .body-content code {
+      font-family: inherit;
+      background: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      white-space: inherit !important;
+    }
+
+    /* Улучшаем стили для Prism */
+    .token.comment,
+    .token.prolog,
+    .token.doctype,
+    .token.cdata {
+      color: #999;
+    }
+
+    .token.property,
+    .token.tag,
+    .token.boolean,
+    .token.number,
+    .token.constant,
+    .token.symbol {
+      color: #0099ff;
+    }
+
+    .token.selector,
+    .token.attr-name,
+    .token.string,
+    .token.char,
+    .token.builtin {
+      color: #92d692;
+    }
+
+    .token.operator,
+    .token.entity,
+    .token.url,
+    .language-css .token.string,
+    .token.variable,
+    .token.inserted {
+      color: #9a6e3a;
+    }
+
+    .token.keyword {
+      color: #e68ac6;
+    }
+
+    .modal-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .language-badge {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: #f0f0f0;
+      color: #666;
+    }
+  `
+
   return (
     <div class="admin-page">
+      <style>{styles}</style>
       <header>
         <div class="header-container">
           <h1>Панель администратора</h1>
@@ -1381,7 +1769,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                     <th>Авторы</th>
                     <th>Темы</th>
                     <th>Создан</th>
-                    <th>Body (preview)</th>
+                    <th>Содержимое</th>
                     <th>Media</th>
                   </tr>
                 </thead>
@@ -1430,10 +1818,15 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                           </Show>
                         </td>
                         <td>{formatDateRelative(shout.created_at)}</td>
-                        <td title={shout.body}>
-                          <div class="body-preview">
-                            {truncateText(shout.body.replace(/<[^>]*>/g, ''), 100)}
-                          </div>
+                        <td
+                          class="body-cell"
+                          onClick={() => {
+                            setSelectedShoutBody(shout.body)
+                            setShowBodyModal(true)
+                          }}
+                          style="cursor: pointer; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                        >
+                          {truncateText(shout.body.replace(/<[^>]*>/g, ''), 100)}
                         </td>
                         <td>
                           <Show when={shout.media && shout.media.length > 0}>
@@ -1448,6 +1841,7 @@ const AdminPage: Component<AdminPageProps> = (props) => {
                   </For>
                 </tbody>
               </table>
+              <ShoutsPagination />
             </div>
           </Show>
         </Show>
@@ -1464,6 +1858,8 @@ const AdminPage: Component<AdminPageProps> = (props) => {
       <Show when={showVariableModal()}>
         <VariableModal />
       </Show>
+
+      <BodyModal />
     </div>
   )
 }
