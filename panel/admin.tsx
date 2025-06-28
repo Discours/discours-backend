@@ -1305,17 +1305,6 @@ const AdminPage: Component<AdminPageProps> = (props) => {
       <Show when={showBodyModal()}>
         <div class="modal-overlay" onClick={() => setShowBodyModal(false)}>
           <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div class="modal-header">
-              <div class="modal-title">
-                <h3>Содержимое публикации</h3>
-                <span class="language-badge">
-                  {language() === 'markup' ? 'HTML' :
-                   language() === 'json' ? 'JSON' :
-                   'Plain Text'}
-                </span>
-              </div>
-              <button class="close-button" onClick={() => setShowBodyModal(false)}>×</button>
-            </div>
             <div class="modal-body">
               <pre class="body-content">
                 <code class={`language-${language()}`} innerHTML={formattedCode()} />
