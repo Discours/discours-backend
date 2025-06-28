@@ -5,6 +5,7 @@
 
 import { Component, createSignal } from 'solid-js'
 import { login } from './auth'
+import logo from './publy.svg'
 
 interface LoginPageProps {
   onLoginSuccess?: () => void
@@ -69,7 +70,7 @@ const LoginPage: Component<LoginPageProps> = (props) => {
   return (
     <div class="login-page">
       <div class="login-container">
-        <img src="https://testing.dscrs.site/logo.svg" alt="Logo" />
+        <img src={logo} alt="Logo" />
         <div class="error-message" style={{ opacity: error() ? 1 : 0 }}>{error()}</div>
 
         <form onSubmit={handleSubmit} method="post">

@@ -1,0 +1,18 @@
+<svg width="140" height="32" viewBox="0 0 140 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- p (без перекладины, чистая петля) -->
+  <path d="M15 28V6C15 3 20 3 20 6V16C20 19 15 19 15 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- u (симметричный, вписан в высоту 6-28) -->
+  <path d="M30 6V22C30 26 36 26 36 22V6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- b (без перекладины, чистая петля, p вверх ногами, отражён по горизонтали, вписан в высоту 6-28) -->
+  <g transform="translate(48.5,17) scale(-1,1) translate(-48.5,-17)">
+    <path d="M51 6V28C51 31 46 31 46 28V18C46 15 51 15 51 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- l (симметричный, вписан в высоту 6-28) -->
+  <path d="M62 6V28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+
+  <!-- y (симметричный, вписан в высоту 6-28) -->
+  <path d="M75 6V18C75 24 80 24 80 18V6M80 18C80 28 72 28 72 28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
