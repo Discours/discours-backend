@@ -429,13 +429,14 @@ tr:hover {
   flex-direction: column;
   box-shadow: var(--shadow-lg);
   animation: modal-slide-up 0.3s ease-out;
+  padding: 32px 32px 24px 32px;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-4);
+  padding: 0 0 20px 0;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -472,7 +473,7 @@ tr:hover {
 }
 
 .modal-body {
-  padding: var(--spacing-4);
+  padding: 0 0 24px 0;
   overflow-y: auto;
   flex: 1;
 }
@@ -1471,4 +1472,12 @@ button,
   border: 1px solid #222;
   border-radius: 0 !important;
   box-shadow: none !important;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  padding: 0;
+  margin-top: 12px;
 }
