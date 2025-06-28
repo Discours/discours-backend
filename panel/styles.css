@@ -63,6 +63,14 @@
   --z-modal: 1000;
   --z-dropdown: 100;
   --z-header: 50;
+
+  --code-bg: #fff;
+  --code-text: #222;
+  --code-comment: #888;
+  --code-keyword: #a626a4;
+  --code-property: #005cc5;
+  --code-string: #22863a;
+  --code-operator: #b76e00;
 }
 
 body {
@@ -469,19 +477,24 @@ tr:hover {
   flex: 1;
 }
 
+.body-content,
+.body-content code {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
 .body-content {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.5;
   tab-size: 2;
   hyphens: none;
-  white-space: pre-wrap;
-  word-break: break-word;
   margin: 0;
   padding: var(--spacing-4);
   background-color: var(--code-bg);
   border-radius: var(--border-radius-md);
-  overflow-x: auto;
+  color: var(--code-text);
 }
 
 .language-badge {
@@ -554,6 +567,7 @@ tr:hover {
 
 .body-content {
   color: var(--code-text);
+  background-color: var(--code-bg);
 }
 
 .token.comment,

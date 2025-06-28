@@ -1245,6 +1245,31 @@ const AdminPage: Component<AdminPageProps> = (props) => {
   }
 
   /**
+   * Форматирует XML/HTML с отступами
+   */
+  function prettyFormatXML(xml: string): string {
+    let formatted = '';
+    const reg = /(>)(<)(\/*)/g;
+    xml = xml.replace(reg, '$1\r\n$2$3');
+    let pad = 0;
+    xml.split('\r\n').forEach((node) => {
+      let indent = 0;
+      if (node.match(/.+<\/\w[^>]*>$/)) {
+        indent = 0;
+      } else if (node.match(/^<\//)) {
+        if (pad !== 0) pad -= 2;
+      } else if (node.match(/^<\w([^>]*[^/])?>.*$/)) {
+        indent = 2;
+      } else {
+        indent = 0;
+      }
+      formatted += ' '.repeat(pad) + node + '\r\n';
+      pad += indent;
+    });
+    return formatted.trim();
+  }
+
+  /**
    * Форматирует и подсвечивает код
    */
   function formatCode(content: string): string {
@@ -1259,8 +1284,9 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         return content
       }
     } else if (language === 'markup') {
-      // Для HTML используем как есть
-      return Prism.highlight(content, Prism.languages[language], language)
+      // Форматируем XML/HTML с отступами
+      const formatted = prettyFormatXML(content)
+      return Prism.highlight(formatted, Prism.languages[language], language)
     }
 
     return content
