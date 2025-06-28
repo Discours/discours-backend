@@ -369,7 +369,17 @@ const AdminPage: Component<AdminPageProps> = (props) => {
               lang
               cover
               cover_caption
-              media
+              media {
+                url
+                title
+                body
+                source
+                pic
+                date
+                genre
+                artist
+                lyrics
+              }
               seo
               created_at
               updated_at
