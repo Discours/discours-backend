@@ -82,69 +82,91 @@ class AuthMiddleware:
     async def authenticate_user(self, token: str) -> tuple[AuthCredentials, AuthenticatedUser | UnauthenticatedUser]:
         """Аутентифицирует пользователя по токену"""
         if not token:
+            logger.debug("[auth.authenticate] Токен отсутствует")
             return AuthCredentials(
                 author_id=None, scopes={}, logged_in=False, error_message="no token", email=None, token=None
             ), UnauthenticatedUser()
 
         # Проверяем сессию в Redis
-        payload = await TokenManager.verify_session(token)
-        if not payload:
-            logger.debug("[auth.authenticate] Недействительный токен")
-            return AuthCredentials(
-                author_id=None, scopes={}, logged_in=False, error_message="Invalid token", email=None, token=None
-            ), UnauthenticatedUser()
+        try:
+            payload = await TokenManager.verify_session(token)
+            if not payload:
+                logger.debug("[auth.authenticate] Недействительный токен или сессия не найдена")
+                return AuthCredentials(
+                    author_id=None,
+                    scopes={},
+                    logged_in=False,
+                    error_message="Invalid token or session",
+                    email=None,
+                    token=None,
+                ), UnauthenticatedUser()
 
-        with local_session() as session:
-            try:
-                author = session.query(Author).filter(Author.id == payload.user_id).one()
+            with local_session() as session:
+                try:
+                    author = session.query(Author).filter(Author.id == payload.user_id).one()
 
-                if author.is_locked():
-                    logger.debug(f"[auth.authenticate] Аккаунт заблокирован: {author.id}")
+                    if author.is_locked():
+                        logger.debug(f"[auth.authenticate] Аккаунт заблокирован: {author.id}")
+                        return AuthCredentials(
+                            author_id=None,
+                            scopes={},
+                            logged_in=False,
+                            error_message="Account is locked",
+                            email=None,
+                            token=None,
+                        ), UnauthenticatedUser()
+
+                    # Получаем разрешения из ролей
+                    scopes = author.get_permissions()
+
+                    # Получаем роли для пользователя
+                    roles = [role.id for role in author.roles] if author.roles else []
+
+                    # Обновляем last_seen
+                    author.last_seen = int(time.time())
+                    session.commit()
+
+                    # Создаем объекты авторизации с сохранением токена
+                    credentials = AuthCredentials(
+                        author_id=author.id,
+                        scopes=scopes,
+                        logged_in=True,
+                        error_message="",
+                        email=author.email,
+                        token=token,
+                    )
+
+                    user = AuthenticatedUser(
+                        user_id=str(author.id),
+                        username=author.slug or author.email or "",
+                        roles=roles,
+                        permissions=scopes,
+                        token=token,
+                    )
+
+                    logger.debug(f"[auth.authenticate] Успешная аутентификация: {author.email}")
+                    return credentials, user
+
+                except exc.NoResultFound:
+                    logger.debug("[auth.authenticate] Пользователь не найден в базе данных")
                     return AuthCredentials(
                         author_id=None,
                         scopes={},
                         logged_in=False,
-                        error_message="Account is locked",
+                        error_message="User not found",
                         email=None,
                         token=None,
                     ), UnauthenticatedUser()
-
-                # Получаем разрешения из ролей
-                scopes = author.get_permissions()
-
-                # Получаем роли для пользователя
-                roles = [role.id for role in author.roles] if author.roles else []
-
-                # Обновляем last_seen
-                author.last_seen = int(time.time())
-                session.commit()
-
-                # Создаем объекты авторизации с сохранением токена
-                credentials = AuthCredentials(
-                    author_id=author.id,
-                    scopes=scopes,
-                    logged_in=True,
-                    error_message="",
-                    email=author.email,
-                    token=token,
-                )
-
-                user = AuthenticatedUser(
-                    user_id=str(author.id),
-                    username=author.slug or author.email or "",
-                    roles=roles,
-                    permissions=scopes,
-                    token=token,
-                )
-
-                logger.debug(f"[auth.authenticate] Успешная аутентификация: {author.email}")
-                return credentials, user
-
-            except exc.NoResultFound:
-                logger.debug("[auth.authenticate] Пользователь не найден")
-                return AuthCredentials(
-                    author_id=None, scopes={}, logged_in=False, error_message="User not found", email=None, token=None
-                ), UnauthenticatedUser()
+                except Exception as e:
+                    logger.error(f"[auth.authenticate] Ошибка при работе с базой данных: {e}")
+                    return AuthCredentials(
+                        author_id=None, scopes={}, logged_in=False, error_message=str(e), email=None, token=None
+                    ), UnauthenticatedUser()
+        except Exception as e:
+            logger.error(f"[auth.authenticate] Ошибка при проверке сессии: {e}")
+            return AuthCredentials(
+                author_id=None, scopes={}, logged_in=False, error_message=str(e), email=None, token=None
+            ), UnauthenticatedUser()
 
     async def __call__(
         self,

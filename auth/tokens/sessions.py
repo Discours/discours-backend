@@ -230,6 +230,10 @@ class SessionTokenManager(BaseTokenManager):
         """
         Проверяет сессию по токену для совместимости с TokenStorage
         """
+        if not token:
+            logger.debug("Пустой токен")
+            return None
+
         logger.debug(f"Проверка сессии для токена: {token[:20]}...")
 
         # Декодируем токен для получения payload
@@ -239,15 +243,23 @@ class SessionTokenManager(BaseTokenManager):
                 logger.error("Не удалось декодировать токен")
                 return None
 
+            if not hasattr(payload, "user_id"):
+                logger.error("В токене отсутствует user_id")
+                return None
+
             logger.debug(f"Успешно декодирован токен, user_id={payload.user_id}")
         except Exception as e:
             logger.error(f"Ошибка при декодировании токена: {e}")
             return None
 
         # Проверяем валидность токена
-        valid, _ = await self.validate_session_token(token)
-        if valid:
-            logger.debug(f"Сессия найдена для пользователя {payload.user_id}")
-            return payload
-        logger.warning(f"Сессия не найдена: {payload.user_id}")
-        return None
+        try:
+            valid, error = await self.validate_session_token(token)
+            if valid:
+                logger.debug(f"Сессия найдена для пользователя {payload.user_id}")
+                return payload
+            logger.warning(f"Сессия не найдена: {payload.user_id}, ошибка: {error}")
+            return None
+        except Exception as e:
+            logger.error(f"Ошибка при валидации сессии: {e}")
+            return None

@@ -38,27 +38,28 @@ schema = make_executable_schema(load_schema_from_path("schema/"), list(resolvers
 
 # Создаем middleware с правильным порядком
 middleware = [
+    # Начинаем с обработки ошибок
+    Middleware(ExceptionHandlerMiddleware),
     # CORS должен быть перед другими middleware для корректной обработки preflight-запросов
     Middleware(
         CORSMiddleware,
         allow_origins=[
             "https://localhost:3000",
+            "http://localhost:3000",
             "https://testing.discours.io",
-            "https://testing.dscrs.site",
             "https://testing3.discours.io",
+            "https://v3.dscrs.site",
+            "https://session-daily.vercel.app",
             "https://coretest.discours.io",
-            "https://core.discours.io",
-            "https://discours.io",
             "https://new.discours.io",
         ],
         allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
         allow_headers=["*"],
         allow_credentials=True,
     ),
-    # извлечение токена + аутентификация + cookies
+    # Аутентификация должна быть после CORS
     Middleware(AuthMiddleware),
 ]
-
 
 # Создаем экземпляр GraphQL с улучшенным обработчиком
 graphql_app = GraphQL(schema, debug=DEVMODE, http_handler=EnhancedGraphQLHTTPHandler())
@@ -224,26 +225,6 @@ async def lifespan(app: Starlette):
         print("[lifespan] Shutdown complete")
 
 
-middleware = [
-    # Начинаем с обработки ошибок
-    Middleware(ExceptionHandlerMiddleware),
-    # CORS должен быть перед другими middleware для корректной обработки preflight-запросов
-    Middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "https://localhost:3000",
-            "http://localhost:3000",
-            "https://testing.discours.io",
-            "https://testing3.discours.io",
-            "https://coretest.discours.io",
-            "https://session-daily.vercel.app",
-        ],
-        allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
-        allow_headers=["*"],
-        allow_credentials=True,
-    ),
-]
-
 # Обновляем маршрут в Starlette
 app = Starlette(
     routes=[
@@ -253,7 +234,7 @@ app = Starlette(
         Route("/oauth/{provider}/callback", oauth_callback, methods=["GET"]),
         Mount("/", app=StaticFiles(directory=str(DIST_DIR), html=True)),
     ],
-    middleware=middleware,
+    middleware=middleware,  # Используем единый список middleware
     lifespan=lifespan,
     debug=True,
 )

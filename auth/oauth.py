@@ -15,7 +15,15 @@ from auth.tokens.storage import TokenStorage
 from resolvers.auth import generate_unique_slug
 from services.db import local_session
 from services.redis import redis
-from settings import FRONTEND_URL, OAUTH_CLIENTS
+from settings import (
+    FRONTEND_URL,
+    OAUTH_CLIENTS,
+    SESSION_COOKIE_HTTPONLY,
+    SESSION_COOKIE_MAX_AGE,
+    SESSION_COOKIE_NAME,
+    SESSION_COOKIE_SAMESITE,
+    SESSION_COOKIE_SECURE,
+)
 from utils.logger import root_logger as logger
 
 # Type для dependency injection сессии
@@ -302,7 +310,10 @@ async def oauth_login(_: None, _info: GraphQLResolveInfo, provider: str, callbac
 
 
 async def oauth_callback(request: Any) -> JSONResponse | RedirectResponse:
-    """Обрабатывает callback от OAuth провайдера"""
+    """
+    Обработчик OAuth callback.
+    Создает или обновляет пользователя и устанавливает сессионный токен.
+    """
     try:
         # Получаем state из query параметров
         state = request.query_params.get("state")
@@ -341,12 +352,12 @@ async def oauth_callback(request: Any) -> JSONResponse | RedirectResponse:
         redirect_url = f"{stored_redirect_uri}?state={state}&access_token={session_token}"
         response = RedirectResponse(url=redirect_url)
         response.set_cookie(
-            "session_token",
+            SESSION_COOKIE_NAME,
             session_token,
-            httponly=True,
-            secure=True,
-            samesite="lax",
-            max_age=30 * 24 * 60 * 60,  # 30 days
+            httponly=SESSION_COOKIE_HTTPONLY,
+            secure=SESSION_COOKIE_SECURE,
+            samesite=SESSION_COOKIE_SAMESITE,
+            max_age=SESSION_COOKIE_MAX_AGE,
         )
         return response
 
@@ -460,12 +471,12 @@ async def oauth_callback_http(request: Request) -> JSONResponse | RedirectRespon
         # Возвращаем redirect с cookie
         response = RedirectResponse(url="/auth/success", status_code=307)
         response.set_cookie(
-            "session_token",
+            SESSION_COOKIE_NAME,
             session_token,
-            httponly=True,
-            secure=True,
-            samesite="lax",
-            max_age=30 * 24 * 60 * 60,  # 30 дней
+            httponly=SESSION_COOKIE_HTTPONLY,
+            secure=SESSION_COOKIE_SECURE,
+            samesite=SESSION_COOKIE_SAMESITE,
+            max_age=SESSION_COOKIE_MAX_AGE,
         )
         return response
 
