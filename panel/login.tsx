@@ -3,7 +3,7 @@
  * @module LoginPage
  */
 
-import { Component, createSignal, Show } from 'solid-js'
+import { Component, createSignal } from 'solid-js'
 import { login } from './auth'
 
 interface LoginPageProps {

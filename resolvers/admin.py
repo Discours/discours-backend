@@ -5,9 +5,11 @@ from graphql import GraphQLResolveInfo
 from graphql.error import GraphQLError
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import joinedload
+from sqlalchemy.sql import func, select
 
 from auth.decorators import admin_auth_required
 from auth.orm import Author, AuthorRole, Role
+from orm.shout import Shout
 from services.db import local_session
 from services.env import EnvManager, EnvVariable
 from services.schema import mutation, query
@@ -322,4 +324,275 @@ async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, A
         error_msg = f"Ошибка при обновлении ролей пользователя: {e!s}"
         logger.error(error_msg)
         logger.error(traceback.format_exc())
+        return {"success": False, "error": error_msg}
+
+
+# ===== РЕЗОЛВЕРЫ ДЛЯ РАБОТЫ С ПУБЛИКАЦИЯМИ (SHOUT) =====
+
+
+@query.field("adminGetShouts")
+@admin_auth_required
+async def admin_get_shouts(
+    _: None, info: GraphQLResolveInfo, limit: int = 10, offset: int = 0, search: str = "", status: str = "all"
+) -> dict[str, Any]:
+    """
+    Получает список публикаций для админ-панели с поддержкой пагинации и поиска
+    Переиспользует логику из reader.py для соблюдения DRY принципа
+
+    Args:
+        limit: Максимальное количество записей для получения
+        offset: Смещение в списке результатов
+        search: Строка поиска (по заголовку, slug или ID)
+        status: Статус публикаций (all, published, draft, deleted)
+
+    Returns:
+        Пагинированный список публикаций
+    """
+    try:
+        # Импортируем функции из reader.py для переиспользования
+        from resolvers.reader import get_shouts_with_links, query_with_stat
+
+        # Нормализуем параметры
+        limit = max(1, min(100, limit or 10))
+        offset = max(0, offset or 0)
+
+        with local_session() as session:
+            # Используем существующую функцию для получения запроса со статистикой
+            if status == "all":
+                # Для админа показываем все публикации (включая удаленные и неопубликованные)
+                q = select(Shout).options(joinedload(Shout.authors), joinedload(Shout.topics))
+            else:
+                # Используем стандартный запрос с фильтрацией
+                q = query_with_stat(info)
+
+                # Применяем фильтр статуса
+                if status == "published":
+                    q = q.filter(Shout.published_at.isnot(None), Shout.deleted_at.is_(None))
+                elif status == "draft":
+                    q = q.filter(Shout.published_at.is_(None), Shout.deleted_at.is_(None))
+                elif status == "deleted":
+                    q = q.filter(Shout.deleted_at.isnot(None))
+
+            # Применяем фильтр поиска, если указан
+            if search and search.strip():
+                search_term = f"%{search.strip().lower()}%"
+                q = q.filter(
+                    or_(
+                        Shout.title.ilike(search_term),
+                        Shout.slug.ilike(search_term),
+                        cast(Shout.id, String).ilike(search_term),
+                        Shout.body.ilike(search_term),
+                    )
+                )
+
+            # Получаем общее количество записей
+            total_count = session.execute(select(func.count()).select_from(q.subquery())).scalar()
+
+            # Вычисляем информацию о пагинации
+            per_page = limit
+            total_pages = ceil(total_count / per_page)
+            current_page = (offset // per_page) + 1 if per_page > 0 else 1
+
+            # Применяем пагинацию и сортировку (новые сверху)
+            q = q.order_by(Shout.created_at.desc())
+
+            # Используем существующую функцию для получения публикаций с данными
+            if status == "all":
+                # Для статуса "all" используем простой запрос без статистики
+                q = q.limit(limit).offset(offset)
+                shouts_result = session.execute(q).all()
+                shouts_data = []
+
+                for row in shouts_result:
+                    shout = row[0] if isinstance(row, tuple) else row
+                    # Обрабатываем поле media
+                    media_data = []
+                    if shout.media:
+                        if isinstance(shout.media, str):
+                            try:
+                                import orjson
+
+                                media_data = orjson.loads(shout.media)
+                            except Exception:
+                                media_data = []
+                        elif isinstance(shout.media, list):
+                            media_data = shout.media
+                        elif isinstance(shout.media, dict):
+                            media_data = [shout.media]
+
+                    shout_dict = {
+                        "id": shout.id,
+                        "title": shout.title,
+                        "slug": shout.slug,
+                        "body": shout.body,
+                        "lead": shout.lead,
+                        "subtitle": shout.subtitle,
+                        "layout": shout.layout,
+                        "lang": shout.lang,
+                        "cover": shout.cover,
+                        "cover_caption": shout.cover_caption,
+                        "media": media_data,
+                        "seo": shout.seo,
+                        "created_at": shout.created_at,
+                        "updated_at": shout.updated_at,
+                        "published_at": shout.published_at,
+                        "featured_at": shout.featured_at,
+                        "deleted_at": shout.deleted_at,
+                        "created_by": {
+                            "id": shout.created_by,
+                            "email": "unknown",  # Заполним при необходимости
+                            "name": "unknown",
+                        },
+                        "updated_by": None,  # Заполним при необходимости
+                        "deleted_by": None,  # Заполним при необходимости
+                        "community": {
+                            "id": shout.community,
+                            "name": "unknown",  # Заполним при необходимости
+                        },
+                        "authors": [
+                            {"id": author.id, "email": author.email, "name": author.name, "slug": author.slug}
+                            for author in (shout.authors or [])
+                        ],
+                        "topics": [
+                            {"id": topic.id, "title": topic.title, "slug": topic.slug} for topic in (shout.topics or [])
+                        ],
+                        "version_of": shout.version_of,
+                        "draft": shout.draft,
+                        "stat": None,  # Заполним при необходимости
+                    }
+                    shouts_data.append(shout_dict)
+            else:
+                # Используем существующую функцию для получения публикаций со статистикой
+                shouts_data = get_shouts_with_links(info, q, limit, offset)
+
+            return {
+                "shouts": shouts_data,
+                "total": total_count,
+                "page": current_page,
+                "perPage": per_page,
+                "totalPages": total_pages,
+            }
+
+    except Exception as e:
+        import traceback
+
+        logger.error(f"Ошибка при получении списка публикаций: {e!s}")
+        logger.error(traceback.format_exc())
+        msg = f"Не удалось получить список публикаций: {e!s}"
+        raise GraphQLError(msg) from e
+
+
+@mutation.field("adminUpdateShout")
+@admin_auth_required
+async def admin_update_shout(_: None, info: GraphQLResolveInfo, shout: dict[str, Any]) -> dict[str, Any]:
+    """
+    Обновляет данные публикации
+    Переиспользует логику из editor.py для соблюдения DRY принципа
+
+    Args:
+        info: Контекст GraphQL запроса
+        shout: Данные для обновления публикации
+
+    Returns:
+        Результат операции
+    """
+    try:
+        # Импортируем функцию обновления из editor.py
+        from resolvers.editor import update_shout
+
+        shout_id = shout.get("id")
+
+        if not shout_id:
+            return {"success": False, "error": "ID публикации не указан"}
+
+        # Подготавливаем данные в формате, ожидаемом функцией update_shout
+        shout_input = {k: v for k, v in shout.items() if k != "id"}
+
+        # Используем существующую функцию update_shout
+        result = await update_shout(None, info, shout_id, shout_input)
+
+        if result.error:
+            return {"success": False, "error": result.error}
+
+        logger.info(f"Публикация {shout_id} обновлена через админ-панель")
+        return {"success": True}
+
+    except Exception as e:
+        import traceback
+
+        error_msg = f"Ошибка при обновлении публикации: {e!s}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
+        return {"success": False, "error": error_msg}
+
+
+@mutation.field("adminDeleteShout")
+@admin_auth_required
+async def admin_delete_shout(_: None, info: GraphQLResolveInfo, shout_id: int) -> dict[str, Any]:
+    """
+    Мягко удаляет публикацию (устанавливает deleted_at)
+    Переиспользует логику из editor.py для соблюдения DRY принципа
+
+    Args:
+        info: Контекст GraphQL запроса
+        id: ID публикации для удаления
+
+    Returns:
+        Результат операции
+    """
+    try:
+        # Импортируем функцию удаления из editor.py
+        from resolvers.editor import delete_shout
+
+        # Используем существующую функцию delete_shout
+        result = await delete_shout(None, info, shout_id)
+
+        if result.error:
+            return {"success": False, "error": result.error}
+
+        logger.info(f"Публикация {shout_id} удалена через админ-панель")
+        return {"success": True}
+
+    except Exception as e:
+        error_msg = f"Ошибка при удалении публикации: {e!s}"
+        logger.error(error_msg)
+        return {"success": False, "error": error_msg}
+
+
+@mutation.field("adminRestoreShout")
+@admin_auth_required
+async def admin_restore_shout(_: None, info: GraphQLResolveInfo, shout_id: int) -> dict[str, Any]:
+    """
+    Восстанавливает удаленную публикацию (сбрасывает deleted_at)
+
+    Args:
+        info: Контекст GraphQL запроса
+        id: ID публикации для восстановления
+
+    Returns:
+        Результат операции
+    """
+    try:
+        with local_session() as session:
+            # Получаем публикацию
+            shout = session.query(Shout).filter(Shout.id == shout_id).first()
+
+            if not shout:
+                return {"success": False, "error": f"Публикация с ID {shout_id} не найдена"}
+
+            if not shout.deleted_at:
+                return {"success": False, "error": "Публикация не была удалена"}
+
+            # Сбрасываем время удаления
+            shout.deleted_at = None
+            shout.deleted_by = None
+
+            session.commit()
+
+            logger.info(f"Публикация {shout.title or shout.id} восстановлена администратором")
+            return {"success": True}
+
+    except Exception as e:
+        error_msg = f"Ошибка при восстановлении публикации: {e!s}"
+        logger.error(error_msg)
         return {"success": False, "error": error_msg}

@@ -56,11 +56,67 @@ type OperationResult {
   error: String
 }
 
+# Типы для управления публикациями (Shout)
+type AdminShoutInfo {
+  id: Int!
+  title: String!
+  slug: String!
+  body: String!
+  lead: String
+  subtitle: String
+  layout: String!
+  lang: String!
+  cover: String
+  cover_caption: String
+  media: [MediaItem]
+  seo: String
+  created_at: Int!
+  updated_at: Int
+  published_at: Int
+  featured_at: Int
+  deleted_at: Int
+  created_by: Author!
+  updated_by: Author
+  deleted_by: Author
+  community: Community!
+  authors: [Author]
+  topics: [Topic]
+  version_of: Int
+  draft: Int
+  stat: Stat
+}
+
+# Тип для пагинированного ответа публикаций
+type AdminShoutListResponse {
+  shouts: [AdminShoutInfo!]!
+  total: Int!
+  page: Int!
+  perPage: Int!
+  totalPages: Int!
+}
+
+input AdminShoutUpdateInput {
+  id: Int!
+  title: String
+  body: String
+  lead: String
+  subtitle: String
+  cover: String
+  cover_caption: String
+  media: [MediaItemInput]
+  seo: String
+  published_at: Int
+  featured_at: Int
+  deleted_at: Int
+}
+
 extend type Query {
   getEnvVariables: [EnvSection!]!
   # Запросы для управления пользователями
   adminGetUsers(limit: Int, offset: Int, search: String): AdminUserListResponse!
   adminGetRoles: [Role!]!
+  # Запросы для управления публикациями
+  adminGetShouts(limit: Int, offset: Int, search: String, status: String): AdminShoutListResponse!
 }
 
 extend type Mutation {
@@ -69,4 +125,8 @@ extend type Mutation {
 
   # Мутации для управления пользователями
   adminUpdateUser(user: AdminUserUpdateInput!): OperationResult!
+  # Мутации для управления публикациями
+  adminUpdateShout(shout: AdminShoutUpdateInput!): OperationResult!
+  adminDeleteShout(id: Int!): OperationResult!
+  adminRestoreShout(id: Int!): OperationResult!
 }

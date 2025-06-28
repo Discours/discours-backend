@@ -87,6 +87,75 @@ interface EnvSection {
 }
 
 /**
+ * Интерфейс для публикации
+ */
+interface Shout {
+  id: number
+  title: string
+  slug: string
+  body: string
+  lead?: string
+  subtitle?: string
+  layout: string
+  lang: string
+  cover?: string
+  cover_caption?: string
+  media?: any[]
+  seo?: string
+  created_at: number
+  updated_at?: number
+  published_at?: number
+  featured_at?: number
+  deleted_at?: number
+  created_by: {
+    id: number
+    email?: string
+    name?: string
+  }
+  updated_by?: {
+    id: number
+    email?: string
+    name?: string
+  }
+  deleted_by?: {
+    id: number
+    email?: string
+    name?: string
+  }
+  community: {
+    id: number
+    name?: string
+  }
+  authors?: Array<{
+    id: number
+    email?: string
+    name?: string
+    slug?: string
+  }>
+  topics?: Array<{
+    id: number
+    title?: string
+    slug?: string
+  }>
+  version_of?: number
+  draft?: number
+  stat?: any
+}
+
+/**
+ * Интерфейс для ответа API с публикациями
+ */
+interface AdminGetShoutsResponse {
+  adminGetShouts: {
+    shouts: Shout[]
+    total: number
+    page: number
+    perPage: number
+    totalPages: number
+  }
+}
+
+/**
  * Интерфейс свойств компонента AdminPage
  */
 interface AdminPageProps {
@@ -128,6 +197,23 @@ const AdminPage: Component<AdminPageProps> = (props) => {
 
   // Поиск
   const [searchQuery, setSearchQuery] = createSignal('')
+
+  // Публикации
+  const [shouts, setShouts] = createSignal<Shout[]>([])
+  const [shoutsLoading, setShoutsLoading] = createSignal(false)
+  const [shoutsStatus, setShoutsStatus] = createSignal('all') // all, published, draft, deleted
+  const [shoutsPagination, setShoutsPagination] = createSignal<{
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1
+  })
+  const [shoutsSearchQuery, setShoutsSearchQuery] = createSignal('')
 
   // Периодическая проверка авторизации
   onMount(() => {
@@ -249,17 +335,90 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         setRoles(data.adminGetRoles)
       }
     } catch (err) {
-      console.error('Ошибка загрузки ролей:', err)
-      // Если ошибка авторизации - перенаправляем на логин
-      if (
-        err instanceof Error &&
-        (err.message.includes('401') ||
-          err.message.includes('авторизации') ||
-          err.message.includes('unauthorized') ||
-          err.message.includes('Unauthorized'))
-      ) {
-        handleLogout()
+      console.error('Ошибка при загрузке ролей:', err)
+      setError('Не удалось загрузить роли')
+    }
+  }
+
+  /**
+   * Загрузка списка публикаций с учетом пагинации и поиска
+   */
+  async function loadShouts() {
+    setShoutsLoading(true)
+    setError(null)
+
+    try {
+      const { page, limit } = shoutsPagination()
+      const offset = (page - 1) * limit
+      const search = shoutsSearchQuery().trim()
+      const status = shoutsStatus()
+
+      const data = await query<AdminGetShoutsResponse>(
+        `${location.origin}/graphql`,
+        `
+        query AdminGetShouts($limit: Int, $offset: Int, $search: String, $status: String) {
+          adminGetShouts(limit: $limit, offset: $offset, search: $search, status: $status) {
+            shouts {
+              id
+              title
+              slug
+              body
+              lead
+              subtitle
+              layout
+              lang
+              cover
+              cover_caption
+              media
+              seo
+              created_at
+              updated_at
+              published_at
+              featured_at
+              deleted_at
+              created_by {
+                id
+                email
+                name
+              }
+              authors {
+                id
+                email
+                name
+                slug
+              }
+              topics {
+                id
+                title
+                slug
+              }
+              version_of
+              draft
+            }
+            total
+            page
+            perPage
+            totalPages
+          }
+        }
+        `,
+        { limit, offset, search: search || undefined, status }
+      )
+
+      if (data?.adminGetShouts) {
+        setShouts(data.adminGetShouts.shouts)
+        setShoutsPagination({
+          page: data.adminGetShouts.page,
+          limit: data.adminGetShouts.perPage,
+          total: data.adminGetShouts.total,
+          totalPages: data.adminGetShouts.totalPages
+        })
       }
+    } catch (err) {
+      console.error('Ошибка при загрузке публикаций:', err)
+      setError('Не удалось загрузить публикации')
+    } finally {
+      setShoutsLoading(false)
     }
   }
 
@@ -855,9 +1014,13 @@ const AdminPage: Component<AdminPageProps> = (props) => {
    */
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
+    setError(null)
+    setSuccessMessage(null)
 
     if (tab === 'env' && envSections().length === 0) {
       loadEnvVariables()
+    } else if (tab === 'shouts' && shouts().length === 0) {
+      loadShouts()
     }
   }
 
@@ -1028,6 +1191,24 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     )
   }
 
+  // Вспомогательные функции для публикаций
+  function getShoutStatus(shout: Shout): string {
+    if (shout.deleted_at) return 'Удалена'
+    if (shout.published_at) return 'Опубликована'
+    return 'Черновик'
+  }
+
+  function getShoutStatusClass(shout: Shout): string {
+    if (shout.deleted_at) return 'status-deleted'
+    if (shout.published_at) return 'status-published'
+    return 'status-draft'
+  }
+
+  function truncateText(text: string, maxLength: number = 100): string {
+    if (!text || text.length <= maxLength) return text
+    return text.substring(0, maxLength) + '...'
+  }
+
   return (
     <div class="admin-page">
       <header>
@@ -1041,6 +1222,9 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         <nav class="admin-tabs">
           <button class={activeTab() === 'users' ? 'active' : ''} onClick={() => handleTabChange('users')}>
             Пользователи
+          </button>
+          <button class={activeTab() === 'shouts' ? 'active' : ''} onClick={() => handleTabChange('shouts')}>
+            Публикации
           </button>
           <button class={activeTab() === 'env' ? 'active' : ''} onClick={() => handleTabChange('env')}>
             Переменные среды
@@ -1126,6 +1310,135 @@ const AdminPage: Component<AdminPageProps> = (props) => {
             </div>
 
             <Pagination />
+          </Show>
+        </Show>
+
+        <Show when={activeTab() === 'shouts'}>
+          <Show when={shoutsLoading()}>
+            <div class="loading">Загрузка публикаций...</div>
+          </Show>
+
+          <Show when={!shoutsLoading() && shouts().length === 0 && !error()}>
+            <div class="empty-state">Нет публикаций для отображения</div>
+          </Show>
+
+          <Show when={!shoutsLoading() && shouts().length > 0}>
+            <div class="shouts-controls">
+              <div class="search-container">
+                <div class="search-input-group">
+                  <input
+                    type="text"
+                    placeholder="Поиск по заголовку, slug или ID..."
+                    value={shoutsSearchQuery()}
+                    onInput={(e) => setShoutsSearchQuery(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        loadShouts()
+                      }
+                    }}
+                    class="search-input"
+                  />
+                  <button class="search-button" onClick={loadShouts}>
+                    Поиск
+                  </button>
+                </div>
+              </div>
+
+              <div class="status-filter">
+                <select
+                  value={shoutsStatus()}
+                  onInput={(e) => {
+                    setShoutsStatus(e.currentTarget.value)
+                    loadShouts()
+                  }}
+                >
+                  <option value="all">Все</option>
+                  <option value="published">Опубликованные</option>
+                  <option value="draft">Черновики</option>
+                  <option value="deleted">Удаленные</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="shouts-list">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Заголовок</th>
+                    <th>Slug</th>
+                    <th>Статус</th>
+                    <th>Авторы</th>
+                    <th>Темы</th>
+                    <th>Создан</th>
+                    <th>Body (preview)</th>
+                    <th>Media</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={shouts()}>
+                    {(shout) => (
+                      <tr>
+                        <td>{shout.id}</td>
+                        <td title={shout.title}>{truncateText(shout.title, 50)}</td>
+                        <td title={shout.slug}>{truncateText(shout.slug, 30)}</td>
+                        <td>
+                          <span class={`status-badge ${getShoutStatusClass(shout)}`}>
+                            {getShoutStatus(shout)}
+                          </span>
+                        </td>
+                        <td>
+                          <Show when={shout.authors && shout.authors.length > 0}>
+                            <div class="authors-list">
+                              <For each={shout.authors}>
+                                {(author) => (
+                                  <span class="author-badge" title={author.email}>
+                                    {author.name || author.email || `ID:${author.id}`}
+                                  </span>
+                                )}
+                              </For>
+                            </div>
+                          </Show>
+                          <Show when={!shout.authors || shout.authors.length === 0}>
+                            <span class="no-data">-</span>
+                          </Show>
+                        </td>
+                        <td>
+                          <Show when={shout.topics && shout.topics.length > 0}>
+                            <div class="topics-list">
+                              <For each={shout.topics}>
+                                {(topic) => (
+                                  <span class="topic-badge" title={topic.slug}>
+                                    {topic.title || topic.slug}
+                                  </span>
+                                )}
+                              </For>
+                            </div>
+                          </Show>
+                          <Show when={!shout.topics || shout.topics.length === 0}>
+                            <span class="no-data">-</span>
+                          </Show>
+                        </td>
+                        <td>{formatDateRelative(shout.created_at)}</td>
+                        <td title={shout.body}>
+                          <div class="body-preview">
+                            {truncateText(shout.body.replace(/<[^>]*>/g, ''), 100)}
+                          </div>
+                        </td>
+                        <td>
+                          <Show when={shout.media && shout.media.length > 0}>
+                            <span class="media-count">{shout.media!.length} файл(ов)</span>
+                          </Show>
+                          <Show when={!shout.media || shout.media.length === 0}>
+                            <span class="no-data">-</span>
+                          </Show>
+                        </td>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            </div>
           </Show>
         </Show>
 
