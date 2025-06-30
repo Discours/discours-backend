@@ -64,4 +64,9 @@ type Mutation {
   create_community(community_input: CommunityInput!): CommonResult!
   update_community(community_input: CommunityInput!): CommonResult!
   delete_community(slug: String!): CommonResult!
+
+  # collection
+  create_collection(collection_input: CollectionInput!): CommonResult!
+  update_collection(collection_input: CollectionInput!): CommonResult!
+  delete_collection(slug: String!): CommonResult!
 }

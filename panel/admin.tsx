@@ -9,6 +9,7 @@ import publyLogo from './assets/publy.svg?url'
 import { logout } from './context/auth'
 // Прямой импорт компонентов вместо ленивой загрузки
 import AuthorsRoute from './routes/authors'
+import CollectionsRoute from './routes/collections'
 import CommunitiesRoute from './routes/communities'
 import EnvRoute from './routes/env'
 import ShoutsRoute from './routes/shouts'
@@ -134,6 +135,12 @@ const AdminPage: Component<AdminPageProps> = (props) => {
             Сообщества
           </Button>
           <Button
+            variant={activeTab() === 'collections' ? 'primary' : 'secondary'}
+            onClick={() => navigate('/admin/collections')}
+          >
+            Коллекции
+          </Button>
+          <Button
             variant={activeTab() === 'env' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/env')}
           >
@@ -166,6 +173,10 @@ const AdminPage: Component<AdminPageProps> = (props) => {
 
         <Show when={activeTab() === 'communities'}>
           <CommunitiesRoute onError={handleError} onSuccess={handleSuccess} />
+        </Show>
+
+        <Show when={activeTab() === 'collections'}>
+          <CollectionsRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
         <Show when={activeTab() === 'env'}>

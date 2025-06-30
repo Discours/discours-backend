@@ -21,6 +21,7 @@ from resolvers.author import (  # search_authors,
     load_authors_search,
     update_author,
 )
+from resolvers.collection import get_collection, get_collections_all, get_collections_by_author
 from resolvers.community import get_communities_all, get_community
 from resolvers.draft import (
     create_draft,
@@ -100,6 +101,9 @@ __all__ = [
     "get_author_follows_authors",
     "get_author_follows_topics",
     "get_authors_all",
+    "get_collection",
+    "get_collections_all",
+    "get_collections_by_author",
     "get_communities_all",
     # "search_authors",
     # community

@@ -18,6 +18,11 @@ type Query {
   get_communities_all: [Community]
   get_communities_by_author(slug: String, user: String, author_id: Int): [Community]
 
+  # collection
+  get_collection(slug: String!): Collection
+  get_collections_all: [Collection]
+  get_collections_by_author(slug: String, user: String, author_id: Int): [Collection]
+
   # follower
   get_shout_followers(slug: String, shout_id: Int): [Author]
   get_topic_followers(slug: String): [Author]

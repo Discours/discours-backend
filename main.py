@@ -9,7 +9,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -106,6 +106,25 @@ async def graphql_handler(request: Request) -> Response:
 
         logger.debug(f"GraphQL error traceback: {traceback.format_exc()}")
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def spa_handler(request: Request) -> Response:
+    """
+    Обработчик для SPA (Single Page Application) fallback.
+
+    Возвращает index.html для всех маршрутов, которые не найдены,
+    чтобы клиентский роутер (SolidJS) мог обработать маршрутинг.
+
+    Args:
+        request: Starlette Request объект
+
+    Returns:
+        FileResponse: ответ с содержимым index.html
+    """
+    index_path = DIST_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path, media_type="text/html")
+    return JSONResponse({"error": "Admin panel not built"}, status_code=404)
 
 
 async def shutdown() -> None:
@@ -232,7 +251,12 @@ app = Starlette(
         # OAuth маршруты
         Route("/oauth/{provider}", oauth_login, methods=["GET"]),
         Route("/oauth/{provider}/callback", oauth_callback, methods=["GET"]),
-        Mount("/", app=StaticFiles(directory=str(DIST_DIR), html=True)),
+        # Статические файлы (CSS, JS, изображения)
+        Mount("/assets", app=StaticFiles(directory=str(DIST_DIR / "assets"))),
+        # Корневой маршрут для админ-панели
+        Route("/", spa_handler, methods=["GET"]),
+        # SPA fallback для всех остальных маршрутов
+        Route("/{path:path}", spa_handler, methods=["GET"]),
     ],
     middleware=middleware,  # Используем единый список middleware
     lifespan=lifespan,

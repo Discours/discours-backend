@@ -9,13 +9,14 @@ query = QueryType()
 mutation = MutationType()
 type_draft = ObjectType("Draft")
 type_community = ObjectType("Community")
-resolvers: List[SchemaBindable] = [query, mutation, type_draft, type_community]
+type_collection = ObjectType("Collection")
+resolvers: List[SchemaBindable] = [query, mutation, type_draft, type_community, type_collection]
 
 
 def create_all_tables() -> None:
     """Create all database tables in the correct order."""
     from auth.orm import Author, AuthorBookmark, AuthorFollower, AuthorRating
-    from orm import community, draft, notification, reaction, shout, topic
+    from orm import collection, community, draft, notification, reaction, shout, topic
 
     # Порядок важен - сначала таблицы без внешних ключей, затем зависимые таблицы
     models_in_order = [
@@ -43,8 +44,8 @@ def create_all_tables() -> None:
         AuthorBookmark,  # Зависит от Author
         notification.Notification,  # Зависит от Author
         notification.NotificationSeen,  # Зависит от Notification
-        # collection.Collection,
-        # collection.ShoutCollection,
+        collection.Collection,  # Зависит от Author
+        collection.ShoutCollection,  # Зависит от Collection и Shout
         # invite.Invite
     ]
 

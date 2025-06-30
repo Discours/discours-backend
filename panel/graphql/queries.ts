@@ -154,3 +154,24 @@ export const GET_TOPICS_QUERY: string =
     }
   }
 `.loc?.source.body || ''
+
+export const GET_COLLECTIONS_QUERY: string =
+  gql`
+  query GetCollections {
+    get_collections_all {
+      id
+      slug
+      title
+      desc
+      pic
+      amount
+      created_at
+      published_at
+      created_by {
+        id
+        name
+        email
+      }
+    }
+  }
+`.loc?.source.body || ''

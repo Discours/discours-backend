@@ -120,6 +120,14 @@ input CommunityInput {
   pic: String
 }
 
+input CollectionInput {
+  id: Int
+  slug: String!
+  title: String!
+  desc: String
+  pic: String
+}
+
 # Auth inputs
 input LoginCredentials {
   email: String!

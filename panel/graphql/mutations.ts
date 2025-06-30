@@ -61,3 +61,27 @@ export const DELETE_COMMUNITY_MUTATION = `
     }
   }
 `
+
+export const CREATE_COLLECTION_MUTATION = `
+  mutation CreateCollection($collection_input: CollectionInput!) {
+    create_collection(collection_input: $collection_input) {
+      error
+    }
+  }
+`
+
+export const UPDATE_COLLECTION_MUTATION = `
+  mutation UpdateCollection($collection_input: CollectionInput!) {
+    update_collection(collection_input: $collection_input) {
+      error
+    }
+  }
+`
+
+export const DELETE_COLLECTION_MUTATION = `
+  mutation DeleteCollection($slug: String!) {
+    delete_collection(slug: $slug) {
+      error
+    }
+  }
+`
