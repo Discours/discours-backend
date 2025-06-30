@@ -79,6 +79,7 @@ input LoadShoutsFilters {
   featured: Boolean
   reacted: Boolean  # requires auth, used in load_shouts_feed
   after: Int
+  community: Int
 }
 
 input LoadShoutsOptions {

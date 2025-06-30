@@ -370,6 +370,9 @@ def apply_filters(q: select, filters: dict[str, Any]) -> select:
         if by_after:
             ts = int(by_after)
             q = q.filter(Shout.created_at > ts)
+        by_community = filters.get("community")
+        if by_community:
+            q = q.filter(Shout.community == by_community)
 
     return q
 
