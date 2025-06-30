@@ -170,6 +170,7 @@ type Collection {
   slug: String!
   title: String!
   desc: String
+  pic: String
   amount: Int
   published_at: Int
   created_at: Int!

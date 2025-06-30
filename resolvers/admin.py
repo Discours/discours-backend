@@ -9,6 +9,7 @@ from sqlalchemy.sql import func, select
 
 from auth.decorators import admin_auth_required
 from auth.orm import Author, AuthorRole, Role
+from orm.invite import Invite, InviteStatus
 from orm.shout import Shout
 from services.db import local_session
 from services.env import EnvManager, EnvVariable
@@ -626,3 +627,307 @@ async def admin_restore_shout(_: None, info: GraphQLResolveInfo, shout_id: int) 
         error_msg = f"Ошибка при восстановлении публикации: {e!s}"
         logger.error(error_msg)
         return {"success": False, "error": error_msg}
+
+
+# === CRUD для приглашений ===
+
+
+@query.field("adminGetInvites")
+@admin_auth_required
+async def admin_get_invites(
+    _: None, _info: GraphQLResolveInfo, limit: int = 10, offset: int = 0, search: str = "", status: str = "all"
+) -> dict[str, Any]:
+    """
+    Получает список приглашений для админ-панели с поддержкой пагинации и поиска
+
+    Args:
+        _info: Контекст GraphQL запроса
+        limit: Максимальное количество записей для получения
+        offset: Смещение в списке результатов
+        search: Строка поиска (по email приглашающего/приглашаемого, названию публикации или ID)
+        status: Фильтр по статусу ("all", "pending", "accepted", "rejected")
+
+    Returns:
+        Пагинированный список приглашений
+    """
+    try:
+        # Нормализуем параметры
+        limit = max(1, min(100, limit or 10))
+        offset = max(0, offset or 0)
+
+        with local_session() as session:
+            # Базовый запрос с загрузкой связанных объектов
+            query = session.query(Invite).options(
+                joinedload(Invite.inviter),
+                joinedload(Invite.author),
+                joinedload(Invite.shout).joinedload(Shout.created_by_author),
+            )
+
+            # Фильтр по статусу
+            if status and status != "all":
+                status_enum = InviteStatus[status.upper()]
+                query = query.filter(Invite.status == status_enum.value)
+
+            # Применяем фильтр поиска, если указан
+            if search and search.strip():
+                search_term = f"%{search.strip().lower()}%"
+                query = (
+                    query.join(Invite.inviter.of_type(Author), aliased=True)
+                    .join(Invite.author.of_type(Author), aliased=True)
+                    .join(Invite.shout)
+                    .filter(
+                        or_(
+                            # Поиск по email приглашающего
+                            Invite.inviter.has(Author.email.ilike(search_term)),
+                            # Поиск по имени приглашающего
+                            Invite.inviter.has(Author.name.ilike(search_term)),
+                            # Поиск по email приглашаемого
+                            Invite.author.has(Author.email.ilike(search_term)),
+                            # Поиск по имени приглашаемого
+                            Invite.author.has(Author.name.ilike(search_term)),
+                            # Поиск по названию публикации
+                            Invite.shout.has(Shout.title.ilike(search_term)),
+                            # Поиск по ID приглашающего
+                            cast(Invite.inviter_id, String).ilike(search_term),
+                            # Поиск по ID приглашаемого
+                            cast(Invite.author_id, String).ilike(search_term),
+                            # Поиск по ID публикации
+                            cast(Invite.shout_id, String).ilike(search_term),
+                        )
+                    )
+                )
+
+            # Получаем общее количество записей
+            total_count = query.count()
+
+            # Вычисляем информацию о пагинации
+            per_page = limit
+            total_pages = ceil(total_count / per_page)
+            current_page = (offset // per_page) + 1 if per_page > 0 else 1
+
+            # Применяем пагинацию и сортировку (по ID приглашающего, затем автора, затем публикации)
+            invites = (
+                query.order_by(Invite.inviter_id, Invite.author_id, Invite.shout_id).offset(offset).limit(limit).all()
+            )
+
+            # Преобразуем в формат для API
+            return {
+                "invites": [
+                    {
+                        "inviter_id": invite.inviter_id,
+                        "author_id": invite.author_id,
+                        "shout_id": invite.shout_id,
+                        "status": invite.status,
+                        "inviter": {
+                            "id": invite.inviter.id,
+                            "name": invite.inviter.name or "Без имени",
+                            "email": invite.inviter.email,
+                            "slug": invite.inviter.slug,
+                        },
+                        "author": {
+                            "id": invite.author.id,
+                            "name": invite.author.name or "Без имени",
+                            "email": invite.author.email,
+                            "slug": invite.author.slug,
+                        },
+                        "shout": {
+                            "id": invite.shout.id,
+                            "title": invite.shout.title,
+                            "slug": invite.shout.slug,
+                            "created_by": {
+                                "id": invite.shout.created_by_author.id,
+                                "name": invite.shout.created_by_author.name or "Без имени",
+                                "email": invite.shout.created_by_author.email,
+                                "slug": invite.shout.created_by_author.slug,
+                            },
+                        },
+                        "created_at": None,  # У приглашений нет created_at поля в текущей модели
+                    }
+                    for invite in invites
+                ],
+                "total": total_count,
+                "page": current_page,
+                "perPage": per_page,
+                "totalPages": total_pages,
+            }
+
+    except Exception as e:
+        import traceback
+
+        logger.error(f"Ошибка при получении списка приглашений: {e!s}")
+        logger.error(traceback.format_exc())
+        msg = f"Не удалось получить список приглашений: {e!s}"
+        raise GraphQLError(msg) from e
+
+
+@mutation.field("adminCreateInvite")
+@admin_auth_required
+async def admin_create_invite(_: None, _info: GraphQLResolveInfo, invite: dict[str, Any]) -> dict[str, Any]:
+    """
+    Создает новое приглашение
+
+    Args:
+        _info: Контекст GraphQL запроса
+        invite: Данные приглашения
+
+    Returns:
+        Результат операции
+    """
+    try:
+        inviter_id = invite["inviter_id"]
+        author_id = invite["author_id"]
+        shout_id = invite["shout_id"]
+        status = invite["status"]
+
+        with local_session() as session:
+            # Проверяем существование всех связанных объектов
+            inviter = session.query(Author).filter(Author.id == inviter_id).first()
+            if not inviter:
+                return {"success": False, "error": f"Приглашающий автор с ID {inviter_id} не найден"}
+
+            author = session.query(Author).filter(Author.id == author_id).first()
+            if not author:
+                return {"success": False, "error": f"Приглашаемый автор с ID {author_id} не найден"}
+
+            shout = session.query(Shout).filter(Shout.id == shout_id).first()
+            if not shout:
+                return {"success": False, "error": f"Публикация с ID {shout_id} не найдена"}
+
+            # Проверяем, не существует ли уже такое приглашение
+            existing_invite = (
+                session.query(Invite)
+                .filter(
+                    Invite.inviter_id == inviter_id,
+                    Invite.author_id == author_id,
+                    Invite.shout_id == shout_id,
+                )
+                .first()
+            )
+
+            if existing_invite:
+                return {
+                    "success": False,
+                    "error": f"Приглашение от {inviter.name} для {author.name} на публикацию '{shout.title}' уже существует",
+                }
+
+            # Создаем новое приглашение
+            new_invite = Invite(
+                inviter_id=inviter_id,
+                author_id=author_id,
+                shout_id=shout_id,
+                status=status,
+            )
+
+            session.add(new_invite)
+            session.commit()
+
+            logger.info(f"Создано приглашение: {inviter.name} приглашает {author.name} к публикации '{shout.title}'")
+
+            return {"success": True, "error": None}
+
+    except Exception as e:
+        logger.error(f"Ошибка при создании приглашения: {e!s}")
+        msg = f"Не удалось создать приглашение: {e!s}"
+        raise GraphQLError(msg) from e
+
+
+@mutation.field("adminUpdateInvite")
+@admin_auth_required
+async def admin_update_invite(_: None, _info: GraphQLResolveInfo, invite: dict[str, Any]) -> dict[str, Any]:
+    """
+    Обновляет существующее приглашение
+
+    Args:
+        _info: Контекст GraphQL запроса
+        invite: Данные приглашения для обновления
+
+    Returns:
+        Результат операции
+    """
+    try:
+        inviter_id = invite["inviter_id"]
+        author_id = invite["author_id"]
+        shout_id = invite["shout_id"]
+        new_status = invite["status"]
+
+        with local_session() as session:
+            # Находим существующее приглашение
+            existing_invite = (
+                session.query(Invite)
+                .filter(
+                    Invite.inviter_id == inviter_id,
+                    Invite.author_id == author_id,
+                    Invite.shout_id == shout_id,
+                )
+                .first()
+            )
+
+            if not existing_invite:
+                return {
+                    "success": False,
+                    "error": f"Приглашение с ID {inviter_id}-{author_id}-{shout_id} не найдено",
+                }
+
+            # Обновляем статус
+            old_status = existing_invite.status
+            existing_invite.status = new_status
+            session.commit()
+
+            logger.info(f"Обновлён статус приглашения {inviter_id}-{author_id}-{shout_id}: {old_status} → {new_status}")
+
+            return {"success": True, "error": None}
+
+    except Exception as e:
+        logger.error(f"Ошибка при обновлении приглашения: {e!s}")
+        msg = f"Не удалось обновить приглашение: {e!s}"
+        raise GraphQLError(msg) from e
+
+
+@mutation.field("adminDeleteInvite")
+@admin_auth_required
+async def admin_delete_invite(
+    _: None, _info: GraphQLResolveInfo, inviter_id: int, author_id: int, shout_id: int
+) -> dict[str, Any]:
+    """
+    Удаляет приглашение
+
+    Args:
+        _info: Контекст GraphQL запроса
+        inviter_id: ID приглашающего
+        author_id: ID приглашаемого
+        shout_id: ID публикации
+
+    Returns:
+        Результат операции
+    """
+    try:
+        with local_session() as session:
+            # Находим приглашение для удаления
+            invite = (
+                session.query(Invite)
+                .filter(
+                    Invite.inviter_id == inviter_id,
+                    Invite.author_id == author_id,
+                    Invite.shout_id == shout_id,
+                )
+                .first()
+            )
+
+            if not invite:
+                return {
+                    "success": False,
+                    "error": f"Приглашение с ID {inviter_id}-{author_id}-{shout_id} не найдено",
+                }
+
+            # Удаляем приглашение
+            session.delete(invite)
+            session.commit()
+
+            logger.info(f"Удалено приглашение {inviter_id}-{author_id}-{shout_id}")
+
+            return {"success": True, "error": None}
+
+    except Exception as e:
+        logger.error(f"Ошибка при удалении приглашения: {e!s}")
+        msg = f"Не удалось удалить приглашение: {e!s}"
+        raise GraphQLError(msg) from e

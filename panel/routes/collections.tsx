@@ -5,6 +5,7 @@ import {
   UPDATE_COLLECTION_MUTATION
 } from '../graphql/mutations'
 import { GET_COLLECTIONS_QUERY } from '../graphql/queries'
+import CollectionEditModal from '../modals/CollectionEditModal'
 import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
@@ -49,14 +50,6 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
   })
   const [createModal, setCreateModal] = createSignal(false)
 
-  // Форма для редактирования/создания
-  const [formData, setFormData] = createSignal({
-    slug: '',
-    title: '',
-    desc: '',
-    pic: ''
-  })
-
   /**
    * Загружает список всех коллекций
    */
@@ -98,12 +91,6 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
    * Открывает модалку редактирования
    */
   const openEditModal = (collection: Collection) => {
-    setFormData({
-      slug: collection.slug,
-      title: collection.title,
-      desc: collection.desc || '',
-      pic: collection.pic
-    })
     setEditModal({ show: true, collection })
   }
 
@@ -111,28 +98,25 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
    * Открывает модалку создания
    */
   const openCreateModal = () => {
-    setFormData({
-      slug: '',
-      title: '',
-      desc: '',
-      pic: ''
-    })
     setCreateModal(true)
   }
 
   /**
-   * Создает новую коллекцию
+   * Обрабатывает сохранение коллекции (создание или обновление)
    */
-  const createCollection = async () => {
+  const handleSaveCollection = async (collectionData: Partial<Collection>) => {
     try {
+      const isCreating = createModal()
+      const mutation = isCreating ? CREATE_COLLECTION_MUTATION : UPDATE_COLLECTION_MUTATION
+
       const response = await fetch('/graphql', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          query: CREATE_COLLECTION_MUTATION,
-          variables: { collection_input: formData() }
+          query: mutation,
+          variables: { collection_input: collectionData }
         })
       })
 
@@ -142,49 +126,19 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
         throw new Error(result.errors[0].message)
       }
 
-      if (result.data.create_collection.error) {
-        throw new Error(result.data.create_collection.error)
+      const resultData = isCreating ? result.data.create_collection : result.data.update_collection
+      if (resultData.error) {
+        throw new Error(resultData.error)
       }
 
-      props.onSuccess('Коллекция успешно создана')
+      props.onSuccess(isCreating ? 'Коллекция успешно создана' : 'Коллекция успешно обновлена')
       setCreateModal(false)
-      await loadCollections()
-    } catch (error) {
-      props.onError(`Ошибка создания коллекции: ${(error as Error).message}`)
-    }
-  }
-
-  /**
-   * Обновляет коллекцию
-   */
-  const updateCollection = async () => {
-    try {
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: UPDATE_COLLECTION_MUTATION,
-          variables: { collection_input: formData() }
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
-
-      if (result.data.update_collection.error) {
-        throw new Error(result.data.update_collection.error)
-      }
-
-      props.onSuccess('Коллекция успешно обновлена')
       setEditModal({ show: false, collection: null })
       await loadCollections()
     } catch (error) {
-      props.onError(`Ошибка обновления коллекции: ${(error as Error).message}`)
+      props.onError(
+        `Ошибка ${createModal() ? 'создания' : 'обновления'} коллекции: ${(error as Error).message}`
+      )
     }
   }
 
@@ -230,7 +184,6 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
   return (
     <div class={styles.container}>
       <div class={styles.header}>
-        <h2>Управление коллекциями</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
           <Button onClick={openCreateModal} variant="primary">
             Создать коллекцию
@@ -313,181 +266,20 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
       </Show>
 
       {/* Модальное окно создания */}
-      <Modal isOpen={createModal()} onClose={() => setCreateModal(false)} title="Создание новой коллекции">
-        <div style={{ padding: '20px' }}>
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Slug <span style={{ color: 'red' }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={formData().slug}
-              onInput={(e) => setFormData((prev) => ({ ...prev, slug: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-              required
-              placeholder="my-collection"
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Название <span style={{ color: 'red' }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={formData().title}
-              onInput={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-              required
-              placeholder="Моя коллекция"
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Описание
-            </label>
-            <textarea
-              value={formData().desc}
-              onInput={(e) => setFormData((prev) => ({ ...prev, desc: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px',
-                'min-height': '80px',
-                resize: 'vertical'
-              }}
-              placeholder="Описание коллекции..."
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Картинка (URL)
-            </label>
-            <input
-              type="text"
-              value={formData().pic}
-              onInput={(e) => setFormData((prev) => ({ ...prev, pic: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-              placeholder="https://example.com/image.jpg"
-            />
-          </div>
-
-          <div class={styles['modal-actions']}>
-            <Button variant="secondary" onClick={() => setCreateModal(false)}>
-              Отмена
-            </Button>
-            <Button variant="primary" onClick={createCollection}>
-              Создать
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <CollectionEditModal
+        isOpen={createModal()}
+        collection={null}
+        onClose={() => setCreateModal(false)}
+        onSave={handleSaveCollection}
+      />
 
       {/* Модальное окно редактирования */}
-      <Modal
+      <CollectionEditModal
         isOpen={editModal().show}
+        collection={editModal().collection}
         onClose={() => setEditModal({ show: false, collection: null })}
-        title={`Редактирование коллекции: ${editModal().collection?.title || ''}`}
-      >
-        <div style={{ padding: '20px' }}>
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>Slug</label>
-            <input
-              type="text"
-              value={formData().slug}
-              onInput={(e) => setFormData((prev) => ({ ...prev, slug: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-              required
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Название
-            </label>
-            <input
-              type="text"
-              value={formData().title}
-              onInput={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Описание
-            </label>
-            <textarea
-              value={formData().desc}
-              onInput={(e) => setFormData((prev) => ({ ...prev, desc: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px',
-                'min-height': '80px',
-                resize: 'vertical'
-              }}
-              placeholder="Описание коллекции..."
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Картинка (URL)
-            </label>
-            <input
-              type="text"
-              value={formData().pic}
-              onInput={(e) => setFormData((prev) => ({ ...prev, pic: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-              placeholder="https://example.com/image.jpg"
-            />
-          </div>
-
-          <div class={styles['modal-actions']}>
-            <Button variant="secondary" onClick={() => setEditModal({ show: false, collection: null })}>
-              Отмена
-            </Button>
-            <Button variant="primary" onClick={updateCollection}>
-              Сохранить
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onSave={handleSaveCollection}
+      />
 
       {/* Модальное окно подтверждения удаления */}
       <Modal

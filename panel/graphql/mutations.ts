@@ -30,6 +30,14 @@ export const ADMIN_UPDATE_ENV_VARIABLE_MUTATION = `
   }
 `
 
+export const CREATE_TOPIC_MUTATION = `
+  mutation CreateTopic($topic_input: TopicInput!) {
+    create_topic(topic_input: $topic_input) {
+      error
+    }
+  }
+`
+
 export const UPDATE_TOPIC_MUTATION = `
   mutation UpdateTopic($topic_input: TopicInput!) {
     update_topic(topic_input: $topic_input) {
@@ -41,6 +49,14 @@ export const UPDATE_TOPIC_MUTATION = `
 export const DELETE_TOPIC_MUTATION = `
   mutation DeleteTopic($id: Int!) {
     delete_topic_by_id(id: $id) {
+      error
+    }
+  }
+`
+
+export const CREATE_COMMUNITY_MUTATION = `
+  mutation CreateCommunity($community_input: CommunityInput!) {
+    create_community(community_input: $community_input) {
       error
     }
   }
@@ -81,6 +97,33 @@ export const UPDATE_COLLECTION_MUTATION = `
 export const DELETE_COLLECTION_MUTATION = `
   mutation DeleteCollection($slug: String!) {
     delete_collection(slug: $slug) {
+      error
+    }
+  }
+`
+
+export const ADMIN_CREATE_INVITE_MUTATION = `
+  mutation AdminCreateInvite($invite: AdminInviteUpdateInput!) {
+    adminCreateInvite(invite: $invite) {
+      success
+      error
+    }
+  }
+`
+
+export const ADMIN_UPDATE_INVITE_MUTATION = `
+  mutation AdminUpdateInvite($invite: AdminInviteUpdateInput!) {
+    adminUpdateInvite(invite: $invite) {
+      success
+      error
+    }
+  }
+`
+
+export const ADMIN_DELETE_INVITE_MUTATION = `
+  mutation AdminDeleteInvite($inviter_id: Int!, $author_id: Int!, $shout_id: Int!) {
+    adminDeleteInvite(inviter_id: $inviter_id, author_id: $author_id, shout_id: $shout_id) {
+      success
       error
     }
   }

@@ -113,6 +113,34 @@ input AdminShoutUpdateInput {
   deleted_at: Int
 }
 
+# Тип для отображения приглашения в админ-панели
+type AdminInviteInfo {
+  inviter_id: Int!
+  author_id: Int!
+  shout_id: Int!
+  status: InviteStatus!
+  inviter: Author!
+  author: Author!
+  shout: AdminShoutInfo!
+  created_at: Int
+}
+
+# Тип для пагинированного ответа приглашений
+type AdminInviteListResponse {
+  invites: [AdminInviteInfo!]!
+  total: Int!
+  page: Int!
+  perPage: Int!
+  totalPages: Int!
+}
+
+input AdminInviteUpdateInput {
+  inviter_id: Int!
+  author_id: Int!
+  shout_id: Int!
+  status: InviteStatus!
+}
+
 extend type Query {
   getEnvVariables: [EnvSection!]!
   # Запросы для управления пользователями
@@ -120,6 +148,8 @@ extend type Query {
   adminGetRoles: [Role!]!
   # Запросы для управления публикациями
   adminGetShouts(limit: Int, offset: Int, search: String, status: String): AdminShoutListResponse!
+  # Запросы для управления приглашениями
+  adminGetInvites(limit: Int, offset: Int, search: String, status: String): AdminInviteListResponse!
 }
 
 extend type Mutation {
@@ -132,4 +162,8 @@ extend type Mutation {
   adminUpdateShout(shout: AdminShoutUpdateInput!): OperationResult!
   adminDeleteShout(id: Int!): OperationResult!
   adminRestoreShout(id: Int!): OperationResult!
+  # Мутации для управления приглашениями
+  adminCreateInvite(invite: AdminInviteUpdateInput!): OperationResult!
+  adminUpdateInvite(invite: AdminInviteUpdateInput!): OperationResult!
+  adminDeleteInvite(inviter_id: Int!, author_id: Int!, shout_id: Int!): OperationResult!
 }

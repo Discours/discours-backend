@@ -12,6 +12,7 @@ import AuthorsRoute from './routes/authors'
 import CollectionsRoute from './routes/collections'
 import CommunitiesRoute from './routes/communities'
 import EnvRoute from './routes/env'
+import InvitesRoute from './routes/invites'
 import ShoutsRoute from './routes/shouts'
 import TopicsRoute from './routes/topics'
 import styles from './styles/Admin.module.css'
@@ -141,6 +142,12 @@ const AdminPage: Component<AdminPageProps> = (props) => {
             Коллекции
           </Button>
           <Button
+            variant={activeTab() === 'invites' ? 'primary' : 'secondary'}
+            onClick={() => navigate('/admin/invites')}
+          >
+            Приглашения
+          </Button>
+          <Button
             variant={activeTab() === 'env' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/env')}
           >
@@ -177,6 +184,10 @@ const AdminPage: Component<AdminPageProps> = (props) => {
 
         <Show when={activeTab() === 'collections'}>
           <CollectionsRoute onError={handleError} onSuccess={handleSuccess} />
+        </Show>
+
+        <Show when={activeTab() === 'invites'}>
+          <InvitesRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
         <Show when={activeTab() === 'env'}>

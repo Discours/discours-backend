@@ -6,7 +6,7 @@
 import { Component, createEffect, createSignal, For, JSX, on, onMount, Show, untrack } from 'solid-js'
 import { query } from '../graphql'
 import type { Query } from '../graphql/generated/schema'
-import { DELETE_TOPIC_MUTATION, UPDATE_TOPIC_MUTATION } from '../graphql/mutations'
+import { CREATE_TOPIC_MUTATION, DELETE_TOPIC_MUTATION, UPDATE_TOPIC_MUTATION } from '../graphql/mutations'
 import { GET_TOPICS_QUERY } from '../graphql/queries'
 import TopicEditModal from '../modals/TopicEditModal'
 import styles from '../styles/Table.module.css'
@@ -52,6 +52,9 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
   const [editModal, setEditModal] = createSignal<{ show: boolean; topic: Topic | null }>({
     show: false,
     topic: null
+  })
+  const [createModal, setCreateModal] = createSignal<{ show: boolean }>({
+    show: false
   })
 
   /**
@@ -269,6 +272,40 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
   }
 
   /**
+   * Создает новый топик
+   */
+  const createTopic = async (newTopic: Topic) => {
+    try {
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          query: CREATE_TOPIC_MUTATION,
+          variables: { topic_input: newTopic }
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message)
+      }
+
+      if (result.data.create_topic.error) {
+        throw new Error(result.data.create_topic.error)
+      }
+
+      props.onSuccess('Топик успешно создан')
+      setCreateModal({ show: false })
+      await loadTopics() // Перезагружаем список
+    } catch (error) {
+      props.onError(`Ошибка создания топика: ${(error as Error).message}`)
+    }
+  }
+
+  /**
    * Удаляет топик
    */
   const deleteTopic = async (topicId: number) => {
@@ -305,7 +342,6 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
   return (
     <div class={styles.container}>
       <div class={styles.header}>
-        <h2>Управление топиками</h2>
         <div style={{ display: 'flex', gap: '12px', 'align-items': 'center' }}>
           <div style={{ display: 'flex', gap: '8px', 'align-items': 'center' }}>
             <label style={{ 'font-size': '14px', color: '#666' }}>Сортировка:</label>
@@ -339,6 +375,9 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
           <Button onClick={loadTopics} disabled={loading()}>
             {loading() ? 'Загрузка...' : 'Обновить'}
           </Button>
+          <Button variant="primary" onClick={() => setCreateModal({ show: true })}>
+            Создать тему
+          </Button>
         </div>
       </div>
 
@@ -368,6 +407,14 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
           </tbody>
         </table>
       </Show>
+
+      {/* Модальное окно создания */}
+      <TopicEditModal
+        isOpen={createModal().show}
+        topic={null}
+        onClose={() => setCreateModal({ show: false })}
+        onSave={createTopic}
+      />
 
       {/* Модальное окно редактирования */}
       <TopicEditModal

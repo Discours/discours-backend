@@ -1,6 +1,11 @@
 import { Component, createSignal, For, onMount, Show } from 'solid-js'
-import { DELETE_COMMUNITY_MUTATION, UPDATE_COMMUNITY_MUTATION } from '../graphql/mutations'
+import {
+  CREATE_COMMUNITY_MUTATION,
+  DELETE_COMMUNITY_MUTATION,
+  UPDATE_COMMUNITY_MUTATION
+} from '../graphql/mutations'
 import { GET_COMMUNITIES_QUERY } from '../graphql/queries'
+import CommunityEditModal from '../modals/CommunityEditModal'
 import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
@@ -46,13 +51,8 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
     show: false,
     community: null
   })
-
-  // Форма для редактирования
-  const [formData, setFormData] = createSignal({
-    slug: '',
-    name: '',
-    desc: '',
-    pic: ''
+  const [createModal, setCreateModal] = createSignal<{ show: boolean }>({
+    show: false
   })
 
   /**
@@ -93,31 +93,35 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
   }
 
   /**
+   * Открывает модалку создания
+   */
+  const openCreateModal = () => {
+    setCreateModal({ show: true })
+  }
+
+  /**
    * Открывает модалку редактирования
    */
   const openEditModal = (community: Community) => {
-    setFormData({
-      slug: community.slug,
-      name: community.name,
-      desc: community.desc || '',
-      pic: community.pic
-    })
     setEditModal({ show: true, community })
   }
 
   /**
-   * Обновляет сообщество
+   * Обрабатывает сохранение сообщества (создание или обновление)
    */
-  const updateCommunity = async () => {
+  const handleSaveCommunity = async (communityData: Partial<Community>) => {
     try {
+      const isCreating = !editModal().community && createModal().show
+      const mutation = isCreating ? CREATE_COMMUNITY_MUTATION : UPDATE_COMMUNITY_MUTATION
+
       const response = await fetch('/graphql', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          query: UPDATE_COMMUNITY_MUTATION,
-          variables: { community_input: formData() }
+          query: mutation,
+          variables: { community_input: communityData }
         })
       })
 
@@ -127,15 +131,19 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
         throw new Error(result.errors[0].message)
       }
 
-      if (result.data.update_community.error) {
-        throw new Error(result.data.update_community.error)
+      const resultData = isCreating ? result.data.create_community : result.data.update_community
+      if (resultData.error) {
+        throw new Error(resultData.error)
       }
 
-      props.onSuccess('Сообщество успешно обновлено')
+      props.onSuccess(isCreating ? 'Сообщество успешно создано' : 'Сообщество успешно обновлено')
+      setCreateModal({ show: false })
       setEditModal({ show: false, community: null })
       await loadCommunities()
     } catch (error) {
-      props.onError(`Ошибка обновления сообщества: ${(error as Error).message}`)
+      props.onError(
+        `Ошибка ${createModal().show ? 'создания' : 'обновления'} сообщества: ${(error as Error).message}`
+      )
     }
   }
 
@@ -181,9 +189,11 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
   return (
     <div class={styles.container}>
       <div class={styles.header}>
-        <h2>Управление сообществами</h2>
         <Button onClick={loadCommunities} disabled={loading()}>
           {loading() ? 'Загрузка...' : 'Обновить'}
+        </Button>
+        <Button variant="primary" onClick={openCreateModal}>
+          Создать сообщество
         </Button>
       </div>
 
@@ -260,93 +270,21 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
         </table>
       </Show>
 
+      {/* Модальное окно создания */}
+      <CommunityEditModal
+        isOpen={createModal().show}
+        community={null}
+        onClose={() => setCreateModal({ show: false })}
+        onSave={handleSaveCommunity}
+      />
+
       {/* Модальное окно редактирования */}
-      <Modal
+      <CommunityEditModal
         isOpen={editModal().show}
+        community={editModal().community}
         onClose={() => setEditModal({ show: false, community: null })}
-        title={`Редактирование сообщества: ${editModal().community?.name || ''}`}
-      >
-        <div style={{ padding: '20px' }}>
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>Slug</label>
-            <input
-              type="text"
-              value={formData().slug}
-              onInput={(e) => setFormData((prev) => ({ ...prev, slug: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-              required
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Название
-            </label>
-            <input
-              type="text"
-              value={formData().name}
-              onInput={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Описание
-            </label>
-            <textarea
-              value={formData().desc}
-              onInput={(e) => setFormData((prev) => ({ ...prev, desc: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px',
-                'min-height': '80px',
-                resize: 'vertical'
-              }}
-              placeholder="Описание сообщества..."
-            />
-          </div>
-
-          <div style={{ 'margin-bottom': '16px' }}>
-            <label style={{ display: 'block', 'margin-bottom': '4px', 'font-weight': 'bold' }}>
-              Картинка (URL)
-            </label>
-            <input
-              type="text"
-              value={formData().pic}
-              onInput={(e) => setFormData((prev) => ({ ...prev, pic: e.target.value }))}
-              style={{
-                width: '100%',
-                padding: '8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px'
-              }}
-              placeholder="https://example.com/image.jpg"
-            />
-          </div>
-
-          <div class={styles['modal-actions']}>
-            <Button variant="secondary" onClick={() => setEditModal({ show: false, community: null })}>
-              Отмена
-            </Button>
-            <Button variant="primary" onClick={updateCommunity}>
-              Сохранить
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onSave={handleSaveCommunity}
+      />
 
       {/* Модальное окно подтверждения удаления */}
       <Modal
