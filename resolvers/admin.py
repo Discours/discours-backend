@@ -9,6 +9,7 @@ from sqlalchemy.sql import func, select
 
 from auth.decorators import admin_auth_required
 from auth.orm import Author, AuthorRole, Role
+from orm.community import Community
 from orm.invite import Invite, InviteStatus
 from orm.shout import Shout
 from services.db import local_session
@@ -499,50 +500,130 @@ async def admin_get_shouts(
                         "deleted_at": getattr(shout, "deleted_at", None)
                         if not isinstance(shout, dict)
                         else shout.get("deleted_at"),
-                        "created_by": {
-                            "id": getattr(shout, "created_by", None)
-                            if not isinstance(shout, dict)
-                            else shout.get("created_by"),
-                            "email": "unknown",  # Заполним при необходимости
-                            "name": "unknown",
-                        },
-                        "updated_by": None,  # Заполним при необходимости
-                        "deleted_by": None,  # Заполним при необходимости
-                        "community": {
-                            "id": getattr(shout, "community", None)
-                            if not isinstance(shout, dict)
-                            else shout.get("community"),
-                            "name": "unknown",  # Заполним при необходимости
-                        },
-                        "authors": [
-                            {
-                                "id": getattr(author, "id", None),
-                                "email": getattr(author, "email", None),
-                                "name": getattr(author, "name", None),
-                                "slug": getattr(author, "slug", None) or f"user-{getattr(author, 'id', 'unknown')}",
-                            }
-                            for author in (
-                                getattr(shout, "authors", [])
-                                if not isinstance(shout, dict)
-                                else shout.get("authors", [])
-                            )
-                        ],
-                        "topics": [
-                            {
-                                "id": getattr(topic, "id", None),
-                                "title": getattr(topic, "title", None),
-                                "slug": getattr(topic, "slug", None),
-                            }
-                            for topic in (
-                                getattr(shout, "topics", []) if not isinstance(shout, dict) else shout.get("topics", [])
-                            )
-                        ],
-                        "version_of": getattr(shout, "version_of", None)
-                        if not isinstance(shout, dict)
-                        else shout.get("version_of"),
-                        "draft": getattr(shout, "draft", None) if not isinstance(shout, dict) else shout.get("draft"),
-                        "stat": None,  # Заполним при необходимости
                     }
+
+                    # Обрабатываем поле created_by - получаем полную информацию об авторе
+                    created_by_id = (
+                        getattr(shout, "created_by", None) if not isinstance(shout, dict) else shout.get("created_by")
+                    )
+                    if created_by_id:
+                        created_author = session.query(Author).filter(Author.id == created_by_id).first()
+                        if created_author:
+                            shout_dict["created_by"] = {
+                                "id": created_author.id,
+                                "email": created_author.email,
+                                "name": created_author.name,
+                                "slug": created_author.slug or f"user-{created_author.id}",
+                            }
+                        else:
+                            shout_dict["created_by"] = {
+                                "id": created_by_id,
+                                "email": "unknown",
+                                "name": "unknown",
+                                "slug": f"user-{created_by_id}",
+                            }
+                    else:
+                        shout_dict["created_by"] = None
+
+                    # Обрабатываем поле updated_by - получаем полную информацию об авторе
+                    updated_by_id = (
+                        getattr(shout, "updated_by", None) if not isinstance(shout, dict) else shout.get("updated_by")
+                    )
+                    if updated_by_id:
+                        updated_author = session.query(Author).filter(Author.id == updated_by_id).first()
+                        if updated_author:
+                            shout_dict["updated_by"] = {
+                                "id": updated_author.id,
+                                "email": updated_author.email,
+                                "name": updated_author.name,
+                                "slug": updated_author.slug or f"user-{updated_author.id}",
+                            }
+                        else:
+                            shout_dict["updated_by"] = {
+                                "id": updated_by_id,
+                                "email": "unknown",
+                                "name": "unknown",
+                                "slug": f"user-{updated_by_id}",
+                            }
+                    else:
+                        shout_dict["updated_by"] = None
+
+                    # Обрабатываем поле deleted_by - получаем полную информацию об авторе
+                    deleted_by_id = (
+                        getattr(shout, "deleted_by", None) if not isinstance(shout, dict) else shout.get("deleted_by")
+                    )
+                    if deleted_by_id:
+                        deleted_author = session.query(Author).filter(Author.id == deleted_by_id).first()
+                        if deleted_author:
+                            shout_dict["deleted_by"] = {
+                                "id": deleted_author.id,
+                                "email": deleted_author.email,
+                                "name": deleted_author.name,
+                                "slug": deleted_author.slug or f"user-{deleted_author.id}",
+                            }
+                        else:
+                            shout_dict["deleted_by"] = {
+                                "id": deleted_by_id,
+                                "email": "unknown",
+                                "name": "unknown",
+                                "slug": f"user-{deleted_by_id}",
+                            }
+                    else:
+                        shout_dict["deleted_by"] = None
+
+                    # Обрабатываем поле community - получаем полную информацию о сообществе
+                    community_id = (
+                        getattr(shout, "community", None) if not isinstance(shout, dict) else shout.get("community")
+                    )
+                    if community_id:
+                        community = session.query(Community).filter(Community.id == community_id).first()
+                        if community:
+                            shout_dict["community"] = {
+                                "id": community.id,
+                                "name": community.name,
+                                "slug": community.slug,
+                            }
+                        else:
+                            shout_dict["community"] = {
+                                "id": community_id,
+                                "name": "unknown",
+                                "slug": f"community-{community_id}",
+                            }
+                    else:
+                        shout_dict["community"] = None
+
+                    # Обрабатываем поля authors и topics как раньше
+                    shout_dict["authors"] = [
+                        {
+                            "id": getattr(author, "id", None),
+                            "email": getattr(author, "email", None),
+                            "name": getattr(author, "name", None),
+                            "slug": getattr(author, "slug", None) or f"user-{getattr(author, 'id', 'unknown')}",
+                        }
+                        for author in (
+                            getattr(shout, "authors", []) if not isinstance(shout, dict) else shout.get("authors", [])
+                        )
+                    ]
+
+                    shout_dict["topics"] = [
+                        {
+                            "id": getattr(topic, "id", None),
+                            "title": getattr(topic, "title", None),
+                            "slug": getattr(topic, "slug", None),
+                        }
+                        for topic in (
+                            getattr(shout, "topics", []) if not isinstance(shout, dict) else shout.get("topics", [])
+                        )
+                    ]
+
+                    shout_dict["version_of"] = (
+                        getattr(shout, "version_of", None) if not isinstance(shout, dict) else shout.get("version_of")
+                    )
+                    shout_dict["draft"] = (
+                        getattr(shout, "draft", None) if not isinstance(shout, dict) else shout.get("draft")
+                    )
+                    shout_dict["stat"] = None  # Заполним при необходимости
+
                     shouts_data.append(shout_dict)
             else:
                 # Используем существующую функцию для получения публикаций со статистикой

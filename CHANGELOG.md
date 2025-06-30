@@ -8,6 +8,7 @@
 - Исправлена ошибка в функции `admin_get_invites` - заменен несуществующий атрибут `Shout.created_by_author` на правильное получение автора через поле `created_by`
 - Исправлена функция `admin_delete_invites_batch` - завершена реализация для корректной обработки пакетного удаления приглашений
 - Исправлена ошибка в функции `get_shouts_with_links` в файле `resolvers/reader.py` - добавлено значение по умолчанию для поля `slug` у авторов публикаций в полях `authors` и `created_by`, чтобы избежать ошибки "Cannot return null for non-nullable field Author.slug"
+- Исправлена ошибка в функции `admin_get_shouts` в файле `resolvers/admin.py` - добавлена полная загрузка информации об авторах для полей `created_by`, `updated_by` и `deleted_by` с корректной обработкой поля `slug` и значениями по умолчанию, чтобы избежать ошибки "Cannot return null for non-nullable field Author.slug"
 
 ### Улучшения админ-панели для приглашений
 

@@ -16,7 +16,7 @@ resolvers: List[SchemaBindable] = [query, mutation, type_draft, type_community, 
 def create_all_tables() -> None:
     """Create all database tables in the correct order."""
     from auth.orm import Author, AuthorBookmark, AuthorFollower, AuthorRating
-    from orm import collection, community, draft, notification, reaction, shout, topic
+    from orm import collection, community, draft, invite, notification, reaction, shout, topic
 
     # Порядок важен - сначала таблицы без внешних ключей, затем зависимые таблицы
     models_in_order = [
@@ -46,7 +46,7 @@ def create_all_tables() -> None:
         notification.NotificationSeen,  # Зависит от Notification
         collection.Collection,  # Зависит от Author
         collection.ShoutCollection,  # Зависит от Collection и Shout
-        # invite.Invite
+        invite.Invite,  # Зависит от Author и Shout
     ]
 
     with local_session() as session:
