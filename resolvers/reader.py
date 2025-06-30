@@ -227,7 +227,7 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
                                 shout_dict["created_by"] = {
                                     "id": main_author_id,
                                     "name": a.name,
-                                    "slug": a.slug,
+                                    "slug": a.slug or f"user-{main_author_id}",
                                     "pic": a.pic,
                                 }
 
@@ -240,7 +240,7 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
                                     shout_dict["updated_by"] = {
                                         "id": updated_author.id,
                                         "name": updated_author.name,
-                                        "slug": updated_author.slug,
+                                        "slug": updated_author.slug or f"user-{updated_author.id}",
                                         "pic": updated_author.pic,
                                     }
                                 else:
@@ -259,7 +259,7 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
                                     shout_dict["deleted_by"] = {
                                         "id": deleted_author.id,
                                         "name": deleted_author.name,
-                                        "slug": deleted_author.slug,
+                                        "slug": deleted_author.slug or f"user-{deleted_author.id}",
                                         "pic": deleted_author.pic,
                                     }
                                 else:
@@ -315,9 +315,13 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
                             # logger.debug(f"Final main_topic for shout#{shout_id}: {main_topic}")
 
                         if has_field(info, "authors") and hasattr(row, "authors"):
-                            shout_dict["authors"] = (
-                                orjson.loads(row.authors) if isinstance(row.authors, str) else row.authors
-                            )
+                            authors_data = orjson.loads(row.authors) if isinstance(row.authors, str) else row.authors
+                            # Проверяем и добавляем значение по умолчанию для slug, если оно пустое
+                            if authors_data:
+                                for author in authors_data:
+                                    if not author.get("slug"):
+                                        author["slug"] = f"user-{author.get('id', 'unknown')}"
+                            shout_dict["authors"] = authors_data
 
                         if has_field(info, "media") and shout.media:
                             # Обработка поля media

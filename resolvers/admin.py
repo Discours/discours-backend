@@ -519,7 +519,7 @@ async def admin_get_shouts(
                                 "id": getattr(author, "id", None),
                                 "email": getattr(author, "email", None),
                                 "name": getattr(author, "name", None),
-                                "slug": getattr(author, "slug", None),
+                                "slug": getattr(author, "slug", None) or f"user-{getattr(author, 'id', 'unknown')}",
                             }
                             for author in (
                                 getattr(shout, "authors", [])
@@ -803,14 +803,50 @@ async def admin_get_invites(
 
                 # Добавляем информацию о создателе публикации, если она доступна
                 if created_by_author:
-                    invite_dict["shout"]["created_by"] = {
+                    # Создаем новый словарь для shout
+                    shout_dict = {}
+
+                    # Копируем основные поля
+                    if isinstance(invite_dict["shout"], dict):
+                        shout_info = invite_dict["shout"]
+                        shout_dict["id"] = shout_info.get("id")
+                        shout_dict["title"] = shout_info.get("title")
+                        shout_dict["slug"] = shout_info.get("slug")
+                    else:
+                        # Если это не словарь, берем данные напрямую из объекта invite.shout
+                        shout_dict["id"] = invite.shout.id
+                        shout_dict["title"] = invite.shout.title
+                        shout_dict["slug"] = invite.shout.slug
+
+                    # Добавляем информацию о создателе
+                    shout_dict["created_by"] = {
                         "id": created_by_author.id,
                         "name": created_by_author.name or "Без имени",
                         "email": created_by_author.email,
                         "slug": created_by_author.slug or f"user-{created_by_author.id}",
                     }
+
+                    invite_dict["shout"] = shout_dict
                 else:
-                    invite_dict["shout"]["created_by"] = None
+                    # Создаем новый словарь для shout
+                    shout_dict = {}
+
+                    # Копируем основные поля
+                    if isinstance(invite_dict["shout"], dict):
+                        shout_info = invite_dict["shout"]
+                        shout_dict["id"] = shout_info.get("id")
+                        shout_dict["title"] = shout_info.get("title")
+                        shout_dict["slug"] = shout_info.get("slug")
+                    else:
+                        # Если это не словарь, берем данные напрямую из объекта invite.shout
+                        shout_dict["id"] = invite.shout.id
+                        shout_dict["title"] = invite.shout.title
+                        shout_dict["slug"] = invite.shout.slug
+
+                    # Указываем, что created_by отсутствует
+                    shout_dict["created_by"] = None
+
+                    invite_dict["shout"] = shout_dict
 
                 result_invites.append(invite_dict)
 
@@ -1057,11 +1093,12 @@ async def admin_delete_invites_batch(
                 logger.info(f"Пакетное удаление приглашений: удалено {deleted_count} приглашений")
 
             # Формируем результат
-            result = {"success": True, "error": None}
+            success = deleted_count > 0
+            error = None
             if errors:
-                result["error"] = f"Удалено {deleted_count} приглашений. Ошибки: {', '.join(errors)}"
+                error = f"Удалено {deleted_count} приглашений. Ошибки: {', '.join(errors)}"
 
-            return result
+            return {"success": success, "error": error}
 
     except Exception as e:
         logger.error(f"Ошибка при пакетном удалении приглашений: {e!s}")
