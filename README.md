@@ -48,9 +48,9 @@ Backend service providing GraphQL API for content management system with reactio
 
 ## 🛠️ Tech Stack
 
-**Core:** Python 3.12 • GraphQL • PostgreSQL • Redis • txtai
+**Core:** Python 3.12 • GraphQL • PostgreSQL • SQLAlchemy • JWT • Redis • txtai
 **Server:** Starlette • Granian • Nginx
-**Tools:** SQLAlchemy • JWT • Pytest • Ruff
+**Tools:** Pytest • MyPy • Ruff
 **Deploy:** Dokku • Gitea • Glitchtip
 
 ## 🔧 Development

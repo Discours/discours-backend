@@ -51,6 +51,22 @@ OAUTH_CLIENTS = {
         "id": os.getenv("FACEBOOK_CLIENT_ID", ""),
         "key": os.getenv("FACEBOOK_CLIENT_SECRET", ""),
     },
+    "X": {
+        "id": os.getenv("X_CLIENT_ID", ""),
+        "key": os.getenv("X_CLIENT_SECRET", ""),
+    },
+    "YANDEX": {
+        "id": os.getenv("YANDEX_CLIENT_ID", ""),
+        "key": os.getenv("YANDEX_CLIENT_SECRET", ""),
+    },
+    "VK": {
+        "id": os.getenv("VK_CLIENT_ID", ""),
+        "key": os.getenv("VK_CLIENT_SECRET", ""),
+    },
+    "TELEGRAM": {
+        "id": os.getenv("TELEGRAM_CLIENT_ID", ""),
+        "key": os.getenv("TELEGRAM_CLIENT_SECRET", ""),
+    },
 }
 
 # Настройки базы данных
@@ -62,7 +78,7 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 # Настройки для HTTP cookies (используется в auth middleware)
-SESSION_COOKIE_NAME = "auth_token"
+SESSION_COOKIE_NAME = "session_token"
 SESSION_COOKIE_SECURE = True  # Включаем для HTTPS
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE: Literal["lax", "strict", "none"] = "lax"

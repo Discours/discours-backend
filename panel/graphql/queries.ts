@@ -17,10 +17,11 @@ export const ADMIN_GET_SHOUTS_QUERY: string =
         cover
         cover_caption
         media {
-          type
           url
+          title
           body
-          caption
+          source
+          pic
         }
         seo
         created_at
@@ -132,24 +133,22 @@ export const GET_COMMUNITIES_QUERY: string =
   gql`
   query GetCommunities {
     get_communities_all {
-      communities {
+      id
+      slug
+      name
+      desc
+      pic
+      created_at
+      created_by {
         id
-        slug
         name
-        desc
-        pic
-        created_at
-        created_by {
-          id
-          name
-          email
-          slug
-        }
-        stat {
-          shouts
-          followers
-          authors
-        }
+        email
+        slug
+      }
+      stat {
+        shouts
+        followers
+        authors
       }
     }
   }
@@ -159,23 +158,21 @@ export const GET_TOPICS_QUERY: string =
   gql`
   query GetTopics {
     get_topics_all {
-      topics {
-        id
-        slug
-        title
-        body
-        pic
-        community
-        parent_ids
-        stat {
-          shouts
-          followers
-          authors
-          comments
-        }
-        oid
-        is_main
+      id
+      slug
+      title
+      body
+      pic
+      community
+      parent_ids
+      stat {
+        shouts
+        followers
+        authors
+        comments
       }
+      oid
+      is_main
     }
   }
 `.loc?.source.body || ''
@@ -184,21 +181,19 @@ export const GET_COLLECTIONS_QUERY: string =
   gql`
   query GetCollections {
     get_collections_all {
-      collections {
+      id
+      slug
+      title
+      desc
+      pic
+      amount
+      published_at
+      created_at
+      created_by {
         id
+        name
+        email
         slug
-        title
-        desc
-        pic
-        amount
-        published_at
-        created_at
-        created_by {
-          id
-          name
-          email
-          slug
-        }
       }
     }
   }

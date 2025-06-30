@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from graphql import GraphQLResolveInfo
 
@@ -211,8 +211,8 @@ async def delete_collection(_: None, info: GraphQLResolveInfo, slug: str) -> dic
 
 
 @type_collection.field("created_by")
-def resolve_collection_created_by(obj: Collection, *_: Any) -> Author:
-    """Резолвер для поля created_by коллекции"""
+def resolve_collection_created_by(obj: Collection, *_: Any) -> Optional[Author]:
+    """Резолвер для поля created_by коллекции (может вернуть None)"""
     with local_session() as session:
         if hasattr(obj, "created_by_author") and obj.created_by_author:
             return obj.created_by_author

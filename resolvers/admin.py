@@ -59,7 +59,10 @@ async def admin_get_users(
 
             # Вычисляем информацию о пагинации
             per_page = limit
-            total_pages = ceil(total_count / per_page)
+            if total_count is None or per_page in (None, 0):
+                total_pages = 1
+            else:
+                total_pages = ceil(total_count / per_page)
             current_page = (offset // per_page) + 1 if per_page > 0 else 1
 
             # Применяем пагинацию
@@ -420,7 +423,10 @@ async def admin_get_shouts(
 
             # Вычисляем информацию о пагинации
             per_page = limit
-            total_pages = ceil(total_count / per_page)
+            if total_count is None or per_page in (None, 0):
+                total_pages = 1
+            else:
+                total_pages = ceil(total_count / per_page)
             current_page = (offset // per_page) + 1 if per_page > 0 else 1
 
             # Применяем пагинацию и сортировку (новые сверху)
@@ -430,12 +436,20 @@ async def admin_get_shouts(
             if status == "all":
                 # Для статуса "all" используем простой запрос без статистики
                 q = q.limit(limit).offset(offset)
-                shouts_result = session.execute(q).unique().all()
+                shouts_result: list[Any] = session.execute(q).unique().all()
                 shouts_data = []
 
                 for row in shouts_result:
                     # Get the Shout object from the row
-                    shout = row[0] if isinstance(row, tuple) else row.Shout if hasattr(row, "Shout") else row
+                    if isinstance(row, tuple):
+                        shout = row[0]
+                    elif hasattr(row, "Shout"):
+                        shout = row.Shout
+                    elif isinstance(row, dict) and "id" in row:
+                        shout = row
+                    else:
+                        shout = row
+
                     # Обрабатываем поле media
                     media_data = []
                     if hasattr(shout, "media") and shout.media:
@@ -452,49 +466,90 @@ async def admin_get_shouts(
                             media_data = [shout.media]
 
                     shout_dict = {
-                        "id": shout.id,
-                        "title": shout.title,
-                        "slug": shout.slug,
-                        "body": shout.body,
-                        "lead": shout.lead,
-                        "subtitle": shout.subtitle,
-                        "layout": shout.layout,
-                        "lang": shout.lang,
-                        "cover": shout.cover,
-                        "cover_caption": shout.cover_caption,
+                        "id": getattr(shout, "id", None) if not isinstance(shout, dict) else shout.get("id"),
+                        "title": getattr(shout, "title", None) if not isinstance(shout, dict) else shout.get("title"),
+                        "slug": getattr(shout, "slug", None) if not isinstance(shout, dict) else shout.get("slug"),
+                        "body": getattr(shout, "body", None) if not isinstance(shout, dict) else shout.get("body"),
+                        "lead": getattr(shout, "lead", None) if not isinstance(shout, dict) else shout.get("lead"),
+                        "subtitle": getattr(shout, "subtitle", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("subtitle"),
+                        "layout": getattr(shout, "layout", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("layout"),
+                        "lang": getattr(shout, "lang", None) if not isinstance(shout, dict) else shout.get("lang"),
+                        "cover": getattr(shout, "cover", None) if not isinstance(shout, dict) else shout.get("cover"),
+                        "cover_caption": getattr(shout, "cover_caption", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("cover_caption"),
                         "media": media_data,
-                        "seo": shout.seo,
-                        "created_at": shout.created_at,
-                        "updated_at": shout.updated_at,
-                        "published_at": shout.published_at,
-                        "featured_at": shout.featured_at,
-                        "deleted_at": shout.deleted_at,
+                        "seo": getattr(shout, "seo", None) if not isinstance(shout, dict) else shout.get("seo"),
+                        "created_at": getattr(shout, "created_at", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("created_at"),
+                        "updated_at": getattr(shout, "updated_at", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("updated_at"),
+                        "published_at": getattr(shout, "published_at", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("published_at"),
+                        "featured_at": getattr(shout, "featured_at", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("featured_at"),
+                        "deleted_at": getattr(shout, "deleted_at", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("deleted_at"),
                         "created_by": {
-                            "id": shout.created_by,
+                            "id": getattr(shout, "created_by", None)
+                            if not isinstance(shout, dict)
+                            else shout.get("created_by"),
                             "email": "unknown",  # Заполним при необходимости
                             "name": "unknown",
                         },
                         "updated_by": None,  # Заполним при необходимости
                         "deleted_by": None,  # Заполним при необходимости
                         "community": {
-                            "id": shout.community,
+                            "id": getattr(shout, "community", None)
+                            if not isinstance(shout, dict)
+                            else shout.get("community"),
                             "name": "unknown",  # Заполним при необходимости
                         },
                         "authors": [
-                            {"id": author.id, "email": author.email, "name": author.name, "slug": author.slug}
-                            for author in (shout.authors or [])
+                            {
+                                "id": getattr(author, "id", None),
+                                "email": getattr(author, "email", None),
+                                "name": getattr(author, "name", None),
+                                "slug": getattr(author, "slug", None),
+                            }
+                            for author in (
+                                getattr(shout, "authors", [])
+                                if not isinstance(shout, dict)
+                                else shout.get("authors", [])
+                            )
                         ],
                         "topics": [
-                            {"id": topic.id, "title": topic.title, "slug": topic.slug} for topic in (shout.topics or [])
+                            {
+                                "id": getattr(topic, "id", None),
+                                "title": getattr(topic, "title", None),
+                                "slug": getattr(topic, "slug", None),
+                            }
+                            for topic in (
+                                getattr(shout, "topics", []) if not isinstance(shout, dict) else shout.get("topics", [])
+                            )
                         ],
-                        "version_of": shout.version_of,
-                        "draft": shout.draft,
+                        "version_of": getattr(shout, "version_of", None)
+                        if not isinstance(shout, dict)
+                        else shout.get("version_of"),
+                        "draft": getattr(shout, "draft", None) if not isinstance(shout, dict) else shout.get("draft"),
                         "stat": None,  # Заполним при необходимости
                     }
                     shouts_data.append(shout_dict)
             else:
                 # Используем существующую функцию для получения публикаций со статистикой
-                shouts_data = get_shouts_with_links(info, q, limit, offset)
+                shouts_result = get_shouts_with_links(info, q, limit, offset)
+                shouts_data = [
+                    s.dict() if hasattr(s, "dict") else dict(s) if hasattr(s, "_mapping") else s for s in shouts_result
+                ]
 
             return {
                 "shouts": shouts_data,
@@ -702,7 +757,10 @@ async def admin_get_invites(
 
             # Вычисляем информацию о пагинации
             per_page = limit
-            total_pages = ceil(total_count / per_page)
+            if total_count is None or per_page in (None, 0):
+                total_pages = 1
+            else:
+                total_pages = ceil(total_count / per_page)
             current_page = (offset // per_page) + 1 if per_page > 0 else 1
 
             # Применяем пагинацию и сортировку (по ID приглашающего, затем автора, затем публикации)

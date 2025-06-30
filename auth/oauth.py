@@ -346,7 +346,11 @@ async def oauth_callback(request: Any) -> JSONResponse | RedirectResponse:
                 "provider": provider,
                 "profile": profile,
             },
-            username=author.name,
+            username=author.name
+            if isinstance(author.name, str)
+            else str(author.name)
+            if author.name is not None
+            else None,
             device_info={
                 "user_agent": request.headers.get("user-agent"),
                 "ip": request.client.host if hasattr(request, "client") else None,
@@ -357,9 +361,11 @@ async def oauth_callback(request: Any) -> JSONResponse | RedirectResponse:
         state = request.query_params.get("state")
         state_data = await get_oauth_state(state) if state else None
         redirect_uri = state_data.get("redirect_uri") if state_data else FRONTEND_URL
+        if not isinstance(redirect_uri, str) or not redirect_uri:
+            redirect_uri = FRONTEND_URL
 
         # Создаем ответ с редиректом
-        response = RedirectResponse(url=redirect_uri)
+        response = RedirectResponse(url=str(redirect_uri))
 
         # Устанавливаем cookie с сессией
         response.set_cookie(

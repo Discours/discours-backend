@@ -143,7 +143,7 @@ async def get_authors_with_stats(
                         default_sort_applied = True
                     else:
                         # If order is not a stats field, treat it as a regular field
-                        column = getattr(Author, order_value, None)
+                        column = getattr(Author, order_value or "", "")
                         if column:
                             base_query = base_query.order_by(sql_desc(column))
                             logger.debug(f"Applying sorting by column: {order_value}")
@@ -153,9 +153,11 @@ async def get_authors_with_stats(
                 else:
                     # Regular sorting by fields
                     for field, direction in by.items():
+                        if field is None:
+                            continue
                         column = getattr(Author, field, None)
                         if column:
-                            if direction.lower() == "desc":
+                            if isinstance(direction, str) and direction.lower() == "desc":
                                 base_query = base_query.order_by(sql_desc(column))
                             else:
                                 base_query = base_query.order_by(column)
