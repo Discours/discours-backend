@@ -734,7 +734,6 @@ async def set_topic_parent(
 
             # Если устанавливаем корневую тему
             if parent_id is None:
-                old_parent_ids: list[int] = list(topic.parent_ids or [])
                 topic.parent_ids = []  # type: ignore[assignment]
                 session.commit()
 
