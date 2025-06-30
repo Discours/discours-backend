@@ -141,6 +141,13 @@ input AdminInviteUpdateInput {
   status: InviteStatus!
 }
 
+# Входной тип для идентификации приглашения при пакетном удалении
+input AdminInviteIdInput {
+  inviter_id: Int!
+  author_id: Int!
+  shout_id: Int!
+}
+
 extend type Query {
   getEnvVariables: [EnvSection!]!
   # Запросы для управления пользователями
@@ -166,4 +173,5 @@ extend type Mutation {
   adminCreateInvite(invite: AdminInviteUpdateInput!): OperationResult!
   adminUpdateInvite(invite: AdminInviteUpdateInput!): OperationResult!
   adminDeleteInvite(inviter_id: Int!, author_id: Int!, shout_id: Int!): OperationResult!
+  adminDeleteInvitesBatch(invites: [AdminInviteIdInput!]!): OperationResult!
 }

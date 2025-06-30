@@ -128,3 +128,12 @@ export const ADMIN_DELETE_INVITE_MUTATION = `
     }
   }
 `
+
+export const ADMIN_DELETE_INVITES_BATCH_MUTATION = `
+  mutation AdminDeleteInvitesBatch($invites: [AdminInviteIdInput!]!) {
+    adminDeleteInvitesBatch(invites: $invites) {
+      success
+      error
+    }
+  }
+`

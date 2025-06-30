@@ -1,11 +1,9 @@
 import { Component, createSignal, For, onMount, Show } from 'solid-js'
 import {
-  ADMIN_CREATE_INVITE_MUTATION,
   ADMIN_DELETE_INVITE_MUTATION,
-  ADMIN_UPDATE_INVITE_MUTATION
+  ADMIN_DELETE_INVITES_BATCH_MUTATION
 } from '../graphql/mutations'
 import { ADMIN_GET_INVITES_QUERY } from '../graphql/queries'
-import InviteEditModal from '../modals/InviteEditModal'
 import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
@@ -60,15 +58,18 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
     totalPages: 1
   })
 
-  const [editModal, setEditModal] = createSignal<{ show: boolean; invite: Invite | null }>({
-    show: false,
-    invite: null
-  })
+  // Состояние для выбранных приглашений
+  const [selectedInvites, setSelectedInvites] = createSignal<Record<string, boolean>>({})
+  const [selectAll, setSelectAll] = createSignal(false)
+
+  // Состояние для модального окна подтверждения удаления
   const [deleteModal, setDeleteModal] = createSignal<{ show: boolean; invite: Invite | null }>({
     show: false,
     invite: null
   })
-  const [createModal, setCreateModal] = createSignal<{ show: boolean }>({
+
+  // Состояние для модального окна подтверждения пакетного удаления
+  const [batchDeleteModal, setBatchDeleteModal] = createSignal<{ show: boolean }>({
     show: false
   })
 
@@ -116,6 +117,10 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
         total: data.total || 0,
         totalPages: data.totalPages || 1
       })
+
+      // Сбрасываем выбранные приглашения при загрузке новых данных
+      setSelectedInvites({})
+      setSelectAll(false)
     } catch (error) {
       props.onError(`Ошибка загрузки приглашений: ${(error as Error).message}`)
     } finally {
@@ -162,66 +167,6 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
   }
 
   /**
-   * Открывает модалку создания
-   */
-  const openCreateModal = () => {
-    setCreateModal({ show: true })
-  }
-
-  /**
-   * Открывает модалку редактирования
-   */
-  const openEditModal = (invite: Invite) => {
-    setEditModal({ show: true, invite })
-  }
-
-  /**
-   * Обрабатывает сохранение приглашения (создание или обновление)
-   */
-  const handleSaveInvite = async (inviteData: Partial<Invite>) => {
-    try {
-      const isCreating = !editModal().invite && createModal().show
-      const mutation = isCreating ? ADMIN_CREATE_INVITE_MUTATION : ADMIN_UPDATE_INVITE_MUTATION
-
-      // Получаем токен авторизации из localStorage или cookie
-      const authToken = localStorage.getItem('auth_token') || getAuthTokenFromCookie()
-      console.log(`[InvitesRoute] Сохранение приглашения, токен: ${authToken ? 'найден' : 'не найден'}`)
-
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: authToken ? `Bearer ${authToken}` : ''
-        },
-        body: JSON.stringify({
-          query: mutation,
-          variables: { invite: inviteData }
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
-
-      const resultData = isCreating ? result.data.adminCreateInvite : result.data.adminUpdateInvite
-      if (!resultData.success) {
-        throw new Error(resultData.error || 'Неизвестная ошибка')
-      }
-
-      props.onSuccess(isCreating ? 'Приглашение успешно создано' : 'Приглашение успешно обновлено')
-      setCreateModal({ show: false })
-      setEditModal({ show: false, invite: null })
-      await loadInvites(pagination().page)
-    } catch (error) {
-      props.onError(
-        `Ошибка ${createModal().show ? 'создания' : 'обновления'} приглашения: ${(error as Error).message}`
-      )
-    }
-  }
-
-  /**
    * Удаляет приглашение
    */
   const deleteInvite = async (invite: Invite) => {
@@ -264,6 +209,104 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
     }
   }
 
+  /**
+   * Пакетное удаление выбранных приглашений
+   */
+  const deleteSelectedInvites = async () => {
+    try {
+      const selected = selectedInvites()
+      const invitesToDelete = invites().filter(invite => {
+        const key = `${invite.inviter_id}-${invite.author_id}-${invite.shout_id}`
+        return selected[key]
+      })
+
+      if (invitesToDelete.length === 0) {
+        props.onError('Не выбрано ни одного приглашения для удаления')
+        return
+      }
+
+      // Получаем токен авторизации из localStorage или cookie
+      const authToken = localStorage.getItem('auth_token') || getAuthTokenFromCookie()
+      console.log(`[InvitesRoute] Пакетное удаление приглашений, токен: ${authToken ? 'найден' : 'не найден'}`)
+
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authToken ? `Bearer ${authToken}` : ''
+        },
+        body: JSON.stringify({
+          query: ADMIN_DELETE_INVITES_BATCH_MUTATION,
+          variables: {
+            invites: invitesToDelete.map(invite => ({
+              inviter_id: invite.inviter_id,
+              author_id: invite.author_id,
+              shout_id: invite.shout_id
+            }))
+          }
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.errors) {
+        throw new Error(result.errors[0].message)
+      }
+
+      const deleteResult = result.data.adminDeleteInvitesBatch
+
+      if (!deleteResult.success) {
+        throw new Error(deleteResult.error || 'Неизвестная ошибка')
+      }
+
+      props.onSuccess(`Успешно удалено ${invitesToDelete.length} приглашений`)
+      setBatchDeleteModal({ show: false })
+      setSelectedInvites({})
+      setSelectAll(false)
+      await loadInvites(pagination().page)
+    } catch (error) {
+      props.onError(`Ошибка пакетного удаления приглашений: ${(error as Error).message}`)
+    }
+  }
+
+  /**
+   * Обработчик выбора/снятия выбора с приглашения
+   */
+  const handleSelectInvite = (invite: Invite, checked: boolean) => {
+    const key = `${invite.inviter_id}-${invite.author_id}-${invite.shout_id}`
+    setSelectedInvites(prev => ({ ...prev, [key]: checked }))
+
+    // Если снимаем выбор с элемента, то снимаем и "выбрать все"
+    if (!checked && selectAll()) {
+      setSelectAll(false)
+    }
+  }
+
+  /**
+   * Обработчик выбора/снятия выбора со всех приглашений
+   */
+  const handleSelectAll = (checked: boolean) => {
+    setSelectAll(checked)
+
+    const newSelected: Record<string, boolean> = {}
+    if (checked) {
+      // Выбираем все приглашения на текущей странице
+      invites().forEach(invite => {
+        const key = `${invite.inviter_id}-${invite.author_id}-${invite.shout_id}`
+        newSelected[key] = true
+      })
+    }
+
+    setSelectedInvites(newSelected)
+  }
+
+  /**
+   * Получает количество выбранных приглашений
+   */
+  const getSelectedCount = () => {
+    return Object.values(selectedInvites()).filter(Boolean).length
+  }
+
   // Загружаем приглашения при монтировании компонента
   onMount(() => {
     void loadInvites()
@@ -300,11 +343,39 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
             {loading() ? 'Загрузка...' : 'Обновить'}
           </Button>
         </div>
-
-        <Button variant="primary" onClick={openCreateModal}>
-          Создать приглашение
-        </Button>
       </div>
+
+      {/* Панель пакетных действий */}
+      <Show when={!loading() && invites().length > 0}>
+        <div class={styles['batch-actions']}>
+          <div class={styles['select-all-container']}>
+            <input
+              type="checkbox"
+              id="select-all"
+              checked={selectAll()}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+              class={styles.checkbox}
+            />
+            <label for="select-all" class={styles['select-all-label']}>
+              Выбрать все
+            </label>
+          </div>
+
+          <Show when={getSelectedCount() > 0}>
+            <div class={styles['selected-count']}>
+              Выбрано: {getSelectedCount()}
+            </div>
+
+            <button
+              class={styles['batch-delete-button']}
+              onClick={() => setBatchDeleteModal({ show: true })}
+              title="Удалить выбранные приглашения"
+            >
+              Удалить выбранные
+            </button>
+          </Show>
+        </div>
+      </Show>
 
       <Show when={loading()}>
         <div class={styles.loading}>Загрузка приглашений...</div>
@@ -319,6 +390,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
           <table class={styles.table}>
             <thead>
               <tr>
+                <th class={styles['checkbox-column']}></th>
                 <th>Приглашающий</th>
                 <th>Приглашаемый</th>
                 <th>Публикация</th>
@@ -330,12 +402,20 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
               <For each={invites()}>
                 {(invite) => {
                   const statusDisplay = getStatusDisplay(invite.status)
+                  const inviteKey = `${invite.inviter_id}-${invite.author_id}-${invite.shout_id}`
+                  const isSelected = selectedInvites()[inviteKey] || false
+
                   return (
-                    <tr
-                      class={styles.clickableRow}
-                      onClick={() => openEditModal(invite)}
-                      title="Нажмите для редактирования"
-                    >
+                    <tr>
+                      <td class={styles['checkbox-column']}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => handleSelectInvite(invite, e.target.checked)}
+                          class={styles.checkbox}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
                       <td>
                         <div>
                           <strong>{invite.inviter.name || 'Без имени'}</strong>
@@ -365,10 +445,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
                       <td>
                         <button
                           class={styles.deleteButton}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeleteModal({ show: true, invite })
-                          }}
+                          onClick={() => setDeleteModal({ show: true, invite })}
                           title="Удалить приглашение"
                         >
                           ×
@@ -390,21 +467,6 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
           onPageChange={handlePageChange}
         />
       </Show>
-
-      {/* Модальные окна */}
-      <InviteEditModal
-        isOpen={createModal().show}
-        invite={null}
-        onClose={() => setCreateModal({ show: false })}
-        onSave={handleSaveInvite}
-      />
-
-      <InviteEditModal
-        isOpen={editModal().show}
-        invite={editModal().invite}
-        onClose={() => setEditModal({ show: false, invite: null })}
-        onSave={handleSaveInvite}
-      />
 
       {/* Модальное окно подтверждения удаления */}
       <Modal
@@ -429,6 +491,33 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
               onClick={() => deleteModal().invite && deleteInvite(deleteModal().invite!)}
             >
               Удалить
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Модальное окно подтверждения пакетного удаления */}
+      <Modal
+        isOpen={batchDeleteModal().show}
+        onClose={() => setBatchDeleteModal({ show: false })}
+        title="Подтверждение пакетного удаления"
+        size="small"
+      >
+        <div class={styles.deleteConfirmation}>
+          <p>
+            Вы действительно хотите удалить <strong>{getSelectedCount()}</strong> выбранных приглашений?
+            <br />
+            Это действие нельзя отменить.
+          </p>
+          <div class={styles.modalActions}>
+            <Button variant="secondary" onClick={() => setBatchDeleteModal({ show: false })}>
+              Отмена
+            </Button>
+            <Button
+              variant="danger"
+              onClick={deleteSelectedInvites}
+            >
+              Удалить выбранные
             </Button>
           </div>
         </div>

@@ -207,3 +207,65 @@
 .delete-button:active {
   transform: scale(0.95);
 }
+
+/* Стили для чекбоксов и пакетного удаления */
+.checkbox-column {
+  width: 40px;
+  text-align: center;
+}
+
+.checkbox {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.batch-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.selected-count {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #666;
+  margin-right: 10px;
+}
+
+.select-all-container {
+  display: flex;
+  align-items: center;
+  margin-right: 15px;
+}
+
+.select-all-label {
+  margin-left: 5px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Кнопка пакетного удаления */
+.batch-delete-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.2s;
+}
+
+.batch-delete-button:hover {
+  background-color: #c82333;
+}
+
+.batch-delete-button:disabled {
+  background-color: #e9a8ae;
+  cursor: not-allowed;
+}

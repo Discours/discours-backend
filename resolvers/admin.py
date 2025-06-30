@@ -991,3 +991,71 @@ async def admin_delete_invite(
         logger.error(f"Ошибка при удалении приглашения: {e!s}")
         msg = f"Не удалось удалить приглашение: {e!s}"
         raise GraphQLError(msg) from e
+
+
+@mutation.field("adminDeleteInvitesBatch")
+@admin_auth_required
+async def admin_delete_invites_batch(
+    _: None, _info: GraphQLResolveInfo, invites: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """
+    Пакетное удаление приглашений
+
+    Args:
+        _info: Контекст GraphQL запроса
+        invites: Список приглашений для удаления (каждое содержит inviter_id, author_id, shout_id)
+
+    Returns:
+        Результат операции
+    """
+    try:
+        if not invites:
+            return {"success": False, "error": "Список приглашений для удаления пуст"}
+
+        deleted_count = 0
+        errors = []
+
+        with local_session() as session:
+            for invite_data in invites:
+                inviter_id = invite_data.get("inviter_id")
+                author_id = invite_data.get("author_id")
+                shout_id = invite_data.get("shout_id")
+
+                if not all([inviter_id, author_id, shout_id]):
+                    errors.append(f"Неполные данные для приглашения: {invite_data}")
+                    continue
+
+                # Находим приглашение для удаления
+                invite = (
+                    session.query(Invite)
+                    .filter(
+                        Invite.inviter_id == inviter_id,
+                        Invite.author_id == author_id,
+                        Invite.shout_id == shout_id,
+                    )
+                    .first()
+                )
+
+                if not invite:
+                    errors.append(f"Приглашение с ID {inviter_id}-{author_id}-{shout_id} не найдено")
+                    continue
+
+                # Удаляем приглашение
+                session.delete(invite)
+                deleted_count += 1
+
+            # Сохраняем все изменения за раз
+            if deleted_count > 0:
+                session.commit()
+                logger.info(f"Пакетное удаление: удалено {deleted_count} приглашений")
+
+        if errors:
+            error_message = f"Удалено {deleted_count} из {len(invites)} приглашений. Ошибки: {', '.join(errors)}"
+            return {"success": deleted_count > 0, "error": error_message}
+
+        return {"success": True, "error": None}
+
+    except Exception as e:
+        logger.error(f"Ошибка при пакетном удалении приглашений: {e!s}")
+        msg = f"Не удалось удалить приглашения: {e!s}"
+        raise GraphQLError(msg) from e
