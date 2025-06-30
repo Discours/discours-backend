@@ -31,6 +31,9 @@ type AdminUserInfo {
 
 input AdminUserUpdateInput {
   id: Int!
+  email: String
+  name: String
+  slug: String
   roles: [String!]
   community: Int
 }
@@ -43,7 +46,7 @@ type Role {
 
 # Тип для пагинированного ответа пользователей
 type AdminUserListResponse {
-  users: [AdminUserInfo!]!
+  authors: [AdminUserInfo!]!
   total: Int!
   page: Int!
   perPage: Int!

@@ -295,7 +295,7 @@ async def migrate_oauth_tokens():
                             refresh_token=author.provider_refresh_token
                         )
 
-        print(f"Migrated OAuth tokens for {len(authors)} users")
+        print(f"Migrated OAuth tokens for {len(authors)} authors")
 ```
 
 ## Performance Benefits

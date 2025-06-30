@@ -42,7 +42,7 @@ Unfollow an entity.
 ### Queries
 
 #### get_shout_followers
-Get list of users who reacted to a shout.
+Get list of authors who reacted to a shout.
 
 **Parameters:**
 - `slug: String` - Shout slug

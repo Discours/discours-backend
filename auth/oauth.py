@@ -200,14 +200,14 @@ async def _fetch_facebook_profile(client: Any, token: Any) -> dict:
 
 async def _fetch_x_profile(client: Any, token: Any) -> dict:
     """Получает профиль из X (Twitter) API"""
-    profile = await client.get("users/me?user.fields=id,name,username,profile_image_url", token=token)
+    profile = await client.get("authors/me?user.fields=id,name,username,profile_image_url", token=token)
     profile_data = profile.json()
     return PROVIDER_HANDLERS["x"](token, profile_data)
 
 
 async def _fetch_vk_profile(client: Any, token: Any) -> dict:
     """Получает профиль из VK API"""
-    profile = await client.get("users.get?fields=photo_400_orig,contacts&v=5.131", token=token)
+    profile = await client.get("authors.get?fields=photo_400_orig,contacts&v=5.131", token=token)
     profile_data = profile.json()
     if profile_data.get("response"):
         user_data = profile_data["response"][0]

@@ -1,0 +1,138 @@
+.codePreview {
+  position: relative;
+  padding-left: 50px !important;
+  background-color: #2d2d2d;
+  color: #f8f8f2;
+  tab-size: 2;
+  line-height: 1.5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.lineNumber {
+  position: absolute;
+  left: 0;
+  width: 40px;
+  text-align: right;
+  color: #999;
+  user-select: none;
+  opacity: 0.5;
+  padding-right: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  margin-right: 10px;
+}
+
+.code {
+  display: block;
+  overflow-x: auto;
+}
+
+.languageBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 0.7em;
+  background-color: rgba(0,0,0,0.7);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  z-index: 100;
+}
+
+/* Стили для EditableCodePreview */
+.editableCodeContainer {
+  position: relative;
+  background-color: #2d2d2d;
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.editorControls {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  background-color: #1e1e1e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.editingControls {
+  display: flex;
+  gap: 8px;
+}
+
+.editButton {
+  background: rgba(0, 122, 204, 0.8);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.editButton:hover {
+  background: rgba(0, 122, 204, 1);
+}
+
+.saveButton {
+  background: rgba(40, 167, 69, 0.8);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.saveButton:hover {
+  background: rgba(40, 167, 69, 1);
+}
+
+.cancelButton {
+  background: rgba(220, 53, 69, 0.8);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.cancelButton:hover {
+  background: rgba(220, 53, 69, 1);
+}
+
+.editorWrapper {
+  position: relative;
+  overflow: hidden;
+  background-color: #2d2d2d;
+  transition: border 0.2s;
+}
+
+.syntaxHighlight {
+  width: 100%;
+  height: 100%;
+  tab-size: 2;
+}
+
+.editorArea {
+  min-height: 150px;
+  resize: none;
+  border: none;
+  width: 100%;
+  height: 100%;
+  tab-size: 2;
+}
+
+.editorArea:focus {
+  outline: none;
+}
+
+.placeholder {
+  pointer-events: none;
+  user-select: none;
+}

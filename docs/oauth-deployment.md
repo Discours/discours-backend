@@ -34,7 +34,7 @@ JWT_EXPIRATION_HOURS=24
 -- Create oauth_links table
 CREATE TABLE oauth_links (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
     provider VARCHAR(50) NOT NULL,
     provider_id VARCHAR(255) NOT NULL,
     provider_data JSONB,

@@ -62,11 +62,11 @@ async def admin_get_users(
             current_page = (offset // per_page) + 1 if per_page > 0 else 1
 
             # Применяем пагинацию
-            users = query.order_by(Author.id).offset(offset).limit(limit).all()
+            authors = query.order_by(Author.id).offset(offset).limit(limit).all()
 
             # Преобразуем в формат для API
             return {
-                "users": [
+                "authors": [
                     {
                         "id": user.id,
                         "email": user.email,
@@ -76,7 +76,7 @@ async def admin_get_users(
                         "created_at": user.created_at,
                         "last_seen": user.last_seen,
                     }
-                    for user in users
+                    for user in authors
                 ],
                 "total": total_count,
                 "page": current_page,
@@ -247,11 +247,11 @@ async def update_env_variables(_: None, info: GraphQLResolveInfo, variables: lis
 @admin_auth_required
 async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, Any]) -> dict[str, Any]:
     """
-    Обновляет роли пользователя
+    Обновляет данные пользователя (роли, email, имя, slug)
 
     Args:
         info: Контекст GraphQL запроса
-        user: Данные для обновления пользователя (содержит id и roles)
+        user: Данные для обновления пользователя
 
     Returns:
         Boolean: результат операции или объект с ошибкой
@@ -259,6 +259,9 @@ async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, A
     try:
         user_id = user.get("id")
         roles = user.get("roles", [])
+        email = user.get("email")
+        name = user.get("name")
+        slug = user.get("slug")
 
         if not roles:
             logger.warning(f"Пользователю {user_id} не назначено ни одной роли. Доступ в систему будет заблокирован.")
@@ -271,6 +274,28 @@ async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, A
                 error_msg = f"Пользователь с ID {user_id} не найден"
                 logger.error(error_msg)
                 return {"success": False, "error": error_msg}
+
+            # Обновляем основные поля профиля
+            profile_updated = False
+            if email is not None and email != author.email:
+                # Проверяем уникальность email
+                existing_author = session.query(Author).filter(Author.email == email, Author.id != user_id).first()
+                if existing_author:
+                    return {"success": False, "error": f"Email {email} уже используется другим пользователем"}
+                author.email = email
+                profile_updated = True
+
+            if name is not None and name != author.name:
+                author.name = name
+                profile_updated = True
+
+            if slug is not None and slug != author.slug:
+                # Проверяем уникальность slug
+                existing_author = session.query(Author).filter(Author.slug == slug, Author.id != user_id).first()
+                if existing_author:
+                    return {"success": False, "error": f"Slug {slug} уже используется другим пользователем"}
+                author.slug = slug
+                profile_updated = True
 
             # Получаем ID сообщества по умолчанию
             default_community_id = 1  # Используем значение по умолчанию из модели AuthorRole
@@ -307,19 +332,25 @@ async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, A
                         f"Пользователю {author.email or author.id} не назначена роль 'reader'. Доступ в систему будет ограничен."
                     )
 
-                logger.info(f"Роли пользователя {author.email or author.id} обновлены: {', '.join(found_role_ids)}")
+                update_details = []
+                if profile_updated:
+                    update_details.append("профиль")
+                if roles:
+                    update_details.append(f"роли: {', '.join(found_role_ids)}")
+
+                logger.info(f"Данные пользователя {author.email or author.id} обновлены: {', '.join(update_details)}")
 
                 return {"success": True}
             except Exception as e:
                 # Обработка вложенных исключений
                 session.rollback()
-                error_msg = f"Ошибка при изменении ролей: {e!s}"
+                error_msg = f"Ошибка при изменении данных пользователя: {e!s}"
                 logger.error(error_msg)
                 return {"success": False, "error": error_msg}
     except Exception as e:
         import traceback
 
-        error_msg = f"Ошибка при обновлении ролей пользователя: {e!s}"
+        error_msg = f"Ошибка при обновлении данных пользователя: {e!s}"
         logger.error(error_msg)
         logger.error(traceback.format_exc())
         return {"success": False, "error": error_msg}

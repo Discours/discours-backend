@@ -1,0 +1,228 @@
+.backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background-color: white;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  width: 100%;
+  animation: modal-appear 0.2s ease-out;
+}
+
+/* Modal Sizes */
+.modal-small {
+  max-width: 400px;
+}
+
+.modal-medium {
+  max-width: 600px;
+}
+
+.modal-large {
+  max-width: 1200px;
+  width: 95vw;
+  min-height: 600px;
+}
+
+.modal-large .content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-color);
+}
+
+.close {
+  background: none;
+  border: none;
+  font-size: var(--font-size-2xl);
+  color: var(--text-color-light);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color var(--transition-fast);
+}
+
+.close:hover {
+  color: var(--text-color);
+}
+
+.content {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .backdrop {
+    padding: 0.5rem;
+  }
+
+  .modal {
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .modal-small,
+  .modal-medium,
+  .modal-large {
+    max-width: none;
+  }
+
+  .header {
+    padding: 1rem;
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  .footer {
+    padding: 1rem;
+  }
+}
+
+/* Адаптивность для больших модальных окон */
+@media (max-width: 768px) {
+  .modal-large {
+    width: 95vw;
+    max-width: none;
+    margin: 20px;
+    min-height: auto;
+    max-height: 90vh;
+  }
+
+  .modal-large .content {
+    max-height: 60vh;
+  }
+}
+
+/* Role Modal Specific Styles */
+.roles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.role-option:hover {
+  background-color: var(--hover-bg);
+}
+
+.role-name {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.role-description {
+  font-size: 0.875rem;
+  color: var(--text-color-light);
+  margin-top: 0.25rem;
+}
+
+/* Environment Variable Modal Specific Styles */
+.env-variable-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.form-group input {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.form-group input:disabled {
+  background-color: var(--disabled-bg);
+  cursor: not-allowed;
+}
+
+.description {
+  font-size: 0.875rem;
+  color: var(--text-color-light);
+  padding: 0.5rem;
+  background-color: var(--hover-bg);
+  border-radius: 4px;
+}
+
+/* Body Preview Modal Specific Styles */
+.body-preview {
+  width: 100%;
+  min-height: 200px;
+  max-height: calc(90vh - 200px);
+  overflow-y: auto;
+  background-color: var(--code-bg);
+  border-radius: 4px;
+  font-family: monospace;
+}

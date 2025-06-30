@@ -462,11 +462,8 @@ async def cache_related_entities(shout: Shout) -> None:
     """
     Кэширует все связанные с публикацией сущности (авторов и темы)
     """
-    tasks = []
-    for author in shout.authors:
-        tasks.append(cache_by_id(Author, author.id, cache_author))
-    for topic in shout.topics:
-        tasks.append(cache_by_id(Topic, topic.id, cache_topic))
+    tasks = [cache_by_id(Author, author.id, cache_author) for author in shout.authors]
+    tasks.extend(cache_by_id(Topic, topic.id, cache_topic) for topic in shout.topics)
     await asyncio.gather(*tasks)
 
 
@@ -846,22 +843,85 @@ async def invalidate_author_cache(author_id: Union[int, str]) -> None:
 
 
 async def clear_all_cache() -> None:
-    """Очищает весь кеш (использовать осторожно)"""
+    """
+    Очищает весь кэш Redis (используйте с осторожностью!)
+
+    Warning:
+        Эта функция удаляет ВСЕ данные из Redis!
+        Используйте только в тестовой среде или при критической необходимости.
+    """
     try:
-        # Get all cache keys
-        topic_keys = await redis.keys("topic:*")
-        author_keys = await redis.keys("author:*")
-        search_keys = await redis.keys("search:*")
-        follows_keys = await redis.keys("follows:*")
+        await redis.execute("FLUSHDB")
+        logger.info("Весь кэш очищен")
+    except Exception as e:
+        logger.error(f"Ошибка при очистке кэша: {e}")
 
-        all_keys = topic_keys + author_keys + search_keys + follows_keys
 
-        if all_keys:
-            for key in all_keys:
-                await redis.delete(key)
-            logger.info(f"Cleared {len(all_keys)} cache entries")
-        else:
-            logger.info("No cache entries to clear")
+async def invalidate_topic_followers_cache(topic_id: int) -> None:
+    """
+    Инвалидирует кеши подписчиков при удалении топика.
+
+    Эта функция:
+    1. Получает список всех подписчиков топика
+    2. Инвалидирует персональные кеши подписок для каждого подписчика
+    3. Инвалидирует кеши самого топика
+    4. Логирует процесс для отладки
+
+    Args:
+        topic_id: ID топика для которого нужно инвалидировать кеши подписчиков
+    """
+    try:
+        logger.debug(f"Инвалидация кешей подписчиков для топика {topic_id}")
+
+        # Получаем список всех подписчиков топика из БД
+        with local_session() as session:
+            followers_query = session.query(TopicFollower.follower).filter(TopicFollower.topic == topic_id)
+            follower_ids = [row[0] for row in followers_query.all()]
+
+        logger.debug(f"Найдено {len(follower_ids)} подписчиков топика {topic_id}")
+
+        # Инвалидируем кеши подписок для всех подписчиков
+        for follower_id in follower_ids:
+            cache_keys_to_delete = [
+                f"author:follows-topics:{follower_id}",  # Список топиков на которые подписан автор
+                f"author:followers:{follower_id}",  # Счетчик подписчиков автора
+                f"author:stat:{follower_id}",  # Общая статистика автора
+                f"author:id:{follower_id}",  # Кешированные данные автора
+            ]
+
+            for cache_key in cache_keys_to_delete:
+                try:
+                    await redis.execute("DEL", cache_key)
+                    logger.debug(f"Удален кеш: {cache_key}")
+                except Exception as e:
+                    logger.error(f"Ошибка при удалении кеша {cache_key}: {e}")
+
+        # Инвалидируем кеши самого топика
+        topic_cache_keys = [
+            f"topic:followers:{topic_id}",  # Список подписчиков топика
+            f"topic:id:{topic_id}",  # Данные топика по ID
+            f"topic:authors:{topic_id}",  # Авторы топика
+            f"topic_shouts_{topic_id}",  # Публикации топика (legacy format)
+        ]
+
+        for cache_key in topic_cache_keys:
+            try:
+                await redis.execute("DEL", cache_key)
+                logger.debug(f"Удален кеш топика: {cache_key}")
+            except Exception as e:
+                logger.error(f"Ошибка при удалении кеша топика {cache_key}: {e}")
+
+        # Также ищем и удаляем коллекционные кеши, содержащие данные об этом топике
+        try:
+            collection_keys = await redis.execute("KEYS", "topics:stats:*")
+            if collection_keys:
+                await redis.execute("DEL", *collection_keys)
+                logger.debug(f"Удалено {len(collection_keys)} коллекционных ключей тем")
+        except Exception as e:
+            logger.error(f"Ошибка при удалении коллекционных кешей: {e}")
+
+        logger.info(f"Успешно инвалидированы кеши для топика {topic_id} и {len(follower_ids)} подписчиков")
 
     except Exception as e:
-        logger.error(f"Failed to clear cache: {e}")
+        logger.error(f"Ошибка при инвалидации кешей подписчиков топика {topic_id}: {e}")
+        raise

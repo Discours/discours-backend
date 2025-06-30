@@ -1,0 +1,441 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--text-color);
+  font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  width: 100%;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-light);
+}
+
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+  background-color: var(--disabled-bg);
+  cursor: not-allowed;
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.form-group select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+.form-group-horizontal {
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+}
+
+.form-group-horizontal label {
+  flex: 0 0 200px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.form-error {
+  color: var(--error-color);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.form-help {
+  color: var(--text-color-light);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.form-section {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1.5rem;
+}
+
+.form-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.form-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 1rem;
+}
+
+.form-section-description {
+  color: var(--text-color-light);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.radio-option input[type="radio"] {
+  width: auto;
+}
+
+.input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-group input {
+  flex: 1;
+}
+
+.input-group button {
+  flex: 0 0 auto;
+}
+
+/* Placeholder для contenteditable div */
+.input[contenteditable="true"]:empty::before {
+  content: attr(data-placeholder);
+  color: #6c757d;
+  font-style: italic;
+  pointer-events: none;
+}
+
+.input[contenteditable="true"]:focus:empty::before {
+  content: "";
+}
+
+/* Стили для улучшенной формы редактирования пользователя */
+.section {
+  margin-bottom: 25px;
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: #fff;
+  color: #333;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.input:disabled {
+  background-color: #f8f9fa;
+  border-color: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.inputError {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.fieldError {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.fieldHint {
+  color: #6c757d;
+  font-size: 12px;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #f5c6cb;
+  font-size: 14px;
+}
+
+/* Стили для грида ролей */
+.rolesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.roleCard {
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: #fff;
+  display: block;
+}
+
+.roleCard:hover {
+  border-color: #007bff;
+  background-color: #f8f9ff;
+}
+
+.roleCardSelected {
+  border-color: #007bff;
+  background-color: #e7f1ff;
+}
+
+.roleHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.roleName {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.roleCheckmark {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #007bff;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.roleCardSelected .roleCheckmark {
+  opacity: 1;
+}
+
+.roleDescription {
+  color: #6c757d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Широкое модальное окно для переменных среды */
+.modal-wide {
+  width: 100%;
+  max-width: 800px;
+}
+
+/* Улучшенные стили для форм */
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-label-info {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #6b7280;
+  margin-left: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input-disabled {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+/* Контейнер для textarea с кнопками */
+.textarea-container {
+  position: relative;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 120px;
+  transition: border-color 0.2s ease;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.textarea-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+/* Контейнер для превью кода */
+.code-preview-container {
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1e1e1e;
+  max-height: 400px;
+}
+
+.code-preview-container pre {
+  margin: 0;
+  padding: 16px;
+  background: transparent;
+  overflow-x: auto;
+}
+
+/* Улучшенная справка */
+.form-help {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #0c4a6e;
+}
+
+.form-help strong {
+  color: #075985;
+}
+
+/* Ошибки */
+.form-error {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #dc2626;
+}
+
+/* Действия формы */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Адаптивность для модального окна */
+@media (max-width: 768px) {
+  .modal-wide {
+    max-width: 95vw;
+    margin: 0 auto;
+  }
+
+  .textarea-actions {
+    flex-direction: column;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+}

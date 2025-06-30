@@ -1,0 +1,114 @@
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: var(--background-color);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.pagination-info {
+  color: var(--text-color-light);
+  font-size: var(--font-size-sm);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-ellipsis {
+  color: var(--text-color-light);
+  padding: 0 0.5rem;
+}
+
+.pagination-per-page {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-color-light);
+  font-size: var(--font-size-sm);
+}
+
+.pageButton {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: var(--font-size-sm);
+}
+
+.pageButton:hover:not(:disabled) {
+  background-color: var(--hover-color);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.pageButton:disabled {
+  background-color: var(--secondary-color-light);
+  color: var(--text-color-light);
+  cursor: not-allowed;
+}
+
+.currentPage {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  font-weight: var(--font-weight-medium);
+}
+
+.currentPage:hover {
+  background-color: var(--primary-color-dark);
+}
+
+.perPageSelect {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.perPageSelect:hover {
+  border-color: var(--primary-color);
+}
+
+.perPageSelect:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-color-light);
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .pagination {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pageButton {
+    padding: 0.25rem 0.5rem;
+  }
+
+  .pagination-controls {
+    order: 2;
+  }
+
+  .pagination-info {
+    order: 1;
+  }
+
+  .pagination-per-page {
+    order: 3;
+  }
+}

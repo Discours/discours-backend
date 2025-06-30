@@ -8,7 +8,8 @@ from services.db import create_table_if_not_exists, local_session
 query = QueryType()
 mutation = MutationType()
 type_draft = ObjectType("Draft")
-resolvers: List[SchemaBindable] = [query, mutation, type_draft]
+type_community = ObjectType("Community")
+resolvers: List[SchemaBindable] = [query, mutation, type_draft, type_community]
 
 
 def create_all_tables() -> None:

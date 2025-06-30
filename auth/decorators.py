@@ -380,49 +380,96 @@ def permission_required(resource: str, operation: str, func: Callable) -> Callab
 
 def login_accepted(func: Callable) -> Callable:
     """
-    Декоратор для резолверов, которые могут работать как с авторизованными,
-    так и с неавторизованными пользователями.
-
-    Добавляет информацию о пользователе в контекст, если пользователь авторизован.
+    Декоратор для проверки аутентификации пользователя.
 
     Args:
-        func: Декорируемая функция
+        func: функция-резолвер для декорирования
+
+    Returns:
+        Callable: обернутая функция
     """
 
     @wraps(func)
     async def wrap(parent: Any, info: GraphQLResolveInfo, *args: Any, **kwargs: Any) -> Any:
         try:
-            # Пробуем проверить авторизацию, но не выбрасываем исключение, если пользователь не авторизован
-            try:
-                await validate_graphql_context(info)
-            except GraphQLError:
-                # Игнорируем ошибку авторизации
-                pass
-
-            # Получаем объект авторизации
-            auth = None
-            if hasattr(info.context["request"], "scope") and "auth" in info.context["request"].scope:
-                auth = info.context["request"].scope.get("auth")
-
-            if auth and getattr(auth, "logged_in", False):
-                # Если пользователь авторизован, добавляем информацию о нем в контекст
-                with local_session() as session:
-                    try:
-                        author = session.query(Author).filter(Author.id == auth.author_id).one()
-                        info.context["author"] = author.dict()
-                        logger.debug(f"[login_accepted] Пользователь авторизован: {author.id}")
-                    except exc.NoResultFound:
-                        logger.warning(f"[login_accepted] Пользователь с ID {auth.author_id} не найден в базе данных")
-                        info.context["author"] = None
-            else:
-                # Если пользователь не авторизован, устанавливаем пустые значения
-                info.context["author"] = None
-                logger.debug("[login_accepted] Пользователь не авторизован")
-
+            await validate_graphql_context(info)
             return await func(parent, info, *args, **kwargs)
-        except Exception as e:
-            if not isinstance(e, GraphQLError):
-                logger.error(f"[login_accepted] Ошибка: {e}")
+        except GraphQLError:
+            # Пробрасываем ошибки авторизации далее
             raise
+        except Exception as e:
+            logger.error(f"[decorators] Unexpected error in login_accepted: {e}")
+            msg = "Internal server error"
+            raise GraphQLError(msg) from e
+
+    return wrap
+
+
+def editor_or_admin_required(func: Callable) -> Callable:
+    """
+    Декоратор для проверки, что пользователь имеет роль 'editor' или 'admin'.
+
+    Args:
+        func: функция-резолвер для декорирования
+
+    Returns:
+        Callable: обернутая функция
+    """
+
+    @wraps(func)
+    async def wrap(parent: Any, info: GraphQLResolveInfo, *args: Any, **kwargs: Any) -> Any:
+        try:
+            # Сначала проверяем авторизацию
+            await validate_graphql_context(info)
+
+            # Получаем информацию о пользователе
+            request = info.context.get("request")
+            author_id = None
+
+            # Пробуем получить author_id из разных источников
+            if hasattr(request, "auth") and request.auth and hasattr(request.auth, "author_id"):
+                author_id = request.auth.author_id
+            elif hasattr(request, "scope") and "auth" in request.scope:
+                auth_info = request.scope.get("auth", {})
+                if isinstance(auth_info, dict):
+                    author_id = auth_info.get("author_id")
+                elif hasattr(auth_info, "author_id"):
+                    author_id = auth_info.author_id
+
+            if not author_id:
+                logger.warning("[decorators] Не удалось получить author_id для проверки ролей")
+                raise GraphQLError("Ошибка авторизации: не удалось определить пользователя")
+
+            # Проверяем роли пользователя
+            with local_session() as session:
+                author = session.query(Author).filter(Author.id == author_id).first()
+                if not author:
+                    logger.warning(f"[decorators] Автор с ID {author_id} не найден")
+                    raise GraphQLError("Пользователь не найден")
+
+                # Проверяем email админа
+                if author.email in ADMIN_EMAILS:
+                    logger.debug(f"[decorators] Пользователь {author.email} является админом по email")
+                    return await func(parent, info, *args, **kwargs)
+
+                # Получаем список ролей пользователя
+                user_roles = [role.id for role in author.roles] if author.roles else []
+                logger.debug(f"[decorators] Роли пользователя {author_id}: {user_roles}")
+
+                # Проверяем наличие роли admin или editor
+                if "admin" in user_roles or "editor" in user_roles:
+                    logger.debug(f"[decorators] Пользователь {author_id} имеет разрешение (роли: {user_roles})")
+                    return await func(parent, info, *args, **kwargs)
+
+                # Если нет нужных ролей
+                logger.warning(f"[decorators] Пользователю {author_id} отказано в доступе. Роли: {user_roles}")
+                raise GraphQLError("Доступ запрещен. Требуется роль редактора или администратора.")
+
+        except GraphQLError:
+            # Пробрасываем ошибки авторизации далее
+            raise
+        except Exception as e:
+            logger.error(f"[decorators] Неожиданная ошибка в editor_or_admin_required: {e}")
+            raise GraphQLError("Внутренняя ошибка сервера") from e
 
     return wrap

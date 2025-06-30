@@ -189,6 +189,8 @@ type Topic {
   title: String
   body: String
   pic: String
+  community: Int
+  parent_ids: [Int]
   stat: TopicStat
   oid: String
   is_main: Boolean

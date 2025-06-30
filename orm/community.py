@@ -18,7 +18,7 @@ class CommunityRole(enum.Enum):
     ADMIN = "admin"
 
     @classmethod
-    def as_string_array(cls, roles):
+    def as_string_array(cls, roles) -> list[str]:
         return [role.value for role in roles]
 
     @classmethod
@@ -59,6 +59,7 @@ class Community(BaseModel):
     private = Column(Boolean, default=False)
 
     followers = relationship("Author", secondary="community_follower")
+    created_by_author = relationship("Author", foreign_keys=[created_by])
 
     @hybrid_property
     def stat(self):

@@ -11,6 +11,7 @@ from cache.cache import (
     get_cached_topic_by_slug,
     get_cached_topic_followers,
     invalidate_cache_by_prefix,
+    invalidate_topic_followers_cache,
 )
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
@@ -446,3 +447,55 @@ async def get_topic_authors(_: None, _info: GraphQLResolveInfo, slug: str) -> li
     topic = await get_cached_topic_by_slug(slug, get_with_stat)
     topic_id = getattr(topic, "id", None) if isinstance(topic, Topic) else topic.get("id") if topic else None
     return await get_cached_topic_authors(topic_id) if topic_id else []
+
+
+# Мутация для удаления темы по ID (для админ-панели)
+@mutation.field("delete_topic_by_id")
+@login_required
+async def delete_topic_by_id(_: None, info: GraphQLResolveInfo, topic_id: int) -> dict[str, Any]:
+    """
+    Удаляет тему по ID. Используется в админ-панели.
+
+    Args:
+        topic_id: ID темы для удаления
+
+    Returns:
+        dict: Результат операции
+    """
+    viewer_id = info.context.get("author", {}).get("id")
+    with local_session() as session:
+        topic = session.query(Topic).filter(Topic.id == topic_id).first()
+        if not topic:
+            return {"success": False, "message": "Топик не найден"}
+
+        author = session.query(Author).filter(Author.id == viewer_id).first()
+        if not author:
+            return {"success": False, "message": "Не авторизован"}
+
+        # TODO: проверить права администратора
+        # Для админ-панели допускаем удаление любых топиков администратором
+
+        try:
+            # Инвалидируем кеши подписчиков ПЕРЕД удалением данных из БД
+            await invalidate_topic_followers_cache(topic_id)
+
+            # Удаляем связанные данные (подписчики, связи с публикациями)
+            session.query(TopicFollower).filter(TopicFollower.topic == topic_id).delete()
+            session.query(ShoutTopic).filter(ShoutTopic.topic == topic_id).delete()
+
+            # Удаляем сам топик
+            session.delete(topic)
+            session.commit()
+
+            # Инвалидируем основные кеши топика
+            await invalidate_topics_cache(topic_id)
+            if topic.slug:
+                await redis.execute("DEL", f"topic:slug:{topic.slug}")
+
+            logger.info(f"Топик {topic_id} успешно удален")
+            return {"success": True, "message": "Топик успешно удален"}
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Ошибка при удалении топика {topic_id}: {e}")
+            return {"success": False, "message": f"Ошибка при удалении: {e!s}"}

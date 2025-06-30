@@ -1,4 +1,4 @@
-import { resolve } from 'path'
+import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import solidPlugin from 'vite-plugin-solid'
 
@@ -7,11 +7,15 @@ const isProd = process.env.NODE_ENV === 'production'
 
 export default defineConfig({
   plugins: [solidPlugin()],
+
   build: {
     target: 'esnext',
     outDir: 'dist',
-    minify: isProd,
+    assetsDir: 'assets',
+    emptyOutDir: true,
     sourcemap: !isProd,
+    minify: isProd ? 'terser' : false,
+    cssMinify: isProd ? 'lightningcss' : false,
 
     // Оптимизация сборки
     cssCodeSplit: true,
@@ -36,7 +40,7 @@ export default defineConfig({
 
   // Оптимизация зависимостей
   optimizeDeps: {
-    include: ['solid-js', '@solidjs/router'],
+    include: ['solid-js'],
     exclude: []
   },
 

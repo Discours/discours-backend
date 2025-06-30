@@ -1,105 +1,89 @@
-import { Component, Show, Suspense, createSignal, lazy, onMount, createEffect } from 'solid-js'
-import { isAuthenticated, getAuthTokenFromCookie } from './auth'
+import { Route, Router } from '@solidjs/router'
+import { lazy, onMount, Suspense } from 'solid-js'
+import { AuthProvider, useAuth } from './context/auth'
 
 // Ленивая загрузка компонентов
-const AdminPage = lazy(() => import('./admin'))
-const LoginPage = lazy(() => import('./login'))
+const AdminPage = lazy(() => {
+  console.log('[App] Loading AdminPage component...')
+  return import('./admin')
+})
+const LoginPage = lazy(() => {
+  console.log('[App] Loading LoginPage component...')
+  return import('./routes/login')
+})
 
 /**
- * Корневой компонент приложения с простой логикой отображения
+ * Компонент защищенного маршрута
  */
-const App: Component = () => {
-  const [authenticated, setAuthenticated] = createSignal<boolean | null>(null)
-  const [loading, setLoading] = createSignal(true)
-  const [checkingAuth, setCheckingAuth] = createSignal(true)
+const ProtectedRoute = () => {
+  console.log('[ProtectedRoute] Checking authentication...')
+  const auth = useAuth()
+  const authenticated = auth.isAuthenticated()
+  console.log(
+    `[ProtectedRoute] Authentication state: ${authenticated ? 'authenticated' : 'not authenticated'}`
+  )
 
-  // Проверяем авторизацию при монтировании
-  onMount(() => {
-    checkAuthentication()
-  })
-
-  // Периодическая проверка авторизации
-  createEffect(() => {
-    const authCheckInterval = setInterval(() => {
-      // Перепроверяем статус авторизации каждые 60 секунд
-      if (!checkingAuth()) {
-        const authed = isAuthenticated()
-        if (!authed && authenticated()) {
-          console.log('Сессия истекла, требуется повторная авторизация')
-          setAuthenticated(false)
-        }
-      }
-    }, 60000)
-
-    return () => clearInterval(authCheckInterval)
-  })
-
-  // Функция проверки авторизации
-  const checkAuthentication = async () => {
-    setCheckingAuth(true)
-    setLoading(true)
-
-    try {
-      // Проверяем состояние авторизации
-      const authed = isAuthenticated()
-
-      // Если токен есть, но он невалидный, авторизация не удалась
-      if (authed) {
-        const token = getAuthTokenFromCookie() || localStorage.getItem('auth_token')
-        if (!token || token.length < 10) {
-          setAuthenticated(false)
-        } else {
-          setAuthenticated(true)
-        }
-      } else {
-        setAuthenticated(false)
-      }
-    } catch (error) {
-      console.error('Ошибка при проверке авторизации:', error)
-      setAuthenticated(false)
-    } finally {
-      setLoading(false)
-      setCheckingAuth(false)
-    }
-  }
-
-  // Обработчик успешной авторизации
-  const handleLoginSuccess = () => {
-    setAuthenticated(true)
-  }
-
-  // Обработчик выхода из системы
-  const handleLogout = () => {
-    setAuthenticated(false)
+  if (!authenticated) {
+    console.log('[ProtectedRoute] Not authenticated, redirecting to login...')
+    // Используем window.location.href для редиректа
+    window.location.href = '/login'
+    return (
+      <div class="loading-screen">
+        <div class="loading-spinner" />
+        <div>Проверка авторизации...</div>
+      </div>
+    )
   }
 
   return (
-    <div class="app-container">
-      <Suspense
-        fallback={
-          <div class="loading-screen">
-            <div class="loading-spinner" />
-            <h2>Загрузка компонентов...</h2>
-          </div>
-        }
-      >
-        <Show
-          when={!loading()}
-          fallback={
-            <div class="loading-screen">
-              <div class="loading-spinner" />
-              <h2>Проверка авторизации...</h2>
-            </div>
-          }
-        >
-          {authenticated() ? (
-            <AdminPage apiUrl={`${location.origin}/graphql`} onLogout={handleLogout} />
-          ) : (
-            <LoginPage onLoginSuccess={handleLoginSuccess} />
-          )}
-        </Show>
-      </Suspense>
-    </div>
+    <Suspense
+      fallback={
+        <div class="loading-screen">
+          <div class="loading-spinner" />
+          <div>Загрузка админ-панели...</div>
+        </div>
+      }
+    >
+      <AdminPage apiUrl={`${location.origin}/graphql`} />
+    </Suspense>
+  )
+}
+
+/**
+ * Корневой компонент приложения
+ */
+const App = () => {
+  console.log('[App] Initializing root component...')
+
+  onMount(() => {
+    console.log('[App] Root component mounted')
+  })
+
+  return (
+    <AuthProvider>
+      <div class="app-container">
+        <Router>
+          <Route
+            path="/login"
+            component={() => (
+              <Suspense
+                fallback={
+                  <div class="loading-screen">
+                    <div class="loading-spinner" />
+                    <div>Загрузка страницы входа...</div>
+                  </div>
+                }
+              >
+                <LoginPage />
+              </Suspense>
+            )}
+          />
+          <Route path="/" component={ProtectedRoute} />
+          <Route path="/admin" component={ProtectedRoute} />
+          <Route path="/admin/:tab" component={ProtectedRoute} />
+        </Router>
+      </div>
+    </AuthProvider>
   )
 }
 

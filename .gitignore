@@ -164,3 +164,8 @@ views.json
 .cursor
 
 node_modules/
+panel/graphql/generated/
+panel/types.gen.ts
+
+.cursorrules
+.cursor/

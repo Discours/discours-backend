@@ -21,6 +21,8 @@ input TopicInput {
   title: String
   body: String
   pic: String
+  community: Int
+  parent_ids: [Int]
 }
 
 input DraftInput {

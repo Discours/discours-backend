@@ -17,7 +17,9 @@
     "lib": ["DOM", "ESNext"],
     "paths": {
       "~/*": ["./panel/*"]
-    }
+    },
+    "typeRoots": ["./panel/types", "./node_modules/@types"]
   },
-  "exclude": []
+  "include": ["panel/**/*.ts", "panel/**/*.tsx", "panel/**/*.d.ts"],
+  "exclude": ["node_modules"]
 }

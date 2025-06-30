@@ -36,6 +36,7 @@ type Mutation {
   create_topic(topic_input: TopicInput!): CommonResult!
   update_topic(topic_input: TopicInput!): CommonResult!
   delete_topic(slug: String!): CommonResult!
+  delete_topic_by_id(id: Int!): CommonResult!
 
   # reaction
   create_reaction(reaction: ReactionInput!): CommonResult!
