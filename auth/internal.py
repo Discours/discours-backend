@@ -4,17 +4,15 @@
 """
 
 import time
-from typing import Any, Optional
+from typing import Optional
 
 from sqlalchemy.orm import exc
 
-from auth.credentials import AuthCredentials
 from auth.orm import Author
 from auth.state import AuthState
 from auth.tokens.storage import TokenStorage as TokenManager
 from services.db import local_session
 from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
-from settings import SESSION_COOKIE_NAME, SESSION_TOKEN_HEADER
 from utils.logger import root_logger as logger
 
 ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
@@ -90,99 +88,63 @@ async def create_internal_session(author: Author, device_info: Optional[dict] = 
     )
 
 
-async def authenticate(request: Any) -> AuthState:
+async def authenticate(request) -> AuthState:
     """
-    Аутентифицирует запрос по токену из разных источников.
-    Порядок проверки:
-    1. Проверяет токен в заголовке Authorization
-    2. Проверяет токен в cookie
+    Аутентифицирует пользователя по токену из запроса.
 
     Args:
-        request: Запрос (обычно из middleware)
+        request: Объект запроса
 
     Returns:
-        AuthState: Состояние авторизации
+        AuthState: Состояние аутентификации
     """
-    state = AuthState()
-    state.logged_in = False  # Изначально считаем, что пользователь не авторизован
-    token = None
+    from auth.decorators import get_auth_token
+    from auth.tokens.sessions import SessionTokenManager
+    from utils.logger import root_logger as logger
 
-    # Проверяем наличие auth в scope (установлено middleware)
-    if hasattr(request, "scope") and isinstance(request.scope, dict) and "auth" in request.scope:
-        auth_info = request.scope.get("auth", {})
-        if isinstance(auth_info, dict) and "token" in auth_info:
-            token = auth_info["token"]
-            logger.debug("[auth.authenticate] Извлечен токен из request.scope['auth']")
+    logger.debug("[authenticate] Начало аутентификации")
 
-    # Если токен не найден в scope, проверяем заголовок
+    # Получаем токен из запроса
+    token = get_auth_token(request)
     if not token:
-        try:
-            headers = {}
-            if hasattr(request, "headers"):
-                headers = dict(request.headers()) if callable(request.headers) else dict(request.headers)
+        logger.warning("[authenticate] Токен не найден в запросе")
+        auth_state = AuthState()
+        auth_state.logged_in = False
+        auth_state.author_id = None
+        auth_state.error = "No authentication token provided"
+        auth_state.token = None
+        return auth_state
 
-            auth_header = headers.get(SESSION_TOKEN_HEADER, "")
-            if auth_header and auth_header.startswith("Bearer "):
-                token = auth_header[7:].strip()
-                logger.debug(f"[auth.authenticate] Токен получен из заголовка {SESSION_TOKEN_HEADER}")
-            elif auth_header:
-                token = auth_header.strip()
-                logger.debug(f"[auth.authenticate] Прямой токен получен из заголовка {SESSION_TOKEN_HEADER}")
-        except Exception as e:
-            logger.error(f"[auth.authenticate] Ошибка при доступе к заголовкам: {e}")
+    logger.debug(f"[authenticate] Токен найден, длина: {len(token)}")
 
-    # Если и в заголовке не найден, проверяем cookie
-    if not token and hasattr(request, "cookies") and request.cookies:
-        token = request.cookies.get(SESSION_COOKIE_NAME)
-        if token:
-            logger.debug(f"[auth.authenticate] Токен получен из cookie {SESSION_COOKIE_NAME}")
+    # Проверяем токен
+    try:
+        # Создаем экземпляр SessionTokenManager
+        session_manager = SessionTokenManager()
+        # Проверяем токен
+        auth_result = await session_manager.verify_session(token)
 
-    # Если токен все еще не найден, возвращаем не авторизованное состояние
-    if not token:
-        logger.debug("[auth.authenticate] Токен не найден")
-        return state
-
-    # Проверяем токен через TokenStorage, который теперь совместим с TokenStorage
-    payload = await TokenManager.verify_session(token)
-    if not payload:
-        logger.warning("[auth.authenticate] Токен не валиден: не найдена сессия")
-        state.error = "Invalid or expired token"
-        return state
-
-    # Создаем успешное состояние авторизации
-    state.logged_in = True
-    state.author_id = payload.user_id
-    state.token = token
-    state.username = payload.username
-
-    # Если запрос имеет атрибут auth, устанавливаем в него авторизационные данные
-    if hasattr(request, "scope") and isinstance(request.scope, dict):
-        try:
-            # Получаем информацию о пользователе для создания AuthCredentials
-            with local_session() as session:
-                author = session.query(Author).filter(Author.id == payload.user_id).one_or_none()
-                if author:
-                    # Получаем разрешения из ролей
-                    scopes = author.get_permissions()
-
-                    # Создаем объект авторизации
-                    auth_cred = AuthCredentials(
-                        author_id=author.id,
-                        scopes=scopes,
-                        logged_in=True,
-                        email=author.email,
-                        token=token,
-                        error_message="",
-                    )
-
-                    # Устанавливаем auth в request.scope вместо прямого присваивания к request.auth
-                    request.scope["auth"] = auth_cred
-                    logger.debug(
-                        f"[auth.authenticate] Авторизационные данные установлены в request.scope['auth'] для {payload.user_id}"
-                    )
-        except Exception as e:
-            logger.error(f"[auth.authenticate] Ошибка при установке auth в request.scope: {e}")
-
-    logger.info(f"[auth.authenticate] Успешная аутентификация пользователя {state.author_id}")
-
-    return state
+        if auth_result and hasattr(auth_result, "user_id"):
+            logger.debug(f"[authenticate] Успешная аутентификация, user_id: {auth_result.user_id}")
+            auth_state = AuthState()
+            auth_state.logged_in = True
+            auth_state.author_id = auth_result.user_id
+            auth_state.error = None
+            auth_state.token = token
+            return auth_state
+        error_msg = "Invalid or expired token"
+        logger.warning(f"[authenticate] Недействительный токен: {error_msg}")
+        auth_state = AuthState()
+        auth_state.logged_in = False
+        auth_state.author_id = None
+        auth_state.error = error_msg
+        auth_state.token = None
+        return auth_state
+    except Exception as e:
+        logger.error(f"[authenticate] Ошибка при проверке токена: {e}")
+        auth_state = AuthState()
+        auth_state.logged_in = False
+        auth_state.author_id = None
+        auth_state.error = f"Authentication error: {e!s}"
+        auth_state.token = None
+        return auth_state

@@ -132,15 +132,13 @@ const InviteEditModal: Component<InviteEditModalProps> = (props) => {
             <input
               type="number"
               value={formData().inviter_id}
-              onInput={(e) => updateField('inviter_id', parseInt(e.target.value) || 0)}
+              onInput={(e) => updateField('inviter_id', Number.parseInt(e.target.value) || 0)}
               class={`${formStyles.input} ${errors().inviter_id ? formStyles.inputError : ''}`}
               placeholder="1"
               required
               disabled={!isCreating()} // При редактировании ID нельзя менять
             />
-            <div class={formStyles.fieldHint}>
-              ID автора, который отправляет приглашение
-            </div>
+            <div class={formStyles.fieldHint}>ID автора, который отправляет приглашение</div>
             {errors().inviter_id && <div class={formStyles.fieldError}>{errors().inviter_id}</div>}
           </div>
 
@@ -151,15 +149,13 @@ const InviteEditModal: Component<InviteEditModalProps> = (props) => {
             <input
               type="number"
               value={formData().author_id}
-              onInput={(e) => updateField('author_id', parseInt(e.target.value) || 0)}
+              onInput={(e) => updateField('author_id', Number.parseInt(e.target.value) || 0)}
               class={`${formStyles.input} ${errors().author_id ? formStyles.inputError : ''}`}
               placeholder="2"
               required
               disabled={!isCreating()} // При редактировании ID нельзя менять
             />
-            <div class={formStyles.fieldHint}>
-              ID автора, которого приглашают к сотрудничеству
-            </div>
+            <div class={formStyles.fieldHint}>ID автора, которого приглашают к сотрудничеству</div>
             {errors().author_id && <div class={formStyles.fieldError}>{errors().author_id}</div>}
           </div>
 
@@ -170,15 +166,13 @@ const InviteEditModal: Component<InviteEditModalProps> = (props) => {
             <input
               type="number"
               value={formData().shout_id}
-              onInput={(e) => updateField('shout_id', parseInt(e.target.value) || 0)}
+              onInput={(e) => updateField('shout_id', Number.parseInt(e.target.value) || 0)}
               class={`${formStyles.input} ${errors().shout_id ? formStyles.inputError : ''}`}
               placeholder="123"
               required
               disabled={!isCreating()} // При редактировании ID нельзя менять
             />
-            <div class={formStyles.fieldHint}>
-              ID публикации, к которой приглашают на сотрудничество
-            </div>
+            <div class={formStyles.fieldHint}>ID публикации, к которой приглашают на сотрудничество</div>
             {errors().shout_id && <div class={formStyles.fieldError}>{errors().shout_id}</div>}
           </div>
 
@@ -196,9 +190,7 @@ const InviteEditModal: Component<InviteEditModalProps> = (props) => {
               <option value="ACCEPTED">Принято</option>
               <option value="REJECTED">Отклонено</option>
             </select>
-            <div class={formStyles.fieldHint}>
-              Текущий статус приглашения
-            </div>
+            <div class={formStyles.fieldHint}>Текущий статус приглашения</div>
           </div>
 
           {/* Информация о связанных объектах при редактировании */}

@@ -3,7 +3,7 @@ from typing import Any
 
 from graphql import GraphQLResolveInfo
 from graphql.error import GraphQLError
-from sqlalchemy import String, cast, or_
+from sqlalchemy import String, cast, null, or_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import func, select
 
@@ -670,8 +670,8 @@ async def admin_restore_shout(_: None, info: GraphQLResolveInfo, shout_id: int) 
                 return {"success": False, "error": "Публикация не была удалена"}
 
             # Сбрасываем время удаления
-            shout.deleted_at = None
-            shout.deleted_by = None
+            shout.deleted_at = null()
+            shout.deleted_by = null()
 
             session.commit()
 

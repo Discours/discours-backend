@@ -66,9 +66,15 @@ export async function query<T = unknown>(
     console.log(`[GraphQL] Making request to ${endpoint}`)
     console.log(`[GraphQL] Query: ${query.substring(0, 100)}...`)
 
+    // Используем существующую функцию для получения всех необходимых заголовков
+    const headers = getRequestHeaders()
+    console.log(
+      `[GraphQL] Заголовки установлены, Authorization: ${headers['Authorization'] ? 'присутствует' : 'отсутствует'}`
+    )
+
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: getRequestHeaders(),
+      headers,
       credentials: 'include',
       body: JSON.stringify({
         query,

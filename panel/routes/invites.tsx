@@ -10,6 +10,7 @@ import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import Pagination from '../ui/Pagination'
+import { getAuthTokenFromCookie } from '../utils/auth'
 
 /**
  * Интерфейсы для приглашений
@@ -74,16 +75,21 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
   /**
    * Загружает список приглашений с учетом фильтров и пагинации
    */
-  const loadInvites = async (page: number = 1) => {
+  const loadInvites = async (page = 1) => {
     setLoading(true)
     try {
       const limit = pagination().perPage
       const offset = (page - 1) * limit
 
+      // Получаем токен авторизации из localStorage или cookie
+      const authToken = localStorage.getItem('auth_token') || getAuthTokenFromCookie()
+      console.log(`[InvitesRoute] Загрузка приглашений, токен: ${authToken ? 'найден' : 'не найден'}`)
+
       const response = await fetch('/graphql', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: authToken ? `Bearer ${authToken}` : ''
         },
         body: JSON.stringify({
           query: ADMIN_GET_INVITES_QUERY,
@@ -177,10 +183,15 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
       const isCreating = !editModal().invite && createModal().show
       const mutation = isCreating ? ADMIN_CREATE_INVITE_MUTATION : ADMIN_UPDATE_INVITE_MUTATION
 
+      // Получаем токен авторизации из localStorage или cookie
+      const authToken = localStorage.getItem('auth_token') || getAuthTokenFromCookie()
+      console.log(`[InvitesRoute] Сохранение приглашения, токен: ${authToken ? 'найден' : 'не найден'}`)
+
       const response = await fetch('/graphql', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: authToken ? `Bearer ${authToken}` : ''
         },
         body: JSON.stringify({
           query: mutation,
@@ -215,10 +226,15 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
    */
   const deleteInvite = async (invite: Invite) => {
     try {
+      // Получаем токен авторизации из localStorage или cookie
+      const authToken = localStorage.getItem('auth_token') || getAuthTokenFromCookie()
+      console.log(`[InvitesRoute] Удаление приглашения, токен: ${authToken ? 'найден' : 'не найден'}`)
+
       const response = await fetch('/graphql', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: authToken ? `Bearer ${authToken}` : ''
         },
         body: JSON.stringify({
           query: ADMIN_DELETE_INVITE_MUTATION,
