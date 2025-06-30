@@ -9,6 +9,8 @@ import type { Query } from '../graphql/generated/schema'
 import { CREATE_TOPIC_MUTATION, DELETE_TOPIC_MUTATION, UPDATE_TOPIC_MUTATION } from '../graphql/mutations'
 import { GET_TOPICS_QUERY } from '../graphql/queries'
 import TopicEditModal from '../modals/TopicEditModal'
+import TopicMergeModal from '../modals/TopicMergeModal'
+import TopicSimpleParentModal from '../modals/TopicSimpleParentModal'
 import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
@@ -55,6 +57,15 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
   })
   const [createModal, setCreateModal] = createSignal<{ show: boolean }>({
     show: false
+  })
+  const [selectedTopics, setSelectedTopics] = createSignal<number[]>([])
+  const [groupAction, setGroupAction] = createSignal<'delete' | 'merge' | ''>('')
+  const [mergeModal, setMergeModal] = createSignal<{ show: boolean }>({
+    show: false
+  })
+  const [simpleParentModal, setSimpleParentModal] = createSignal<{ show: boolean; topic: Topic | null }>({
+    show: false,
+    topic: null
   })
 
   /**
@@ -186,19 +197,22 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
     const result: JSX.Element[] = []
 
     topics.forEach((topic) => {
+      const isSelected = selectedTopics().includes(topic.id)
+
       result.push(
-        <tr
-          onClick={() => setEditModal({ show: true, topic })}
-          style={{ cursor: 'pointer' }}
-          class={styles['clickable-row']}
-        >
+        <tr class={styles['clickable-row']}>
           <td>{topic.id}</td>
-          <td style={{ 'padding-left': `${(topic.level || 0) * 20}px` }}>
+          <td
+            style={{ 'padding-left': `${(topic.level || 0) * 20}px`, cursor: 'pointer' }}
+            onClick={() => setEditModal({ show: true, topic })}
+          >
             {topic.level! > 0 && '└─ '}
             {topic.title}
           </td>
-          <td>{topic.slug}</td>
-          <td>
+          <td onClick={() => setEditModal({ show: true, topic })} style={{ cursor: 'pointer' }}>
+            {topic.slug}
+          </td>
+          <td onClick={() => setEditModal({ show: true, topic })} style={{ cursor: 'pointer' }}>
             <div
               style={{
                 'max-width': '200px',
@@ -211,20 +225,22 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
               {truncateText(topic.body?.replace(/<[^>]*>/g, '') || '', 100)}
             </div>
           </td>
-          <td>{topic.community}</td>
-          <td>{topic.parent_ids?.join(', ') || '—'}</td>
+          <td onClick={() => setEditModal({ show: true, topic })} style={{ cursor: 'pointer' }}>
+            {topic.community}
+          </td>
+          <td onClick={() => setEditModal({ show: true, topic })} style={{ cursor: 'pointer' }}>
+            {topic.parent_ids?.join(', ') || '—'}
+          </td>
           <td onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={(e) => {
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => {
                 e.stopPropagation()
-                setDeleteModal({ show: true, topic })
+                handleTopicSelect(topic.id, e.target.checked)
               }}
-              class={styles['delete-button']}
-              title="Удалить топик"
-              aria-label="Удалить топик"
-            >
-              ×
-            </button>
+              style={{ cursor: 'pointer' }}
+            />
           </td>
         </tr>
       )
@@ -306,6 +322,90 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
   }
 
   /**
+   * Обработчик выбора/снятия выбора топика
+   */
+  const handleTopicSelect = (topicId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedTopics(prev => [...prev, topicId])
+    } else {
+      setSelectedTopics(prev => prev.filter(id => id !== topicId))
+    }
+  }
+
+  /**
+   * Обработчик выбора/снятия выбора всех топиков
+   */
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allTopicIds = rawTopics().map(topic => topic.id)
+      setSelectedTopics(allTopicIds)
+    } else {
+      setSelectedTopics([])
+    }
+  }
+
+  /**
+   * Проверяет выбраны ли все топики
+   */
+  const isAllSelected = () => {
+    const allIds = rawTopics().map(topic => topic.id)
+    const selected = selectedTopics()
+    return allIds.length > 0 && allIds.every(id => selected.includes(id))
+  }
+
+  /**
+   * Проверяет выбран ли хотя бы один топик
+   */
+  const hasSelectedTopics = () => selectedTopics().length > 0
+
+  /**
+   * Выполняет групповое действие
+   */
+  const executeGroupAction = () => {
+    const action = groupAction()
+    const selected = selectedTopics()
+
+    if (!action || selected.length === 0) {
+      props.onError('Выберите действие и топики')
+      return
+    }
+
+    if (action === 'delete') {
+      // Групповое удаление
+      const selectedTopicsData = rawTopics().filter(t => selected.includes(t.id))
+      setDeleteModal({ show: true, topic: selectedTopicsData[0] }) // Используем первый для отображения
+    } else if (action === 'merge') {
+      // Слияние топиков
+      if (selected.length < 2) {
+        props.onError('Для слияния нужно выбрать минимум 2 темы')
+        return
+      }
+      setMergeModal({ show: true })
+    }
+  }
+
+  /**
+   * Групповое удаление выбранных топиков
+   */
+  const deleteSelectedTopics = async () => {
+    const selected = selectedTopics()
+    if (selected.length === 0) return
+
+    try {
+      // Удаляем по одному (можно оптимизировать пакетным удалением)
+      for (const topicId of selected) {
+        await deleteTopic(topicId)
+      }
+
+      setSelectedTopics([])
+      setGroupAction('')
+      props.onSuccess(`Успешно удалено ${selected.length} тем`)
+    } catch (error) {
+      props.onError(`Ошибка группового удаления: ${(error as Error).message}`)
+    }
+  }
+
+  /**
    * Удаляет топик
    */
   const deleteTopic = async (topicId: number) => {
@@ -378,6 +478,21 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
           <Button variant="primary" onClick={() => setCreateModal({ show: true })}>
             Создать тему
           </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (selectedTopics().length === 1) {
+                const selectedTopic = rawTopics().find(t => t.id === selectedTopics()[0])
+                if (selectedTopic) {
+                  setSimpleParentModal({ show: true, topic: selectedTopic })
+                }
+              } else {
+                props.onError('Выберите одну тему для назначения родителя')
+              }
+            }}
+          >
+            🏠 Назначить родителя
+          </Button>
         </div>
       </div>
 
@@ -399,7 +514,53 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
               <th>Описание</th>
               <th>Сообщество</th>
               <th>Родители</th>
-              <th>Действия</th>
+              <th>
+                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px', 'flex-direction': 'column' }}>
+                  <div style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected()}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      style={{ cursor: 'pointer' }}
+                      title="Выбрать все"
+                    />
+                    <span style={{ 'font-size': '12px' }}>Все</span>
+                  </div>
+                  <Show when={hasSelectedTopics()}>
+                    <div style={{ display: 'flex', gap: '4px', 'align-items': 'center' }}>
+                      <select
+                        value={groupAction()}
+                        onChange={(e) => setGroupAction(e.target.value as 'delete' | 'merge' | '')}
+                        style={{
+                          padding: '2px 4px',
+                          'font-size': '11px',
+                          border: '1px solid #ddd',
+                          'border-radius': '3px'
+                        }}
+                      >
+                        <option value="">Действие</option>
+                        <option value="delete">Удалить</option>
+                        <option value="merge">Слить</option>
+                      </select>
+                      <button
+                        onClick={executeGroupAction}
+                        disabled={!groupAction()}
+                        style={{
+                          padding: '2px 6px',
+                          'font-size': '11px',
+                          background: groupAction() ? '#007bff' : '#ccc',
+                          color: 'white',
+                          border: 'none',
+                          'border-radius': '3px',
+                          cursor: groupAction() ? 'pointer' : 'not-allowed'
+                        }}
+                      >
+                        ✓
+                      </button>
+                    </div>
+                  </Show>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -431,25 +592,79 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
         title="Подтверждение удаления"
       >
         <div>
-          <p>
-            Вы уверены, что хотите удалить топик "<strong>{deleteModal().topic?.title}</strong>"?
-          </p>
-          <p class={styles['warning-text']}>
-            Это действие нельзя отменить. Все дочерние топики также будут удалены.
-          </p>
-          <div class={styles['modal-actions']}>
-            <Button variant="secondary" onClick={() => setDeleteModal({ show: false, topic: null })}>
-              Отмена
-            </Button>
-            <Button
+          <Show when={selectedTopics().length > 1}>
+            <p>
+              Вы уверены, что хотите удалить <strong>{selectedTopics().length}</strong> выбранных тем?
+            </p>
+            <p class={styles['warning-text']}>
+              Это действие нельзя отменить. Все дочерние топики также будут удалены.
+            </p>
+            <div class={styles['modal-actions']}>
+              <Button variant="secondary" onClick={() => setDeleteModal({ show: false, topic: null })}>
+                Отмена
+              </Button>
+              <Button variant="danger" onClick={deleteSelectedTopics}>
+                Удалить {selectedTopics().length} тем
+              </Button>
+            </div>
+          </Show>
+          <Show when={selectedTopics().length <= 1}>
+            <p>
+              Вы уверены, что хотите удалить топик "<strong>{deleteModal().topic?.title}</strong>"?
+            </p>
+            <p class={styles['warning-text']}>
+              Это действие нельзя отменить. Все дочерние топики также будут удалены.
+            </p>
+            <div class={styles['modal-actions']}>
+              <Button variant="secondary" onClick={() => setDeleteModal({ show: false, topic: null })}>
+                Отмена
+              </Button>
+                          <Button
               variant="danger"
-              onClick={() => deleteModal().topic && deleteTopic(deleteModal().topic!.id)}
+              onClick={() => {
+                if (deleteModal().topic) {
+                  void deleteTopic(deleteModal().topic!.id)
+                }
+              }}
             >
               Удалить
             </Button>
-          </div>
+            </div>
+          </Show>
         </div>
       </Modal>
+
+      {/* Модальное окно слияния тем */}
+      <TopicMergeModal
+        isOpen={mergeModal().show}
+        onClose={() => {
+          setMergeModal({ show: false })
+          setSelectedTopics([])
+          setGroupAction('')
+        }}
+        topics={rawTopics().filter(topic => selectedTopics().includes(topic.id))}
+        onSuccess={(message) => {
+          props.onSuccess(message)
+          setSelectedTopics([])
+          setGroupAction('')
+          void loadTopics()
+        }}
+        onError={props.onError}
+      />
+
+      {/* Модальное окно назначения родителя */}
+      <TopicSimpleParentModal
+        isOpen={simpleParentModal().show}
+        onClose={() => setSimpleParentModal({ show: false, topic: null })}
+        topic={simpleParentModal().topic}
+        allTopics={rawTopics()}
+        onSuccess={(message) => {
+          props.onSuccess(message)
+          setSimpleParentModal({ show: false, topic: null })
+          void loadTopics() // Перезагружаем данные
+        }}
+        onError={props.onError}
+      />
     </div>
   )
 }

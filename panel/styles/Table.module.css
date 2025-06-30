@@ -269,3 +269,152 @@
   background-color: #e9a8ae;
   cursor: not-allowed;
 }
+
+/* Новые стили для улучшенной панели поиска */
+.searchSection {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.searchRow {
+  margin-bottom: 12px;
+}
+
+.fullWidthSearch {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fullWidthSearch:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.fullWidthSearch::placeholder {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.filtersRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.statusFilter {
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  color: #495057;
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.statusFilter:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+/* Стили для сортируемых заголовков */
+.sortableHeader {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.sortableHeader:hover {
+  background-color: #e9ecef !important;
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.sortIcon {
+  font-size: 12px;
+  color: #6c757d;
+  margin-left: auto;
+  min-width: 16px;
+  text-align: center;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.sortableHeader:hover .sortIcon {
+  opacity: 1;
+}
+
+.sortableHeader[data-active="true"] .sortIcon {
+  color: #4f46e5;
+  opacity: 1;
+  font-weight: bold;
+}
+
+/* Улучшенные адаптивные стили */
+@media (max-width: 768px) {
+  .filtersRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .statusFilter {
+    min-width: auto;
+  }
+
+  .headerContent {
+    font-size: 12px;
+  }
+
+  .sortIcon {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .searchSection {
+    padding: 12px;
+  }
+
+  .fullWidthSearch {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .filtersRow {
+    gap: 8px;
+  }
+}
+
+/* Улучшения существующих стилей */
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 200px;
+  flex: 1;
+}

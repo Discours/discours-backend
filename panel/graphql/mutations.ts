@@ -137,3 +137,33 @@ export const ADMIN_DELETE_INVITES_BATCH_MUTATION = `
     }
   }
 `
+
+export const MERGE_TOPICS_MUTATION = `
+  mutation MergeTopics($merge_input: TopicMergeInput!) {
+    merge_topics(merge_input: $merge_input) {
+      error
+      message
+      topic {
+        id
+        title
+        slug
+      }
+      stats
+    }
+  }
+`
+
+export const SET_TOPIC_PARENT_MUTATION = `
+  mutation SetTopicParent($topic_id: Int!, $parent_id: Int) {
+    set_topic_parent(topic_id: $topic_id, parent_id: $parent_id) {
+      error
+      message
+      topic {
+        id
+        title
+        slug
+        parent_ids
+      }
+    }
+  }
+`

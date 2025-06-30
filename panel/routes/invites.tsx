@@ -43,6 +43,15 @@ interface InvitesRouteProps {
   onSuccess: (message: string) => void
 }
 
+// Добавляю типы для сортировки
+type SortField = 'inviter_name' | 'author_name' | 'shout_title' | 'status' | 'created_at'
+type SortDirection = 'asc' | 'desc'
+
+interface SortState {
+  field: SortField | null
+  direction: SortDirection
+}
+
 /**
  * Компонент для управления приглашениями
  */
@@ -72,6 +81,9 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
   const [batchDeleteModal, setBatchDeleteModal] = createSignal<{ show: boolean }>({
     show: false
   })
+
+  // Добавляю состояние сортировки
+  const [sortState, setSortState] = createSignal<SortState>({ field: null, direction: 'asc' })
 
   /**
    * Загружает список приглашений с учетом фильтров и пагинации
@@ -307,6 +319,34 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
     return Object.values(selectedInvites()).filter(Boolean).length
   }
 
+  /**
+   * Обработчик клика по заголовку колонки для сортировки
+   */
+  const handleSort = (field: SortField) => {
+    const current = sortState()
+    let newDirection: SortDirection = 'asc'
+
+    if (current.field === field) {
+      // Если кликнули по той же колонке, меняем направление
+      newDirection = current.direction === 'asc' ? 'desc' : 'asc'
+    }
+
+    setSortState({ field, direction: newDirection })
+    // Здесь можно добавить логику сортировки на сервере или клиенте
+    console.log(`Сортировка по ${field} в направлении ${newDirection}`)
+  }
+
+  /**
+   * Получает иконку сортировки для колонки
+   */
+  const getSortIcon = (field: SortField) => {
+    const current = sortState()
+    if (current.field !== field) {
+      return '↕️' // Неактивная сортировка
+    }
+    return current.direction === 'asc' ? '↑' : '↓'
+  }
+
   // Загружаем приглашения при монтировании компонента
   onMount(() => {
     void loadInvites()
@@ -314,20 +354,20 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
 
   return (
     <div class={styles.container}>
-      <div class={styles.header}>
-        <div class={styles.controls}>
+      {/* Новая компактная панель поиска и фильтров */}
+      <div class={styles.searchSection}>
+        <div class={styles.searchRow}>
           <input
             type="text"
-            placeholder="Поиск приглашений..."
+            placeholder="Поиск по приглашающему, приглашаемому, публикации..."
             value={search()}
             onInput={(e) => setSearch(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            class={styles.searchInput}
+            class={styles.fullWidthSearch}
           />
-          <Button onClick={handleSearch} disabled={loading()}>
-            🔍
-          </Button>
+        </div>
 
+        <div class={styles.filtersRow}>
           <select
             value={statusFilter()}
             onChange={(e) => handleStatusFilterChange(e.target.value)}
@@ -339,8 +379,12 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
             <option value="rejected">Отклонено</option>
           </select>
 
+          <Button onClick={handleSearch} disabled={loading()}>
+            🔍 Поиск
+          </Button>
+
           <Button onClick={() => loadInvites(pagination().page)} disabled={loading()}>
-            {loading() ? 'Загрузка...' : 'Обновить'}
+            {loading() ? 'Загрузка...' : '🔄 Обновить'}
           </Button>
         </div>
       </div>
@@ -391,10 +435,30 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
             <thead>
               <tr>
                 <th class={styles['checkbox-column']}></th>
-                <th>Приглашающий</th>
-                <th>Приглашаемый</th>
-                <th>Публикация</th>
-                <th>Статус</th>
+                <th class={styles.sortableHeader} onClick={() => handleSort('inviter_name')}>
+                  <span class={styles.headerContent}>
+                    Приглашающий
+                    <span class={styles.sortIcon}>{getSortIcon('inviter_name')}</span>
+                  </span>
+                </th>
+                <th class={styles.sortableHeader} onClick={() => handleSort('author_name')}>
+                  <span class={styles.headerContent}>
+                    Приглашаемый
+                    <span class={styles.sortIcon}>{getSortIcon('author_name')}</span>
+                  </span>
+                </th>
+                <th class={styles.sortableHeader} onClick={() => handleSort('shout_title')}>
+                  <span class={styles.headerContent}>
+                    Публикация
+                    <span class={styles.sortIcon}>{getSortIcon('shout_title')}</span>
+                  </span>
+                </th>
+                <th class={styles.sortableHeader} onClick={() => handleSort('status')}>
+                  <span class={styles.headerContent}>
+                    Статус
+                    <span class={styles.sortIcon}>{getSortIcon('status')}</span>
+                  </span>
+                </th>
                 <th>Действия</th>
               </tr>
             </thead>

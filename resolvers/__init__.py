@@ -76,6 +76,8 @@ from resolvers.topic import (
     get_topics_all,
     get_topics_by_author,
     get_topics_by_community,
+    merge_topics,
+    set_topic_parent,
 )
 
 events_register()
@@ -145,6 +147,7 @@ __all__ = [
     "load_shouts_unrated",
     "load_shouts_with_topic",
     "login",
+    "merge_topics",
     "notification_mark_seen",
     "notifications_seen_after",
     "notifications_seen_thread",
@@ -153,6 +156,7 @@ __all__ = [
     "rate_author",
     "register_by_email",
     "send_link",
+    "set_topic_parent",
     "unfollow",
     "unpublish_draft",
     "unpublish_shout",

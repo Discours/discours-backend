@@ -201,6 +201,8 @@ type Topic {
 
 type CommonResult {
   error: String
+  message: String
+  stats: String
   drafts: [Draft]
   draft: Draft
   slugs: [String]

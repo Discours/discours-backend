@@ -45,7 +45,7 @@ class SessionTokenManager(BaseTokenManager):
         # Создаем JWT токен
         jwt_token = JWTCodec.encode(
             {
-                "id": user_id,
+                "user_id": user_id,
                 "username": username,
             }
         )

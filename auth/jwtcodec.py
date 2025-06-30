@@ -21,9 +21,9 @@ class JWTCodec:
     def encode(user: Union[dict[str, Any], Any], exp: Optional[datetime] = None) -> str:
         # Поддержка как объектов, так и словарей
         if isinstance(user, dict):
-            # В TokenStorage.create_session передается словарь {"id": user_id, "email": username}
-            user_id = str(user.get("id", ""))
-            username = user.get("email", "") or user.get("username", "")
+            # В TokenStorage.create_session передается словарь {"user_id": user_id, "username": username}
+            user_id = str(user.get("user_id", "") or user.get("id", ""))
+            username = user.get("username", "") or user.get("email", "")
         else:
             # Для объектов с атрибутами
             user_id = str(getattr(user, "id", ""))

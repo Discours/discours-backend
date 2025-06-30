@@ -499,3 +499,299 @@ async def delete_topic_by_id(_: None, info: GraphQLResolveInfo, topic_id: int) -
             session.rollback()
             logger.error(f"Ошибка при удалении топика {topic_id}: {e}")
             return {"success": False, "message": f"Ошибка при удалении: {e!s}"}
+
+
+# Мутация для слияния тем
+@mutation.field("merge_topics")
+@login_required
+async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str, Any]) -> dict[str, Any]:
+    """
+    Сливает несколько тем в одну с переносом всех связей.
+
+    Args:
+        merge_input: Данные для слияния:
+            - target_topic_id: ID целевой темы (в которую сливаем)
+            - source_topic_ids: Список ID исходных тем (которые сливаем)
+            - preserve_target_properties: Сохранить свойства целевой темы
+
+    Returns:
+        dict: Результат операции с информацией о слиянии
+
+    Функциональность:
+        - Переносит всех подписчиков из исходных тем в целевую
+        - Переносит все публикации из исходных тем в целевую
+        - Обновляет связи с черновиками
+        - Проверяет принадлежность тем к одному сообществу
+        - Удаляет исходные темы после переноса
+        - Инвалидирует соответствующие кеши
+    """
+    viewer_id = info.context.get("author", {}).get("id")
+    target_topic_id = merge_input["target_topic_id"]
+    source_topic_ids = merge_input["source_topic_ids"]
+    preserve_target = merge_input.get("preserve_target_properties", True)
+
+    # Проверяем права доступа
+    if not viewer_id:
+        return {"error": "Не авторизован"}
+
+    # Проверяем что ID не пересекаются
+    if target_topic_id in source_topic_ids:
+        return {"error": "Целевая тема не может быть в списке исходных тем"}
+
+    with local_session() as session:
+        try:
+            # Получаем целевую тему
+            target_topic = session.query(Topic).filter(Topic.id == target_topic_id).first()
+            if not target_topic:
+                return {"error": f"Целевая тема с ID {target_topic_id} не найдена"}
+
+            # Получаем исходные темы
+            source_topics = session.query(Topic).filter(Topic.id.in_(source_topic_ids)).all()
+            if len(source_topics) != len(source_topic_ids):
+                found_ids = [t.id for t in source_topics]
+                missing_ids = [topic_id for topic_id in source_topic_ids if topic_id not in found_ids]
+                return {"error": f"Исходные темы с ID {missing_ids} не найдены"}
+
+            # Проверяем что все темы принадлежат одному сообществу
+            target_community = target_topic.community
+            for source_topic in source_topics:
+                if source_topic.community != target_community:
+                    return {"error": f"Тема '{source_topic.title}' принадлежит другому сообществу"}
+
+            # Получаем автора для проверки прав
+            author = session.query(Author).filter(Author.id == viewer_id).first()
+            if not author:
+                return {"error": "Автор не найден"}
+
+            # TODO: проверить права администратора или создателя тем
+            # Для админ-панели допускаем слияние любых тем администратором
+
+            # Собираем статистику для отчета
+            merge_stats = {"followers_moved": 0, "publications_moved": 0, "drafts_moved": 0, "source_topics_deleted": 0}
+
+            # Переносим подписчиков из исходных тем в целевую
+            for source_topic in source_topics:
+                # Получаем подписчиков исходной темы
+                source_followers = session.query(TopicFollower).filter(TopicFollower.topic == source_topic.id).all()
+
+                for follower in source_followers:
+                    # Проверяем, не подписан ли уже пользователь на целевую тему
+                    existing = (
+                        session.query(TopicFollower)
+                        .filter(TopicFollower.topic == target_topic_id, TopicFollower.follower == follower.follower)
+                        .first()
+                    )
+
+                    if not existing:
+                        # Создаем новую подписку на целевую тему
+                        new_follower = TopicFollower(
+                            topic=target_topic_id,
+                            follower=follower.follower,
+                            created_at=follower.created_at,
+                            auto=follower.auto,
+                        )
+                        session.add(new_follower)
+                        merge_stats["followers_moved"] += 1
+
+                    # Удаляем старую подписку
+                    session.delete(follower)
+
+            # Переносим публикации из исходных тем в целевую
+            from orm.shout import ShoutTopic
+
+            for source_topic in source_topics:
+                # Получаем связи публикаций с исходной темой
+                shout_topics = session.query(ShoutTopic).filter(ShoutTopic.topic == source_topic.id).all()
+
+                for shout_topic in shout_topics:
+                    # Проверяем, не связана ли уже публикация с целевой темой
+                    existing = (
+                        session.query(ShoutTopic)
+                        .filter(ShoutTopic.topic == target_topic_id, ShoutTopic.shout == shout_topic.shout)
+                        .first()
+                    )
+
+                    if not existing:
+                        # Создаем новую связь с целевой темой
+                        new_shout_topic = ShoutTopic(
+                            topic=target_topic_id, shout=shout_topic.shout, main=shout_topic.main
+                        )
+                        session.add(new_shout_topic)
+                        merge_stats["publications_moved"] += 1
+
+                    # Удаляем старую связь
+                    session.delete(shout_topic)
+
+            # Переносим черновики из исходных тем в целевую
+            from orm.draft import DraftTopic
+
+            for source_topic in source_topics:
+                # Получаем связи черновиков с исходной темой
+                draft_topics = session.query(DraftTopic).filter(DraftTopic.topic == source_topic.id).all()
+
+                for draft_topic in draft_topics:
+                    # Проверяем, не связан ли уже черновик с целевой темой
+                    existing = (
+                        session.query(DraftTopic)
+                        .filter(DraftTopic.topic == target_topic_id, DraftTopic.shout == draft_topic.shout)
+                        .first()
+                    )
+
+                    if not existing:
+                        # Создаем новую связь с целевой темой
+                        new_draft_topic = DraftTopic(
+                            topic=target_topic_id, shout=draft_topic.shout, main=draft_topic.main
+                        )
+                        session.add(new_draft_topic)
+                        merge_stats["drafts_moved"] += 1
+
+                    # Удаляем старую связь
+                    session.delete(draft_topic)
+
+            # Объединяем parent_ids если не сохраняем только целевые свойства
+            if not preserve_target:
+                current_parent_ids: list[int] = list(target_topic.parent_ids or [])
+                all_parent_ids = set(current_parent_ids)
+                for source_topic in source_topics:
+                    source_parent_ids: list[int] = list(source_topic.parent_ids or [])
+                    if source_parent_ids:
+                        all_parent_ids.update(source_parent_ids)
+                # Убираем IDs исходных тем из parent_ids
+                all_parent_ids.discard(target_topic_id)
+                for source_id in source_topic_ids:
+                    all_parent_ids.discard(source_id)
+                target_topic.parent_ids = list(all_parent_ids) if all_parent_ids else []  # type: ignore[assignment]
+
+            # Инвалидируем кеши ПЕРЕД удалением тем
+            for source_topic in source_topics:
+                await invalidate_topic_followers_cache(int(source_topic.id))
+                if source_topic.slug:
+                    await redis.execute("DEL", f"topic:slug:{source_topic.slug}")
+                await redis.execute("DEL", f"topic:id:{source_topic.id}")
+
+            # Удаляем исходные темы
+            for source_topic in source_topics:
+                session.delete(source_topic)
+                merge_stats["source_topics_deleted"] += 1
+                logger.info(f"Удалена исходная тема: {source_topic.title} (ID: {source_topic.id})")
+
+            # Сохраняем изменения
+            session.commit()
+
+            # Инвалидируем кеши целевой темы и общие кеши
+            await invalidate_topics_cache(target_topic_id)
+            await invalidate_topic_followers_cache(target_topic_id)
+
+            logger.info(f"Успешно слиты темы {source_topic_ids} в тему {target_topic_id}")
+            logger.info(f"Статистика слияния: {merge_stats}")
+
+            return {
+                "topic": target_topic,
+                "message": f"Успешно слито {len(source_topics)} тем в '{target_topic.title}'",
+                "stats": merge_stats,
+            }
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Ошибка при слиянии тем: {e}")
+            return {"error": f"Ошибка при слиянии тем: {e!s}"}
+
+
+# Мутация для простого назначения родителя темы
+@mutation.field("set_topic_parent")
+@login_required
+async def set_topic_parent(
+    _: None, info: GraphQLResolveInfo, topic_id: int, parent_id: int | None = None
+) -> dict[str, Any]:
+    """
+    Простое назначение родительской темы для указанной темы.
+
+    Args:
+        topic_id: ID темы, которой назначаем родителя
+        parent_id: ID родительской темы (None для корневой темы)
+
+    Returns:
+        dict: Результат операции
+
+    Функциональность:
+        - Устанавливает parent_ids для темы
+        - Проверяет циклические зависимости
+        - Проверяет принадлежность к одному сообществу
+        - Инвалидирует кеши
+    """
+    viewer_id = info.context.get("author", {}).get("id")
+
+    # Проверяем права доступа
+    if not viewer_id:
+        return {"error": "Не авторизован"}
+
+    with local_session() as session:
+        try:
+            # Получаем тему
+            topic = session.query(Topic).filter(Topic.id == topic_id).first()
+            if not topic:
+                return {"error": f"Тема с ID {topic_id} не найдена"}
+
+            # Если устанавливаем корневую тему
+            if parent_id is None:
+                old_parent_ids: list[int] = list(topic.parent_ids or [])
+                topic.parent_ids = []  # type: ignore[assignment]
+                session.commit()
+
+                # Инвалидируем кеши
+                await invalidate_topics_cache(topic_id)
+
+                return {
+                    "topic": topic,
+                    "message": f"Тема '{topic.title}' установлена как корневая",
+                }
+
+            # Получаем родительскую тему
+            parent_topic = session.query(Topic).filter(Topic.id == parent_id).first()
+            if not parent_topic:
+                return {"error": f"Родительская тема с ID {parent_id} не найдена"}
+
+            # Проверяем принадлежность к одному сообществу
+            if topic.community != parent_topic.community:
+                return {"error": "Тема и родительская тема должны принадлежать одному сообществу"}
+
+            # Проверяем циклические зависимости
+            def is_descendant(potential_parent: Topic, child_id: int) -> bool:
+                """Проверяет, является ли тема потомком другой темы"""
+                if potential_parent.id == child_id:
+                    return True
+
+                # Ищем всех потомков parent'а
+                descendants = session.query(Topic).filter(Topic.parent_ids.op("@>")([potential_parent.id])).all()
+
+                for descendant in descendants:
+                    if descendant.id == child_id or is_descendant(descendant, child_id):
+                        return True
+
+                return False
+
+            if is_descendant(topic, parent_id):
+                return {"error": "Нельзя установить потомка как родителя (циклическая зависимость)"}
+
+            # Устанавливаем новые parent_ids
+            parent_parent_ids: list[int] = list(parent_topic.parent_ids or [])
+            new_parent_ids = [*parent_parent_ids, parent_id]
+
+            topic.parent_ids = new_parent_ids  # type: ignore[assignment]
+            session.commit()
+
+            # Инвалидируем кеши
+            await invalidate_topics_cache(topic_id)
+            await invalidate_topics_cache(parent_id)
+
+            logger.info(f"Установлен родитель для темы {topic_id}: {parent_id}")
+
+            return {
+                "topic": topic,
+                "message": f"Тема '{topic.title}' перемещена под '{parent_topic.title}'",
+            }
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Ошибка при назначении родителя темы: {e}")
+            return {"error": f"Ошибка при назначении родителя: {e!s}"}

@@ -25,6 +25,12 @@ input TopicInput {
   parent_ids: [Int]
 }
 
+input TopicMergeInput {
+  target_topic_id: Int!
+  source_topic_ids: [Int!]!
+  preserve_target_properties: Boolean
+}
+
 input DraftInput {
   id: Int
   # no created_at, updated_at, deleted_at, updated_by, deleted_by
