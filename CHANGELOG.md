@@ -5,6 +5,8 @@
 ### auth/internal fix
 - Исправлена ошибка в функции `authenticate` в файле `auth/internal.py` - неправильное создание объекта `AuthState` и использование `TokenManager` вместо прямого создания `SessionTokenManager`
 - Исправлена ошибка в функции `admin_get_invites` в файле `resolvers/admin.py` - добавлено значение по умолчанию для поля `slug` в объектах `Author`, чтобы избежать ошибки "Cannot return null for non-nullable field Author.slug"
+- Исправлена ошибка в функции `admin_get_invites` - заменен несуществующий атрибут `Shout.created_by_author` на правильное получение автора через поле `created_by`
+- Исправлена функция `admin_delete_invites_batch` - завершена реализация для корректной обработки пакетного удаления приглашений
 
 ### Улучшения админ-панели для приглашений
 

@@ -715,7 +715,7 @@ async def admin_get_invites(
             query = session.query(Invite).options(
                 joinedload(Invite.inviter),
                 joinedload(Invite.author),
-                joinedload(Invite.shout).joinedload(Shout.created_by_author),
+                joinedload(Invite.shout),
             )
 
             # Фильтр по статусу
@@ -769,42 +769,53 @@ async def admin_get_invites(
             )
 
             # Преобразуем в формат для API
-            return {
-                "invites": [
-                    {
-                        "inviter_id": invite.inviter_id,
-                        "author_id": invite.author_id,
-                        "shout_id": invite.shout_id,
-                        "status": invite.status,
-                        "inviter": {
-                            "id": invite.inviter.id,
-                            "name": invite.inviter.name or "Без имени",
-                            "email": invite.inviter.email,
-                            "slug": invite.inviter.slug
-                            or f"user-{invite.inviter.id}",  # Добавляем значение по умолчанию
-                        },
-                        "author": {
-                            "id": invite.author.id,
-                            "name": invite.author.name or "Без имени",
-                            "email": invite.author.email,
-                            "slug": invite.author.slug or f"user-{invite.author.id}",  # Добавляем значение по умолчанию
-                        },
-                        "shout": {
-                            "id": invite.shout.id,
-                            "title": invite.shout.title,
-                            "slug": invite.shout.slug,
-                            "created_by": {
-                                "id": invite.shout.created_by_author.id,
-                                "name": invite.shout.created_by_author.name or "Без имени",
-                                "email": invite.shout.created_by_author.email,
-                                "slug": invite.shout.created_by_author.slug
-                                or f"user-{invite.shout.created_by_author.id}",  # Добавляем значение по умолчанию
-                            },
-                        },
-                        "created_at": None,  # У приглашений нет created_at поля в текущей модели
+            result_invites = []
+            for invite in invites:
+                # Получаем автора публикации
+                created_by_author = None
+                if invite.shout and invite.shout.created_by:
+                    created_by_author = session.query(Author).filter(Author.id == invite.shout.created_by).first()
+
+                invite_dict = {
+                    "inviter_id": invite.inviter_id,
+                    "author_id": invite.author_id,
+                    "shout_id": invite.shout_id,
+                    "status": invite.status,
+                    "inviter": {
+                        "id": invite.inviter.id,
+                        "name": invite.inviter.name or "Без имени",
+                        "email": invite.inviter.email,
+                        "slug": invite.inviter.slug or f"user-{invite.inviter.id}",  # Добавляем значение по умолчанию
+                    },
+                    "author": {
+                        "id": invite.author.id,
+                        "name": invite.author.name or "Без имени",
+                        "email": invite.author.email,
+                        "slug": invite.author.slug or f"user-{invite.author.id}",  # Добавляем значение по умолчанию
+                    },
+                    "shout": {
+                        "id": invite.shout.id,
+                        "title": invite.shout.title,
+                        "slug": invite.shout.slug,
+                    },
+                    "created_at": None,  # У приглашений нет created_at поля в текущей модели
+                }
+
+                # Добавляем информацию о создателе публикации, если она доступна
+                if created_by_author:
+                    invite_dict["shout"]["created_by"] = {
+                        "id": created_by_author.id,
+                        "name": created_by_author.name or "Без имени",
+                        "email": created_by_author.email,
+                        "slug": created_by_author.slug or f"user-{created_by_author.id}",
                     }
-                    for invite in invites
-                ],
+                else:
+                    invite_dict["shout"]["created_by"] = None
+
+                result_invites.append(invite_dict)
+
+            return {
+                "invites": result_invites,
                 "total": total_count,
                 "page": current_page,
                 "perPage": per_page,
@@ -1028,11 +1039,7 @@ async def admin_delete_invites_batch(
                 # Находим приглашение для удаления
                 invite = (
                     session.query(Invite)
-                    .filter(
-                        Invite.inviter_id == inviter_id,
-                        Invite.author_id == author_id,
-                        Invite.shout_id == shout_id,
-                    )
+                    .filter(Invite.inviter_id == inviter_id, Invite.author_id == author_id, Invite.shout_id == shout_id)
                     .first()
                 )
 
@@ -1047,15 +1054,16 @@ async def admin_delete_invites_batch(
             # Сохраняем все изменения за раз
             if deleted_count > 0:
                 session.commit()
-                logger.info(f"Пакетное удаление: удалено {deleted_count} приглашений")
+                logger.info(f"Пакетное удаление приглашений: удалено {deleted_count} приглашений")
 
-        if errors:
-            error_message = f"Удалено {deleted_count} из {len(invites)} приглашений. Ошибки: {', '.join(errors)}"
-            return {"success": deleted_count > 0, "error": error_message}
+            # Формируем результат
+            result = {"success": True, "error": None}
+            if errors:
+                result["error"] = f"Удалено {deleted_count} приглашений. Ошибки: {', '.join(errors)}"
 
-        return {"success": True, "error": None}
+            return result
 
     except Exception as e:
         logger.error(f"Ошибка при пакетном удалении приглашений: {e!s}")
-        msg = f"Не удалось удалить приглашения: {e!s}"
+        msg = f"Не удалось выполнить пакетное удаление приглашений: {e!s}"
         raise GraphQLError(msg) from e
