@@ -2,6 +2,10 @@
 
 ## [0.5.10] - 2025-06-30
 
+### auth/internal fix
+- Исправлена ошибка в функции `authenticate` в файле `auth/internal.py` - неправильное создание объекта `AuthState` и использование `TokenManager` вместо прямого создания `SessionTokenManager`
+- Исправлена ошибка в функции `admin_get_invites` в файле `resolvers/admin.py` - добавлено значение по умолчанию для поля `slug` в объектах `Author`, чтобы избежать ошибки "Cannot return null for non-nullable field Author.slug"
+
 ### Новая функциональность CRUD приглашений
 
 - **НОВОЕ**: Полноценное управление приглашениями в админ-панели:

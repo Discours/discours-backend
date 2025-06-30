@@ -780,13 +780,14 @@ async def admin_get_invites(
                             "id": invite.inviter.id,
                             "name": invite.inviter.name or "Без имени",
                             "email": invite.inviter.email,
-                            "slug": invite.inviter.slug,
+                            "slug": invite.inviter.slug
+                            or f"user-{invite.inviter.id}",  # Добавляем значение по умолчанию
                         },
                         "author": {
                             "id": invite.author.id,
                             "name": invite.author.name or "Без имени",
                             "email": invite.author.email,
-                            "slug": invite.author.slug,
+                            "slug": invite.author.slug or f"user-{invite.author.id}",  # Добавляем значение по умолчанию
                         },
                         "shout": {
                             "id": invite.shout.id,
@@ -796,7 +797,8 @@ async def admin_get_invites(
                                 "id": invite.shout.created_by_author.id,
                                 "name": invite.shout.created_by_author.name or "Без имени",
                                 "email": invite.shout.created_by_author.email,
-                                "slug": invite.shout.created_by_author.slug,
+                                "slug": invite.shout.created_by_author.slug
+                                or f"user-{invite.shout.created_by_author.id}",  # Добавляем значение по умолчанию
                             },
                         },
                         "created_at": None,  # У приглашений нет created_at поля в текущей модели

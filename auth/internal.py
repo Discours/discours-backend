@@ -99,52 +99,43 @@ async def authenticate(request) -> AuthState:
         AuthState: Состояние аутентификации
     """
     from auth.decorators import get_auth_token
-    from auth.tokens.sessions import SessionTokenManager
     from utils.logger import root_logger as logger
 
     logger.debug("[authenticate] Начало аутентификации")
+
+    # Создаем объект AuthState
+    auth_state = AuthState()
+    auth_state.logged_in = False
+    auth_state.author_id = None
+    auth_state.error = None
+    auth_state.token = None
 
     # Получаем токен из запроса
     token = get_auth_token(request)
     if not token:
         logger.warning("[authenticate] Токен не найден в запросе")
-        auth_state = AuthState()
-        auth_state.logged_in = False
-        auth_state.author_id = None
         auth_state.error = "No authentication token provided"
-        auth_state.token = None
         return auth_state
 
     logger.debug(f"[authenticate] Токен найден, длина: {len(token)}")
 
     # Проверяем токен
     try:
-        # Создаем экземпляр SessionTokenManager
-        session_manager = SessionTokenManager()
-        # Проверяем токен
-        auth_result = await session_manager.verify_session(token)
+        # Используем TokenManager вместо прямого создания SessionTokenManager
+        auth_result = await TokenManager.verify_session(token)
 
-        if auth_result and hasattr(auth_result, "user_id"):
+        if auth_result and hasattr(auth_result, "user_id") and auth_result.user_id:
             logger.debug(f"[authenticate] Успешная аутентификация, user_id: {auth_result.user_id}")
-            auth_state = AuthState()
             auth_state.logged_in = True
             auth_state.author_id = auth_result.user_id
-            auth_state.error = None
             auth_state.token = token
             return auth_state
+
         error_msg = "Invalid or expired token"
         logger.warning(f"[authenticate] Недействительный токен: {error_msg}")
-        auth_state = AuthState()
-        auth_state.logged_in = False
-        auth_state.author_id = None
         auth_state.error = error_msg
-        auth_state.token = None
         return auth_state
     except Exception as e:
         logger.error(f"[authenticate] Ошибка при проверке токена: {e}")
-        auth_state = AuthState()
-        auth_state.logged_in = False
-        auth_state.author_id = None
         auth_state.error = f"Authentication error: {e!s}"
-        auth_state.token = None
         return auth_state
