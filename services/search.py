@@ -214,7 +214,7 @@ class SearchService:
             logger.info(f"Search service info: {result}")
             return result
         except Exception:
-            logger.exception("Failed to get search info")
+            logger.error("Failed to get search info")
             return {"status": "error", "message": "Failed to get search info"}
 
     def is_ready(self) -> bool:
