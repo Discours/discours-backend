@@ -1,7 +1,7 @@
 import { Component, createSignal, For, Show } from 'solid-js'
+import styles from '../styles/Form.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
-import styles from '../styles/Form.module.css'
 
 interface Topic {
   id: number
@@ -33,21 +33,19 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
 
   // Получаем выбранные топики
   const getSelectedTopics = () => {
-    return props.allTopics.filter(topic =>
-      props.selectedTopicIds.includes(topic.id)
-    )
+    return props.allTopics.filter((topic) => props.selectedTopicIds.includes(topic.id))
   }
 
   // Фильтрация доступных родителей
   const getAvailableParents = () => {
     const selectedIds = new Set(props.selectedTopicIds)
 
-    return props.allTopics.filter(topic => {
+    return props.allTopics.filter((topic) => {
       // Исключаем выбранные топики
       if (selectedIds.has(topic.id)) return false
 
       // Исключаем топики, которые являются детьми выбранных
-      const isChildOfSelected = props.selectedTopicIds.some(selectedId =>
+      const isChildOfSelected = props.selectedTopicIds.some((selectedId) =>
         isDescendant(selectedId, topic.id)
       )
       if (isChildOfSelected) return false
@@ -62,7 +60,7 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
 
   // Проверка, является ли топик потомком другого
   const isDescendant = (ancestorId: number, descendantId: number): boolean => {
-    const descendant = props.allTopics.find(t => t.id === descendantId)
+    const descendant = props.allTopics.find((t) => t.id === descendantId)
     if (!descendant || !descendant.parent_ids) return false
 
     return descendant.parent_ids.includes(ancestorId)
@@ -70,7 +68,7 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
 
   // Получение пути к корню
   const getTopicPath = (topicId: number): string => {
-    const topic = props.allTopics.find(t => t.id === topicId)
+    const topic = props.allTopics.find((t) => t.id === topicId)
     if (!topic) return ''
 
     if (!topic.parent_ids || topic.parent_ids.length === 0) {
@@ -86,7 +84,7 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
     const selectedTopics = getSelectedTopics()
     const communities = new Map<number, Topic[]>()
 
-    selectedTopics.forEach(topic => {
+    selectedTopics.forEach((topic) => {
       if (!communities.has(topic.community)) {
         communities.set(topic.community, [])
       }
@@ -108,7 +106,7 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
       return 'Выберите родительскую тему'
     }
 
-    const selectedParent = props.allTopics.find(t => t.id === newParentId())
+    const selectedParent = props.allTopics.find((t) => t.id === newParentId())
     if (selectedParent) {
       const selectedCommunity = Array.from(communities.keys())[0]
       if (selectedParent.community !== selectedCommunity) {
@@ -130,11 +128,11 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
     const changes: BulkParentChange[] = []
     const selectedTopics = getSelectedTopics()
 
-    selectedTopics.forEach(topic => {
+    selectedTopics.forEach((topic) => {
       let newParentIds: number[] = []
 
       if (actionType() === 'set' && newParentId()) {
-        const parentTopic = props.allTopics.find(t => t.id === newParentId())
+        const parentTopic = props.allTopics.find((t) => t.id === newParentId())
         if (parentTopic) {
           newParentIds = [...(parentTopic.parent_ids || []), newParentId()!]
         }
@@ -161,7 +159,8 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
         {/* Проверка совместимости */}
         <Show when={getTopicsByCommunity().size > 1}>
           <div class={styles.errorMessage}>
-            ⚠️ Выбраны темы из разных сообществ. Массовое изменение иерархии возможно только для тем одного сообщества.
+            ⚠️ Выбраны темы из разных сообществ. Массовое изменение иерархии возможно только для тем одного
+            сообщества.
           </div>
         </Show>
 
@@ -175,9 +174,7 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
                   <span class={styles.topicTitle}>{topic.title}</span>
                   <span class={styles.topicId}>#{topic.id}</span>
                   <Show when={topic.parent_ids && topic.parent_ids.length > 0}>
-                    <div class={styles.currentPath}>
-                      Текущий путь: {getTopicPath(topic.id)}
-                    </div>
+                    <div class={styles.currentPath}>Текущий путь: {getTopicPath(topic.id)}</div>
                   </Show>
                 </div>
               )}
@@ -256,9 +253,7 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
                         <span class={styles.topicSlug}>{topic.slug}</span>
                       </div>
                       <Show when={topic.parent_ids && topic.parent_ids.length > 0}>
-                        <div class={styles.parentPath}>
-                          Текущий путь: {getTopicPath(topic.id)}
-                        </div>
+                        <div class={styles.parentPath}>Текущий путь: {getTopicPath(topic.id)}</div>
                       </Show>
                     </label>
                   </div>
@@ -270,8 +265,7 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
               <div class={styles.noResults}>
                 {searchQuery()
                   ? `Нет доступных тем для поиска "${searchQuery()}"`
-                  : 'Нет доступных родительских тем'
-                }
+                  : 'Нет доступных родительских тем'}
               </div>
             </Show>
           </div>
@@ -292,11 +286,12 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
                       </span>
                       <span class={styles.arrow}>→</span>
                       <span class={styles.afterState}>
-                        Станет: {
-                          actionType() === 'makeRoot'
-                            ? 'Корневая тема'
-                            : newParentId() ? `${getTopicPath(newParentId()!)} → ${topic.title}` : ''
-                        }
+                        Станет:{' '}
+                        {actionType() === 'makeRoot'
+                          ? 'Корневая тема'
+                          : newParentId()
+                            ? `${getTopicPath(newParentId()!)} → ${topic.title}`
+                            : ''}
                       </span>
                     </div>
                   </div>

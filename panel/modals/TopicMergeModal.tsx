@@ -1,8 +1,8 @@
 import { Component, createSignal, For, Show } from 'solid-js'
+import { MERGE_TOPICS_MUTATION } from '../graphql/mutations'
+import styles from '../styles/Form.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
-import styles from '../styles/Form.module.css'
-import { MERGE_TOPICS_MUTATION } from '../graphql/mutations'
 
 // Типы для топиков
 interface Topic {
@@ -44,10 +44,12 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
    * Получает токен авторизации из localStorage или cookie
    */
   const getAuthTokenFromCookie = () => {
-    return document.cookie
-      .split('; ')
-      .find(row => row.startsWith('auth_token='))
-      ?.split('=')[1] || ''
+    return (
+      document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('auth_token='))
+        ?.split('=')[1] || ''
+    )
   }
 
   /**
@@ -55,9 +57,9 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
    */
   const handleSourceTopicToggle = (topicId: number, checked: boolean) => {
     if (checked) {
-      setSourceTopicIds(prev => [...prev, topicId])
+      setSourceTopicIds((prev) => [...prev, topicId])
     } else {
-      setSourceTopicIds(prev => prev.filter(id => id !== topicId))
+      setSourceTopicIds((prev) => prev.filter((id) => id !== topicId))
     }
   }
 
@@ -78,13 +80,13 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
     }
 
     // Проверяем что все темы принадлежат одному сообществу
-    const targetTopic = props.topics.find(t => t.id === target)
+    const targetTopic = props.topics.find((t) => t.id === target)
     if (!targetTopic) return false
 
     const targetCommunity = targetTopic.community
-    const sourcesTopics = props.topics.filter(t => sources.includes(t.id))
+    const sourcesTopics = props.topics.filter((t) => sources.includes(t.id))
 
-    return sourcesTopics.every(topic => topic.community === targetCommunity)
+    return sourcesTopics.every((topic) => topic.community === targetCommunity)
   }
 
   /**
@@ -141,12 +143,12 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
       }
 
       const stats = mergeResult.stats as MergeStats
-      const statsText = stats ?
-        ` (перенесено ${stats.followers_moved} подписчиков, ${stats.publications_moved} публикаций, ${stats.drafts_moved} черновиков, удалено ${stats.source_topics_deleted} тем)` : ''
+      const statsText = stats
+        ? ` (перенесено ${stats.followers_moved} подписчиков, ${stats.publications_moved} публикаций, ${stats.drafts_moved} черновиков, удалено ${stats.source_topics_deleted} тем)`
+        : ''
 
       props.onSuccess(mergeResult.message + statsText)
       handleClose()
-
     } catch (error) {
       const errorMessage = (error as Error).message
       setError(errorMessage)
@@ -173,7 +175,7 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
    */
   const getAvailableTargetTopics = () => {
     const sources = sourceTopicIds()
-    return props.topics.filter(topic => !sources.includes(topic.id))
+    return props.topics.filter((topic) => !sources.includes(topic.id))
   }
 
   /**
@@ -181,26 +183,22 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
    */
   const getAvailableSourceTopics = () => {
     const target = targetTopicId()
-    return props.topics.filter(topic => topic.id !== target)
+    return props.topics.filter((topic) => topic.id !== target)
   }
 
   return (
-    <Modal
-      isOpen={props.isOpen}
-      onClose={handleClose}
-      title="Слияние тем"
-      size="large"
-    >
+    <Modal isOpen={props.isOpen} onClose={handleClose} title="Слияние тем" size="large">
       <div class={styles.form}>
         <div class={styles.section}>
           <h3 class={styles.sectionTitle}>Выбор целевой темы</h3>
           <p class={styles.description}>
-            Выберите тему, в которую будут слиты остальные темы. Все подписчики и публикации будут перенесены в эту тему.
+            Выберите тему, в которую будут слиты остальные темы. Все подписчики и публикации будут
+            перенесены в эту тему.
           </p>
 
           <select
             value={targetTopicId() || ''}
-            onChange={(e) => setTargetTopicId(e.target.value ? parseInt(e.target.value) : null)}
+            onChange={(e) => setTargetTopicId(e.target.value ? Number.parseInt(e.target.value) : null)}
             class={styles.select}
             disabled={loading()}
           >
@@ -219,7 +217,8 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
         <div class={styles.section}>
           <h3 class={styles.sectionTitle}>Выбор исходных тем для слияния</h3>
           <p class={styles.description}>
-            Выберите темы, которые будут слиты в целевую тему. Эти темы будут удалены после переноса всех связей.
+            Выберите темы, которые будут слиты в целевую тему. Эти темы будут удалены после переноса всех
+            связей.
           </p>
 
           <Show when={getAvailableSourceTopics().length > 0}>
@@ -242,7 +241,10 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
                         <div class={styles.topicInfo}>
                           {getCommunityName(topic.community)} • ID: {topic.id}
                           {topic.stat && (
-                            <span> • {topic.stat.shouts} публ., {topic.stat.followers} подп.</span>
+                            <span>
+                              {' '}
+                              • {topic.stat.shouts} публ., {topic.stat.followers} подп.
+                            </span>
                           )}
                         </div>
                       </div>
@@ -283,39 +285,32 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
             <h4>Предпросмотр слияния:</h4>
             <ul>
               <li>
-                <strong>Целевая тема:</strong> {props.topics.find(t => t.id === targetTopicId())?.title}
+                <strong>Целевая тема:</strong> {props.topics.find((t) => t.id === targetTopicId())?.title}
               </li>
               <li>
                 <strong>Исходные темы:</strong> {sourceTopicIds().length} шт.
                 <ul>
                   <For each={sourceTopicIds()}>
                     {(id) => {
-                      const topic = props.topics.find(t => t.id === id)
+                      const topic = props.topics.find((t) => t.id === id)
                       return topic ? <li>{topic.title}</li> : null
                     }}
                   </For>
                 </ul>
               </li>
               <li>
-                <strong>Действие:</strong> Все подписчики, публикации и черновики будут перенесены в целевую тему, исходные темы будут удалены
+                <strong>Действие:</strong> Все подписчики, публикации и черновики будут перенесены в целевую
+                тему, исходные темы будут удалены
               </li>
             </ul>
           </div>
         </Show>
 
         <div class={styles.modalActions}>
-          <Button
-            variant="secondary"
-            onClick={handleClose}
-            disabled={loading()}
-          >
+          <Button variant="secondary" onClick={handleClose} disabled={loading()}>
             Отмена
           </Button>
-          <Button
-            variant="danger"
-            onClick={handleMerge}
-            disabled={!canMerge() || loading()}
-          >
+          <Button variant="danger" onClick={handleMerge} disabled={!canMerge() || loading()}>
             {loading() ? 'Выполняется слияние...' : 'Слить темы'}
           </Button>
         </div>

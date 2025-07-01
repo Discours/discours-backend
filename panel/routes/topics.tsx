@@ -326,9 +326,9 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
    */
   const handleTopicSelect = (topicId: number, checked: boolean) => {
     if (checked) {
-      setSelectedTopics(prev => [...prev, topicId])
+      setSelectedTopics((prev) => [...prev, topicId])
     } else {
-      setSelectedTopics(prev => prev.filter(id => id !== topicId))
+      setSelectedTopics((prev) => prev.filter((id) => id !== topicId))
     }
   }
 
@@ -337,7 +337,7 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
    */
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allTopicIds = rawTopics().map(topic => topic.id)
+      const allTopicIds = rawTopics().map((topic) => topic.id)
       setSelectedTopics(allTopicIds)
     } else {
       setSelectedTopics([])
@@ -348,9 +348,9 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
    * Проверяет выбраны ли все топики
    */
   const isAllSelected = () => {
-    const allIds = rawTopics().map(topic => topic.id)
+    const allIds = rawTopics().map((topic) => topic.id)
     const selected = selectedTopics()
-    return allIds.length > 0 && allIds.every(id => selected.includes(id))
+    return allIds.length > 0 && allIds.every((id) => selected.includes(id))
   }
 
   /**
@@ -372,7 +372,7 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
 
     if (action === 'delete') {
       // Групповое удаление
-      const selectedTopicsData = rawTopics().filter(t => selected.includes(t.id))
+      const selectedTopicsData = rawTopics().filter((t) => selected.includes(t.id))
       setDeleteModal({ show: true, topic: selectedTopicsData[0] }) // Используем первый для отображения
     } else if (action === 'merge') {
       // Слияние топиков
@@ -482,7 +482,7 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
             variant="secondary"
             onClick={() => {
               if (selectedTopics().length === 1) {
-                const selectedTopic = rawTopics().find(t => t.id === selectedTopics()[0])
+                const selectedTopic = rawTopics().find((t) => t.id === selectedTopics()[0])
                 if (selectedTopic) {
                   setSimpleParentModal({ show: true, topic: selectedTopic })
                 }
@@ -515,7 +515,14 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
               <th>Сообщество</th>
               <th>Родители</th>
               <th>
-                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px', 'flex-direction': 'column' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    'align-items': 'center',
+                    gap: '8px',
+                    'flex-direction': 'column'
+                  }}
+                >
                   <div style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
                     <input
                       type="checkbox"
@@ -619,16 +626,16 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
               <Button variant="secondary" onClick={() => setDeleteModal({ show: false, topic: null })}>
                 Отмена
               </Button>
-                          <Button
-              variant="danger"
-              onClick={() => {
-                if (deleteModal().topic) {
-                  void deleteTopic(deleteModal().topic!.id)
-                }
-              }}
-            >
-              Удалить
-            </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  if (deleteModal().topic) {
+                    void deleteTopic(deleteModal().topic!.id)
+                  }
+                }}
+              >
+                Удалить
+              </Button>
             </div>
           </Show>
         </div>
@@ -642,7 +649,7 @@ const TopicsRoute: Component<TopicsRouteProps> = (props) => {
           setSelectedTopics([])
           setGroupAction('')
         }}
-        topics={rawTopics().filter(topic => selectedTopics().includes(topic.id))}
+        topics={rawTopics().filter((topic) => selectedTopics().includes(topic.id))}
         onSuccess={(message) => {
           props.onSuccess(message)
           setSelectedTopics([])

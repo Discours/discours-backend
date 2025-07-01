@@ -1,7 +1,7 @@
 import { Component, createSignal, For, Show } from 'solid-js'
+import styles from '../styles/Form.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
-import styles from '../styles/Form.module.css'
 
 interface Topic {
   id: number
@@ -38,7 +38,7 @@ const TopicParentModal: Component<TopicParentModalProps> = (props) => {
     const currentTopic = props.topic
     if (!currentTopic) return []
 
-    return props.allTopics.filter(topic => {
+    return props.allTopics.filter((topic) => {
       // Исключаем сам топик
       if (topic.id === currentTopic.id) return false
 
@@ -58,7 +58,7 @@ const TopicParentModal: Component<TopicParentModalProps> = (props) => {
 
   // Проверка, является ли топик потомком другого
   const isDescendant = (ancestorId: number, descendantId: number): boolean => {
-    const descendant = props.allTopics.find(t => t.id === descendantId)
+    const descendant = props.allTopics.find((t) => t.id === descendantId)
     if (!descendant || !descendant.parent_ids) return false
 
     return descendant.parent_ids.includes(ancestorId)
@@ -66,7 +66,7 @@ const TopicParentModal: Component<TopicParentModalProps> = (props) => {
 
   // Получение пути к корню для отображения полного пути
   const getTopicPath = (topicId: number): string => {
-    const topic = props.allTopics.find(t => t.id === topicId)
+    const topic = props.allTopics.find((t) => t.id === topicId)
     if (!topic) return ''
 
     if (!topic.parent_ids || topic.parent_ids.length === 0) {
@@ -86,7 +86,7 @@ const TopicParentModal: Component<TopicParentModalProps> = (props) => {
     let newParentIds: number[] = []
 
     if (newParentId) {
-      const parentTopic = props.allTopics.find(t => t.id === newParentId)
+      const parentTopic = props.allTopics.find((t) => t.id === newParentId)
       if (parentTopic) {
         // Строим полный путь от корня до нового родителя
         newParentIds = [...(parentTopic.parent_ids || []), newParentId]
@@ -128,10 +128,7 @@ const TopicParentModal: Component<TopicParentModalProps> = (props) => {
         <div class={styles.currentSelection}>
           <label class={styles.label}>Текущий родитель:</label>
           <div class={styles.currentParent}>
-            <Show
-              when={getCurrentParentId()}
-              fallback={<span class={styles.noParent}>Корневая тема</span>}
-            >
+            <Show when={getCurrentParentId()} fallback={<span class={styles.noParent}>Корневая тема</span>}>
               <span class={styles.parentPath}>
                 {getCurrentParentId() ? getTopicPath(getCurrentParentId()!) : ''}
               </span>
@@ -153,9 +150,7 @@ const TopicParentModal: Component<TopicParentModalProps> = (props) => {
             />
             <label for="root-option" class={styles.parentOptionLabel}>
               <strong>🏠 Корневая тема</strong>
-              <div class={styles.parentDescription}>
-                Переместить на верхний уровень иерархии
-              </div>
+              <div class={styles.parentDescription}>Переместить на верхний уровень иерархии</div>
             </label>
           </div>
 
@@ -178,9 +173,7 @@ const TopicParentModal: Component<TopicParentModalProps> = (props) => {
                       <span class={styles.topicSlug}>{topic.slug}</span>
                     </div>
                     <Show when={topic.parent_ids && topic.parent_ids.length > 0}>
-                      <div class={styles.parentPath}>
-                        Путь: {getTopicPath(topic.id)}
-                      </div>
+                      <div class={styles.parentPath}>Путь: {getTopicPath(topic.id)}</div>
                     </Show>
                   </label>
                 </div>

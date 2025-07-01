@@ -1,33 +1,45 @@
 .codePreview {
   position: relative;
-  padding-left: 50px !important;
+  padding-left: 24px !important;
   background-color: #2d2d2d;
   color: #f8f8f2;
   tab-size: 2;
   line-height: 1.4;
-  border-radius: 4px;
   overflow: hidden;
   font-size: 12px;
 }
 
 .lineNumber {
   display: block;
-  padding: 0 8px;
+  padding: 0 2px;
   text-align: right;
   color: #555;
   background: #1e1e1e;
   user-select: none;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 11px;
+  font-size: 9px;
   line-height: 1.4;
-  min-height: 16.8px; /* 12px * 1.4 line-height */
+  min-height: 12.6px; /* 9px * 1.4 line-height */
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   opacity: 0.7;
   pointer-events: none;
 }
 
 .lineNumbersContainer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 100%;
+  background: #1e1e1e;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
+  user-select: none;
+  padding: 8px 2px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 9px;
+  line-height: 1.4;
+  text-align: right;
 }
 
 .lineNumbersContainer .lineNumber {
@@ -48,14 +60,13 @@
   color: #fff;
   padding: 2px 6px;
   border-radius: 4px;
-  z-index: 100;
+  z-index: 10;
 }
 
 /* Стили для EditableCodePreview */
 .editableCodeContainer {
   position: relative;
   background-color: #2d2d2d;
-  border-radius: 6px;
   overflow: hidden;
   height: 100%;
   display: flex;
@@ -132,15 +143,37 @@
 }
 
 .syntaxHighlight {
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  color: transparent;
+  background: transparent;
+  margin: 0;
+  padding: 8px 8px;
   width: 100%;
   height: 100%;
   tab-size: 2;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
   line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  z-index: 0;
 }
 
 .editorArea {
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 8px 8px;
   resize: none;
   border: none;
   width: 100%;
@@ -149,10 +182,64 @@
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
   line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-y: auto;
+  outline: none;
 }
 
 .editorArea:focus {
   outline: none;
+}
+
+.editorAreaEditing {
+  background: rgba(0, 0, 0, 0.02);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: text;
+  caret-color: #fff;
+}
+
+.editorAreaViewing {
+  background: transparent;
+  color: transparent;
+  cursor: default;
+  caret-color: transparent;
+}
+
+.editorWrapperEditing {
+  border: 2px solid #007acc;
+}
+
+.codePreviewContainer {
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 8px 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: transparent;
+  cursor: pointer;
+  overflow-y: auto;
+  z-index: 2;
+}
+
+.placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #666;
+  cursor: pointer;
+  font-style: italic;
+  font-size: 14px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .placeholder {

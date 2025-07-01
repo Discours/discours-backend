@@ -1,7 +1,7 @@
-import { Component, createSignal, For, Show } from 'solid-js'
+import { Component, createSignal, For, JSX, Show } from 'solid-js'
+import styles from '../styles/Form.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
-import styles from '../styles/Form.module.css'
 
 // Типы для топиков
 interface Topic {
@@ -28,7 +28,7 @@ interface HierarchyChange {
   oldParentIds: number[]
 }
 
-const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
+const TopicHierarchyModal = (props: TopicHierarchyModalProps) => {
   const [localTopics, setLocalTopics] = createSignal<Topic[]>([])
   const [changes, setChanges] = createSignal<HierarchyChange[]>([])
   const [expandedNodes, setExpandedNodes] = createSignal<Set<number>>(new Set())
@@ -43,7 +43,7 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
     setSearchQuery('')
     setSelectedForMove(null)
     // Раскрываем все узлы по умолчанию
-    const allIds = new Set(props.topics.map(t => t.id))
+    const allIds = new Set(props.topics.map((t) => t.id))
     setExpandedNodes(allIds)
   }
 
@@ -112,10 +112,8 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
   // Обновление родителя топика
   const updateTopicParent = (topicId: number, newParentIds: number[]) => {
     const flatTopics = flattenTopics(localTopics())
-    const updatedTopics = flatTopics.map(topic =>
-      topic.id === topicId
-        ? { ...topic, parent_ids: newParentIds }
-        : topic
+    const updatedTopics = flatTopics.map((topic) =>
+      topic.id === topicId ? { ...topic, parent_ids: newParentIds } : topic
     )
     const newHierarchy = buildHierarchy(updatedTopics)
     setLocalTopics(newHierarchy)
@@ -125,7 +123,7 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
   const flattenTopics = (topics: Topic[]): Topic[] => {
     const result: Topic[] = []
     const flatten = (topicList: Topic[]) => {
-      topicList.forEach(topic => {
+      topicList.forEach((topic) => {
         result.push(topic)
         if (topic.children) {
           flatten(topic.children)
@@ -173,7 +171,9 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
     setSelectedForMove(topicId)
     const topic = findTopicById(topicId)
     if (topic) {
-      props.onError(`Выбрана тема "${topic.title}" для перемещения. Теперь нажмите на новую родительскую тему или используйте "Сделать корневой".`)
+      props.onError(
+        `Выбрана тема "${topic.title}" для перемещения. Теперь нажмите на новую родительскую тему или используйте "Сделать корневой".`
+      )
     }
   }
 
@@ -203,8 +203,8 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
     updateTopicParent(selectedId, newParentIds)
 
     // Добавляем в список изменений
-    setChanges(prev => [
-      ...prev.filter(c => c.topicId !== selectedId),
+    setChanges((prev) => [
+      ...prev.filter((c) => c.topicId !== selectedId),
       {
         topicId: selectedId,
         newParentIds,
@@ -222,14 +222,14 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
 
     const expanded = expandedNodes()
     // Раскрываем всех родителей
-    topic.parent_ids.forEach(parentId => {
+    topic.parent_ids.forEach((parentId) => {
       expanded.add(parentId)
     })
     setExpandedNodes(new Set(expanded))
   }
 
   // Рендеринг дерева топиков
-  const renderTree = (topics: Topic[]): any => {
+  const renderTree = (topics: Topic[]): JSX.Element => {
     return (
       <For each={topics}>
         {(topic) => {
@@ -253,8 +253,12 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
                 }}
                 style={{
                   'padding-left': `${(topic.level || 0) * 20}px`,
-                  'cursor': 'pointer',
-                  'border': isSelected ? '2px solid #007bff' : isTarget ? '2px dashed #28a745' : '1px solid transparent',
+                  cursor: 'pointer',
+                  border: isSelected
+                    ? '2px solid #007bff'
+                    : isTarget
+                      ? '2px dashed #28a745'
+                      : '1px solid transparent',
                   'background-color': isSelected ? '#e3f2fd' : isTarget ? '#d4edda' : 'transparent'
                 }}
               >
@@ -276,7 +280,7 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
                     </button>
                   </Show>
                   <Show when={!hasChildren}>
-                    <span style={{ width: '12px' }}></span>
+                    <span style={{ width: '12px' }} />
                   </Show>
 
                   <Show when={isSelected}>
@@ -295,32 +299,13 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
               </div>
 
               <Show when={isExpanded && hasChildren}>
-                <div class={styles.treeChildren}>
-                  {renderTree(topic.children!)}
-                </div>
+                <div class={styles.treeChildren}>{renderTree(topic.children!)}</div>
               </Show>
             </div>
           )
         }}
       </For>
     )
-  }
-
-  // Сброс корневого уровня (перетаскивание в корень)
-  const makeRootTopic = (topicId: number) => {
-    updateTopicParent(topicId, [])
-
-    const draggedTopic = findTopicById(topicId)
-    if (!draggedTopic) return
-
-    setChanges(prev => [
-      ...prev.filter(c => c.topicId !== topicId),
-      {
-        topicId,
-        newParentIds: [],
-        oldParentIds: draggedTopic.parent_ids || []
-      }
-    ])
   }
 
   // Сохранение изменений
@@ -338,12 +323,7 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
   }
 
   return (
-    <Modal
-      isOpen={props.isOpen}
-      onClose={props.onClose}
-      title="Управление иерархией тем"
-      size="large"
-    >
+    <Modal isOpen={props.isOpen} onClose={props.onClose} title="Управление иерархией тем" size="large">
       <div class={styles.hierarchyContainer}>
         <div class={styles.instructions}>
           <h4>Инструкции:</h4>
@@ -382,15 +362,11 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
             </div>
           </Show>
           <Show when={searchQuery() && !findTopicByTitle(searchQuery())}>
-            <div class={styles.searchNoResult}>
-              ❌ Тема не найдена
-            </div>
+            <div class={styles.searchNoResult}>❌ Тема не найдена</div>
           </Show>
         </div>
 
-        <div class={styles.hierarchyTree}>
-          {renderTree(localTopics())}
-        </div>
+        <div class={styles.hierarchyTree}>{renderTree(localTopics())}</div>
 
         <Show when={changes().length > 0}>
           <div class={styles.changesSummary}>
@@ -400,11 +376,10 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
                 const topic = findTopicById(change.topicId)
                 return (
                   <div class={styles.changeItem}>
-                    <strong>{topic?.title}</strong>: {
-                      change.newParentIds.length === 0
-                        ? 'станет корневой темой'
-                        : `переместится под тему #${change.newParentIds[change.newParentIds.length - 1]}`
-                    }
+                    <strong>{topic?.title}</strong>:{' '}
+                    {change.newParentIds.length === 0
+                      ? 'станет корневой темой'
+                      : `переместится под тему #${change.newParentIds[change.newParentIds.length - 1]}`}
                   </div>
                 )
               }}
@@ -422,16 +397,10 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
             </div>
 
             <div class={styles.actionButtons}>
-              <button
-                class={styles.rootButton}
-                onClick={() => moveSelectedTopic(null)}
-              >
+              <button class={styles.rootButton} onClick={() => moveSelectedTopic(null)}>
                 🏠 Сделать корневой темой
               </button>
-              <button
-                class={styles.cancelButton}
-                onClick={() => setSelectedForMove(null)}
-              >
+              <button class={styles.cancelButton} onClick={() => setSelectedForMove(null)}>
                 ❌ Отменить выбор
               </button>
             </div>
@@ -442,11 +411,7 @@ const TopicHierarchyModal: Component<TopicHierarchyModalProps> = (props) => {
           <Button variant="secondary" onClick={props.onClose}>
             Отмена
           </Button>
-          <Button
-            variant="primary"
-            onClick={handleSave}
-            disabled={changes().length === 0}
-          >
+          <Button variant="primary" onClick={handleSave} disabled={changes().length === 0}>
             Сохранить изменения ({changes().length})
           </Button>
         </div>

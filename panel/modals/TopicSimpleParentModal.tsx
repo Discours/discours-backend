@@ -1,8 +1,8 @@
 import { Component, createSignal, For, Show } from 'solid-js'
+import { SET_TOPIC_PARENT_MUTATION } from '../graphql/mutations'
+import styles from '../styles/Form.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
-import styles from '../styles/Form.module.css'
-import { SET_TOPIC_PARENT_MUTATION } from '../graphql/mutations'
 
 // Типы для топиков
 interface Topic {
@@ -31,10 +31,12 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
    * Получает токен авторизации
    */
   const getAuthTokenFromCookie = () => {
-    return document.cookie
-      .split('; ')
-      .find(row => row.startsWith('auth_token='))
-      ?.split('=')[1] || ''
+    return (
+      document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('auth_token='))
+        ?.split('=')[1] || ''
+    )
   }
 
   /**
@@ -51,7 +53,7 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
    * Получает путь темы до корня
    */
   const getTopicPath = (topicId: number): string => {
-    const topic = props.allTopics.find(t => t.id === topicId)
+    const topic = props.allTopics.find((t) => t.id === topicId)
     if (!topic) return 'Неизвестная тема'
 
     if (!topic.parent_ids || topic.parent_ids.length === 0) {
@@ -69,9 +71,7 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
     if (parentId === childId) return true
 
     const checkDescendants = (currentId: number): boolean => {
-      const descendants = props.allTopics.filter(t =>
-        t.parent_ids && t.parent_ids.includes(currentId)
-      )
+      const descendants = props.allTopics.filter((t) => t?.parent_ids?.includes(currentId))
 
       for (const descendant of descendants) {
         if (descendant.id === childId || checkDescendants(descendant.id)) {
@@ -92,7 +92,7 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
 
     const query = searchQuery().toLowerCase()
 
-    return props.allTopics.filter(topic => {
+    return props.allTopics.filter((topic) => {
       // Исключаем саму тему
       if (topic.id === props.topic!.id) return false
 
@@ -149,7 +149,6 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
 
       props.onSuccess(setResult.message)
       handleClose()
-
     } catch (error) {
       const errorMessage = (error as Error).message
       props.onError(`Ошибка назначения родителя: ${errorMessage}`)
@@ -169,12 +168,7 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
   }
 
   return (
-    <Modal
-      isOpen={props.isOpen}
-      onClose={handleClose}
-      title="Назначить родительскую тему"
-      size="medium"
-    >
+    <Modal isOpen={props.isOpen} onClose={handleClose} title="Назначить родительскую тему" size="medium">
       <div class={styles.parentSelectorContainer}>
         <Show when={props.topic}>
           <div class={styles.currentSelection}>
@@ -186,10 +180,11 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
             <div class={styles.currentParent}>
               <strong>Текущее расположение:</strong>
               <div class={styles.parentPath}>
-                {getCurrentParentId() ?
-                  getTopicPath(props.topic!.id) :
+                {getCurrentParentId() ? (
+                  getTopicPath(props.topic!.id)
+                ) : (
                   <span class={styles.noParent}>🏠 Корневая тема</span>
-                }
+                )}
               </div>
             </div>
           </div>
@@ -220,9 +215,7 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
                   disabled={loading()}
                 />
                 <div class={styles.parentOptionLabel}>
-                  <div class={styles.topicTitle}>
-                    🏠 Сделать корневой темой
-                  </div>
+                  <div class={styles.topicTitle}>🏠 Сделать корневой темой</div>
                   <div class={styles.parentDescription}>
                     Тема будет перемещена на верхний уровень иерархии
                   </div>
@@ -244,9 +237,7 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
                         disabled={loading()}
                       />
                       <div class={styles.parentOptionLabel}>
-                        <div class={styles.topicTitle}>
-                          {topic.title}
-                        </div>
+                        <div class={styles.topicTitle}>{topic.title}</div>
                         <div class={styles.parentDescription}>
                           <span class={styles.topicId}>ID: {topic.id}</span>
                           <span class={styles.topicSlug}>• {topic.slug}</span>
@@ -261,10 +252,9 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
 
               <Show when={getAvailableParents().length === 0}>
                 <div class={styles.noResults}>
-                  {searchQuery() ?
-                    'Не найдено подходящих тем по запросу' :
-                    'Нет доступных родительских тем'
-                  }
+                  {searchQuery()
+                    ? 'Не найдено подходящих тем по запросу'
+                    : 'Нет доступных родительских тем'}
                 </div>
               </Show>
             </div>
@@ -274,24 +264,21 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
             <div class={styles.preview}>
               <h4>Предварительный просмотр:</h4>
               <div class={styles.previewPath}>
-                <strong>Новое расположение:</strong><br />
+                <strong>Новое расположение:</strong>
+                <br />
                 {getTopicPath(selectedParentId()!)} → <strong>{props.topic?.title}</strong>
               </div>
             </div>
           </Show>
 
           <div class={styles.modalActions}>
-            <Button
-              variant="secondary"
-              onClick={handleClose}
-              disabled={loading()}
-            >
+            <Button variant="secondary" onClick={handleClose} disabled={loading()}>
               Отмена
             </Button>
             <Button
               variant="primary"
               onClick={handleSetParent}
-              disabled={loading() || (selectedParentId() === getCurrentParentId())}
+              disabled={loading() || selectedParentId() === getCurrentParentId()}
             >
               {loading() ? 'Назначение...' : 'Назначить родителя'}
             </Button>

@@ -28,10 +28,10 @@ const formatHtmlContent = (html: string): string => {
   if (!html || typeof html !== 'string') return ''
 
   // Удаляем лишние пробелы между тегами
-  let formatted = html
-    .replace(/>\s+</g, '><')  // Убираем пробелы между тегами
-    .replace(/\s+/g, ' ')     // Множественные пробелы в одиночные
-    .trim()                   // Убираем пробелы в начале и конце
+  const formatted = html
+    .replace(/>\s+</g, '><') // Убираем пробелы между тегами
+    .replace(/\s+/g, ' ') // Множественные пробелы в одиночные
+    .trim() // Убираем пробелы в начале и конце
 
   // Добавляем отступы для лучшего отображения
   const indent = '  '
@@ -117,7 +117,7 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
 
     const lineNumbers = generateLineNumbers(content())
     lineNumbersRef.innerHTML = lineNumbers
-      .map(num => `<div class="${styles.lineNumber}">${num}</div>`)
+      .map((num) => `<div class="${styles.lineNumber}">${num}</div>`)
       .join('')
   }
 
@@ -243,9 +243,8 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
   // Эффект для обновления контента при изменении props
   createEffect(() => {
     if (!isEditing()) {
-      const formattedContent = language() === 'markup' || language() === 'html'
-        ? formatHtmlContent(props.content)
-        : props.content
+      const formattedContent =
+        language() === 'markup' || language() === 'html' ? formatHtmlContent(props.content) : props.content
       setContent(formattedContent)
       updateHighlight()
       updateLineNumbers()
@@ -301,9 +300,8 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
   })
 
   onMount(() => {
-    const formattedContent = language() === 'markup' || language() === 'html'
-      ? formatHtmlContent(props.content)
-      : props.content
+    const formattedContent =
+      language() === 'markup' || language() === 'html' ? formatHtmlContent(props.content) : props.content
     setContent(formattedContent)
     updateHighlight()
     updateLineNumbers()
@@ -313,22 +311,17 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
     <div class={styles.editableCodeContainer}>
       {/* Контейнер редактора - увеличиваем размер */}
       <div
-        class={styles.editorWrapper}
-        style={`height: 100%; ${isEditing() ? 'border: 2px solid #007acc;' : ''}`}
+        class={`${styles.editorWrapper} ${isEditing() ? styles.editorWrapperEditing : ''}`}
+        style="height: 100%;"
       >
         {/* Номера строк */}
-        <div
-          ref={lineNumbersRef}
-          class={styles.lineNumbersContainer}
-          style="position: absolute; left: 0; top: 0; width: 50px; height: 100%; background: #1e1e1e; border-right: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; user-select: none; padding: 8px 0; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; line-height: 1.4;"
-        />
+        <div ref={lineNumbersRef} class={styles.lineNumbersContainer} />
 
         {/* Подсветка синтаксиса (фон) - только в режиме редактирования */}
         <Show when={isEditing()}>
           <pre
             ref={highlightRef}
             class={`${styles.syntaxHighlight} language-${language()}`}
-            style="position: absolute; top: 0; left: 50px; right: 0; bottom: 0; pointer-events: none; color: transparent; background: transparent; margin: 0; padding: 8px 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; z-index: 0;"
             aria-hidden="true"
           />
         </Show>
@@ -343,28 +336,7 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
             }
           }}
           contentEditable={isEditing()}
-          class={styles.editorArea}
-          style={`
-            position: absolute;
-            top: 0;
-            left: 50px;
-            right: 0;
-            bottom: 0;
-            z-index: 1;
-            background: ${isEditing() ? 'rgba(0, 0, 0, 0.02)' : 'transparent'};
-            color: ${isEditing() ? 'rgba(255, 255, 255, 0.9)' : 'transparent'};
-            margin: 0;
-            padding: 8px 12px;
-            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-            font-size: 12px;
-            line-height: 1.4;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            overflow-y: auto;
-            outline: none;
-            cursor: ${isEditing() ? 'text' : 'default'};
-            caret-color: ${isEditing() ? '#fff' : 'transparent'};
-          `}
+          class={`${styles.editorArea} ${isEditing() ? styles.editorAreaEditing : styles.editorAreaViewing}`}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onScroll={syncScroll}
@@ -374,25 +346,7 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
         {/* Превью для неактивного режима */}
         <Show when={!isEditing()}>
           <pre
-            class={`${styles.codePreview} language-${language()}`}
-            style={`
-              position: absolute;
-              top: 0;
-              left: 50px;
-              right: 0;
-              bottom: 0;
-              margin: 0;
-              padding: 8px 12px;
-              font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-              font-size: 12px;
-              line-height: 1.4;
-              white-space: pre-wrap;
-              word-wrap: break-word;
-              background: transparent;
-              cursor: pointer;
-              overflow-y: auto;
-              z-index: 2;
-            `}
+            class={`${styles.codePreviewContainer} language-${language()}`}
             onClick={() => setIsEditing(true)}
             onScroll={(e) => {
               // Синхронизируем номера строк при скролле в режиме просмотра
@@ -416,29 +370,26 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
       </div>
 
       {/* Индикатор языка */}
-      <span class={styles.languageBadge} style="top: 8px; right: 8px; z-index: 10;">
-        {language()}
-      </span>
+      <span class={styles.languageBadge}>{language()}</span>
 
       {/* Плейсхолдер */}
       <Show when={!content()}>
-        <div
-          class={styles.placeholder}
-          onClick={() => setIsEditing(true)}
-          style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666; cursor: pointer; font-style: italic; font-size: 14px;"
-        >
+        <div class={styles.placeholder} onClick={() => setIsEditing(true)}>
           {props.placeholder || 'Нажмите для редактирования...'}
         </div>
       </Show>
 
       {/* Кнопки управления внизу */}
-      {props.showButtons !== false && (
-        <div class={styles.editorControls} style="border-top: 1px solid rgba(255, 255, 255, 0.1); border-bottom: none; background-color: #1e1e1e;">
-          <Show when={isEditing()} fallback={
-            <button class={styles.editButton} onClick={() => setIsEditing(true)}>
-              ✏️ Редактировать
-            </button>
-          }>
+      <Show when={props.showButtons}>
+        <div class={styles.editorControls}>
+          <Show
+            when={isEditing()}
+            fallback={
+              <button class={styles.editButton} onClick={() => setIsEditing(true)}>
+                ✏️ Редактировать
+              </button>
+            }
+          >
             <div class={styles.editingControls}>
               <button class={styles.saveButton} onClick={handleSave}>
                 💾 Сохранить (Ctrl+Enter)
@@ -449,7 +400,7 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
             </div>
           </Show>
         </div>
-      )}
+      </Show>
     </div>
   )
 }

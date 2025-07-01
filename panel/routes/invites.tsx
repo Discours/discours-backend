@@ -1,8 +1,5 @@
 import { Component, createSignal, For, onMount, Show } from 'solid-js'
-import {
-  ADMIN_DELETE_INVITE_MUTATION,
-  ADMIN_DELETE_INVITES_BATCH_MUTATION
-} from '../graphql/mutations'
+import { ADMIN_DELETE_INVITE_MUTATION, ADMIN_DELETE_INVITES_BATCH_MUTATION } from '../graphql/mutations'
 import { ADMIN_GET_INVITES_QUERY } from '../graphql/queries'
 import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
@@ -227,7 +224,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
   const deleteSelectedInvites = async () => {
     try {
       const selected = selectedInvites()
-      const invitesToDelete = invites().filter(invite => {
+      const invitesToDelete = invites().filter((invite) => {
         const key = `${invite.inviter_id}-${invite.author_id}-${invite.shout_id}`
         return selected[key]
       })
@@ -239,7 +236,9 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
 
       // Получаем токен авторизации из localStorage или cookie
       const authToken = localStorage.getItem('auth_token') || getAuthTokenFromCookie()
-      console.log(`[InvitesRoute] Пакетное удаление приглашений, токен: ${authToken ? 'найден' : 'не найден'}`)
+      console.log(
+        `[InvitesRoute] Пакетное удаление приглашений, токен: ${authToken ? 'найден' : 'не найден'}`
+      )
 
       const response = await fetch('/graphql', {
         method: 'POST',
@@ -250,7 +249,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
         body: JSON.stringify({
           query: ADMIN_DELETE_INVITES_BATCH_MUTATION,
           variables: {
-            invites: invitesToDelete.map(invite => ({
+            invites: invitesToDelete.map((invite) => ({
               inviter_id: invite.inviter_id,
               author_id: invite.author_id,
               shout_id: invite.shout_id
@@ -286,7 +285,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
    */
   const handleSelectInvite = (invite: Invite, checked: boolean) => {
     const key = `${invite.inviter_id}-${invite.author_id}-${invite.shout_id}`
-    setSelectedInvites(prev => ({ ...prev, [key]: checked }))
+    setSelectedInvites((prev) => ({ ...prev, [key]: checked }))
 
     // Если снимаем выбор с элемента, то снимаем и "выбрать все"
     if (!checked && selectAll()) {
@@ -303,7 +302,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
     const newSelected: Record<string, boolean> = {}
     if (checked) {
       // Выбираем все приглашения на текущей странице
-      invites().forEach(invite => {
+      invites().forEach((invite) => {
         const key = `${invite.inviter_id}-${invite.author_id}-${invite.shout_id}`
         newSelected[key] = true
       })
@@ -406,9 +405,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
           </div>
 
           <Show when={getSelectedCount() > 0}>
-            <div class={styles['selected-count']}>
-              Выбрано: {getSelectedCount()}
-            </div>
+            <div class={styles['selected-count']}>Выбрано: {getSelectedCount()}</div>
 
             <button
               class={styles['batch-delete-button']}
@@ -434,7 +431,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
           <table class={styles.table}>
             <thead>
               <tr>
-                <th class={styles['checkbox-column']}></th>
+                <th class={styles['checkbox-column']} />
                 <th class={styles.sortableHeader} onClick={() => handleSort('inviter_name')}>
                   <span class={styles.headerContent}>
                     Приглашающий
@@ -577,10 +574,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
             <Button variant="secondary" onClick={() => setBatchDeleteModal({ show: false })}>
               Отмена
             </Button>
-            <Button
-              variant="danger"
-              onClick={deleteSelectedInvites}
-            >
+            <Button variant="danger" onClick={deleteSelectedInvites}>
               Удалить выбранные
             </Button>
           </div>
