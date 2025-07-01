@@ -1,68 +1,66 @@
 enum ReactionStatus {
-  NEW
-  UPDATED
-  CHANGED
-  EXPLAINED
-  DELETED
+	NEW
+	UPDATED
+	CHANGED
+	EXPLAINED
+	DELETED
 }
 
 enum ReactionSort {
-  newest
-  oldest
-  like
-  dislike
+	newest
+	oldest
+	like
+	dislike
 }
 
 enum ShoutsOrderBy {
-  last_commented_at
-  rating
-  comments_count
+	last_commented_at
+	rating
+	comments_count
 }
 
 enum ReactionKind {
+	# collabs
+	AGREE
+	DISAGREE
+	ASK
+	PROPOSE
+	PROOF
+	DISPROOF
+	ACCEPT
+	REJECT
 
-  # collabs
-  AGREE
-  DISAGREE
-  ASK
-  PROPOSE
-  PROOF
-  DISPROOF
-  ACCEPT
-  REJECT
-
-  # public feed
-  QUOTE
-  COMMENT
-  LIKE
-  DISLIKE
-
+	# public feed
+	QUOTE
+	COMMENT
+	LIKE
+	DISLIKE
 }
 
 enum FollowingEntity {
-  TOPIC
-  AUTHOR
-  SHOUT
-  COMMUNITY
+	TOPIC
+	AUTHOR
+	SHOUT
+	COMMUNITY
 }
 
 enum InviteStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
+	PENDING
+	ACCEPTED
+	REJECTED
 }
 
 # Auth enums
 enum AuthAction {
-  LOGIN
-  REGISTER
-  CONFIRM_EMAIL
-  RESET_PASSWORD
-  CHANGE_PASSWORD
+	LOGIN
+	REGISTER
+	CONFIRM_EMAIL
+	RESET_PASSWORD
+	CHANGE_PASSWORD
 }
 
 enum RoleType {
-  SYSTEM
-  COMMUNITY
-  CUSTOM
+	SYSTEM
+	COMMUNITY
+	CUSTOM
 }

@@ -1,177 +1,191 @@
 type EnvVariable {
-  key: String!
-  value: String!
-  description: String
-  type: String!
-  isSecret: Boolean
+	key: String!
+	value: String!
+	description: String
+	type: String!
+	isSecret: Boolean
 }
 
 type EnvSection {
-  name: String!
-  description: String
-  variables: [EnvVariable!]!
+	name: String!
+	description: String
+	variables: [EnvVariable!]!
 }
 
 input EnvVariableInput {
-  key: String!
-  value: String!
-  type: String!
+	key: String!
+	value: String!
+	type: String!
 }
 
 # Типы для управления пользователями
 type AdminUserInfo {
-  id: Int!
-  email: String
-  name: String
-  slug: String
-  roles: [String!]
-  created_at: Int
-  last_seen: Int
+	id: Int!
+	email: String
+	name: String
+	slug: String
+	roles: [String!]
+	created_at: Int
+	last_seen: Int
 }
 
 input AdminUserUpdateInput {
-  id: Int!
-  email: String
-  name: String
-  slug: String
-  roles: [String!]
-  community: Int
+	id: Int!
+	email: String
+	name: String
+	slug: String
+	roles: [String!]
+	community: Int
 }
 
 type Role {
-  id: String!
-  name: String!
-  description: String
+	id: String!
+	name: String!
+	description: String
 }
 
 # Тип для пагинированного ответа пользователей
 type AdminUserListResponse {
-  authors: [AdminUserInfo!]!
-  total: Int!
-  page: Int!
-  perPage: Int!
-  totalPages: Int!
+	authors: [AdminUserInfo!]!
+	total: Int!
+	page: Int!
+	perPage: Int!
+	totalPages: Int!
 }
 
 # Общий ответ на операцию с данными об успехе и ошибке
 type OperationResult {
-  success: Boolean!
-  error: String
+	success: Boolean!
+	error: String
 }
 
 # Типы для управления публикациями (Shout)
 type AdminShoutInfo {
-  id: Int!
-  title: String!
-  slug: String!
-  body: String!
-  lead: String
-  subtitle: String
-  layout: String!
-  lang: String!
-  cover: String
-  cover_caption: String
-  media: [MediaItem]
-  seo: String
-  created_at: Int!
-  updated_at: Int
-  published_at: Int
-  featured_at: Int
-  deleted_at: Int
-  created_by: Author!
-  updated_by: Author
-  deleted_by: Author
-  community: Community!
-  authors: [Author]
-  topics: [Topic]
-  version_of: Int
-  draft: Int
-  stat: Stat
+	id: Int!
+	title: String!
+	slug: String!
+	body: String!
+	lead: String
+	subtitle: String
+	layout: String!
+	lang: String!
+	cover: String
+	cover_caption: String
+	media: [MediaItem]
+	seo: String
+	created_at: Int!
+	updated_at: Int
+	published_at: Int
+	featured_at: Int
+	deleted_at: Int
+	created_by: Author!
+	updated_by: Author
+	deleted_by: Author
+	community: Community!
+	authors: [Author]
+	topics: [Topic]
+	version_of: Int
+	draft: Int
+	stat: Stat
 }
 
 # Тип для пагинированного ответа публикаций
 type AdminShoutListResponse {
-  shouts: [AdminShoutInfo!]!
-  total: Int!
-  page: Int!
-  perPage: Int!
-  totalPages: Int!
+	shouts: [AdminShoutInfo!]!
+	total: Int!
+	page: Int!
+	perPage: Int!
+	totalPages: Int!
 }
 
 input AdminShoutUpdateInput {
-  id: Int!
-  title: String
-  body: String
-  lead: String
-  subtitle: String
-  cover: String
-  cover_caption: String
-  media: [MediaItemInput]
-  seo: String
-  published_at: Int
-  featured_at: Int
-  deleted_at: Int
+	id: Int!
+	title: String
+	body: String
+	lead: String
+	subtitle: String
+	cover: String
+	cover_caption: String
+	media: [MediaItemInput]
+	seo: String
+	published_at: Int
+	featured_at: Int
+	deleted_at: Int
 }
 
 # Тип для отображения приглашения в админ-панели
 type AdminInviteInfo {
-  inviter_id: Int!
-  author_id: Int!
-  shout_id: Int!
-  status: InviteStatus!
-  inviter: Author!
-  author: Author!
-  shout: AdminShoutInfo!
-  created_at: Int
+	inviter_id: Int!
+	author_id: Int!
+	shout_id: Int!
+	status: InviteStatus!
+	inviter: Author!
+	author: Author!
+	shout: AdminShoutInfo!
+	created_at: Int
 }
 
 # Тип для пагинированного ответа приглашений
 type AdminInviteListResponse {
-  invites: [AdminInviteInfo!]!
-  total: Int!
-  page: Int!
-  perPage: Int!
-  totalPages: Int!
+	invites: [AdminInviteInfo!]!
+	total: Int!
+	page: Int!
+	perPage: Int!
+	totalPages: Int!
 }
 
 input AdminInviteUpdateInput {
-  inviter_id: Int!
-  author_id: Int!
-  shout_id: Int!
-  status: InviteStatus!
+	inviter_id: Int!
+	author_id: Int!
+	shout_id: Int!
+	status: InviteStatus!
 }
 
 # Входной тип для идентификации приглашения при пакетном удалении
 input AdminInviteIdInput {
-  inviter_id: Int!
-  author_id: Int!
-  shout_id: Int!
+	inviter_id: Int!
+	author_id: Int!
+	shout_id: Int!
 }
 
 extend type Query {
-  getEnvVariables: [EnvSection!]!
-  # Запросы для управления пользователями
-  adminGetUsers(limit: Int, offset: Int, search: String): AdminUserListResponse!
-  adminGetRoles: [Role!]!
-  # Запросы для управления публикациями
-  adminGetShouts(limit: Int, offset: Int, search: String, status: String): AdminShoutListResponse!
-  # Запросы для управления приглашениями
-  adminGetInvites(limit: Int, offset: Int, search: String, status: String): AdminInviteListResponse!
+	getEnvVariables: [EnvSection!]!
+	# Запросы для управления пользователями
+	adminGetUsers(limit: Int, offset: Int, search: String): AdminUserListResponse!
+	adminGetRoles: [Role!]!
+	# Запросы для управления публикациями
+	adminGetShouts(
+		limit: Int
+		offset: Int
+		search: String
+		status: String
+	): AdminShoutListResponse!
+	# Запросы для управления приглашениями
+	adminGetInvites(
+		limit: Int
+		offset: Int
+		search: String
+		status: String
+	): AdminInviteListResponse!
 }
 
 extend type Mutation {
-  updateEnvVariable(key: String!, value: String!): Boolean!
-  updateEnvVariables(variables: [EnvVariableInput!]!): Boolean!
+	updateEnvVariable(key: String!, value: String!): Boolean!
+	updateEnvVariables(variables: [EnvVariableInput!]!): Boolean!
 
-  # Мутации для управления пользователями
-  adminUpdateUser(user: AdminUserUpdateInput!): OperationResult!
-  # Мутации для управления публикациями
-  adminUpdateShout(shout: AdminShoutUpdateInput!): OperationResult!
-  adminDeleteShout(id: Int!): OperationResult!
-  adminRestoreShout(id: Int!): OperationResult!
-  # Мутации для управления приглашениями
-  adminCreateInvite(invite: AdminInviteUpdateInput!): OperationResult!
-  adminUpdateInvite(invite: AdminInviteUpdateInput!): OperationResult!
-  adminDeleteInvite(inviter_id: Int!, author_id: Int!, shout_id: Int!): OperationResult!
-  adminDeleteInvitesBatch(invites: [AdminInviteIdInput!]!): OperationResult!
+	# Мутации для управления пользователями
+	adminUpdateUser(user: AdminUserUpdateInput!): OperationResult!
+	# Мутации для управления публикациями
+	adminUpdateShout(shout: AdminShoutUpdateInput!): OperationResult!
+	adminDeleteShout(id: Int!): OperationResult!
+	adminRestoreShout(id: Int!): OperationResult!
+	# Мутации для управления приглашениями
+	adminCreateInvite(invite: AdminInviteUpdateInput!): OperationResult!
+	adminUpdateInvite(invite: AdminInviteUpdateInput!): OperationResult!
+	adminDeleteInvite(
+		inviter_id: Int!
+		author_id: Int!
+		shout_id: Int!
+	): OperationResult!
+	adminDeleteInvitesBatch(invites: [AdminInviteIdInput!]!): OperationResult!
 }

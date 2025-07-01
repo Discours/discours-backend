@@ -1,334 +1,334 @@
 type AuthorStat {
-  shouts: Int
-  topics: Int
-  authors: Int
-  followers: Int
-  rating: Int
-  rating_shouts: Int
-  rating_comments: Int
-  comments: Int
-  viewed: Int
+	shouts: Int
+	topics: Int
+	authors: Int
+	followers: Int
+	rating: Int
+	rating_shouts: Int
+	rating_comments: Int
+	comments: Int
+	viewed: Int
 }
 
 type Author {
-  id: Int!
-  slug: String!
-  name: String
-  pic: String
-  bio: String
-  about: String
-  links: [String]
-  created_at: Int
-  last_seen: Int
-  updated_at: Int
-  deleted_at: Int
-  email: String
-  seo: String
-  stat: AuthorStat # ratings inside
-  communities: [Community]
-  roles: [String!]
-  email_verified: Boolean
+	id: Int!
+	slug: String!
+	name: String
+	pic: String
+	bio: String
+	about: String
+	links: [String]
+	created_at: Int
+	last_seen: Int
+	updated_at: Int
+	deleted_at: Int
+	email: String
+	seo: String
+	stat: AuthorStat # ratings inside
+	communities: [Community]
+	roles: [String!]
+	email_verified: Boolean
 }
 
 type ReactionUpdating {
-  error: String
-  status: ReactionStatus
-  reaction: Reaction
+	error: String
+	status: ReactionStatus
+	reaction: Reaction
 }
 
 type Rating {
-  rater: String!
-  value: Int!
+	rater: String!
+	value: Int!
 }
 
 type Reaction {
-  id: Int!
-  shout: Shout!
-  created_at: Int!
-  created_by: Author!
-  updated_at: Int
-  deleted_at: Int
-  deleted_by: Author
-  range: String
-  kind: ReactionKind!
-  body: String
-  reply_to: Int
-  stat: Stat
-  oid: String
-  # old_thread: String
-  first_replies: [Reaction]
+	id: Int!
+	shout: Shout!
+	created_at: Int!
+	created_by: Author!
+	updated_at: Int
+	deleted_at: Int
+	deleted_by: Author
+	range: String
+	kind: ReactionKind!
+	body: String
+	reply_to: Int
+	stat: Stat
+	oid: String
+	# old_thread: String
+	first_replies: [Reaction]
 }
 
 type MediaItem {
-  url: String
-  title: String
-  body: String
-  source: String # image
-  pic: String
+	url: String
+	title: String
+	body: String
+	source: String # image
+	pic: String
 
-  # audio specific properties
-  date: String
-  genre: String
-  artist: String
-  lyrics: String
+	# audio specific properties
+	date: String
+	genre: String
+	artist: String
+	lyrics: String
 }
 
 type Shout {
-  id: Int!
-  title: String!
-  slug: String!
-  body: String!
-  layout: String!
+	id: Int!
+	title: String!
+	slug: String!
+	body: String!
+	layout: String!
 
-  lead: String
-  subtitle: String
-  lang: String
-  cover: String
-  cover_caption: String
+	lead: String
+	subtitle: String
+	lang: String
+	cover: String
+	cover_caption: String
 
-  community: Community!
-  main_topic: Topic
-  created_by: Author!
-  topics: [Topic]
-  authors: [Author]
-  updated_by: Author
-  deleted_by: Author
+	community: Community!
+	main_topic: Topic
+	created_by: Author!
+	topics: [Topic]
+	authors: [Author]
+	updated_by: Author
+	deleted_by: Author
 
-  created_at: Int!
-  updated_at: Int
-  published_at: Int
-  featured_at: Int
-  deleted_at: Int
+	created_at: Int!
+	updated_at: Int
+	published_at: Int
+	featured_at: Int
+	deleted_at: Int
 
-  seo: String # generated if not set
-  version_of: Shout  # TODO: use version_of somewhere
-  draft: Draft
-  media: [MediaItem]
-  stat: Stat
-  score: Float
+	seo: String # generated if not set
+	version_of: Shout # TODO: use version_of somewhere
+	draft: Draft
+	media: [MediaItem]
+	stat: Stat
+	score: Float
 }
 
 type PublicationInfo {
-  id: Int!
-  slug: String!
-  published_at: Int
+	id: Int!
+	slug: String!
+	published_at: Int
 }
 
 type Draft {
-  id: Int!
-  created_at: Int!
-  created_by: Author!
-  community: Community!
-  layout: String
-  slug: String
-  title: String
-  subtitle: String
-  lead: String
-  body: String
-  media: [MediaItem]
-  cover: String
-  cover_caption: String
-  lang: String
-  seo: String
+	id: Int!
+	created_at: Int!
+	created_by: Author!
+	community: Community!
+	layout: String
+	slug: String
+	title: String
+	subtitle: String
+	lead: String
+	body: String
+	media: [MediaItem]
+	cover: String
+	cover_caption: String
+	lang: String
+	seo: String
 
-  # auto
-  updated_at: Int
-  deleted_at: Int
-  updated_by: Author
-  deleted_by: Author
-  authors: [Author]!
-  topics: [Topic]!
-  publication: PublicationInfo
+	# auto
+	updated_at: Int
+	deleted_at: Int
+	updated_by: Author
+	deleted_by: Author
+	authors: [Author]!
+	topics: [Topic]!
+	publication: PublicationInfo
 }
 
 type Stat {
-  rating: Int
-  comments_count: Int
-  viewed: Int
-  last_commented_at: Int
+	rating: Int
+	comments_count: Int
+	viewed: Int
+	last_commented_at: Int
 }
 
 type CommunityStat {
-  shouts: Int!
-  followers: Int!
-  authors: Int!
+	shouts: Int!
+	followers: Int!
+	authors: Int!
 }
 
 type Community {
-  id: Int!
-  slug: String!
-  name: String!
-  desc: String
-  pic: String!
-  created_at: Int!
-  created_by: Author!
-  stat: CommunityStat
+	id: Int!
+	slug: String!
+	name: String!
+	desc: String
+	pic: String!
+	created_at: Int!
+	created_by: Author!
+	stat: CommunityStat
 }
 
 type Collection {
-  id: Int!
-  slug: String!
-  title: String!
-  desc: String
-  pic: String
-  amount: Int
-  published_at: Int
-  created_at: Int!
-  created_by: Author!
+	id: Int!
+	slug: String!
+	title: String!
+	desc: String
+	pic: String
+	amount: Int
+	published_at: Int
+	created_at: Int!
+	created_by: Author!
 }
 
 type TopicStat {
-  shouts: Int!
-  followers: Int!
-  authors: Int!
-  comments: Int
+	shouts: Int!
+	followers: Int!
+	authors: Int!
+	comments: Int
 }
 
 type Topic {
-  id: Int!
-  slug: String!
-  title: String
-  body: String
-  pic: String
-  community: Int
-  parent_ids: [Int]
-  stat: TopicStat
-  oid: String
-  is_main: Boolean
+	id: Int!
+	slug: String!
+	title: String
+	body: String
+	pic: String
+	community: Int
+	parent_ids: [Int]
+	stat: TopicStat
+	oid: String
+	is_main: Boolean
 }
 
 # output type
 
 type CommonResult {
-  error: String
-  message: String
-  stats: String
-  drafts: [Draft]
-  draft: Draft
-  slugs: [String]
-  shout: Shout
-  shouts: [Shout]
-  author: Author
-  authors: [Author]
-  reaction: Reaction
-  reactions: [Reaction]
-  topic: Topic
-  topics: [Topic]
-  community: Community
-  communities: [Community]
+	error: String
+	message: String
+	stats: String
+	drafts: [Draft]
+	draft: Draft
+	slugs: [String]
+	shout: Shout
+	shouts: [Shout]
+	author: Author
+	authors: [Author]
+	reaction: Reaction
+	reactions: [Reaction]
+	topic: Topic
+	topics: [Topic]
+	community: Community
+	communities: [Community]
 }
 
 type SearchResult {
-    id: Int!
-    slug: String!
-    title: String!
-    cover: String
-    main_topic: Topic
-    created_at: Int
-    authors: [Author]
-    topics: [Topic]
-    score: Float!
+	id: Int!
+	slug: String!
+	title: String!
+	cover: String
+	main_topic: Topic
+	created_at: Int
+	authors: [Author]
+	topics: [Topic]
+	score: Float!
 }
 
 type Invite {
-  id: Int!
-  inviter_id: Int!
-  author_id: Int!
-  shout_id: Int!
-  status: InviteStatus
+	id: Int!
+	inviter_id: Int!
+	author_id: Int!
+	shout_id: Int!
+	status: InviteStatus
 }
 
 type AuthorFollowsResult {
-  topics: [Topic]
-  authors: [Author]
-  communities: [Community]
-  error: String
+	topics: [Topic]
+	authors: [Author]
+	communities: [Community]
+	error: String
 }
 
 type Notification {
-  id: Int!
-  action: String!
-  entity: String!
-  created_at: Int!
-  payload: String!
-  seen: [Author]
+	id: Int!
+	action: String!
+	entity: String!
+	created_at: Int!
+	payload: String!
+	seen: [Author]
 }
 
 type NotificationSeenResult {
-  error: String
+	error: String
 }
 
 type NotificationGroup {
-  thread: String!
-  entity: String!
-  action: String!
-  updated_at: Int!
-  authors: [Author]
-  shout: Shout
-  reactions: [Reaction]
-  seen: Boolean
+	thread: String!
+	entity: String!
+	action: String!
+	updated_at: Int!
+	authors: [Author]
+	shout: Shout
+	reactions: [Reaction]
+	seen: Boolean
 }
 
 type NotificationsResult {
-  notifications: [NotificationGroup!]!
-  unread: Int!
-  total: Int!
-  error: String
+	notifications: [NotificationGroup!]!
+	unread: Int!
+	total: Int!
+	error: String
 }
 
 type MyRateShout {
-  shout_id: Int!
-  my_rate: ReactionKind
+	shout_id: Int!
+	my_rate: ReactionKind
 }
 
 type MyRateComment {
-  shout_id: Int
-  comment_id: Int!
-  my_rate: ReactionKind
+	shout_id: Int
+	comment_id: Int!
+	my_rate: ReactionKind
 }
 
 # Auth types
 type AuthResult {
-  success: Boolean!
-  error: String
-  token: String
-  author: Author
+	success: Boolean!
+	error: String
+	token: String
+	author: Author
 }
 
 type SecurityUpdateResult {
-  success: Boolean!
-  error: String
-  author: Author
+	success: Boolean!
+	error: String
+	author: Author
 }
 
 type Permission {
-  resource: String!
-  action: String!
-  conditions: String
+	resource: String!
+	action: String!
+	conditions: String
 }
 
 type SessionInfo {
-  token: String!
-  author: Author!
+	token: String!
+	author: Author!
 }
 
 type AuthSuccess {
-  success: Boolean!
+	success: Boolean!
 }
 
 type OAuthProvider {
-  id: String!
-  name: String!
-  url: String!
+	id: String!
+	name: String!
+	url: String!
 }
 
 type RolesInfo {
-  id: String!
-  name: String!
-  description: String
-  permissions: [Permission!]!
+	id: String!
+	name: String!
+	description: String
+	permissions: [Permission!]!
 }
 
 type CountResult {
-  count: Int!
+	count: Int!
 }
