@@ -1,5 +1,5 @@
 import Prism from 'prismjs'
-import { createEffect, createSignal, onMount } from 'solid-js'
+import { createEffect, createSignal, onMount, Show } from 'solid-js'
 import 'prismjs/components/prism-json'
 import 'prismjs/components/prism-markup'
 import 'prismjs/components/prism-javascript'
@@ -21,6 +21,62 @@ interface EditableCodePreviewProps {
 }
 
 /**
+ * Форматирует HTML контент для лучшего отображения
+ * Убирает лишние пробелы и делает разметку красивой
+ */
+const formatHtmlContent = (html: string): string => {
+  if (!html || typeof html !== 'string') return ''
+
+  // Удаляем лишние пробелы между тегами
+  let formatted = html
+    .replace(/>\s+</g, '><')  // Убираем пробелы между тегами
+    .replace(/\s+/g, ' ')     // Множественные пробелы в одиночные
+    .trim()                   // Убираем пробелы в начале и конце
+
+  // Добавляем отступы для лучшего отображения
+  const indent = '  '
+  let indentLevel = 0
+  const lines: string[] = []
+
+  // Разбиваем на токены (теги и текст)
+  const tokens = formatted.match(/<[^>]+>|[^<]+/g) || []
+
+  for (const token of tokens) {
+    if (token.startsWith('<')) {
+      if (token.startsWith('</')) {
+        // Закрывающий тег - уменьшаем отступ
+        indentLevel = Math.max(0, indentLevel - 1)
+        lines.push(indent.repeat(indentLevel) + token)
+      } else if (token.endsWith('/>')) {
+        // Самозакрывающийся тег
+        lines.push(indent.repeat(indentLevel) + token)
+      } else {
+        // Открывающий тег - добавляем отступ
+        lines.push(indent.repeat(indentLevel) + token)
+        indentLevel++
+      }
+    } else {
+      // Текстовое содержимое
+      const trimmed = token.trim()
+      if (trimmed) {
+        lines.push(indent.repeat(indentLevel) + trimmed)
+      }
+    }
+  }
+
+  return lines.join('\n')
+}
+
+/**
+ * Генерирует номера строк для текста
+ */
+const generateLineNumbers = (text: string): string[] => {
+  if (!text) return ['1']
+  const lines = text.split('\n')
+  return lines.map((_, index) => String(index + 1))
+}
+
+/**
  * Редактируемый компонент для кода с подсветкой синтаксиса
  */
 const EditableCodePreview = (props: EditableCodePreviewProps) => {
@@ -28,6 +84,7 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
   const [content, setContent] = createSignal(props.content)
   let editorRef: HTMLDivElement | undefined
   let highlightRef: HTMLPreElement | undefined
+  let lineNumbersRef: HTMLDivElement | undefined
 
   const language = () => props.language || detectLanguage(content())
 
@@ -53,12 +110,27 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
   }
 
   /**
+   * Обновляет номера строк
+   */
+  const updateLineNumbers = () => {
+    if (!lineNumbersRef) return
+
+    const lineNumbers = generateLineNumbers(content())
+    lineNumbersRef.innerHTML = lineNumbers
+      .map(num => `<div class="${styles.lineNumber}">${num}</div>`)
+      .join('')
+  }
+
+  /**
    * Синхронизирует скролл между редактором и подсветкой
    */
   const syncScroll = () => {
     if (editorRef && highlightRef) {
       highlightRef.scrollTop = editorRef.scrollTop
       highlightRef.scrollLeft = editorRef.scrollLeft
+    }
+    if (editorRef && lineNumbersRef) {
+      lineNumbersRef.scrollTop = editorRef.scrollTop
     }
   }
 
@@ -67,10 +139,43 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
    */
   const handleInput = (e: Event) => {
     const target = e.target as HTMLDivElement
+
+    // Сохраняем текущую позицию курсора
+    const selection = window.getSelection()
+    let caretOffset = 0
+
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      const preCaretRange = range.cloneRange()
+      preCaretRange.selectNodeContents(target)
+      preCaretRange.setEnd(range.endContainer, range.endOffset)
+      caretOffset = preCaretRange.toString().length
+    }
+
     const newContent = target.textContent || ''
     setContent(newContent)
     props.onContentChange(newContent)
     updateHighlight()
+    updateLineNumbers()
+
+    // Восстанавливаем позицию курсора после обновления
+    requestAnimationFrame(() => {
+      if (target && selection) {
+        try {
+          const textNode = target.firstChild
+          if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+            const range = document.createRange()
+            const safeOffset = Math.min(caretOffset, textNode.textContent?.length || 0)
+            range.setStart(textNode, safeOffset)
+            range.setEnd(textNode, safeOffset)
+            selection.removeAllRanges()
+            selection.addRange(range)
+          }
+        } catch (error) {
+          console.warn('Could not restore caret position:', error)
+        }
+      }
+    })
   }
 
   /**
@@ -87,7 +192,14 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
    * Обработчик отмены
    */
   const handleCancel = () => {
-    setContent(props.content) // Возвращаем исходный контент
+    const originalContent = props.content
+    setContent(originalContent) // Возвращаем исходный контент
+
+    // Обновляем содержимое редактируемой области
+    if (editorRef) {
+      editorRef.textContent = originalContent
+    }
+
     if (props.onCancel) {
       props.onCancel()
     }
@@ -115,7 +227,6 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
     // Tab для отступа
     if (e.key === 'Tab') {
       e.preventDefault()
-      // const target = e.target as HTMLDivElement
       const selection = window.getSelection()
       if (selection && selection.rangeCount > 0) {
         const range = selection.getRangeAt(0)
@@ -132,8 +243,12 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
   // Эффект для обновления контента при изменении props
   createEffect(() => {
     if (!isEditing()) {
-      setContent(props.content)
+      const formattedContent = language() === 'markup' || language() === 'html'
+        ? formatHtmlContent(props.content)
+        : props.content
+      setContent(formattedContent)
       updateHighlight()
+      updateLineNumbers()
     }
   })
 
@@ -141,62 +256,108 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
   createEffect(() => {
     content() // Реактивность
     updateHighlight()
+    updateLineNumbers()
+  })
+
+  // Эффект для синхронизации редактируемой области с content
+  createEffect(() => {
+    if (editorRef) {
+      const currentContent = content()
+      if (editorRef.textContent !== currentContent) {
+        // Сохраняем позицию курсора
+        const selection = window.getSelection()
+        let caretOffset = 0
+
+        if (selection && selection.rangeCount > 0 && isEditing()) {
+          const range = selection.getRangeAt(0)
+          const preCaretRange = range.cloneRange()
+          preCaretRange.selectNodeContents(editorRef)
+          preCaretRange.setEnd(range.endContainer, range.endOffset)
+          caretOffset = preCaretRange.toString().length
+        }
+
+        editorRef.textContent = currentContent
+
+        // Восстанавливаем курсор только в режиме редактирования
+        if (isEditing() && selection) {
+          requestAnimationFrame(() => {
+            try {
+              const textNode = editorRef?.firstChild
+              if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                const range = document.createRange()
+                const safeOffset = Math.min(caretOffset, textNode.textContent?.length || 0)
+                range.setStart(textNode, safeOffset)
+                range.setEnd(textNode, safeOffset)
+                selection.removeAllRanges()
+                selection.addRange(range)
+              }
+            } catch (error) {
+              console.warn('Could not restore caret position:', error)
+            }
+          })
+        }
+      }
+    }
   })
 
   onMount(() => {
+    const formattedContent = language() === 'markup' || language() === 'html'
+      ? formatHtmlContent(props.content)
+      : props.content
+    setContent(formattedContent)
     updateHighlight()
+    updateLineNumbers()
   })
 
   return (
     <div class={styles.editableCodeContainer}>
-      {/* Кнопки управления */}
-      {props.showButtons !== false && (
-        <div class={styles.editorControls}>
-          {!isEditing() ? (
-            <button class={styles.editButton} onClick={() => setIsEditing(true)}>
-              ✏️ Редактировать
-            </button>
-          ) : (
-            <div class={styles.editingControls}>
-              <button class={styles.saveButton} onClick={handleSave}>
-                💾 Сохранить (Ctrl+Enter)
-              </button>
-              <button class={styles.cancelButton} onClick={handleCancel}>
-                ❌ Отмена (Esc)
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Контейнер редактора */}
+      {/* Контейнер редактора - увеличиваем размер */}
       <div
         class={styles.editorWrapper}
-        style={`max-height: ${props.maxHeight || '70vh'}; ${isEditing() ? 'border: 2px solid #007acc;' : ''}`}
+        style={`height: 100%; ${isEditing() ? 'border: 2px solid #007acc;' : ''}`}
       >
-        {/* Подсветка синтаксиса (фон) */}
-        <pre
-          ref={highlightRef}
-          class={`${styles.syntaxHighlight} language-${language()}`}
-          style="position: absolute; top: 0; left: 0; pointer-events: none; color: transparent; background: transparent; margin: 0; padding: 12px; font-family: 'Fira Code', monospace; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; overflow: hidden;"
-          aria-hidden="true"
+        {/* Номера строк */}
+        <div
+          ref={lineNumbersRef}
+          class={styles.lineNumbersContainer}
+          style="position: absolute; left: 0; top: 0; width: 50px; height: 100%; background: #1e1e1e; border-right: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden; user-select: none; padding: 8px 0; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; line-height: 1.4;"
         />
+
+        {/* Подсветка синтаксиса (фон) - только в режиме редактирования */}
+        <Show when={isEditing()}>
+          <pre
+            ref={highlightRef}
+            class={`${styles.syntaxHighlight} language-${language()}`}
+            style="position: absolute; top: 0; left: 50px; right: 0; bottom: 0; pointer-events: none; color: transparent; background: transparent; margin: 0; padding: 8px 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; overflow: hidden; z-index: 0;"
+            aria-hidden="true"
+          />
+        </Show>
 
         {/* Редактируемая область */}
         <div
-          ref={editorRef}
+          ref={(el) => {
+            editorRef = el
+            // Синхронизируем содержимое при создании элемента
+            if (el && el.textContent !== content()) {
+              el.textContent = content()
+            }
+          }}
           contentEditable={isEditing()}
           class={styles.editorArea}
           style={`
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 50px;
+            right: 0;
+            bottom: 0;
             z-index: 1;
-            background: ${isEditing() ? 'rgba(0, 0, 0, 0.05)' : 'transparent'};
+            background: ${isEditing() ? 'rgba(0, 0, 0, 0.02)' : 'transparent'};
             color: ${isEditing() ? 'rgba(255, 255, 255, 0.9)' : 'transparent'};
             margin: 0;
-            padding: 12px;
-            font-family: 'Fira Code', monospace;
-            font-size: 14px;
-            line-height: 1.5;
+            padding: 8px 12px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.4;
             white-space: pre-wrap;
             word-wrap: break-word;
             overflow-y: auto;
@@ -208,29 +369,37 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
           onKeyDown={handleKeyDown}
           onScroll={syncScroll}
           spellcheck={false}
-        >
-          {content()}
-        </div>
+        />
 
         {/* Превью для неактивного режима */}
-        {!isEditing() && (
+        <Show when={!isEditing()}>
           <pre
             class={`${styles.codePreview} language-${language()}`}
             style={`
               position: absolute;
               top: 0;
-              left: 0;
+              left: 50px;
+              right: 0;
+              bottom: 0;
               margin: 0;
-              padding: 12px;
-              font-family: 'Fira Code', monospace;
-              font-size: 14px;
-              line-height: 1.5;
+              padding: 8px 12px;
+              font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+              font-size: 12px;
+              line-height: 1.4;
               white-space: pre-wrap;
               word-wrap: break-word;
               background: transparent;
               cursor: pointer;
+              overflow-y: auto;
+              z-index: 2;
             `}
             onClick={() => setIsEditing(true)}
+            onScroll={(e) => {
+              // Синхронизируем номера строк при скролле в режиме просмотра
+              if (lineNumbersRef) {
+                lineNumbersRef.scrollTop = (e.target as HTMLElement).scrollTop
+              }
+            }}
           >
             <code
               class={`language-${language()}`}
@@ -243,22 +412,44 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
               })()}
             />
           </pre>
-        )}
+        </Show>
       </div>
 
+      {/* Индикатор языка */}
+      <span class={styles.languageBadge} style="top: 8px; right: 8px; z-index: 10;">
+        {language()}
+      </span>
+
       {/* Плейсхолдер */}
-      {!content() && (
+      <Show when={!content()}>
         <div
           class={styles.placeholder}
           onClick={() => setIsEditing(true)}
-          style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666; cursor: pointer; font-style: italic;"
+          style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666; cursor: pointer; font-style: italic; font-size: 14px;"
         >
           {props.placeholder || 'Нажмите для редактирования...'}
         </div>
-      )}
+      </Show>
 
-      {/* Индикатор языка */}
-      <span class={styles.languageBadge}>{language()}</span>
+      {/* Кнопки управления внизу */}
+      {props.showButtons !== false && (
+        <div class={styles.editorControls} style="border-top: 1px solid rgba(255, 255, 255, 0.1); border-bottom: none; background-color: #1e1e1e;">
+          <Show when={isEditing()} fallback={
+            <button class={styles.editButton} onClick={() => setIsEditing(true)}>
+              ✏️ Редактировать
+            </button>
+          }>
+            <div class={styles.editingControls}>
+              <button class={styles.saveButton} onClick={handleSave}>
+                💾 Сохранить (Ctrl+Enter)
+              </button>
+              <button class={styles.cancelButton} onClick={handleCancel}>
+                ❌ Отмена (Esc)
+              </button>
+            </div>
+          </Show>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,22 +4,34 @@
   background-color: #2d2d2d;
   color: #f8f8f2;
   tab-size: 2;
-  line-height: 1.5;
+  line-height: 1.4;
   border-radius: 4px;
   overflow: hidden;
+  font-size: 12px;
 }
 
 .lineNumber {
-  position: absolute;
-  left: 0;
-  width: 40px;
+  display: block;
+  padding: 0 8px;
   text-align: right;
-  color: #999;
+  color: #555;
+  background: #1e1e1e;
   user-select: none;
-  opacity: 0.5;
-  padding-right: 10px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  min-height: 16.8px; /* 12px * 1.4 line-height */
   border-right: 1px solid rgba(255, 255, 255, 0.1);
-  margin-right: 10px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.lineNumbersContainer {
+  overflow: hidden;
+}
+
+.lineNumbersContainer .lineNumber {
+  border-right: none;
 }
 
 .code {
@@ -45,7 +57,9 @@
   background-color: #2d2d2d;
   border-radius: 6px;
   overflow: hidden;
-  min-height: 200px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .editorControls {
@@ -53,7 +67,9 @@
   justify-content: flex-end;
   padding: 8px 12px;
   background-color: #1e1e1e;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+  order: 2; /* Перемещаем вниз */
 }
 
 .editingControls {
@@ -111,21 +127,28 @@
   overflow: hidden;
   background-color: #2d2d2d;
   transition: border 0.2s;
+  flex: 1;
+  order: 1; /* Основной контент вверху */
 }
 
 .syntaxHighlight {
   width: 100%;
   height: 100%;
   tab-size: 2;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .editorArea {
-  min-height: 150px;
   resize: none;
   border: none;
   width: 100%;
   height: 100%;
   tab-size: 2;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .editorArea:focus {

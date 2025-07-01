@@ -41,7 +41,7 @@ const ShoutBodyModal: Component<ShoutBodyModalProps> = (props) => {
         <div class={styles['shout-content']}>
           <h3>Содержание</h3>
           <div class={styles['content-preview']}>
-            <TextPreview content={props.shout.body || ''} maxHeight="70vh" />
+            <TextPreview content={props.shout.body || ''} maxHeight="85vh" />
           </div>
         </div>
       </div>

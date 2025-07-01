@@ -18,7 +18,7 @@
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  max-height: 90vh;
+  max-height: 95vh;
   width: 100%;
   animation: modal-appear 0.2s ease-out;
 }
@@ -35,12 +35,14 @@
 .modal-large {
   max-width: 1200px;
   width: 95vw;
-  min-height: 600px;
+  height: 85vh;
+  max-height: 85vh;
 }
 
 .modal-large .content {
-  max-height: 70vh;
-  overflow-y: auto;
+  flex: 1;
+  overflow: hidden; /* Убираем скролл модального окна, пусть EditableCodePreview управляет */
+  padding: 0; /* Убираем padding чтобы EditableCodePreview занял всю площадь */
 }
 
 .header {
@@ -139,7 +141,7 @@
   }
 
   .modal-large .content {
-    max-height: 60vh;
+    max-height: 80vh;
   }
 }
 

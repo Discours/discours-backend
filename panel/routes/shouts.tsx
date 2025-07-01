@@ -269,10 +269,15 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
         </div>
       </Show>
 
-      <Modal isOpen={showBodyModal()} onClose={() => setShowBodyModal(false)} title="Содержимое публикации">
+      <Modal
+        isOpen={showBodyModal()}
+        onClose={() => setShowBodyModal(false)}
+        title="Содержимое публикации"
+        size="large"
+      >
         <EditableCodePreview
           content={selectedShoutBody()}
-          maxHeight="70vh"
+          maxHeight="85vh"
           onContentChange={(newContent) => {
             setSelectedShoutBody(newContent)
           }}
@@ -292,10 +297,11 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
         isOpen={showMediaBodyModal()}
         onClose={() => setShowMediaBodyModal(false)}
         title="Содержимое media.body"
+        size="large"
       >
         <EditableCodePreview
           content={selectedMediaBody()}
-          maxHeight="70vh"
+          maxHeight="85vh"
           onContentChange={(newContent) => {
             setSelectedMediaBody(newContent)
           }}
