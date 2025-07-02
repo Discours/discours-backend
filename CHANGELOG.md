@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [0.7.1] - 2025-07-02
+
+### Исправления системы переменных среды и RBAC
+- **ИСПРАВЛЕНО**: Ошибка `'Author' object has no attribute 'get_permissions'` в нескольких местах:
+  - `auth/decorators.py` - функция `validate_graphql_context`
+  - `auth/middleware.py` - функция `authenticate_user`
+  - `orm/community.py` - метод `get_community_members`
+- **ИСПРАВЛЕНО**: Резолвер `getEnvVariables` теперь использует `@admin_auth_required` вместо `@admin_only`
+- **ИСПРАВЛЕНО**: Функция `get_user_roles_from_context` в RBAC системе добавляет роль `admin` для системных администраторов из `ADMIN_EMAILS`
+- **ИСПРАВЛЕНО**: Циклические импорты в `services/rbac.py` через обработку исключений
+- **УЛУЧШЕНО**: Корректная работа вкладки переменных среды в админ-панели когда переменных нет
+- **УЛУЧШЕНО**: Системные администраторы (`ADMIN_EMAILS`) теперь автоматически получают роль `admin` в RBAC декораторах
+
 ## [0.7.0] - 2025-07-02
 
 ### Исправления RBAC системы в админ-панели

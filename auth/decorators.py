@@ -210,13 +210,11 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
             author = session.query(Author).filter(Author.id == auth_state.author_id).one()
             logger.debug(f"[validate_graphql_context] Найден автор: id={author.id}, email={author.email}")
 
-            # Получаем разрешения из ролей
-            scopes = await author.get_permissions()
-
-            # Создаем объект авторизации
+            # Создаем объект авторизации с пустыми разрешениями
+            # Разрешения будут проверяться через RBAC систему по требованию
             auth_cred = AuthCredentials(
                 author_id=author.id,
-                scopes=scopes,
+                scopes={},  # Пустой словарь разрешений
                 logged_in=True,
                 error_message="",
                 email=author.email,

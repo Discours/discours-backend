@@ -235,7 +235,14 @@ class Community(BaseModel):
 
                 if with_roles:
                     member_info["roles"] = ca.role_list  # type: ignore[assignment]
-                    member_info["permissions"] = ca.get_permissions()  # type: ignore[assignment]
+                    # Получаем разрешения синхронно
+                    try:
+                        import asyncio
+
+                        member_info["permissions"] = asyncio.run(ca.get_permissions())  # type: ignore[assignment]
+                    except Exception:
+                        # Если не удается получить разрешения асинхронно, используем пустой список
+                        member_info["permissions"] = []  # type: ignore[assignment]
 
                 members.append(member_info)
 

@@ -14,7 +14,6 @@ from orm.invite import Invite, InviteStatus
 from orm.shout import Shout
 from services.db import local_session
 from services.env import EnvManager, EnvVariable
-from services.rbac import admin_only
 from services.schema import mutation, query
 from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 from utils.logger import root_logger as logger
@@ -40,6 +39,99 @@ default_role_descriptions = {
     "editor": "Может модерировать контент",
     "admin": "Полные права",
 }
+
+
+# === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ DRY ===
+
+
+def normalize_pagination(limit: int = 20, offset: int = 0) -> tuple[int, int]:
+    """
+    Нормализует параметры пагинации.
+
+    Args:
+        limit: Максимальное количество записей
+        offset: Смещение
+
+    Returns:
+        Кортеж (limit, offset) с нормализованными значениями
+    """
+    return max(1, min(100, limit or 20)), max(0, offset or 0)
+
+
+def calculate_pagination_info(total_count: int, limit: int, offset: int) -> dict[str, int]:
+    """
+    Вычисляет информацию о пагинации.
+
+    Args:
+        total_count: Общее количество записей
+        limit: Количество записей на странице
+        offset: Смещение
+
+    Returns:
+        Словарь с информацией о пагинации
+    """
+    per_page = limit
+    if total_count is None or per_page in (None, 0):
+        total_pages = 1
+    else:
+        total_pages = ceil(total_count / per_page)
+    current_page = (offset // per_page) + 1 if per_page > 0 else 1
+
+    return {
+        "total": total_count,
+        "page": current_page,
+        "perPage": per_page,
+        "totalPages": total_pages,
+    }
+
+
+def handle_admin_error(operation: str, error: Exception) -> GraphQLError:
+    """
+    Обрабатывает ошибки в админ-резолверах.
+
+    Args:
+        operation: Название операции
+        error: Исключение
+
+    Returns:
+        GraphQLError для возврата клиенту
+    """
+    import traceback
+
+    logger.error(f"Ошибка при {operation}: {error!s}")
+    logger.error(traceback.format_exc())
+    msg = f"Не удалось {operation}: {error!s}"
+    return GraphQLError(msg)
+
+
+def get_author_info(author_id: int, session) -> dict[str, Any]:
+    """
+    Получает информацию об авторе для отображения в админ-панели.
+
+    Args:
+        author_id: ID автора
+        session: Сессия БД
+
+    Returns:
+        Словарь с информацией об авторе
+    """
+    if not author_id:
+        return None
+
+    author = session.query(Author).filter(Author.id == author_id).first()
+    if author:
+        return {
+            "id": author.id,
+            "email": author.email,
+            "name": author.name,
+            "slug": author.slug or f"user-{author.id}",
+        }
+    return {
+        "id": author_id,
+        "email": "unknown",
+        "name": "unknown",
+        "slug": f"user-{author_id}",
+    }
 
 
 def _get_user_roles(user: Author, community_id: int = 1) -> list[str]:
@@ -86,7 +178,7 @@ async def admin_get_users(
     Получает список пользователей для админ-панели с поддержкой пагинации и поиска
 
     Args:
-        info: Контекст GraphQL запроса
+        _info: Контекст GraphQL запроса
         limit: Максимальное количество записей для получения
         offset: Смещение в списке результатов
         search: Строка поиска (по email, имени или ID)
@@ -95,9 +187,8 @@ async def admin_get_users(
         Пагинированный список пользователей
     """
     try:
-        # Нормализуем параметры
-        limit = max(1, min(100, limit or 20))  # Ограничиваем количество записей от 1 до 100
-        offset = max(0, offset or 0)  # Смещение не может быть отрицательным
+        # Нормализуем параметры пагинации
+        limit, offset = normalize_pagination(limit, offset)
 
         with local_session() as session:
             # Базовый запрос
@@ -117,16 +208,11 @@ async def admin_get_users(
             # Получаем общее количество записей
             total_count = query.count()
 
-            # Вычисляем информацию о пагинации
-            per_page = limit
-            if total_count is None or per_page in (None, 0):
-                total_pages = 1
-            else:
-                total_pages = ceil(total_count / per_page)
-            current_page = (offset // per_page) + 1 if per_page > 0 else 1
-
             # Применяем пагинацию
             authors = query.order_by(Author.id).offset(offset).limit(limit).all()
+
+            # Вычисляем информацию о пагинации
+            pagination_info = calculate_pagination_info(total_count, limit, offset)
 
             # Преобразуем в формат для API
             return {
@@ -142,19 +228,11 @@ async def admin_get_users(
                     }
                     for user in authors
                 ],
-                "total": total_count,
-                "page": current_page,
-                "perPage": per_page,
-                "totalPages": total_pages,
+                **pagination_info,
             }
 
     except Exception as e:
-        import traceback
-
-        logger.error(f"Ошибка при получении списка пользователей: {e!s}")
-        logger.error(traceback.format_exc())
-        msg = f"Не удалось получить список пользователей: {e!s}"
-        raise GraphQLError(msg) from e
+        raise handle_admin_error("получении списка пользователей", e) from e
 
 
 @query.field("adminGetRoles")
@@ -224,7 +302,7 @@ async def admin_get_roles(_: None, info: GraphQLResolveInfo, community: int = No
 
 
 @query.field("getEnvVariables")
-@admin_only
+@admin_auth_required
 async def get_env_variables(_: None, info: GraphQLResolveInfo) -> list[dict[str, Any]]:
     """
     Получает список переменных окружения, сгруппированных по секциям
@@ -908,9 +986,8 @@ async def admin_get_invites(
         Пагинированный список приглашений
     """
     try:
-        # Нормализуем параметры
-        limit = max(1, min(100, limit or 10))
-        offset = max(0, offset or 0)
+        # Нормализуем параметры пагинации
+        limit, offset = normalize_pagination(limit, offset)
 
         with local_session() as session:
             # Базовый запрос с загрузкой связанных объектов
@@ -957,26 +1034,19 @@ async def admin_get_invites(
             # Получаем общее количество записей
             total_count = query.count()
 
-            # Вычисляем информацию о пагинации
-            per_page = limit
-            if total_count is None or per_page in (None, 0):
-                total_pages = 1
-            else:
-                total_pages = ceil(total_count / per_page)
-            current_page = (offset // per_page) + 1 if per_page > 0 else 1
-
             # Применяем пагинацию и сортировку (по ID приглашающего, затем автора, затем публикации)
             invites = (
                 query.order_by(Invite.inviter_id, Invite.author_id, Invite.shout_id).offset(offset).limit(limit).all()
             )
 
+            # Вычисляем информацию о пагинации
+            pagination_info = calculate_pagination_info(total_count, limit, offset)
+
             # Преобразуем в формат для API
             result_invites = []
             for invite in invites:
-                # Получаем автора публикации
-                created_by_author = None
-                if invite.shout and invite.shout.created_by:
-                    created_by_author = session.query(Author).filter(Author.id == invite.shout.created_by).first()
+                # Получаем информацию о создателе публикации
+                created_by_info = get_author_info(invite.shout.created_by if invite.shout else None, session)
 
                 invite_dict = {
                     "inviter_id": invite.inviter_id,
@@ -987,86 +1057,32 @@ async def admin_get_invites(
                         "id": invite.inviter.id,
                         "name": invite.inviter.name or "Без имени",
                         "email": invite.inviter.email,
-                        "slug": invite.inviter.slug or f"user-{invite.inviter.id}",  # Добавляем значение по умолчанию
+                        "slug": invite.inviter.slug or f"user-{invite.inviter.id}",
                     },
                     "author": {
                         "id": invite.author.id,
                         "name": invite.author.name or "Без имени",
                         "email": invite.author.email,
-                        "slug": invite.author.slug or f"user-{invite.author.id}",  # Добавляем значение по умолчанию
+                        "slug": invite.author.slug or f"user-{invite.author.id}",
                     },
                     "shout": {
                         "id": invite.shout.id,
                         "title": invite.shout.title,
                         "slug": invite.shout.slug,
+                        "created_by": created_by_info,
                     },
                     "created_at": None,  # У приглашений нет created_at поля в текущей модели
                 }
-
-                # Добавляем информацию о создателе публикации, если она доступна
-                if created_by_author:
-                    # Создаем новый словарь для shout
-                    shout_dict = {}
-
-                    # Копируем основные поля
-                    if isinstance(invite_dict["shout"], dict):
-                        shout_info = invite_dict["shout"]
-                        shout_dict["id"] = shout_info.get("id")
-                        shout_dict["title"] = shout_info.get("title")
-                        shout_dict["slug"] = shout_info.get("slug")
-                    else:
-                        # Если это не словарь, берем данные напрямую из объекта invite.shout
-                        shout_dict["id"] = invite.shout.id
-                        shout_dict["title"] = invite.shout.title
-                        shout_dict["slug"] = invite.shout.slug
-
-                    # Добавляем информацию о создателе
-                    shout_dict["created_by"] = {
-                        "id": created_by_author.id,
-                        "name": created_by_author.name or "Без имени",
-                        "email": created_by_author.email,
-                        "slug": created_by_author.slug or f"user-{created_by_author.id}",
-                    }
-
-                    invite_dict["shout"] = shout_dict
-                else:
-                    # Создаем новый словарь для shout
-                    shout_dict = {}
-
-                    # Копируем основные поля
-                    if isinstance(invite_dict["shout"], dict):
-                        shout_info = invite_dict["shout"]
-                        shout_dict["id"] = shout_info.get("id")
-                        shout_dict["title"] = shout_info.get("title")
-                        shout_dict["slug"] = shout_info.get("slug")
-                    else:
-                        # Если это не словарь, берем данные напрямую из объекта invite.shout
-                        shout_dict["id"] = invite.shout.id
-                        shout_dict["title"] = invite.shout.title
-                        shout_dict["slug"] = invite.shout.slug
-
-                    # Указываем, что created_by отсутствует
-                    shout_dict["created_by"] = None
-
-                    invite_dict["shout"] = shout_dict
 
                 result_invites.append(invite_dict)
 
             return {
                 "invites": result_invites,
-                "total": total_count,
-                "page": current_page,
-                "perPage": per_page,
-                "totalPages": total_pages,
+                **pagination_info,
             }
 
     except Exception as e:
-        import traceback
-
-        logger.error(f"Ошибка при получении списка приглашений: {e!s}")
-        logger.error(traceback.format_exc())
-        msg = f"Не удалось получить список приглашений: {e!s}"
-        raise GraphQLError(msg) from e
+        raise handle_admin_error("получении списка приглашений", e) from e
 
 
 @mutation.field("adminUpdateInvite")

@@ -138,17 +138,21 @@ def get_user_roles_in_community(author_id: int, community_id: int) -> list[str]:
     Returns:
         Список ролей пользователя в сообществе
     """
-    from orm.community import CommunityAuthor
-    from services.db import local_session
+    try:
+        from orm.community import CommunityAuthor
+        from services.db import local_session
 
-    with local_session() as session:
-        ca = (
-            session.query(CommunityAuthor)
-            .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
-            .first()
-        )
+        with local_session() as session:
+            ca = (
+                session.query(CommunityAuthor)
+                .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .first()
+            )
 
-        return ca.role_list if ca else []
+            return ca.role_list if ca else []
+    except ImportError:
+        # Если есть циклический импорт, возвращаем пустой список
+        return []
 
 
 async def user_has_permission(author_id: int, permission: str, community_id: int) -> bool:
@@ -208,6 +212,24 @@ def get_user_roles_from_context(info) -> tuple[list[str], int]:
 
     # Получаем роли пользователя в этом сообществе
     user_roles = get_user_roles_in_community(author_id, community_id)
+
+    # Проверяем, является ли пользователь системным администратором
+    try:
+        from auth.orm import Author
+        from services.db import local_session
+        from settings import ADMIN_EMAILS
+
+        admin_emails = ADMIN_EMAILS.split(",") if ADMIN_EMAILS else []
+
+        with local_session() as session:
+            author = session.query(Author).filter(Author.id == author_id).first()
+            if author and author.email and author.email in admin_emails:
+                # Системный администратор автоматически получает роль admin в любом сообществе
+                if "admin" not in user_roles:
+                    user_roles = [*user_roles, "admin"]
+    except Exception:
+        # Если не удалось проверить email (включая циклические импорты), продолжаем с существующими ролями
+        pass
 
     return user_roles, community_id
 

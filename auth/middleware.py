@@ -117,8 +117,9 @@ class AuthMiddleware:
                             token=None,
                         ), UnauthenticatedUser()
 
-                    # Получаем разрешения из ролей
-                    scopes = await author.get_permissions()
+                    # Создаем пустой словарь разрешений
+                    # Разрешения будут проверяться через RBAC систему по требованию
+                    scopes = {}
 
                     # Получаем роли для пользователя
                     ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
