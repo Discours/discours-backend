@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/v0.7.0-lightgrey)
+![Version](https://img.shields.io/badge/v0.7.5-lightgrey)
 ![Python](https://img.shields.io/badge/python%203.12+-gold?logo=python&logoColor=black)
 ![GraphQL](https://img.shields.io/badge/graphql%20api-pink?logo=graphql&logoColor=black)
 ![Tests](https://img.shields.io/badge/tests%2090%25-lightcyan?logo=pytest&logoColor=black)

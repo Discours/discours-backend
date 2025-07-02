@@ -5,9 +5,7 @@ from resolvers.admin import (
 )
 from resolvers.auth import (
     confirm_email,
-    get_current_user,
     login,
-    register_by_email,
     send_link,
 )
 from resolvers.author import (  # search_authors,
@@ -110,8 +108,6 @@ __all__ = [
     # "search_authors",
     # community
     "get_community",
-    # auth
-    "get_current_user",
     "get_my_rates_comments",
     "get_my_rates_shouts",
     # reader
@@ -154,7 +150,6 @@ __all__ = [
     "publish_draft",
     # rating
     "rate_author",
-    "register_by_email",
     "send_link",
     "set_topic_parent",
     "unfollow",

@@ -193,6 +193,22 @@ export const GET_TOPICS_BY_COMMUNITY_QUERY: string =
   }
 `.loc?.source.body || ''
 
+export const ADMIN_GET_TOPICS_QUERY: string =
+  gql`
+  query AdminGetTopics($community_id: Int!) {
+    adminGetTopics(community_id: $community_id) {
+      id
+      title
+      slug
+      body
+      community
+      parent_ids
+      pic
+      oid
+    }
+  }
+`.loc?.source.body || ''
+
 export const GET_COLLECTIONS_QUERY: string =
   gql`
   query GetCollections {

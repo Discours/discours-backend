@@ -246,6 +246,8 @@ extend type Query {
 		search: String
 		status: String
 	): AdminInviteListResponse!
+	# Запросы для управления топиками
+	adminGetTopics(community_id: Int!): [Topic!]!
 }
 
 extend type Mutation {

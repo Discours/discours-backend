@@ -228,12 +228,6 @@ export const Topics = (props: TopicsProps) => {
         </table>
       </div>
 
-      <div class={styles.tableFooter}>
-        <span class={styles.resultsInfo}>
-          <span>Всего</span>: {sortedTopics().length}
-        </span>
-      </div>
-
       {/* Модальное окно для редактирования топика */}
       <TopicEditModal
         isOpen={showEditModal()}

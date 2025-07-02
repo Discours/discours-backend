@@ -178,7 +178,7 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
         case 'проверен':
           return '✓'
         default:
-          return '🎭'
+          return '👤'
       }
     }
 

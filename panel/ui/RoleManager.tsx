@@ -209,7 +209,7 @@ const RoleManager = (props: RoleManagerProps) => {
       <div class={styles.section}>
         <div class={styles.sectionHeader}>
           <h3 class={styles.sectionTitle}>
-            <span class={styles.icon}>🎭</span>
+            <span class={styles.icon}>👤</span>
             Доступные роли в сообществе
           </h3>
         </div>
@@ -340,7 +340,7 @@ const RoleManager = (props: RoleManagerProps) => {
               <div class={styles.fieldGroup}>
                 <label class={formStyles.label}>
                   <span class={formStyles.labelText}>
-                    <span class={formStyles.labelIcon}>🎭</span>
+                    <span class={formStyles.labelIcon}>👤</span>
                     Иконка
                   </span>
                 </label>

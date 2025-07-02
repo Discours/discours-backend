@@ -12,7 +12,6 @@ from starlette.responses import JSONResponse, RedirectResponse
 
 from auth.orm import Author
 from auth.tokens.storage import TokenStorage
-from resolvers.auth import generate_unique_slug
 from services.db import local_session
 from services.redis import redis
 from settings import (
@@ -24,6 +23,7 @@ from settings import (
     SESSION_COOKIE_SAMESITE,
     SESSION_COOKIE_SECURE,
 )
+from utils.generate_slug import generate_unique_slug
 from utils.logger import root_logger as logger
 
 # Type для dependency injection сессии

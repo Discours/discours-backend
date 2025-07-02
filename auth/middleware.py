@@ -119,7 +119,7 @@ class AuthMiddleware:
 
                     # Создаем пустой словарь разрешений
                     # Разрешения будут проверяться через RBAC систему по требованию
-                    scopes = {}
+                    scopes: dict[str, Any] = {}
 
                     # Получаем роли для пользователя
                     ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()

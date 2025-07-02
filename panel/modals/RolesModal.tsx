@@ -64,7 +64,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
   // Получаем информацию о роли по ID
   const getRoleInfo = (roleId: string) => {
-    return AVAILABLE_ROLES.find((role) => role.id === roleId) || { name: roleId, emoji: '🎭' }
+    return AVAILABLE_ROLES.find((role) => role.id === roleId) || { name: roleId, emoji: '👤' }
   }
 
   // Формируем строку с ролями и эмоджи
@@ -218,7 +218,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
         <div class={formStyles.fieldGroup}>
           <label class={formStyles.label}>
             <span class={formStyles.labelText}>
-              <span class={formStyles.labelIcon}>🎭</span>
+              <span class={formStyles.labelIcon}>👤</span>
               Текущие роли
             </span>
           </label>

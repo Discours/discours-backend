@@ -1,6 +1,7 @@
 import { createContext, createEffect, createSignal, JSX, onMount, useContext } from 'solid-js'
 import {
   ADMIN_GET_ROLES_QUERY,
+  ADMIN_GET_TOPICS_QUERY,
   GET_COMMUNITIES_QUERY,
   GET_TOPICS_BY_COMMUNITY_QUERY,
   GET_TOPICS_QUERY
@@ -208,18 +209,16 @@ export function DataProvider(props: { children: JSX.Element }) {
     try {
       setIsLoading(true)
 
-      // Загружаем все топики сообщества сразу с лимитом 800
+      // Используем админский резолвер для получения всех топиков без лимитов
       const response = await fetch('/graphql', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          query: GET_TOPICS_BY_COMMUNITY_QUERY,
+          query: ADMIN_GET_TOPICS_QUERY,
           variables: {
-            community_id: communityId,
-            limit: 800,
-            offset: 0
+            community_id: communityId
           }
         })
       })
@@ -230,12 +229,13 @@ export function DataProvider(props: { children: JSX.Element }) {
         throw new Error(result.errors[0].message)
       }
 
-      const allTopicsData = result.data.get_topics_by_community || []
+      const allTopicsData = result.data.adminGetTopics || []
 
       // Сохраняем все данные сразу для отображения
       setTopics(allTopicsData)
       setAllTopics(allTopicsData)
 
+      console.log(`[DataProvider] Загружено ${allTopicsData.length} топиков для сообщества ${communityId}`)
       return allTopicsData
     } catch (error) {
       console.error('Ошибка загрузки топиков по сообществу:', error)
