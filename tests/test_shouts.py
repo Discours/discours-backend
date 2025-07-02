@@ -2,42 +2,11 @@ from datetime import datetime
 
 import pytest
 
-from auth.orm import Author, AuthorRole, Role
+from auth.orm import Author
+from orm.community import CommunityAuthor
 from orm.shout import Shout
 from resolvers.reader import get_shout
 
-
-def ensure_test_user_with_roles(db_session):
-    """Создает тестового пользователя с ID 1 и назначает ему роли"""
-    # Создаем роли если их нет
-    reader_role = db_session.query(Role).filter(Role.id == "reader").first()
-    if not reader_role:
-        reader_role = Role(id="reader", name="Читатель")
-        db_session.add(reader_role)
-
-    author_role = db_session.query(Role).filter(Role.id == "author").first()
-    if not author_role:
-        author_role = Role(id="author", name="Автор")
-        db_session.add(author_role)
-
-    # Создаем пользователя с ID 1 если его нет
-    test_user = db_session.query(Author).filter(Author.id == 1).first()
-    if not test_user:
-        test_user = Author(id=1, email="test@example.com", name="Test User", slug="test-user")
-        test_user.set_password("password123")
-        db_session.add(test_user)
-        db_session.flush()
-
-    # Удаляем старые роли и добавляем новые
-    db_session.query(AuthorRole).filter(AuthorRole.author == 1).delete()
-
-    # Добавляем роли
-    for role_id in ["reader", "author"]:
-        author_role_link = AuthorRole(community=1, author=1, role=role_id)
-        db_session.add(author_role_link)
-
-    db_session.commit()
-    return test_user
 
 
 class MockInfo:
@@ -85,7 +54,13 @@ class MockName:
 @pytest.fixture
 def test_shout(db_session):
     """Create test shout with required fields."""
-    author = ensure_test_user_with_roles(db_session)
+    author = Author(id=1, email="test@example.com", name="Test User", slug="test-user")
+    author.set_password("password123")
+    author.set_email_verified(True)
+    ca = CommunityAuthor(community_id=1, author_id=author.id, roles="reader,author")
+    db_session.add(author)
+    db_session.add(ca)
+    db_session.commit()
     now = int(datetime.now().timestamp())
 
     # Создаем публикацию со всеми обязательными полями

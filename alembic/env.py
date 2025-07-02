@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
+# Импорт всех моделей для корректной генерации миграций
 from alembic import context
 from services.db import Base
 from settings import DB_URL

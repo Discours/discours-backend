@@ -559,6 +559,9 @@ def _update_author_profile(author: Author, profile: dict) -> None:
 
 def _create_new_oauth_user(provider: str, profile: dict, email: str, session: Any) -> Author:
     """Создает нового пользователя из OAuth профиля"""
+    from orm.community import Community, CommunityAuthor, CommunityFollower
+    from utils.logger import root_logger as logger
+
     slug = generate_unique_slug(profile["name"] or f"{provider}_{profile.get('id', 'user')}")
 
     author = Author(
@@ -576,4 +579,40 @@ def _create_new_oauth_user(provider: str, profile: dict, email: str, session: An
 
     # Добавляем OAuth данные для нового пользователя
     author.set_oauth_account(provider, profile["id"], email=profile.get("email"))
+
+    # Добавляем пользователя в основное сообщество с дефолтными ролями
+    target_community_id = 1  # Основное сообщество
+
+    # Получаем сообщество для назначения дефолтных ролей
+    community = session.query(Community).filter(Community.id == target_community_id).first()
+    if community:
+        # Инициализируем права сообщества если нужно
+        try:
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(community.initialize_role_permissions())
+        except Exception as e:
+            logger.warning(f"Не удалось инициализировать права сообщества {target_community_id}: {e}")
+
+        # Получаем дефолтные роли сообщества или используем стандартные
+        try:
+            default_roles = community.get_default_roles()
+            if not default_roles:
+                default_roles = ["reader", "author"]
+        except AttributeError:
+            default_roles = ["reader", "author"]
+
+        # Создаем CommunityAuthor с дефолтными ролями
+        community_author = CommunityAuthor(
+            community_id=target_community_id, author_id=author.id, roles=",".join(default_roles)
+        )
+        session.add(community_author)
+        logger.info(f"Создана запись CommunityAuthor для OAuth пользователя {author.id} с ролями: {default_roles}")
+
+        # Добавляем пользователя в подписчики сообщества
+        follower = CommunityFollower(community=target_community_id, follower=int(author.id))
+        session.add(follower)
+        logger.info(f"OAuth пользователь {author.id} добавлен в подписчики сообщества {target_community_id}")
+
     return author

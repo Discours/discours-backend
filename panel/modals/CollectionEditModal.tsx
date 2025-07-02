@@ -109,68 +109,99 @@ const CollectionEditModal: Component<CollectionEditModalProps> = (props) => {
 
   return (
     <Modal isOpen={props.isOpen} onClose={props.onClose} title={modalTitle()} size="medium">
-      <div class={styles['modal-content']}>
+      <div class={styles.modalContent}>
         <div class={formStyles.form}>
-          <div class={formStyles['form-group']}>
+          <div class={formStyles.fieldGroup}>
             <label class={formStyles.label}>
-              Slug <span style={{ color: 'red' }}>*</span>
+              <span class={formStyles.labelText}>
+                <span class={formStyles.labelIcon}>📝</span>
+                Название
+                <span class={formStyles.required}>*</span>
+              </span>
             </label>
             <input
               type="text"
-              value={formData().slug}
-              onInput={(e) => updateField('slug', e.target.value.toLowerCase())}
-              class={`${formStyles.input} ${errors().slug ? formStyles.inputError : ''}`}
-              placeholder="уникальный-идентификатор"
-              required
-            />
-            <div class={formStyles.fieldHint}>
-              Используется в URL коллекции. Только латинские буквы, цифры, дефисы и подчеркивания.
-            </div>
-            {errors().slug && <div class={formStyles.fieldError}>{errors().slug}</div>}
-          </div>
-
-          <div class={formStyles['form-group']}>
-            <label class={formStyles.label}>
-              Название <span style={{ color: 'red' }}>*</span>
-            </label>
-            <input
-              type="text"
+              class={`${formStyles.input} ${errors().title ? formStyles.error : ''}`}
               value={formData().title}
               onInput={(e) => updateField('title', e.target.value)}
-              class={`${formStyles.input} ${errors().title ? formStyles.inputError : ''}`}
-              placeholder="Название коллекции"
+              placeholder="Введите название коллекции"
               required
             />
-            {errors().title && <div class={formStyles.fieldError}>{errors().title}</div>}
+            {errors().title && (
+              <div class={formStyles.fieldError}>
+                <span class={formStyles.errorIcon}>⚠️</span>
+                {errors().title}
+              </div>
+            )}
           </div>
 
-          <div class={formStyles['form-group']}>
-            <label class={formStyles.label}>Описание</label>
-            <textarea
-              value={formData().desc}
-              onInput={(e) => updateField('desc', e.target.value)}
-              class={formStyles.input}
-              style={{
-                'min-height': '80px',
-                resize: 'vertical'
-              }}
-              placeholder="Описание коллекции..."
-            />
-          </div>
-
-          <div class={formStyles['form-group']}>
-            <label class={formStyles.label}>Картинка (URL)</label>
+          <div class={formStyles.fieldGroup}>
+            <label class={formStyles.label}>
+              <span class={formStyles.labelText}>
+                <span class={formStyles.labelIcon}>🔗</span>
+                Slug
+                <span class={formStyles.required}>*</span>
+              </span>
+            </label>
             <input
               type="text"
-              value={formData().pic}
-              onInput={(e) => updateField('pic', e.target.value)}
-              class={`${formStyles.input} ${errors().pic ? formStyles.inputError : ''}`}
-              placeholder="https://example.com/image.jpg"
+              class={`${formStyles.input} ${errors().slug ? formStyles.error : ''}`}
+              value={formData().slug}
+              onInput={(e) => updateField('slug', e.target.value)}
+              placeholder="collection-slug"
+              required
             />
-            {errors().pic && <div class={formStyles.fieldError}>{errors().pic}</div>}
+            {errors().slug && (
+              <div class={formStyles.fieldError}>
+                <span class={formStyles.errorIcon}>⚠️</span>
+                {errors().slug}
+              </div>
+            )}
           </div>
 
-          <div class={styles['modal-actions']}>
+          <div class={formStyles.fieldGroup}>
+            <label class={formStyles.label}>
+              <span class={formStyles.labelText}>
+                <span class={formStyles.labelIcon}>📄</span>
+                Описание
+              </span>
+            </label>
+            <textarea
+              class={formStyles.textarea}
+              value={formData().desc}
+              onInput={(e) => updateField('desc', e.target.value)}
+              placeholder="Описание коллекции (необязательно)"
+              rows="4"
+            />
+          </div>
+
+          <div class={formStyles.fieldGroup}>
+            <label class={formStyles.label}>
+              <span class={formStyles.labelText}>
+                <span class={formStyles.labelIcon}>🖼️</span>
+                URL картинки
+              </span>
+            </label>
+            <input
+              type="url"
+              class={`${formStyles.input} ${errors().pic ? formStyles.error : ''}`}
+              value={formData().pic}
+              onInput={(e) => updateField('pic', e.target.value)}
+              placeholder="https://example.com/image.jpg"
+            />
+            {errors().pic && (
+              <div class={formStyles.fieldError}>
+                <span class={formStyles.errorIcon}>⚠️</span>
+                {errors().pic}
+              </div>
+            )}
+            <div class={formStyles.hint}>
+              <span class={formStyles.hintIcon}>💡</span>
+              Необязательно. URL изображения для обложки коллекции.
+            </div>
+          </div>
+
+          <div class={styles.modalActions}>
             <Button variant="secondary" onClick={props.onClose}>
               Отмена
             </Button>

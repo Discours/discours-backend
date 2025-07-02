@@ -89,37 +89,46 @@ const EnvVariableModal: Component<EnvVariableModalProps> = (props) => {
       onClose={props.onClose}
       size="large"
     >
-      <div class={formStyles['modal-wide']}>
+      <div class={formStyles.modalWide}>
         <form class={formStyles.form} onSubmit={(e) => e.preventDefault()}>
-          <div class={formStyles['form-group']}>
-            <label class={formStyles['form-label']}>Ключ:</label>
+          <div class={formStyles.fieldGroup}>
+            <label class={formStyles.label}>
+              <span class={formStyles.labelText}>
+                <span class={formStyles.labelIcon}>🔑</span>
+                Ключ
+              </span>
+            </label>
             <input
               type="text"
               value={props.variable.key}
               disabled
-              class={formStyles['form-input-disabled']}
+              class={`${formStyles.input} ${formStyles.disabled}`}
             />
           </div>
 
-          <div class={formStyles['form-group']}>
-            <label class={formStyles['form-label']}>
-              Значение:
-              <span class={formStyles['form-label-info']}>
-                {props.variable.type} {props.variable.isSecret && '(секретное)'}
+          <div class={formStyles.fieldGroup}>
+            <label class={formStyles.label}>
+              <span class={formStyles.labelText}>
+                <span class={formStyles.labelIcon}>💾</span>
+                Значение
+                <span class={formStyles.labelInfo}>
+                  ({props.variable.type}
+                  {props.variable.isSecret && ', секретное'})
+                </span>
               </span>
             </label>
 
             <Show when={needsTextarea()}>
-              <div class={formStyles['textarea-container']}>
+              <div class={formStyles.textareaContainer}>
                 <textarea
                   value={value()}
                   onInput={(e) => setValue(e.currentTarget.value)}
-                  class={formStyles['form-textarea']}
+                  class={formStyles.textarea}
                   rows={Math.min(Math.max(value().split('\n').length + 2, 4), 15)}
                   placeholder="Введите значение переменной..."
                 />
                 <Show when={props.variable.type === 'json'}>
-                  <div class={formStyles['textarea-actions']}>
+                  <div class={formStyles.textareaActions}>
                     <Button
                       variant="secondary"
                       size="small"
@@ -146,32 +155,37 @@ const EnvVariableModal: Component<EnvVariableModalProps> = (props) => {
                 type={props.variable.isSecret ? 'password' : 'text'}
                 value={value()}
                 onInput={(e) => setValue(e.currentTarget.value)}
-                class={formStyles['form-input']}
+                class={formStyles.input}
                 placeholder="Введите значение переменной..."
               />
             </Show>
           </div>
 
           <Show when={showFormatted() && (props.variable.type === 'json' || value().startsWith('{'))}>
-            <div class={formStyles['form-group']}>
-              <label class={formStyles['form-label']}>Превью (форматированное):</label>
-              <div class={formStyles['code-preview-container']}>
+            <div class={formStyles.fieldGroup}>
+              <label class={formStyles.label}>
+                <span class={formStyles.labelText}>
+                  <span class={formStyles.labelIcon}>👁️</span>
+                  Превью (форматированное)
+                </span>
+              </label>
+              <div class={formStyles.codePreview}>
                 <TextPreview content={formattedValue()} />
               </div>
             </div>
           </Show>
 
           <Show when={props.variable.description}>
-            <div class={formStyles['form-help']}>
+            <div class={formStyles.formHelp}>
               <strong>Описание:</strong> {props.variable.description}
             </div>
           </Show>
 
           <Show when={error()}>
-            <div class={formStyles['form-error']}>{error()}</div>
+            <div class={formStyles.formError}>{error()}</div>
           </Show>
 
-          <div class={formStyles['form-actions']}>
+          <div class={formStyles.formActions}>
             <Button variant="secondary" onClick={props.onClose} disabled={saving()}>
               Отменить
             </Button>

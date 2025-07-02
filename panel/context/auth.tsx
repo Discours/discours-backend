@@ -71,11 +71,12 @@ export const AuthProvider: Component<AuthProviderProps> = (props) => {
   const login = async (username: string, password: string) => {
     console.log('[AuthProvider] Attempting login...')
     try {
-      const result = await query<{ login: { success: boolean; token?: string } }>(
-        `${location.origin}/graphql`,
-        ADMIN_LOGIN_MUTATION,
-        { email: username, password }
-      )
+      const result = await query<{
+        login: { success: boolean; token?: string }
+      }>(`${location.origin}/graphql`, ADMIN_LOGIN_MUTATION, {
+        email: username,
+        password
+      })
 
       if (result?.login?.success) {
         console.log('[AuthProvider] Login successful')
@@ -97,22 +98,29 @@ export const AuthProvider: Component<AuthProviderProps> = (props) => {
   const logout = async () => {
     console.log('[AuthProvider] Attempting logout...')
     try {
-      const result = await query<{ logout: { success: boolean } }>(
+      // Сначала очищаем токены на клиенте
+      clearAuthTokens()
+      setIsAuthenticated(false)
+
+      // Затем делаем запрос на сервер
+      const result = await query<{ logout: { success: boolean; message?: string } }>(
         `${location.origin}/graphql`,
         ADMIN_LOGOUT_MUTATION
       )
 
+      console.log('[AuthProvider] Logout response:', result)
+
       if (result?.logout?.success) {
-        console.log('[AuthProvider] Logout successful')
-        clearAuthTokens()
-        setIsAuthenticated(false)
+        console.log('[AuthProvider] Logout successful:', result.logout.message)
+        window.location.href = '/login'
+      } else {
+        console.warn('[AuthProvider] Logout was not successful:', result?.logout?.message)
+        // Все равно редиректим на страницу входа
         window.location.href = '/login'
       }
     } catch (error) {
       console.error('[AuthProvider] Logout error:', error)
-      // Даже при ошибке очищаем токены и редиректим
-      clearAuthTokens()
-      setIsAuthenticated(false)
+      // При любой ошибке редиректим на страницу входа
       window.location.href = '/login'
     }
   }

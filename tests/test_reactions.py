@@ -2,25 +2,15 @@ from datetime import datetime
 
 import pytest
 
-from auth.orm import Author, AuthorRole, Role
+from auth.orm import Author
+from orm.community import CommunityAuthor
 from orm.reaction import ReactionKind
 from orm.shout import Shout
 from resolvers.reaction import create_reaction
 
 
 def ensure_test_user_with_roles(db_session):
-    """Создает тестового пользователя с ID 1 и назначает ему роли"""
-    # Создаем роли если их нет
-    reader_role = db_session.query(Role).filter(Role.id == "reader").first()
-    if not reader_role:
-        reader_role = Role(id="reader", name="Читатель")
-        db_session.add(reader_role)
-
-    author_role = db_session.query(Role).filter(Role.id == "author").first()
-    if not author_role:
-        author_role = Role(id="author", name="Автор")
-        db_session.add(author_role)
-
+    """Создает тестового пользователя с ID 1 и назначает ему роли через CSV"""
     # Создаем пользователя с ID 1 если его нет
     test_user = db_session.query(Author).filter(Author.id == 1).first()
     if not test_user:
@@ -29,13 +19,24 @@ def ensure_test_user_with_roles(db_session):
         db_session.add(test_user)
         db_session.flush()
 
-    # Удаляем старые роли и добавляем новые
-    db_session.query(AuthorRole).filter(AuthorRole.author == 1).delete()
+    # Создаем связь пользователя с сообществом с ролями через CSV
+    community_author = (
+        db_session.query(CommunityAuthor)
+        .filter(CommunityAuthor.community_id == 1, CommunityAuthor.author_id == 1)
+        .first()
+    )
 
-    # Добавляем роли
-    for role_id in ["reader", "author"]:
-        author_role_link = AuthorRole(community=1, author=1, role=role_id)
-        db_session.add(author_role_link)
+    if not community_author:
+        community_author = CommunityAuthor(
+            community_id=1,
+            author_id=1,
+            roles="reader,author",  # Роли через CSV
+            joined_at=int(datetime.now().timestamp()),
+        )
+        db_session.add(community_author)
+    else:
+        # Обновляем роли если связь уже существует
+        community_author.roles = "reader,author"
 
     db_session.commit()
     return test_user

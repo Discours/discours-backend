@@ -2,11 +2,11 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/v0.5.5-lightgrey)
+![Version](https://img.shields.io/badge/v0.7.0-lightgrey)
 ![Python](https://img.shields.io/badge/python%203.12+-gold?logo=python&logoColor=black)
 ![GraphQL](https://img.shields.io/badge/graphql%20api-pink?logo=graphql&logoColor=black)
-![Tests](https://img.shields.io/badge/tests%2085%25-lightcyan?logo=pytest&logoColor=black)
-
+![Tests](https://img.shields.io/badge/tests%2090%25-lightcyan?logo=pytest&logoColor=black)
+![SolidJS](https://img.shields.io/badge/solidjs-blue?logo=solid&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/postgresql-lightblue?logo=postgresql&logoColor=black)
 ![Redis](https://img.shields.io/badge/redis-salmon?logo=redis&logoColor=black)
 ![txtai](https://img.shields.io/badge/txtai-lavender?logo=elasticsearch&logoColor=black)
@@ -17,13 +17,17 @@ Backend service providing GraphQL API for content management system with reactio
 
 ## 📚 Documentation
 
-![API](https://img.shields.io/badge/api-docs-lightblue?logo=swagger&logoColor=black) • [API Documentation](docs/api.md)
-![Auth](https://img.shields.io/badge/auth-guide-lightcyan?logo=key&logoColor=black) • [Authentication Guide](docs/auth.md)
-![Cache](https://img.shields.io/badge/redis-schema-salmon?logo=redis&logoColor=black) • [Caching System](docs/redis-schema.md)
-![Features](https://img.shields.io/badge/features-overview-lavender?logo=list&logoColor=black) • [Features Overview](docs/features.md)
+ • [API Documentation](docs/api.md)
+ • [Authentication Guide](docs/auth.md)
+ • [Caching System](docs/redis-schema.md)
+ • [Features Overview](docs/features.md)
+
+![API](https://img.shields.io/badge/api-docs-lightblue?logo=swagger&logoColor=black)
+![Auth](https://img.shields.io/badge/auth-guide-lightcyan?logo=key&logoColor=black)
+![Cache](https://img.shields.io/badge/redis-schema-salmon?logo=redis&logoColor=black)
+![Features](https://img.shields.io/badge/features-overview-lavender?logo=list&logoColor=black)
 
 ## 🚀 Core Features
-
 ### Shouts (Posts)
 - CRUD operations via GraphQL mutations
 - Rich filtering and sorting options
@@ -45,6 +49,9 @@ Backend service providing GraphQL API for content management system with reactio
 - Following system for authors/topics
 - Activity tracking and stats
 - Community features
+
+### RBAC & Permissions
+- RBAC with hierarchy using Redis
 
 ## 🛠️ Tech Stack
 
@@ -134,12 +141,14 @@ query GetShout($slug: String) {
 
 ![Lines](https://img.shields.io/badge/15k%2B-lines-lightcyan?logo=code&logoColor=black)
 ![Files](https://img.shields.io/badge/100%2B-files-lavender?logo=folder&logoColor=black)
-![Coverage](https://img.shields.io/badge/85%25-coverage-gold?logo=test-tube&logoColor=black)
+![Coverage](https://img.shields.io/badge/90%25-coverage-gold?logo=test-tube&logoColor=black)
 ![MIT](https://img.shields.io/badge/MIT-license-silver?logo=balance-scale&logoColor=black)
 
 </div>
 
 ## 🤝 Contributing
+
+[CHANGELOG.md](CHANGELOG.md)
 
 ![Contributing](https://img.shields.io/badge/contributing-guide-salmon?logo=handshake&logoColor=black) • [Read the guide](CONTRIBUTING.md)
 
@@ -151,8 +160,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Links
 
-![Website](https://img.shields.io/badge/discours.io-website-lightblue?logo=globe&logoColor=black) • [discours.io](https://discours.io)
-![GitHub](https://img.shields.io/badge/discours/core-github-silver?logo=github&logoColor=black) • [Source Code](https://github.com/discours/core)
+![Website](https://img.shields.io/badge/discours.io-website-lightblue?logo=globe&logoColor=black)
+![GitHub](https://img.shields.io/badge/discours/core-github-silver?logo=github&logoColor=black)
+ • [discours.io](https://discours.io)
+ • [Source Code](https://github.com/discours/core)
 
 ---
 

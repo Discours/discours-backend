@@ -16,7 +16,7 @@
   - Блокировку аккаунта при множественных неудачных попытках входа
   - Верификацию email/телефона
 
-#### Role и Permission (orm.py)
+#### Role и Permission (resolvers/rbac.py)
 - Реализация RBAC (Role-Based Access Control)
 - Роли содержат наборы разрешений
 - Разрешения определяются как пары resource:operation
@@ -307,7 +307,7 @@ async def create_article_example(request: Request): # Используем Reque
     user: Author = request.user # request.user добавляется декоратором @login_required
 
     # Проверяем право на создание статей (метод из модели auth.auth.orm)
-    if not user.has_permission('articles', 'create'):
+    if not await user.has_permission('shout:create'):
         return JSONResponse({'error': 'Недостаточно прав для создания статьи'}, status_code=403)
 
     try:
@@ -361,7 +361,7 @@ async def update_article(_: None,info, article_id: int, data: dict):
         raise GraphQLError('Статья не найдена')
 
     # Проверяем права на редактирование
-    if not user.has_permission('articles', 'edit'):
+    if not await user.has_permission('articles', 'edit'):
         raise GraphQLError('Недостаточно прав')
 
     # Обновляем поля
@@ -677,8 +677,8 @@ def test_user_permissions():
     user.roles.append(role)
 
     # Проверяем разрешения
-    assert user.has_permission('articles', 'edit')
-    assert not user.has_permission('articles', 'delete')
+    assert await user.has_permission('articles', 'edit')
+    assert not await user.has_permission('articles', 'delete')
 ```
 
 ## Безопасность

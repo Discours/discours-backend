@@ -30,11 +30,9 @@ DEVMODE = os.getenv("DOKKU_APP_TYPE", "false").lower() == "false"
 DIST_DIR = Path(__file__).parent / "dist"  # Директория для собранных файлов
 INDEX_HTML = Path(__file__).parent / "index.html"
 
-# Импортируем резолверы ПЕРЕД созданием схемы
 import_module("resolvers")
 
-# Создаем схему GraphQL
-schema = make_executable_schema(load_schema_from_path("schema/"), list(resolvers))
+schema = make_executable_schema(load_schema_from_path("schema/"), resolvers)
 
 # Создаем middleware с правильным порядком
 middleware = [
@@ -219,7 +217,7 @@ async def lifespan(app: Starlette):
 
         # Add a delay before starting the intensive search indexing
         print("[lifespan] Waiting for system stabilization before search indexing...")
-        await asyncio.sleep(10)  # 10-second delay to let the system stabilize
+        await asyncio.sleep(1)  # 1-second delay to let the system stabilize
 
         # Start search indexing as a background task with lower priority
         search_task = asyncio.create_task(initialize_search_index_background())

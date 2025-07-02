@@ -20,6 +20,6 @@
     },
     "typeRoots": ["./panel/types", "./node_modules/@types"]
   },
-  "include": ["panel/**/*.ts", "panel/**/*.tsx", "panel/**/*.d.ts"],
+  "include": ["panel/**/*.ts", "panel/**/*.tsx", "panel/**/*.d.ts", "env.d.ts"],
   "exclude": ["node_modules"]
 }

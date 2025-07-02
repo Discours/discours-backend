@@ -17,7 +17,8 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent))
 
-from auth.orm import Author, AuthorRole, Role
+from auth.orm import Author
+from orm.community import assign_role_to_user
 from orm.shout import Shout
 from resolvers.editor import unpublish_shout
 from services.db import local_session
@@ -25,44 +26,6 @@ from services.db import local_session
 # Настройка логгера
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
-
-
-def ensure_roles_exist():
-    """Создает стандартные роли в БД если их нет"""
-    with local_session() as session:
-        # Создаем базовые роли если их нет
-        roles_to_create = [
-            ("reader", "Читатель"),
-            ("author", "Автор"),
-            ("editor", "Редактор"),
-            ("admin", "Администратор"),
-        ]
-
-        for role_id, role_name in roles_to_create:
-            role = session.query(Role).filter(Role.id == role_id).first()
-            if not role:
-                role = Role(id=role_id, name=role_name)
-                session.add(role)
-
-        session.commit()
-
-
-def add_roles_to_author(author_id: int, roles: list[str]):
-    """Добавляет роли пользователю в БД"""
-    with local_session() as session:
-        # Удаляем старые роли
-        session.query(AuthorRole).filter(AuthorRole.author == author_id).delete()
-
-        # Добавляем новые роли
-        for role_id in roles:
-            author_role = AuthorRole(
-                community=1,  # Основное сообщество
-                author=author_id,
-                role=role_id,
-            )
-            session.add(author_role)
-
-        session.commit()
 
 
 class MockInfo:
@@ -87,9 +50,6 @@ class MockInfo:
 async def setup_test_data() -> tuple[Author, Shout, Author]:
     """Создаем тестовые данные: автора, публикацию и другого автора"""
     logger.info("🔧 Настройка тестовых данных")
-
-    # Создаем роли в БД
-    ensure_roles_exist()
 
     current_time = int(time.time())
 
@@ -133,8 +93,10 @@ async def setup_test_data() -> tuple[Author, Shout, Author]:
         session.commit()
 
         # Добавляем роли пользователям в БД
-        add_roles_to_author(test_author.id, ["reader", "author"])
-        add_roles_to_author(other_author.id, ["reader", "author"])
+        assign_role_to_user(test_author.id, "reader")
+        assign_role_to_user(test_author.id, "author")
+        assign_role_to_user(other_author.id, "reader")
+        assign_role_to_user(other_author.id, "author")
 
         logger.info(
             f"   ✅ Созданы: автор {test_author.id}, другой автор {other_author.id}, публикация {test_shout.id}"
@@ -191,7 +153,9 @@ async def test_unpublish_by_editor() -> None:
             session.commit()
 
     # Добавляем роль "editor" другому автору в БД
-    add_roles_to_author(other_author.id, ["reader", "author", "editor"])
+    assign_role_to_user(other_author.id, "reader")
+    assign_role_to_user(other_author.id, "author")
+    assign_role_to_user(other_author.id, "editor")
 
     logger.info("   📝 Тест: Снятие публикации редактором")
     info = MockInfo(other_author.id, roles=["reader", "author", "editor"])  # Другой автор с ролью редактора
@@ -243,7 +207,8 @@ async def test_access_denied_scenarios() -> None:
     # Тест 2: Не-автор без прав редактора
     logger.info("   📝 Тест 2: Не-автор без прав редактора")
     # Убеждаемся что у other_author нет роли editor
-    add_roles_to_author(other_author.id, ["reader", "author"])  # Только базовые роли
+    assign_role_to_user(other_author.id, "reader")
+    assign_role_to_user(other_author.id, "author")
     info = MockInfo(other_author.id, roles=["reader", "author"])  # Другой автор без прав редактора
 
     result = await unpublish_shout(None, info, test_shout.id)
@@ -314,28 +279,11 @@ async def cleanup_test_data() -> None:
 
     try:
         with local_session() as session:
-            # Удаляем роли тестовых авторов
-            test_author = session.query(Author).filter(Author.email == "test_author@example.com").first()
-            if test_author:
-                session.query(AuthorRole).filter(AuthorRole.author == test_author.id).delete()
-
-            other_author = session.query(Author).filter(Author.email == "other_author@example.com").first()
-            if other_author:
-                session.query(AuthorRole).filter(AuthorRole.author == other_author.id).delete()
-
             # Удаляем тестовую публикацию
             test_shout = session.query(Shout).filter(Shout.slug == "test-shout-published").first()
             if test_shout:
                 session.delete(test_shout)
 
-            # Удаляем тестовых авторов
-            if test_author:
-                session.delete(test_author)
-
-            if other_author:
-                session.delete(other_author)
-
-            session.commit()
             logger.info("   ✅ Тестовые данные очищены")
     except Exception as e:
         logger.warning(f"   ⚠️ Ошибка при очистке: {e}")

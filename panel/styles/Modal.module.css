@@ -1,230 +1,376 @@
 .backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+	padding: 1rem;
+	backdrop-filter: blur(8px);
+	animation: backdropFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modal {
-  background-color: white;
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  flex-direction: column;
-  max-height: 95vh;
-  width: 100%;
-  animation: modal-appear 0.2s ease-out;
+	background-color: white;
+	border-radius: var(--border-radius-lg);
+	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+	display: flex;
+	flex-direction: column;
+	max-height: 95vh;
+	width: 100%;
+	animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+	transform-origin: center bottom;
 }
 
 /* Modal Sizes */
 .modal-small {
-  max-width: 400px;
+	max-width: 400px;
 }
 
 .modal-medium {
-  max-width: 600px;
+	max-width: 600px;
 }
 
 .modal-large {
-  max-width: 1200px;
-  width: 95vw;
-  height: 85vh;
-  max-height: 85vh;
+	max-width: 1200px;
+	width: 95vw;
+	height: 85vh;
+	max-height: 85vh;
 }
 
 .modal-large .content {
-  flex: 1;
-  overflow: hidden; /* Убираем скролл модального окна, пусть EditableCodePreview управляет */
-  padding: 0; /* Убираем padding чтобы EditableCodePreview занял всю площадь */
+	flex: 1;
+	overflow: hidden;
+	padding: 0;
 }
 
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 1.5rem;
+	border-bottom: 1px solid var(--border-color);
+	background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 249, 250, 0.8));
+	backdrop-filter: blur(10px);
 }
 
 .title {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-color);
+	margin: 0;
+	font-size: var(--font-size-xl);
+	font-weight: var(--font-weight-semibold);
+	color: var(--text-color);
+	opacity: 0;
+	animation: titleSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
 }
 
 .close {
-  background: none;
-  border: none;
-  font-size: var(--font-size-2xl);
-  color: var(--text-color-light);
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  transition: color var(--transition-fast);
+	background: none;
+	border: none;
+	font-size: var(--font-size-2xl);
+	color: var(--text-color-light);
+	cursor: pointer;
+	padding: 0.5rem;
+	line-height: 1;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.5rem;
+	height: 2.5rem;
+	opacity: 0;
+	animation: closeButtonSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
 }
 
 .close:hover {
-  color: var(--text-color);
+	color: var(--text-color);
+	background: rgba(0, 0, 0, 0.05);
+	transform: scale(1.1) rotate(90deg);
+}
+
+.close:active {
+	transform: scale(0.95) rotate(90deg);
 }
 
 .content {
-  padding: 1.5rem;
-  overflow-y: auto;
-  flex: 1;
+	padding: 1.5rem;
+	overflow-y: auto;
+	flex: 1;
+	opacity: 0;
+	animation: contentSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
 }
 
 .footer {
-  padding: 1.5rem;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
+	padding: 1.5rem;
+	border-top: 1px solid var(--border-color);
+	display: flex;
+	justify-content: flex-end;
+	gap: 1rem;
+	background: linear-gradient(135deg, rgba(248, 249, 250, 0.8), rgba(255, 255, 255, 0.9));
+	backdrop-filter: blur(10px);
+	opacity: 0;
+	animation: footerSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
 }
 
-@keyframes modal-appear {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Улучшенные анимации */
+@keyframes backdropFadeIn {
+	from {
+		opacity: 0;
+		backdrop-filter: blur(0px);
+	}
+	to {
+		opacity: 1;
+		backdrop-filter: blur(8px);
+	}
+}
+
+@keyframes modalSlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(60px) scale(0.9);
+		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+	}
+}
+
+@keyframes titleSlideIn {
+	from {
+		opacity: 0;
+		transform: translateX(-20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes closeButtonSlideIn {
+	from {
+		opacity: 0;
+		transform: translateX(20px) scale(0.8);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0) scale(1);
+	}
+}
+
+@keyframes contentSlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes footerSlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Анимация закрытия */
+.backdrop.closing {
+	animation: backdropFadeOut 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal.closing {
+	animation: modalSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes backdropFadeOut {
+	from {
+		opacity: 1;
+		backdrop-filter: blur(8px);
+	}
+	to {
+		opacity: 0;
+		backdrop-filter: blur(0px);
+	}
+}
+
+@keyframes modalSlideOut {
+	from {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(60px) scale(0.9);
+	}
 }
 
 /* Responsive Design */
 @media (max-width: 640px) {
-  .backdrop {
-    padding: 0.5rem;
-  }
+	.backdrop {
+		padding: 0.5rem;
+	}
 
-  .modal {
-    max-height: 100vh;
-    border-radius: 0;
-  }
+	.modal {
+		max-height: 100vh;
+		border-radius: 1rem 1rem 0 0;
+		animation: modalSlideInMobile 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
 
-  .modal-small,
-  .modal-medium,
-  .modal-large {
-    max-width: none;
-  }
+	.modal-small,
+	.modal-medium,
+	.modal-large {
+		max-width: none;
+	}
 
-  .header {
-    padding: 1rem;
-  }
+	.header {
+		padding: 1rem;
+	}
 
-  .content {
-    padding: 1rem;
-  }
+	.content {
+		padding: 1rem;
+	}
 
-  .footer {
-    padding: 1rem;
-  }
+	.footer {
+		padding: 1rem;
+	}
+}
+
+@keyframes modalSlideInMobile {
+	from {
+		opacity: 0;
+		transform: translateY(100%);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 /* Адаптивность для больших модальных окон */
 @media (max-width: 768px) {
-  .modal-large {
-    width: 95vw;
-    max-width: none;
-    margin: 20px;
-    min-height: auto;
-    max-height: 90vh;
-  }
+	.modal-large {
+		width: 95vw;
+		max-width: none;
+		margin: 20px;
+		min-height: auto;
+		max-height: 90vh;
+	}
 
-  .modal-large .content {
-    max-height: 80vh;
-  }
+	.modal-large .content {
+		max-height: 80vh;
+	}
 }
 
-/* Role Modal Specific Styles */
+/* Улучшенные стили для специфических модальных окон */
 .roles-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 1rem;
+	margin-bottom: 1rem;
 }
 
 .role-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  cursor: pointer;
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	padding: 0.75rem;
+	border: 2px solid var(--border-color);
+	border-radius: 0.5rem;
+	cursor: pointer;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	background: var(--surface-color);
 }
 
 .role-option:hover {
-  background-color: var(--hover-bg);
+	background-color: var(--hover-bg);
+	border-color: var(--primary-color);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .role-name {
-  font-weight: 500;
-  color: var(--text-color);
+	font-weight: 600;
+	color: var(--text-color);
+	margin-bottom: 0.25rem;
 }
 
 .role-description {
-  font-size: 0.875rem;
-  color: var(--text-color-light);
-  margin-top: 0.25rem;
+	font-size: 0.875rem;
+	color: var(--text-color-light);
+	line-height: 1.4;
 }
 
-/* Environment Variable Modal Specific Styles */
+/* Environment Variable Modal */
 .env-variable-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
 }
 
 .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
 }
 
 .form-group label {
-  font-weight: 500;
-  color: var(--text-color);
+	font-weight: 600;
+	color: var(--text-color);
+	font-size: 0.875rem;
 }
 
 .form-group input {
-  padding: 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 1rem;
-  background-color: var(--bg-color);
-  color: var(--text-color);
+	padding: 0.75rem;
+	border: 2px solid var(--border-color);
+	border-radius: 0.5rem;
+	font-size: 0.875rem;
+	background-color: var(--bg-color);
+	color: var(--text-color);
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.form-group input:focus {
+	outline: none;
+	border-color: var(--primary-color);
+	box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.1);
+	transform: translateY(-1px);
 }
 
 .form-group input:disabled {
-  background-color: var(--disabled-bg);
-  cursor: not-allowed;
+	background-color: var(--disabled-bg);
+	cursor: not-allowed;
+	opacity: 0.7;
 }
 
 .description {
-  font-size: 0.875rem;
-  color: var(--text-color-light);
-  padding: 0.5rem;
-  background-color: var(--hover-bg);
-  border-radius: 4px;
+	font-size: 0.875rem;
+	color: var(--text-color-light);
+	padding: 0.75rem;
+	background-color: var(--hover-bg);
+	border-radius: 0.5rem;
+	border-left: 4px solid var(--primary-color);
 }
 
-/* Body Preview Modal Specific Styles */
+/* Body Preview Modal */
 .body-preview {
-  width: 100%;
-  min-height: 200px;
-  max-height: calc(90vh - 200px);
-  overflow-y: auto;
-  background-color: var(--code-bg);
-  border-radius: 4px;
-  font-family: monospace;
+	width: 100%;
+	min-height: 200px;
+	max-height: calc(90vh - 200px);
+	overflow-y: auto;
+	background-color: var(--code-bg);
+	border-radius: 0.5rem;
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	border: 1px solid var(--border-color);
 }

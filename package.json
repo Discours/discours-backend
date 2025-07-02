@@ -1,6 +1,6 @@
 {
   "name": "publy-panel",
-  "version": "0.5.9",
+  "version": "0.7.0",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -9,8 +9,7 @@
     "lint": "biome check . --fix",
     "format": "biome format . --write",
     "typecheck": "tsc --noEmit",
-    "codegen": "graphql-codegen --config codegen.ts",
-    "codegen:watch": "graphql-codegen --config codegen.ts --watch"
+    "codegen": "graphql-codegen --config codegen.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.6",

@@ -8,20 +8,79 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import func, select
 
 from auth.decorators import admin_auth_required
-from auth.orm import Author, AuthorRole, Role
-from orm.community import Community
+from auth.orm import Author
+from orm.community import Community, CommunityAuthor
 from orm.invite import Invite, InviteStatus
 from orm.shout import Shout
 from services.db import local_session
 from services.env import EnvManager, EnvVariable
+from services.rbac import admin_only
 from services.schema import mutation, query
+from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 from utils.logger import root_logger as logger
+
+# Преобразуем строку ADMIN_EMAILS в список
+ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",") if ADMIN_EMAILS_LIST else []
+
+# Создаем роли в сообществе если они не существуют
+default_role_names = {
+    "reader": "Читатель",
+    "author": "Автор",
+    "artist": "Художник",
+    "expert": "Эксперт",
+    "editor": "Редактор",
+    "admin": "Администратор",
+}
+
+default_role_descriptions = {
+    "reader": "Может читать и комментировать",
+    "author": "Может создавать публикации",
+    "artist": "Может быть credited artist",
+    "expert": "Может добавлять доказательства",
+    "editor": "Может модерировать контент",
+    "admin": "Полные права",
+}
+
+
+def _get_user_roles(user: Author, community_id: int = 1) -> list[str]:
+    """
+    Получает полный список ролей пользователя в указанном сообществе, включая
+    синтетическую роль "Системный администратор" для пользователей из ADMIN_EMAILS
+
+    Args:
+        user: Объект пользователя
+        community_id: ID сообщества для получения ролей
+
+    Returns:
+        Список строк с названиями ролей
+    """
+    user_roles = []
+
+    # Получаем роли пользователя из новой RBAC системы
+    with local_session() as session:
+        community_author = (
+            session.query(CommunityAuthor)
+            .filter(CommunityAuthor.author_id == user.id, CommunityAuthor.community_id == community_id)
+            .first()
+        )
+
+        if community_author and community_author.roles:
+            # Разбираем CSV строку с ролями
+            user_roles = [role.strip() for role in community_author.roles.split(",") if role.strip()]
+
+    # Если email пользователя в списке ADMIN_EMAILS, добавляем синтетическую роль
+    # ВАЖНО: Эта роль НЕ хранится в базе данных, а добавляется только для отображения
+    if user.email and user.email.lower() in [email.lower() for email in ADMIN_EMAILS]:
+        if "Системный администратор" not in user_roles:
+            user_roles.insert(0, "Системный администратор")
+
+    return user_roles
 
 
 @query.field("adminGetUsers")
 @admin_auth_required
 async def admin_get_users(
-    _: None, _info: GraphQLResolveInfo, limit: int = 10, offset: int = 0, search: str = ""
+    _: None, _info: GraphQLResolveInfo, limit: int = 20, offset: int = 0, search: str = ""
 ) -> dict[str, Any]:
     """
     Получает список пользователей для админ-панели с поддержкой пагинации и поиска
@@ -37,7 +96,7 @@ async def admin_get_users(
     """
     try:
         # Нормализуем параметры
-        limit = max(1, min(100, limit or 10))  # Ограничиваем количество записей от 1 до 100
+        limit = max(1, min(100, limit or 20))  # Ограничиваем количество записей от 1 до 100
         offset = max(0, offset or 0)  # Смещение не может быть отрицательным
 
         with local_session() as session:
@@ -77,7 +136,7 @@ async def admin_get_users(
                         "email": user.email,
                         "name": user.name,
                         "slug": user.slug,
-                        "roles": [role.id for role in user.roles] if hasattr(user, "roles") and user.roles else [],
+                        "roles": _get_user_roles(user, 1),  # Получаем роли в основном сообществе
                         "created_at": user.created_at,
                         "last_seen": user.last_seen,
                     }
@@ -100,32 +159,63 @@ async def admin_get_users(
 
 @query.field("adminGetRoles")
 @admin_auth_required
-async def admin_get_roles(_: None, info: GraphQLResolveInfo) -> list[dict[str, Any]]:
+async def admin_get_roles(_: None, info: GraphQLResolveInfo, community: int = None) -> list[dict[str, Any]]:
     """
-    Получает список всех ролей в системе
+    Получает список всех ролей в системе или ролей для конкретного сообщества
 
     Args:
         info: Контекст GraphQL запроса
+        community: ID сообщества для фильтрации ролей (опционально)
 
     Returns:
         Список ролей
     """
     try:
-        with local_session() as session:
-            # Загружаем роли с их разрешениями
-            roles = session.query(Role).options(joinedload(Role.permissions)).all()
+        from orm.community import role_descriptions, role_names
+        from services.rbac import get_permissions_for_role
 
-            # Преобразуем их в формат для API
-            return [
+        # Используем словари названий и описаний ролей из новой системы
+        all_roles = ["reader", "author", "artist", "expert", "editor", "admin"]
+
+        if community is not None:
+            # Получаем доступные роли для конкретного сообщества
+            with local_session() as session:
+                from orm.community import Community
+
+                community_obj = session.query(Community).filter(Community.id == community).first()
+                if community_obj:
+                    available_roles = community_obj.get_available_roles()
+                else:
+                    available_roles = all_roles
+        else:
+            # Возвращаем все системные роли
+            available_roles = all_roles
+
+        # Формируем список ролей с их описаниями и разрешениями
+        roles_list = []
+        for role_id in available_roles:
+            # Получаем название и описание роли
+            name = role_names.get(role_id, role_id.title())
+            description = role_descriptions.get(role_id, f"Роль {name}")
+
+            # Для конкретного сообщества получаем разрешения
+            if community is not None:
+                try:
+                    permissions = await get_permissions_for_role(role_id, community)
+                    perm_count = len(permissions)
+                    description = f"{description} ({perm_count} разрешений)"
+                except Exception:
+                    description = f"{description} (права не инициализированы)"
+
+            roles_list.append(
                 {
-                    "id": role.id,
-                    "name": role.name,
-                    "description": f"Роль с правами: {', '.join(p.resource + ':' + p.operation for p in role.permissions)}"
-                    if role.permissions
-                    else "Роль без особых прав",
+                    "id": role_id,
+                    "name": name,
+                    "description": description,
                 }
-                for role in roles
-            ]
+            )
+
+        return roles_list
 
     except Exception as e:
         logger.error(f"Ошибка при получении списка ролей: {e!s}")
@@ -134,7 +224,7 @@ async def admin_get_roles(_: None, info: GraphQLResolveInfo) -> list[dict[str, A
 
 
 @query.field("getEnvVariables")
-@admin_auth_required
+@admin_only
 async def get_env_variables(_: None, info: GraphQLResolveInfo) -> list[dict[str, Any]]:
     """
     Получает список переменных окружения, сгруппированных по секциям
@@ -263,6 +353,16 @@ async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, A
     """
     try:
         user_id = user.get("id")
+
+        # Проверяем что user_id не None
+        if user_id is None:
+            return {"success": False, "error": "ID пользователя не указан"}
+
+        try:
+            user_id_int = int(user_id)
+        except (TypeError, ValueError):
+            return {"success": False, "error": "Некорректный ID пользователя"}
+
         roles = user.get("roles", [])
         email = user.get("email")
         name = user.get("name")
@@ -306,32 +406,42 @@ async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, A
             default_community_id = 1  # Используем значение по умолчанию из модели AuthorRole
 
             try:
-                # Очищаем текущие роли пользователя через ORM
-                session.query(AuthorRole).filter(AuthorRole.author == user_id).delete()
-                session.flush()
+                # Получаем или создаем запись CommunityAuthor для основного сообщества
+                community_author = (
+                    session.query(CommunityAuthor)
+                    .filter(
+                        CommunityAuthor.author_id == user_id_int, CommunityAuthor.community_id == default_community_id
+                    )
+                    .first()
+                )
 
-                # Получаем все существующие роли, которые указаны для обновления
-                role_objects = session.query(Role).filter(Role.id.in_(roles)).all()
+                if not community_author:
+                    # Создаем новую запись
+                    community_author = CommunityAuthor(
+                        author_id=user_id_int, community_id=default_community_id, roles=""
+                    )
+                    session.add(community_author)
+                    session.flush()
 
-                # Проверяем, все ли запрошенные роли найдены
-                found_role_ids = [str(role.id) for role in role_objects]
-                missing_roles = set(roles) - set(found_role_ids)
+                # Проверяем валидность ролей
+                all_roles = ["reader", "author", "artist", "expert", "editor", "admin"]
+                invalid_roles = set(roles) - set(all_roles)
 
-                if missing_roles:
-                    warning_msg = f"Некоторые роли не найдены в базе: {', '.join(missing_roles)}"
+                if invalid_roles:
+                    warning_msg = f"Некоторые роли не поддерживаются: {', '.join(invalid_roles)}"
                     logger.warning(warning_msg)
+                    # Оставляем только валидные роли
+                    roles = [role for role in roles if role in all_roles]
 
-                # Создаем новые записи в таблице author_role с указанием community
-                for role in role_objects:
-                    # Используем ORM для создания новых записей
-                    author_role = AuthorRole(community=default_community_id, author=user_id, role=role.id)
-                    session.add(author_role)
+                # Обновляем роли в CSV формате
+                for r in roles:
+                    community_author.remove_role(r)
 
                 # Сохраняем изменения в базе данных
                 session.commit()
 
                 # Проверяем, добавлена ли пользователю роль reader
-                has_reader = "reader" in [str(role.id) for role in role_objects]
+                has_reader = "reader" in roles
                 if not has_reader:
                     logger.warning(
                         f"Пользователю {author.email or author.id} не назначена роль 'reader'. Доступ в систему будет ограничен."
@@ -341,7 +451,7 @@ async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, A
                 if profile_updated:
                     update_details.append("профиль")
                 if roles:
-                    update_details.append(f"роли: {', '.join(found_role_ids)}")
+                    update_details.append(f"роли: {', '.join(roles)}")
 
                 logger.info(f"Данные пользователя {author.email or author.id} обновлены: {', '.join(update_details)}")
 
@@ -367,7 +477,13 @@ async def admin_update_user(_: None, info: GraphQLResolveInfo, user: dict[str, A
 @query.field("adminGetShouts")
 @admin_auth_required
 async def admin_get_shouts(
-    _: None, info: GraphQLResolveInfo, limit: int = 10, offset: int = 0, search: str = "", status: str = "all"
+    _: None,
+    info: GraphQLResolveInfo,
+    limit: int = 20,
+    offset: int = 0,
+    search: str = "",
+    status: str = "all",
+    community: int = None,
 ) -> dict[str, Any]:
     """
     Получает список публикаций для админ-панели с поддержкой пагинации и поиска
@@ -378,6 +494,7 @@ async def admin_get_shouts(
         offset: Смещение в списке результатов
         search: Строка поиска (по заголовку, slug или ID)
         status: Статус публикаций (all, published, draft, deleted)
+        community: ID сообщества для фильтрации
 
     Returns:
         Пагинированный список публикаций
@@ -406,6 +523,10 @@ async def admin_get_shouts(
                     q = q.filter(Shout.published_at.is_(None), Shout.deleted_at.is_(None))
                 elif status == "deleted":
                     q = q.filter(Shout.deleted_at.isnot(None))
+
+            # Применяем фильтр по сообществу, если указан
+            if community is not None:
+                q = q.filter(Shout.community == community)
 
             # Применяем фильтр поиска, если указан
             if search and search.strip():
@@ -771,7 +892,7 @@ async def admin_restore_shout(_: None, info: GraphQLResolveInfo, shout_id: int) 
 @query.field("adminGetInvites")
 @admin_auth_required
 async def admin_get_invites(
-    _: None, _info: GraphQLResolveInfo, limit: int = 10, offset: int = 0, search: str = "", status: str = "all"
+    _: None, _info: GraphQLResolveInfo, limit: int = 20, offset: int = 0, search: str = "", status: str = "all"
 ) -> dict[str, Any]:
     """
     Получает список приглашений для админ-панели с поддержкой пагинации и поиска
@@ -948,77 +1069,6 @@ async def admin_get_invites(
         raise GraphQLError(msg) from e
 
 
-@mutation.field("adminCreateInvite")
-@admin_auth_required
-async def admin_create_invite(_: None, _info: GraphQLResolveInfo, invite: dict[str, Any]) -> dict[str, Any]:
-    """
-    Создает новое приглашение
-
-    Args:
-        _info: Контекст GraphQL запроса
-        invite: Данные приглашения
-
-    Returns:
-        Результат операции
-    """
-    try:
-        inviter_id = invite["inviter_id"]
-        author_id = invite["author_id"]
-        shout_id = invite["shout_id"]
-        status = invite["status"]
-
-        with local_session() as session:
-            # Проверяем существование всех связанных объектов
-            inviter = session.query(Author).filter(Author.id == inviter_id).first()
-            if not inviter:
-                return {"success": False, "error": f"Приглашающий автор с ID {inviter_id} не найден"}
-
-            author = session.query(Author).filter(Author.id == author_id).first()
-            if not author:
-                return {"success": False, "error": f"Приглашаемый автор с ID {author_id} не найден"}
-
-            shout = session.query(Shout).filter(Shout.id == shout_id).first()
-            if not shout:
-                return {"success": False, "error": f"Публикация с ID {shout_id} не найдена"}
-
-            # Проверяем, не существует ли уже такое приглашение
-            existing_invite = (
-                session.query(Invite)
-                .filter(
-                    Invite.inviter_id == inviter_id,
-                    Invite.author_id == author_id,
-                    Invite.shout_id == shout_id,
-                )
-                .first()
-            )
-
-            if existing_invite:
-                return {
-                    "success": False,
-                    "error": f"Приглашение от {inviter.name} для {author.name} на публикацию '{shout.title}' уже существует",
-                }
-
-            # Создаем новое приглашение
-            new_invite = Invite(
-                inviter_id=inviter_id,
-                author_id=author_id,
-                shout_id=shout_id,
-                status=status,
-            )
-
-            session.add(new_invite)
-            session.commit()
-
-            logger.info(f"Создано приглашение: {inviter.name} приглашает {author.name} к публикации '{shout.title}'")
-
-            return {"success": True, "error": None}
-
-    except Exception as e:
-        logger.error(f"Ошибка при создании приглашения: {e!s}")
-        msg = f"Не удалось создать приглашение: {e!s}"
-        raise GraphQLError(msg) from e
-
-
 @mutation.field("adminUpdateInvite")
 @admin_auth_required
 async def admin_update_invite(_: None, _info: GraphQLResolveInfo, invite: dict[str, Any]) -> dict[str, Any]:
@@ -1185,3 +1235,522 @@ async def admin_delete_invites_batch(
         logger.error(f"Ошибка при пакетном удалении приглашений: {e!s}")
         msg = f"Не удалось выполнить пакетное удаление приглашений: {e!s}"
         raise GraphQLError(msg) from e
+
+
+@query.field("adminGetUserCommunityRoles")
+@admin_auth_required
+async def admin_get_user_community_roles(
+    _: None, info: GraphQLResolveInfo, author_id: int, community_id: int
+) -> dict[str, Any]:
+    """
+    Получает роли пользователя в конкретном сообществе
+
+    Args:
+        author_id: ID пользователя
+        community_id: ID сообщества
+
+    Returns:
+        Словарь с ролями пользователя в сообществе
+    """
+    try:
+        with local_session() as session:
+            # Получаем роли пользователя из новой RBAC системы
+            community_author = (
+                session.query(CommunityAuthor)
+                .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .first()
+            )
+
+            roles = []
+            if community_author and community_author.roles:
+                roles = [role.strip() for role in community_author.roles.split(",") if role.strip()]
+
+            return {"author_id": author_id, "community_id": community_id, "roles": roles}
+
+    except Exception as e:
+        logger.error(f"Ошибка при получении ролей пользователя в сообществе: {e!s}")
+        msg = f"Не удалось получить роли пользователя: {e!s}"
+        raise GraphQLError(msg) from e
+
+
+@mutation.field("adminUpdateUserCommunityRoles")
+@admin_auth_required
+async def admin_update_user_community_roles(
+    _: None, info: GraphQLResolveInfo, author_id: int, community_id: int, roles: list[str]
+) -> dict[str, Any]:
+    """
+    Обновляет роли пользователя в конкретном сообществе
+
+    Args:
+        author_id: ID пользователя
+        community_id: ID сообщества
+        roles: Список ID ролей для назначения
+
+    Returns:
+        Результат операции
+    """
+    try:
+        with local_session() as session:
+            # Проверяем существование пользователя
+            author = session.query(Author).filter(Author.id == author_id).first()
+            if not author:
+                return {"success": False, "error": f"Пользователь с ID {author_id} не найден"}
+
+            # Проверяем существование сообщества
+            community = session.query(Community).filter(Community.id == community_id).first()
+            if not community:
+                return {"success": False, "error": f"Сообщество с ID {community_id} не найдено"}
+
+            # Проверяем валидность ролей
+            available_roles = community.get_available_roles()
+            invalid_roles = set(roles) - set(available_roles)
+            if invalid_roles:
+                return {"success": False, "error": f"Роли недоступны в этом сообществе: {list(invalid_roles)}"}
+
+            # Получаем или создаем запись CommunityAuthor
+            community_author = (
+                session.query(CommunityAuthor)
+                .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .first()
+            )
+
+            if not community_author:
+                community_author = CommunityAuthor(author_id=author_id, community_id=community_id, roles="")
+                session.add(community_author)
+
+            # Обновляем роли в CSV формате
+            for r in roles:
+                community_author.remove_role(r)
+
+            session.commit()
+
+            logger.info(f"Роли пользователя {author_id} в сообществе {community_id} обновлены: {roles}")
+
+            return {"success": True, "author_id": author_id, "community_id": community_id, "roles": roles}
+
+    except Exception as e:
+        logger.error(f"Ошибка при обновлении ролей пользователя в сообществе: {e!s}")
+        msg = f"Не удалось обновить роли пользователя: {e!s}"
+        return {"success": False, "error": msg}
+
+
+@query.field("adminGetCommunityMembers")
+@admin_auth_required
+async def admin_get_community_members(
+    _: None, info: GraphQLResolveInfo, community_id: int, limit: int = 20, offset: int = 0
+) -> dict[str, Any]:
+    """
+    Получает список участников сообщества с их ролями
+
+    Args:
+        community_id: ID сообщества
+        limit: Максимальное количество записей
+        offset: Смещение для пагинации
+
+    Returns:
+        Список участников сообщества с ролями
+    """
+    try:
+        with local_session() as session:
+            # Получаем участников сообщества из CommunityAuthor (новая RBAC система)
+            members_query = (
+                session.query(Author, CommunityAuthor)
+                .join(CommunityAuthor, Author.id == CommunityAuthor.author_id)
+                .filter(CommunityAuthor.community_id == community_id)
+                .offset(offset)
+                .limit(limit)
+            )
+
+            members = []
+            for author, community_author in members_query:
+                # Парсим роли из CSV
+                roles = []
+                if community_author.roles:
+                    roles = [role.strip() for role in community_author.roles.split(",") if role.strip()]
+
+                members.append(
+                    {
+                        "id": author.id,
+                        "name": author.name,
+                        "email": author.email,
+                        "slug": author.slug,
+                        "roles": roles,
+                    }
+                )
+
+            # Подсчитываем общее количество участников
+            total = (
+                session.query(func.count(CommunityAuthor.author_id))
+                .filter(CommunityAuthor.community_id == community_id)
+                .scalar()
+            )
+
+            return {"members": members, "total": total, "community_id": community_id}
+
+    except Exception as e:
+        logger.error(f"Ошибка получения участников сообщества: {e}")
+        return {"members": [], "total": 0, "community_id": community_id}
+
+
+@mutation.field("adminSetUserCommunityRoles")
+@admin_auth_required
+async def admin_set_user_community_roles(
+    _: None, info: GraphQLResolveInfo, author_id: int, community_id: int, roles: list[str]
+) -> dict[str, Any]:
+    """
+    Устанавливает роли пользователя в сообществе (заменяет все существующие роли)
+
+    Args:
+        author_id: ID пользователя
+        community_id: ID сообщества
+        roles: Список ролей для назначения
+
+    Returns:
+        Результат операции
+    """
+    try:
+        with local_session() as session:
+            # Проверяем существование пользователя
+            author = session.query(Author).filter(Author.id == author_id).first()
+            if not author:
+                return {
+                    "success": False,
+                    "error": f"Пользователь {author_id} не найден",
+                    "author_id": author_id,
+                    "community_id": community_id,
+                    "roles": [],
+                }
+
+            # Проверяем существование сообщества
+            community = session.query(Community).filter(Community.id == community_id).first()
+            if not community:
+                return {
+                    "success": False,
+                    "error": f"Сообщество {community_id} не найдено",
+                    "author_id": author_id,
+                    "community_id": community_id,
+                    "roles": [],
+                }
+
+            # Проверяем, что все роли доступны в сообществе
+            available_roles = community.get_available_roles()
+            invalid_roles = set(roles) - set(available_roles)
+            if invalid_roles:
+                return {
+                    "success": False,
+                    "error": f"Роли недоступны в этом сообществе: {list(invalid_roles)}",
+                    "author_id": author_id,
+                    "community_id": community_id,
+                    "roles": roles,
+                }
+
+            # Получаем или создаем запись CommunityAuthor
+            community_author = (
+                session.query(CommunityAuthor)
+                .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .first()
+            )
+
+            if not community_author:
+                community_author = CommunityAuthor(author_id=author_id, community_id=community_id, roles="")
+                session.add(community_author)
+
+            # Обновляем роли в CSV формате
+            community_author.set_roles(roles)
+
+            session.commit()
+            logger.info(f"Назначены роли {roles} пользователю {author_id} в сообществе {community_id}")
+
+            return {
+                "success": True,
+                "error": None,
+                "author_id": author_id,
+                "community_id": community_id,
+                "roles": roles,
+            }
+
+    except Exception as e:
+        logger.error(f"Ошибка назначения ролей пользователю {author_id} в сообществе {community_id}: {e}")
+        return {"success": False, "error": str(e), "author_id": author_id, "community_id": community_id, "roles": []}
+
+
+@mutation.field("adminAddUserToRole")
+@admin_auth_required
+async def admin_add_user_to_role(
+    _: None, info: GraphQLResolveInfo, author_id: int, role_id: str, community_id: int
+) -> dict[str, Any]:
+    """
+    Добавляет пользователю роль в сообществе
+
+    Args:
+        author_id: ID пользователя
+        role_id: ID роли
+        community_id: ID сообщества
+
+    Returns:
+        Результат операции
+    """
+    try:
+        with local_session() as session:
+            # Получаем или создаем запись CommunityAuthor
+            community_author = (
+                session.query(CommunityAuthor)
+                .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .first()
+            )
+
+            if not community_author:
+                community_author = CommunityAuthor(author_id=author_id, community_id=community_id, roles=role_id)
+                session.add(community_author)
+            else:
+                # Проверяем, что роль не назначена уже
+                if role_id in community_author.role_list:
+                    return {"success": False, "error": "Роль уже назначена пользователю"}
+
+                # Добавляем новую роль
+                community_author.add_role(role_id)
+
+            session.commit()
+
+            return {"success": True, "author_id": author_id, "role_id": role_id, "community_id": community_id}
+
+    except Exception as e:
+        logger.error(f"Ошибка добавления роли пользователю: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminRemoveUserFromRole")
+@admin_auth_required
+async def admin_remove_user_from_role(
+    _: None, info: GraphQLResolveInfo, author_id: int, role_id: str, community_id: int
+) -> dict[str, Any]:
+    """
+    Удаляет роль у пользователя в сообществе
+
+    Args:
+        author_id: ID пользователя
+        role_id: ID роли
+        community_id: ID сообщества
+
+    Returns:
+        Результат операции
+    """
+    try:
+        with local_session() as session:
+            community_author = (
+                session.query(CommunityAuthor)
+                .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .first()
+            )
+            if not community_author:
+                return {"success": False, "error": "Пользователь не найден в сообществе"}
+
+            if not community_author.has_role(role_id):
+                return {"success": False, "error": "Роль не найдена у пользователя в сообществе"}
+
+            # Используем метод модели для корректного удаления роли
+            community_author.remove_role(role_id)
+
+            session.commit()
+
+            return {
+                "success": True,
+                "author_id": author_id,
+                "role_id": role_id,
+                "community_id": community_id,
+            }
+
+    except Exception as e:
+        logger.error(f"Error removing user from role: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@query.field("adminGetCommunityRoleSettings")
+@admin_auth_required
+async def admin_get_community_role_settings(_: None, info: GraphQLResolveInfo, community_id: int) -> dict[str, Any]:
+    """
+    Получает настройки ролей для сообщества
+
+    Args:
+        community_id: ID сообщества
+
+    Returns:
+        Настройки ролей сообщества
+    """
+    try:
+        with local_session() as session:
+            from orm.community import Community
+
+            community = session.query(Community).filter(Community.id == community_id).first()
+            if not community:
+                return {
+                    "community_id": community_id,
+                    "default_roles": ["reader"],
+                    "available_roles": ["reader", "author", "artist", "expert", "editor", "admin"],
+                    "error": "Сообщество не найдено",
+                }
+
+            return {
+                "community_id": community_id,
+                "default_roles": community.get_default_roles(),
+                "available_roles": community.get_available_roles(),
+                "error": None,
+            }
+
+    except Exception as e:
+        logger.error(f"Error getting community role settings: {e}")
+        return {
+            "community_id": community_id,
+            "default_roles": ["reader"],
+            "available_roles": ["reader", "author", "artist", "expert", "editor", "admin"],
+            "error": str(e),
+        }
+
+
+@mutation.field("adminUpdateCommunityRoleSettings")
+@admin_auth_required
+async def admin_update_community_role_settings(
+    _: None, info: GraphQLResolveInfo, community_id: int, default_roles: list[str], available_roles: list[str]
+) -> dict[str, Any]:
+    """
+    Обновляет настройки ролей для сообщества
+
+    Args:
+        community_id: ID сообщества
+        default_roles: Список дефолтных ролей
+        available_roles: Список доступных ролей
+
+    Returns:
+        Результат операции
+    """
+    try:
+        with local_session() as session:
+            community = session.query(Community).filter(Community.id == community_id).first()
+            if not community:
+                return {
+                    "success": False,
+                    "error": f"Сообщество {community_id} не найдено",
+                    "community_id": community_id,
+                    "default_roles": [],
+                    "available_roles": [],
+                }
+
+            return {
+                "success": True,
+                "error": None,
+                "community_id": community_id,
+                "default_roles": default_roles,
+                "available_roles": available_roles,
+            }
+
+    except Exception as e:
+        logger.error(f"Ошибка обновления настроек ролей сообщества {community_id}: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "community_id": community_id,
+            "default_roles": default_roles,
+            "available_roles": available_roles,
+        }
+
+
+@mutation.field("adminDeleteCustomRole")
+@admin_auth_required
+async def admin_delete_custom_role(
+    _: None, info: GraphQLResolveInfo, role_id: str, community_id: int
+) -> dict[str, Any]:
+    """
+    Удаляет произвольную роль из сообщества
+
+    Args:
+        role_id: ID роли для удаления
+        community_id: ID сообщества
+
+    Returns:
+        Результат операции
+    """
+    try:
+        with local_session() as session:
+            # Проверяем существование сообщества
+            community = session.query(Community).filter(Community.id == community_id).first()
+            if not community:
+                return {"success": False, "error": f"Сообщество {community_id} не найдено"}
+
+            # Удаляем роль из сообщества
+            current_available = community.get_available_roles()
+            current_default = community.get_default_roles()
+
+            new_available = [r for r in current_available if r != role_id]
+            new_default = [r for r in current_default if r != role_id]
+
+            community.set_available_roles(new_available)
+            community.set_default_roles(new_default)
+            session.commit()
+
+            logger.info(f"Удалена роль {role_id} из сообщества {community_id}")
+
+            return {"success": True, "error": None}
+
+    except Exception as e:
+        logger.error(f"Ошибка удаления роли {role_id} из сообщества {community_id}: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminCreateCustomRole")
+@admin_auth_required
+async def admin_create_custom_role(_: None, info: GraphQLResolveInfo, role: dict[str, Any]) -> dict[str, Any]:
+    """
+    Создает произвольную роль в сообществе
+
+    Args:
+        role: Данные для создания роли
+
+    Returns:
+        Результат создания роли
+    """
+    try:
+        role_id = role.get("id")
+        name = role.get("name")
+        description = role.get("description", "")
+        icon = role.get("icon", "🔖")
+        community_id = role.get("community_id")
+
+        # Валидация
+        if not role_id or not name or not community_id:
+            return {"success": False, "error": "Обязательные поля: id, name, community_id", "role": None}
+
+        # Проверяем валидность ID роли
+        import re
+
+        if not re.match(r"^[a-z0-9_-]+$", role_id):
+            return {
+                "success": False,
+                "error": "ID роли может содержать только латинские буквы, цифры, дефисы и подчеркивания",
+                "role": None,
+            }
+
+        with local_session() as session:
+            # Проверяем существование сообщества
+            community = session.query(Community).filter(Community.id == community_id).first()
+            if not community:
+                return {"success": False, "error": f"Сообщество {community_id} не найдено", "role": None}
+
+            available_roles = community.get_available_roles()
+            if role_id in available_roles:
+                return {
+                    "success": False,
+                    "error": f"Роль с ID {role_id} уже существует в сообществе {community_id}",
+                    "role": None,
+                }
+
+            # Добавляем роль в список доступных ролей
+            community.set_available_roles([*available_roles, role_id])
+            session.commit()
+
+            logger.info(f"Создана роль {role_id} ({name}) в сообществе {community_id}")
+
+            return {"success": True, "error": None, "role": {"id": role_id, "name": name, "description": description}}
+
+    except Exception as e:
+        logger.error(f"Ошибка создания роли: {e}")
+        return {"success": False, "error": str(e), "role": None}

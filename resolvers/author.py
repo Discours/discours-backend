@@ -580,7 +580,15 @@ async def get_author_follows_authors(
 
 
 def create_author(**kwargs) -> Author:
-    """Create new author"""
+    """
+    Create new author with default community roles
+
+    Args:
+        **kwargs: Author data including user_id, slug, name, etc.
+
+    Returns:
+        Created Author object
+    """
     author = Author()
     # Use setattr to avoid MyPy complaints about Column assignment
     author.id = kwargs.get("user_id")  # type: ignore[assignment] # Связь с user_id из системы авторизации  # type: ignore[assignment]
@@ -590,8 +598,48 @@ def create_author(**kwargs) -> Author:
     author.name = kwargs.get("name") or kwargs.get("slug")  # type: ignore[assignment] # если не указано  # type: ignore[assignment]
 
     with local_session() as session:
+        from orm.community import Community, CommunityAuthor, CommunityFollower
+
         session.add(author)
+        session.flush()  # Получаем ID автора
+
+        # Добавляем автора в основное сообщество с дефолтными ролями
+        target_community_id = kwargs.get("community_id", 1)  # По умолчанию основное сообщество
+
+        # Получаем сообщество для назначения дефолтных ролей
+        community = session.query(Community).filter(Community.id == target_community_id).first()
+        if community:
+            # Инициализируем права сообщества если нужно
+            try:
+                import asyncio
+
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(community.initialize_role_permissions())
+            except Exception as e:
+                logger.warning(f"Не удалось инициализировать права сообщества {target_community_id}: {e}")
+
+            # Получаем дефолтные роли сообщества или используем стандартные
+            try:
+                default_roles = community.get_default_roles()
+                if not default_roles:
+                    default_roles = ["reader", "author"]
+            except AttributeError:
+                default_roles = ["reader", "author"]
+
+            # Создаем CommunityAuthor с дефолтными ролями
+            community_author = CommunityAuthor(
+                community_id=target_community_id, author_id=author.id, roles=",".join(default_roles)
+            )
+            session.add(community_author)
+            logger.info(f"Создана запись CommunityAuthor для автора {author.id} с ролями: {default_roles}")
+
+            # Добавляем автора в подписчики сообщества
+            follower = CommunityFollower(community=target_community_id, follower=int(author.id))
+            session.add(follower)
+            logger.info(f"Автор {author.id} добавлен в подписчики сообщества {target_community_id}")
+
         session.commit()
+        logger.info(f"Автор {author.id} успешно создан с ролями в сообществе {target_community_id}")
         return author
 
 

@@ -12,7 +12,7 @@ interface PaginationProps {
 }
 
 const Pagination = (props: PaginationProps) => {
-  const perPageOptions = props.perPageOptions || [10, 20, 50, 100]
+  const perPageOptions = props.perPageOptions || [20, 50, 100, 200]
 
   // Генерируем массив страниц для отображения
   const pages = () => {

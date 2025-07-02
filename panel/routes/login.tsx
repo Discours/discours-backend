@@ -7,8 +7,10 @@ import { useNavigate } from '@solidjs/router'
 import { createSignal, onMount } from 'solid-js'
 import publyLogo from '../assets/publy.svg?url'
 import { useAuth } from '../context/auth'
+import formStyles from '../styles/Form.module.css'
 import styles from '../styles/Login.module.css'
 import Button from '../ui/Button'
+import LanguageSwitcher from '../ui/LanguageSwitcher'
 
 /**
  * Компонент страницы входа
@@ -48,40 +50,72 @@ const LoginPage = () => {
 
   return (
     <div class={styles['login-container']}>
-      <form class={styles['login-form']} onSubmit={handleSubmit}>
-        <img src={publyLogo} alt="Logo" class={styles['login-logo']} />
-        <h1>Вход в панель администратора</h1>
+      <div class={styles['login-header']}>
+        <LanguageSwitcher />
+      </div>
+      <div class={styles['login-form-container']}>
+        <form class={formStyles.form} onSubmit={handleSubmit}>
+          <img src={publyLogo} alt="Logo" class={styles['login-logo']} />
+          <h1 class={formStyles.title}>Вход в админ панель</h1>
 
-        {error() && <div class={styles['error-message']}>{error()}</div>}
+          <div class={formStyles.fieldGroup}>
+            <label class={formStyles.label}>
+              <span class={formStyles.labelText}>
+                <span class={formStyles.labelIcon}>📧</span>
+                Email
+                <span class={formStyles.required}>*</span>
+              </span>
+            </label>
+            <input
+              type="email"
+              value={username()}
+              onInput={(e) => setUsername(e.currentTarget.value)}
+              placeholder="admin@discours.io"
+              required
+              class={`${formStyles.input} ${error() ? formStyles.error : ''}`}
+              disabled={loading()}
+            />
+          </div>
 
-        <div class={styles['form-group']}>
-          <label for="username">Имя пользователя</label>
-          <input
-            id="username"
-            type="text"
-            value={username()}
-            onInput={(e) => setUsername(e.currentTarget.value)}
-            disabled={loading()}
-            required
-          />
-        </div>
+          <div class={formStyles.fieldGroup}>
+            <label class={formStyles.label}>
+              <span class={formStyles.labelText}>
+                <span class={formStyles.labelIcon}>🔒</span>
+                Пароль
+                <span class={formStyles.required}>*</span>
+              </span>
+            </label>
+            <input
+              type="password"
+              value={password()}
+              onInput={(e) => setPassword(e.currentTarget.value)}
+              placeholder="••••••••"
+              required
+              class={`${formStyles.input} ${error() ? formStyles.error : ''}`}
+              disabled={loading()}
+            />
+          </div>
 
-        <div class={styles['form-group']}>
-          <label for="password">Пароль</label>
-          <input
-            id="password"
-            type="password"
-            value={password()}
-            onInput={(e) => setPassword(e.currentTarget.value)}
-            disabled={loading()}
-            required
-          />
-        </div>
+          {error() && (
+            <div class={formStyles.fieldError}>
+              <span class={formStyles.errorIcon}>⚠️</span>
+              {error()}
+            </div>
+          )}
 
-        <Button type="submit" variant="primary" disabled={loading()} loading={loading()}>
-          {loading() ? 'Вход...' : 'Войти'}
-        </Button>
-      </form>
+          <div class={formStyles.actions}>
+            <Button
+              variant="primary"
+              type="submit"
+              loading={loading()}
+              disabled={loading() || !username() || !password()}
+              onClick={handleSubmit}
+            >
+              Войти
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

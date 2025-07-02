@@ -27,19 +27,17 @@ def apply_diff(original: str, diff: list[str]) -> str:
     Returns:
     The modified string.
     """
-    result = []
     pattern = re.compile(r"^(\+|-) ")
 
+    # Используем list comprehension вместо цикла с append
+    result = []
     for line in diff:
         match = pattern.match(line)
         if match:
             op = match.group(1)
-            content = line[2:]
             if op == "+":
-                result.append(content)
-            elif op == "-":
-                # Ignore deleted lines
-                pass
+                result.append(line[2:])  # content
+            # Игнорируем удаленные строки (op == "-")
         else:
             result.append(line)
 

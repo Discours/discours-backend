@@ -1,6 +1,7 @@
 [tool.ruff]
 line-length = 120  # Максимальная длина строки кода
 fix = true         # Автоматическое исправление ошибок где возможно
+exclude = ["alembic/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
 # Включаем автоматическое исправление для всех правил, которые поддерживают это
@@ -98,7 +99,10 @@ ignore = [
     "FBT002",  # boolean default arguments - иногда удобно для API совместимости
     "PERF203", # try-except in loop - иногда нужно для обработки отдельных элементов
     # Игнорируем некоторые строгие правила для удобства разработки
+    "ANN001", # Missing type annotation for `self` - иногда нужно
+    "ANN002", # Missing type annotation for `args`
     "ANN003", # Missing type annotation for `*args` - иногда нужно
+    "ANN202", # Missing return type annotation for private function `wrapper` - иногда нужно
     "ANN401", # Dynamically typed expressions (Any) - иногда нужно
     "S101",   # assert statements - нужно в тестах
     "T201",   # print statements - нужно для отладки

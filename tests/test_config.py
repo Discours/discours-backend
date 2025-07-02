@@ -16,11 +16,7 @@ from auth.orm import (  # noqa: F401
     Author,
     AuthorBookmark,
     AuthorFollower,
-    AuthorRating,
-    AuthorRole,
-    Permission,
-    Role,
-    RolePermission,
+    AuthorRating
 )
 from orm.collection import ShoutCollection  # noqa: F401
 from orm.community import Community, CommunityAuthor, CommunityFollower  # noqa: F401

@@ -22,7 +22,8 @@
 - **Line length**: 120 characters max
 - **Type hints**: Required for all functions
 - **Docstrings**: Required for public methods
-- **Ruff**: For linting and formatting
+- **Ruff**: linting and formatting
+- **MyPy**: typechecks
 
 ### Testing
 

@@ -1,4 +1,6 @@
-import { Component, createSignal, For, onMount, Show } from 'solid-js'
+import { Component, createEffect, createSignal, For, on, onMount, Show, untrack } from 'solid-js'
+import { useTableSort } from '../context/sort'
+import { COMMUNITIES_SORT_CONFIG } from '../context/sortConfig'
 import {
   CREATE_COMMUNITY_MUTATION,
   DELETE_COMMUNITY_MUTATION,
@@ -9,6 +11,8 @@ import CommunityEditModal from '../modals/CommunityEditModal'
 import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
+import SortableHeader from '../ui/SortableHeader'
+import TableControls from '../ui/TableControls'
 
 /**
  * Интерфейс для сообщества (используем локальный интерфейс для совместимости)
@@ -43,11 +47,18 @@ interface CommunitiesRouteProps {
 const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
   const [communities, setCommunities] = createSignal<Community[]>([])
   const [loading, setLoading] = createSignal(false)
-  const [editModal, setEditModal] = createSignal<{ show: boolean; community: Community | null }>({
+  const { sortState } = useTableSort()
+  const [editModal, setEditModal] = createSignal<{
+    show: boolean
+    community: Community | null
+  }>({
     show: false,
     community: null
   })
-  const [deleteModal, setDeleteModal] = createSignal<{ show: boolean; community: Community | null }>({
+  const [deleteModal, setDeleteModal] = createSignal<{
+    show: boolean
+    community: Community | null
+  }>({
     show: false,
     community: null
   })
@@ -61,6 +72,8 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
   const loadCommunities = async () => {
     setLoading(true)
     try {
+      // Загружаем все сообщества без параметров сортировки
+      // Сортировка будет выполнена на клиенте
       const response = await fetch('/graphql', {
         method: 'POST',
         headers: {
@@ -77,7 +90,10 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
         throw new Error(result.errors[0].message)
       }
 
-      setCommunities(result.data.get_communities_all || [])
+      // Получаем данные и сортируем их на клиенте
+      const communitiesData = result.data.get_communities_all || []
+      const sortedCommunities = sortCommunities(communitiesData)
+      setCommunities(sortedCommunities)
     } catch (error) {
       props.onError(`Ошибка загрузки сообществ: ${(error as Error).message}`)
     } finally {
@@ -90,6 +106,51 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
    */
   const formatDate = (timestamp: number): string => {
     return new Date(timestamp * 1000).toLocaleDateString('ru-RU')
+  }
+
+  /**
+   * Сортирует сообщества на клиенте в соответствии с текущим состоянием сортировки
+   */
+  const sortCommunities = (communities: Community[]): Community[] => {
+    const { field, direction } = sortState()
+
+    return [...communities].sort((a, b) => {
+      let comparison = 0
+
+      switch (field) {
+        case 'id':
+          comparison = a.id - b.id
+          break
+        case 'name':
+          comparison = (a.name || '').localeCompare(b.name || '', 'ru')
+          break
+        case 'slug':
+          comparison = (a.slug || '').localeCompare(b.slug || '', 'ru')
+          break
+        case 'created_at':
+          comparison = a.created_at - b.created_at
+          break
+        case 'created_by': {
+          const aName = a.created_by?.name || a.created_by?.email || ''
+          const bName = b.created_by?.name || b.created_by?.email || ''
+          comparison = aName.localeCompare(bName, 'ru')
+          break
+        }
+        case 'shouts':
+          comparison = (a.stat?.shouts || 0) - (b.stat?.shouts || 0)
+          break
+        case 'followers':
+          comparison = (a.stat?.followers || 0) - (b.stat?.followers || 0)
+          break
+        case 'authors':
+          comparison = (a.stat?.authors || 0) - (b.stat?.authors || 0)
+          break
+        default:
+          comparison = a.id - b.id
+      }
+
+      return direction === 'desc' ? -comparison : comparison
+    })
   }
 
   /**
@@ -181,6 +242,26 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
     }
   }
 
+  // Пересортировка при изменении состояния сортировки
+  createEffect(
+    on([sortState], () => {
+      if (communities().length > 0) {
+        // Используем untrack для предотвращения бесконечной рекурсии
+        const currentCommunities = untrack(() => communities())
+        const sortedCommunities = sortCommunities(currentCommunities)
+
+        // Сравниваем текущий порядок с отсортированным, чтобы избежать лишних обновлений
+        const needsUpdate =
+          JSON.stringify(currentCommunities.map((c: Community) => c.id)) !==
+          JSON.stringify(sortedCommunities.map((c: Community) => c.id))
+
+        if (needsUpdate) {
+          setCommunities(sortedCommunities)
+        }
+      }
+    })
+  )
+
   // Загружаем сообщества при монтировании компонента
   onMount(() => {
     void loadCommunities()
@@ -188,14 +269,15 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
 
   return (
     <div class={styles.container}>
-      <div class={styles.header}>
-        <Button onClick={loadCommunities} disabled={loading()}>
-          {loading() ? 'Загрузка...' : 'Обновить'}
-        </Button>
-        <Button variant="primary" onClick={openCreateModal}>
-          Создать сообщество
-        </Button>
-      </div>
+      <TableControls
+        onRefresh={loadCommunities}
+        isLoading={loading()}
+        actions={
+          <Button variant="primary" onClick={openCreateModal}>
+            Создать сообщество
+          </Button>
+        }
+      />
 
       <Show
         when={!loading()}
@@ -209,15 +291,29 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
         <table class={styles.table}>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Название</th>
-              <th>Slug</th>
+              <SortableHeader field="id" allowedFields={COMMUNITIES_SORT_CONFIG.allowedFields}>
+                ID
+              </SortableHeader>
+              <SortableHeader field="name" allowedFields={COMMUNITIES_SORT_CONFIG.allowedFields}>
+                Название
+              </SortableHeader>
+              <SortableHeader field="slug" allowedFields={COMMUNITIES_SORT_CONFIG.allowedFields}>
+                Slug
+              </SortableHeader>
               <th>Описание</th>
-              <th>Создатель</th>
-              <th>Публикации</th>
-              <th>Подписчики</th>
+              <SortableHeader field="created_by" allowedFields={COMMUNITIES_SORT_CONFIG.allowedFields}>
+                Создатель
+              </SortableHeader>
+              <SortableHeader field="shouts" allowedFields={COMMUNITIES_SORT_CONFIG.allowedFields}>
+                Публикации
+              </SortableHeader>
+              <SortableHeader field="followers" allowedFields={COMMUNITIES_SORT_CONFIG.allowedFields}>
+                Подписчики
+              </SortableHeader>
               <th>Авторы</th>
-              <th>Создано</th>
+              <SortableHeader field="created_at" allowedFields={COMMUNITIES_SORT_CONFIG.allowedFields}>
+                Создано
+              </SortableHeader>
               <th>Действия</th>
             </tr>
           </thead>

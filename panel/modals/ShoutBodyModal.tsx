@@ -1,8 +1,8 @@
 import { Component, For } from 'solid-js'
 import type { AdminShoutInfo, Maybe, Topic } from '../graphql/generated/schema'
 import styles from '../styles/Modal.module.css'
+import CodePreview from '../ui/CodePreview'
 import Modal from '../ui/Modal'
-import TextPreview from '../ui/TextPreview'
 
 export interface ShoutBodyModalProps {
   shout: AdminShoutInfo
@@ -41,7 +41,7 @@ const ShoutBodyModal: Component<ShoutBodyModalProps> = (props) => {
         <div class={styles['shout-content']}>
           <h3>Содержание</h3>
           <div class={styles['content-preview']}>
-            <TextPreview content={props.shout.body || ''} maxHeight="85vh" />
+            <CodePreview content={props.shout.body || ''} maxHeight="85vh" language="html" autoFormat />
           </div>
         </div>
       </div>

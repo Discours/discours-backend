@@ -1,4 +1,7 @@
-import { Component, createSignal, For, onMount, Show } from 'solid-js'
+import { createEffect, createSignal, For, on, onMount, Show, untrack } from 'solid-js'
+import { useData } from '../context/data'
+import { useTableSort } from '../context/sort'
+import { SHOUTS_SORT_CONFIG } from '../context/sortConfig'
 import { query } from '../graphql'
 import type { Query, AdminShoutInfo as Shout } from '../graphql/generated/schema'
 import { ADMIN_GET_SHOUTS_QUERY } from '../graphql/queries'
@@ -6,6 +9,8 @@ import styles from '../styles/Admin.module.css'
 import EditableCodePreview from '../ui/EditableCodePreview'
 import Modal from '../ui/Modal'
 import Pagination from '../ui/Pagination'
+import SortableHeader from '../ui/SortableHeader'
+import TableControls from '../ui/TableControls'
 import { formatDateRelative } from '../utils/date'
 
 export interface ShoutsRouteProps {
@@ -13,13 +18,15 @@ export interface ShoutsRouteProps {
   onSuccess?: (message: string) => void
 }
 
-const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
+const ShoutsRoute = (props: ShoutsRouteProps) => {
   const [shouts, setShouts] = createSignal<Shout[]>([])
   const [loading, setLoading] = createSignal(true)
   const [showBodyModal, setShowBodyModal] = createSignal(false)
   const [selectedShoutBody, setSelectedShoutBody] = createSignal<string>('')
   const [showMediaBodyModal, setShowMediaBodyModal] = createSignal(false)
   const [selectedMediaBody, setSelectedMediaBody] = createSignal<string>('')
+  const { sortState } = useTableSort()
+  const { selectedCommunity } = useData()
 
   // Pagination state
   const [pagination, setPagination] = createSignal<{
@@ -43,16 +50,38 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
   async function loadShouts() {
     try {
       setLoading(true)
+
+      // Подготавливаем параметры запроса
+      const variables: {
+        limit: number
+        offset: number
+        search?: string
+        community?: number
+      } = {
+        limit: pagination().limit,
+        offset: (pagination().page - 1) * pagination().limit
+      }
+
+      // Добавляем поиск если есть
+      if (searchQuery().trim()) {
+        variables.search = searchQuery().trim()
+      }
+
+      // Добавляем фильтр по сообществу если выбрано
+      const communityFilter = selectedCommunity()
+      if (communityFilter !== null) {
+        variables.community = communityFilter
+      }
+
       const result = await query<{ adminGetShouts: Query['adminGetShouts'] }>(
         `${location.origin}/graphql`,
         ADMIN_GET_SHOUTS_QUERY,
-        {
-          limit: pagination().limit,
-          offset: (pagination().page - 1) * pagination().limit
-        }
+        variables
       )
       if (result?.adminGetShouts?.shouts) {
-        setShouts(result.adminGetShouts.shouts)
+        // Применяем сортировку на клиенте
+        const sortedShouts = sortShouts(result.adminGetShouts.shouts)
+        setShouts(sortedShouts)
         setPagination((prev) => ({
           ...prev,
           total: result.adminGetShouts.total || 0,
@@ -83,23 +112,80 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
     void loadShouts()
   }
 
-  // Helper functions
-  function getShoutStatus(shout: Shout): string {
-    if (shout.deleted_at) return '🗑️'
-    if (shout.published_at) return '✅'
-    return '📝'
+  /**
+   * Сортирует публикации на клиенте
+   */
+  function sortShouts(shoutsData: Shout[]): Shout[] {
+    const { field, direction } = sortState()
+
+    return [...shoutsData].sort((a, b) => {
+      let comparison = 0
+
+      switch (field) {
+        case 'id':
+          comparison = Number(a.id) - Number(b.id)
+          break
+        case 'title':
+          comparison = (a.title || '').localeCompare(b.title || '', 'ru')
+          break
+        case 'slug':
+          comparison = (a.slug || '').localeCompare(b.slug || '', 'ru')
+          break
+        case 'created_at':
+          comparison = (a.created_at || 0) - (b.created_at || 0)
+          break
+        case 'published_at':
+          comparison = (a.published_at || 0) - (b.published_at || 0)
+          break
+        case 'updated_at':
+          comparison = (a.updated_at || 0) - (b.updated_at || 0)
+          break
+        default:
+          comparison = Number(a.id) - Number(b.id)
+      }
+
+      return direction === 'desc' ? -comparison : comparison
+    })
   }
 
+  // Пересортировка при изменении состояния сортировки
+  createEffect(
+    on([sortState], () => {
+      if (shouts().length > 0) {
+        // Используем untrack для предотвращения бесконечной рекурсии
+        const currentShouts = untrack(() => shouts())
+        const sortedShouts = sortShouts(currentShouts)
+
+        // Сравниваем текущий порядок с отсортированным, чтобы избежать лишних обновлений
+        const needsUpdate =
+          JSON.stringify(currentShouts.map((s: Shout) => s.id)) !==
+          JSON.stringify(sortedShouts.map((s: Shout) => s.id))
+
+        if (needsUpdate) {
+          setShouts(sortedShouts)
+        }
+      }
+    })
+  )
+
+  // Перезагрузка при изменении выбранного сообщества
+  createEffect(
+    on([selectedCommunity], () => {
+      void loadShouts()
+    })
+  )
+
+  // Helper functions
   function getShoutStatusTitle(shout: Shout): string {
     if (shout.deleted_at) return 'Удалена'
     if (shout.published_at) return 'Опубликована'
     return 'Черновик'
   }
 
-  function getShoutStatusClass(shout: Shout): string {
-    if (shout.deleted_at) return 'status-deleted'
-    if (shout.published_at) return 'status-published'
-    return 'status-draft'
+  function getShoutStatusBackgroundColor(shout: Shout): string {
+    if (shout.deleted_at) return '#fee2e2' // Пастельный красный
+    if (shout.published_at) return '#d1fae5' // Пастельный зеленый
+    return '#fef3c7' // Пастельный желтый для черновиков
   }
 
   function truncateText(text: string, maxLength = 100): string {
@@ -118,39 +204,33 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
       </Show>
 
       <Show when={!loading() && shouts().length > 0}>
-        <div class={styles['shouts-controls']}>
-          <div class={styles['search-container']}>
-            <div class={styles['search-input-group']}>
-              <input
-                type="text"
-                placeholder="Поиск по заголовку, slug или ID..."
-                value={searchQuery()}
-                onInput={(e) => setSearchQuery(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    void loadShouts()
-                  }
-                }}
-                class={styles['search-input']}
-              />
-              <button class={styles['search-button']} onClick={() => void loadShouts()}>
-                Поиск
-              </button>
-            </div>
-          </div>
-        </div>
+        <TableControls
+          onRefresh={loadShouts}
+          isLoading={loading()}
+          searchValue={searchQuery()}
+          onSearchChange={(value) => setSearchQuery(value)}
+          onSearch={() => void loadShouts()}
+        />
 
         <div class={styles['shouts-list']}>
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Заголовок</th>
-                <th>Slug</th>
-                <th>Статус</th>
+                <SortableHeader field="id" allowedFields={SHOUTS_SORT_CONFIG.allowedFields}>
+                  ID
+                </SortableHeader>
+                <SortableHeader field="title" allowedFields={SHOUTS_SORT_CONFIG.allowedFields}>
+                  Заголовок
+                </SortableHeader>
+                <SortableHeader field="slug" allowedFields={SHOUTS_SORT_CONFIG.allowedFields}>
+                  Slug
+                </SortableHeader>
                 <th>Авторы</th>
                 <th>Темы</th>
-                <th>Создан</th>
+
+                <SortableHeader field="created_at" allowedFields={SHOUTS_SORT_CONFIG.allowedFields}>
+                  Создан
+                </SortableHeader>
                 <th>Содержимое</th>
                 <th>Media</th>
               </tr>
@@ -159,17 +239,18 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
               <For each={shouts()}>
                 {(shout) => (
                   <tr>
-                    <td>{shout.id}</td>
+                    <td
+                      style={{
+                        'background-color': getShoutStatusBackgroundColor(shout),
+                        padding: '8px 12px',
+                        'border-radius': '4px'
+                      }}
+                      title={getShoutStatusTitle(shout)}
+                    >
+                      {shout.id}
+                    </td>
                     <td title={shout.title}>{truncateText(shout.title, 50)}</td>
                     <td title={shout.slug}>{truncateText(shout.slug, 30)}</td>
-                    <td>
-                      <span
-                        class={`${styles['status-badge']} ${getShoutStatusClass(shout)}`}
-                        title={getShoutStatusTitle(shout)}
-                      >
-                        {getShoutStatus(shout)}
-                      </span>
-                    </td>
                     <td>
                       <Show when={shout.authors?.length}>
                         <div class={styles['authors-list']}>
@@ -210,7 +291,8 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
                         <span class={styles['no-data']}>-</span>
                       </Show>
                     </td>
-                    <td>{formatDateRelative(shout.created_at)}</td>
+
+                    <td>{formatDateRelative(shout.created_at)()}</td>
                     <td
                       class={styles['body-cell']}
                       onClick={() => {
@@ -227,20 +309,17 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
                           <For each={shout.media}>
                             {(mediaItem, idx) => (
                               <div style="display: flex; align-items: center; gap: 6px;">
-                                <span class={styles['media-count']}>
-                                  {mediaItem?.title || `media[${idx()}]`}
-                                </span>
                                 <Show when={mediaItem?.body}>
                                   <button
                                     class={styles['edit-button']}
-                                    style="padding: 2px 8px; font-size: 12px;"
-                                    title="Показать содержимое body"
+                                    style="padding: 4px; font-size: 14px; min-width: 24px; border-radius: 4px;"
                                     onClick={() => {
                                       setSelectedMediaBody(mediaItem?.body || '')
                                       setShowMediaBodyModal(true)
                                     }}
+                                    title={mediaItem?.title || idx().toString()}
                                   >
-                                    👁 body
+                                    👁
                                   </button>
                                 </Show>
                               </div>
@@ -278,6 +357,8 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
         <EditableCodePreview
           content={selectedShoutBody()}
           maxHeight="85vh"
+          language="html"
+          autoFormat={true}
           onContentChange={(newContent) => {
             setSelectedShoutBody(newContent)
           }}
@@ -302,6 +383,8 @@ const ShoutsRoute: Component<ShoutsRouteProps> = (props) => {
         <EditableCodePreview
           content={selectedMediaBody()}
           maxHeight="85vh"
+          language="html"
+          autoFormat={true}
           onContentChange={(newContent) => {
             setSelectedMediaBody(newContent)
           }}

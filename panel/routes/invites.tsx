@@ -5,6 +5,7 @@ import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import Pagination from '../ui/Pagination'
+import TableControls from '../ui/TableControls'
 import { getAuthTokenFromCookie } from '../utils/auth'
 
 /**
@@ -59,7 +60,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
   const [statusFilter, setStatusFilter] = createSignal('all')
   const [pagination, setPagination] = createSignal({
     page: 1,
-    perPage: 10,
+    perPage: 20,
     total: 0,
     totalPages: 1
   })
@@ -69,18 +70,26 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
   const [selectAll, setSelectAll] = createSignal(false)
 
   // Состояние для модального окна подтверждения удаления
-  const [deleteModal, setDeleteModal] = createSignal<{ show: boolean; invite: Invite | null }>({
+  const [deleteModal, setDeleteModal] = createSignal<{
+    show: boolean
+    invite: Invite | null
+  }>({
     show: false,
     invite: null
   })
 
   // Состояние для модального окна подтверждения пакетного удаления
-  const [batchDeleteModal, setBatchDeleteModal] = createSignal<{ show: boolean }>({
+  const [batchDeleteModal, setBatchDeleteModal] = createSignal<{
+    show: boolean
+  }>({
     show: false
   })
 
   // Добавляю состояние сортировки
-  const [sortState, setSortState] = createSignal<SortState>({ field: null, direction: 'asc' })
+  const [sortState, setSortState] = createSignal<SortState>({
+    field: null,
+    direction: 'asc'
+  })
 
   /**
    * Загружает список приглашений с учетом фильтров и пагинации
@@ -122,7 +131,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
       setInvites(data.invites || [])
       setPagination({
         page: data.page || 1,
-        perPage: data.perPage || 10,
+        perPage: data.perPage || 20,
         total: data.total || 0,
         totalPages: data.totalPages || 1
       })
@@ -353,68 +362,49 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
 
   return (
     <div class={styles.container}>
-      {/* Новая компактная панель поиска и фильтров */}
-      <div class={styles.searchSection}>
-        <div class={styles.searchRow}>
-          <input
-            type="text"
-            placeholder="Поиск по приглашающему, приглашаемому, публикации..."
-            value={search()}
-            onInput={(e) => setSearch(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            class={styles.fullWidthSearch}
-          />
-        </div>
-
-        <div class={styles.filtersRow}>
-          <select
-            value={statusFilter()}
-            onChange={(e) => handleStatusFilterChange(e.target.value)}
-            class={styles.statusFilter}
-          >
-            <option value="all">Все статусы</option>
-            <option value="pending">Ожидает ответа</option>
-            <option value="accepted">Принято</option>
-            <option value="rejected">Отклонено</option>
-          </select>
-
-          <Button onClick={handleSearch} disabled={loading()}>
-            🔍 Поиск
-          </Button>
-
-          <Button onClick={() => loadInvites(pagination().page)} disabled={loading()}>
-            {loading() ? 'Загрузка...' : '🔄 Обновить'}
-          </Button>
-        </div>
-      </div>
-
-      {/* Панель пакетных действий */}
-      <Show when={!loading() && invites().length > 0}>
-        <div class={styles['batch-actions']}>
-          <div class={styles['select-all-container']}>
-            <input
-              type="checkbox"
-              id="select-all"
-              checked={selectAll()}
-              onChange={(e) => handleSelectAll(e.target.checked)}
-              class={styles.checkbox}
-            />
-            <label for="select-all" class={styles['select-all-label']}>
-              Выбрать все
-            </label>
-          </div>
-
+      <TableControls
+        searchValue={search()}
+        onSearchChange={(value) => setSearch(value)}
+        onSearch={handleSearch}
+        searchPlaceholder="Поиск по приглашающему, приглашаемому, публикации..."
+        isLoading={loading()}
+        actions={
           <Show when={getSelectedCount() > 0}>
-            <div class={styles['selected-count']}>Выбрано: {getSelectedCount()}</div>
-
             <button
-              class={styles['batch-delete-button']}
+              class={`${styles.button} ${styles.danger}`}
               onClick={() => setBatchDeleteModal({ show: true })}
               title="Удалить выбранные приглашения"
             >
-              Удалить выбранные
+              Удалить выбранные ({getSelectedCount()})
             </button>
           </Show>
+        }
+      >
+        <select
+          value={statusFilter()}
+          onChange={(e) => handleStatusFilterChange(e.target.value)}
+          class={styles.statusFilter}
+        >
+          <option value="all">Все статусы</option>
+          <option value="pending">Ожидает ответа</option>
+          <option value="accepted">Принято</option>
+          <option value="rejected">Отклонено</option>
+        </select>
+      </TableControls>
+
+      {/* Панель выбора всех */}
+      <Show when={!loading() && invites().length > 0}>
+        <div class={styles['select-all-container']} style={{ 'margin-bottom': '10px' }}>
+          <input
+            type="checkbox"
+            id="select-all"
+            checked={selectAll()}
+            onChange={(e) => handleSelectAll(e.target.checked)}
+            class={styles.checkbox}
+          />
+          <label for="select-all" class={styles['select-all-label']}>
+            Выбрать все
+          </label>
         </div>
       </Show>
 

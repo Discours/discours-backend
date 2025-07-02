@@ -2,10 +2,10 @@ from typing import Any
 
 from graphql import GraphQLResolveInfo
 
-from auth.decorators import editor_or_admin_required
 from auth.orm import Author
 from orm.community import Community, CommunityFollower
 from services.db import local_session
+from services.rbac import require_any_permission, require_permission
 from services.schema import mutation, query, type_community
 
 
@@ -72,6 +72,7 @@ async def get_communities_by_author(
 
 
 @mutation.field("join_community")
+@require_permission("community:read")
 async def join_community(_: None, info: GraphQLResolveInfo, slug: str) -> dict[str, Any]:
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
@@ -97,7 +98,7 @@ async def leave_community(_: None, info: GraphQLResolveInfo, slug: str) -> dict[
 
 
 @mutation.field("create_community")
-@editor_or_admin_required
+@require_permission("community:create")
 async def create_community(_: None, info: GraphQLResolveInfo, community_input: dict[str, Any]) -> dict[str, Any]:
     # Получаем author_id из контекста через декоратор авторизации
     request = info.context.get("request")
@@ -123,6 +124,11 @@ async def create_community(_: None, info: GraphQLResolveInfo, community_input: d
             # Создаем новое сообщество с обязательным created_by из токена
             new_community = Community(created_by=author_id, **filtered_input)
             session.add(new_community)
+            session.flush()  # Получаем ID сообщества
+
+            # Инициализируем права ролей для нового сообщества
+            await new_community.initialize_role_permissions()
+
             session.commit()
             return {"error": None}
     except Exception as e:
@@ -130,7 +136,7 @@ async def create_community(_: None, info: GraphQLResolveInfo, community_input: d
 
 
 @mutation.field("update_community")
-@editor_or_admin_required
+@require_any_permission(["community:update_own", "community:update_any"])
 async def update_community(_: None, info: GraphQLResolveInfo, community_input: dict[str, Any]) -> dict[str, Any]:
     # Получаем author_id из контекста через декоратор авторизации
     request = info.context.get("request")
@@ -181,7 +187,7 @@ async def update_community(_: None, info: GraphQLResolveInfo, community_input: d
 
 
 @mutation.field("delete_community")
-@editor_or_admin_required
+@require_any_permission(["community:delete_own", "community:delete_any"])
 async def delete_community(_: None, info: GraphQLResolveInfo, slug: str) -> dict[str, Any]:
     # Получаем author_id из контекста через декоратор авторизации
     request = info.context.get("request")

@@ -1,248 +1,541 @@
+/* ========== ОБЩИЕ ПЕРЕМЕННЫЕ ========== */
+:root {
+	--code-bg: #1e1e1e;
+	--code-editor-bg: #2d2d2d;
+	--code-text: #d4d4d4;
+	--code-line-numbers: #858585;
+	--code-line-numbers-bg: #252526;
+	--code-border: rgba(255, 255, 255, 0.1);
+	--code-accent: #007acc;
+	--code-success: #4caf50;
+	--code-error: #f44336;
+	--code-warning: #ff9800;
+
+	--code-font-family: "JetBrains Mono", "Fira Code", "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Consolas", monospace;
+	--code-font-size: 13px;
+	--code-line-height: 1.5;
+	--code-tab-size: 2;
+
+	--line-numbers-width: 50px;
+	--code-padding: 12px;
+
+	/* Цвета для подсветки синтаксиса */
+	--syntax-html-tag: #569cd6;
+	--syntax-html-bracket: #808080;
+	--syntax-html-attr-name: #92c5f7;
+	--syntax-html-attr-value: #ce9178;
+	--syntax-json-key: #92c5f7;
+	--syntax-json-string: #ce9178;
+	--syntax-json-number: #b5cea8;
+	--syntax-json-boolean: #569cd6;
+}
+
+/* ========== БАЗОВЫЕ СТИЛИ ========== */
+.codeBase {
+	font-family: var(--code-font-family);
+	font-size: var(--code-font-size);
+	line-height: var(--code-line-height);
+	tab-size: var(--code-tab-size);
+	background-color: var(--code-editor-bg);
+	color: var(--code-text);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.codeContainer {
+	position: relative;
+	display: flex;
+	min-height: 200px;
+	max-height: 70vh;
+	border: 1px solid var(--code-border);
+}
+
+/* ========== ОБЛАСТЬ КОДА ========== */
+.codeArea {
+	flex: 1;
+	position: relative;
+	overflow: hidden;
+}
+
+/* Контейнер для кода с относительным позиционированием и скроллом */
+.codeContentWrapper {
+	position: relative;
+	height: 100%;
+	overflow-y: auto;
+	overflow-x: hidden;
+	line-break: anywhere;
+	word-break: break-all;
+	display: flex;
+	background: var(--code-editor-bg);
+}
+
+/* ========== НУМЕРАЦИЯ СТРОК НА CSS ========== */
+.lineNumbers {
+	flex-shrink: 0;
+	width: var(--line-numbers-width);
+	background: var(--code-line-numbers-bg);
+	border-right: 1px solid var(--code-border);
+	color: var(--code-line-numbers);
+	font-family: var(--code-font-family);
+	font-size: var(--code-font-size);
+	line-height: var(--code-line-height);
+	padding: var(--code-padding) 0;
+	user-select: none;
+	pointer-events: none;
+	box-sizing: border-box;
+	counter-reset: line-counter;
+	position: sticky;
+	left: 0;
+	z-index: 3;
+}
+
+.lineNumbers::before {
+	content: '';
+	white-space: pre-line;
+	counter-reset: line-counter;
+}
+
+.lineNumberItem {
+	display: block;
+	padding: 0 8px;
+	text-align: right;
+	counter-increment: line-counter;
+	min-height: calc(var(--code-line-height) * 1em);
+	box-sizing: border-box;
+}
+
+.lineNumberItem::before {
+	content: counter(line-counter);
+}
+
+/* Контейнер для текста кода (textarea и подсветка) */
+.codeTextWrapper {
+	flex: 1;
+	position: relative;
+	min-width: 0;
+}
+
+.codeContent {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	padding: var(--code-padding);
+	margin: 0;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	resize: none;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-x: hidden;
+	overflow-y: auto;
+	z-index: 2;
+	box-sizing: border-box;
+}
+
+/* ========== ТОЛЬКО ПРОСМОТР ========== */
 .codePreview {
-  position: relative;
-  padding-left: 24px !important;
-  background-color: #2d2d2d;
-  color: #f8f8f2;
-  tab-size: 2;
-  line-height: 1.4;
-  overflow: hidden;
-  font-size: 12px;
-}
-
-.lineNumber {
-  display: block;
-  padding: 0 2px;
-  text-align: right;
-  color: #555;
-  background: #1e1e1e;
-  user-select: none;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 9px;
-  line-height: 1.4;
-  min-height: 12.6px; /* 9px * 1.4 line-height */
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.lineNumbersContainer {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 24px;
-  height: 100%;
-  background: #1e1e1e;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-  user-select: none;
-  padding: 8px 2px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 9px;
-  line-height: 1.4;
-  text-align: right;
-}
-
-.lineNumbersContainer .lineNumber {
-  border-right: none;
-}
-
-.code {
-  display: block;
-  overflow-x: auto;
-}
-
-.languageBadge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 0.7em;
-  background-color: rgba(0,0,0,0.7);
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  z-index: 10;
-}
-
-/* Стили для EditableCodePreview */
-.editableCodeContainer {
-  position: relative;
-  background-color: #2d2d2d;
-  overflow: hidden;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.editorControls {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 12px;
-  background-color: #1e1e1e;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  border-bottom: none;
-  order: 2; /* Перемещаем вниз */
-}
-
-.editingControls {
-  display: flex;
-  gap: 8px;
-}
-
-.editButton {
-  background: rgba(0, 122, 204, 0.8);
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background-color 0.2s;
-}
-
-.editButton:hover {
-  background: rgba(0, 122, 204, 1);
-}
-
-.saveButton {
-  background: rgba(40, 167, 69, 0.8);
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background-color 0.2s;
-}
-
-.saveButton:hover {
-  background: rgba(40, 167, 69, 1);
-}
-
-.cancelButton {
-  background: rgba(220, 53, 69, 0.8);
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background-color 0.2s;
-}
-
-.cancelButton:hover {
-  background: rgba(220, 53, 69, 1);
-}
-
-.editorWrapper {
-  position: relative;
-  overflow: hidden;
-  background-color: #2d2d2d;
-  transition: border 0.2s;
-  flex: 1;
-  order: 1; /* Основной контент вверху */
-}
-
-.syntaxHighlight {
-  position: absolute;
-  top: 0;
-  left: 24px;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  color: transparent;
-  background: transparent;
-  margin: 0;
-  padding: 8px 8px;
-  width: 100%;
-  height: 100%;
-  tab-size: 2;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.editorArea {
-  position: absolute;
-  top: 0;
-  left: 24px;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-  margin: 0;
-  padding: 8px 8px;
-  resize: none;
-  border: none;
-  width: 100%;
-  height: 100%;
-  tab-size: 2;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-y: auto;
-  outline: none;
-}
-
-.editorArea:focus {
-  outline: none;
-}
-
-.editorAreaEditing {
-  background: rgba(0, 0, 0, 0.02);
-  color: rgba(255, 255, 255, 0.9);
-  cursor: text;
-  caret-color: #fff;
-}
-
-.editorAreaViewing {
-  background: transparent;
-  color: transparent;
-  cursor: default;
-  caret-color: transparent;
-}
-
-.editorWrapperEditing {
-  border: 2px solid #007acc;
+	composes: codeBase;
 }
 
 .codePreviewContainer {
-  position: absolute;
-  top: 0;
-  left: 24px;
-  right: 0;
-  bottom: 0;
-  margin: 0;
-  padding: 8px 8px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  background: transparent;
-  cursor: pointer;
-  overflow-y: auto;
-  z-index: 2;
+	composes: codeContainer;
+	cursor: pointer;
+	transition: border-color 0.2s ease;
 }
 
-.placeholder {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #666;
-  cursor: pointer;
-  font-style: italic;
-  font-size: 14px;
-  pointer-events: none;
-  user-select: none;
+.codePreviewContainer:hover {
+	border-color: var(--code-accent);
 }
 
+.codePreviewContent {
+	composes: codeContent;
+	cursor: pointer;
+}
+
+/* ========== РЕДАКТИРУЕМЫЙ РЕЖИМ ========== */
+.editableCodeContainer {
+	composes: codeBase;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow-x: hidden;
+}
+
+.editorContainer {
+	composes: codeContainer;
+	flex: 1;
+	min-height: 300px;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	overflow-x: hidden;
+}
+
+.editorContainer.editing {
+	border-color: var(--code-accent);
+	box-shadow: 0 0 0 1px var(--code-accent);
+}
+
+.syntaxHighlight {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	padding: var(--code-padding);
+	margin: 0;
+	color: transparent;
+	background: transparent;
+	pointer-events: none;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-x: hidden;
+	overflow-y: auto;
+	z-index: 1;
+	box-sizing: border-box;
+}
+
+.editorTextarea {
+	composes: codeContent;
+	background: rgba(255, 255, 255, 0.02);
+	caret-color: var(--code-text);
+	z-index: 2;
+	white-space: pre-wrap;
+	word-break: break-word;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+.editorTextarea:focus {
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.editorTextarea::placeholder {
+	color: var(--code-line-numbers);
+	opacity: 0.7;
+}
+
+/* ========== ЭЛЕМЕНТЫ УПРАВЛЕНИЯ ========== */
+.controls {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 12px;
+	background-color: var(--code-line-numbers-bg);
+	border-top: 1px solid var(--code-border);
+}
+
+.controlsLeft {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.controlsRight {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* ========== КНОПКИ ========== */
+.button {
+	padding: 6px 12px;
+	border: none;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	white-space: nowrap;
+}
+
+.button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.editButton {
+	composes: button;
+	background: var(--code-accent);
+	color: white;
+}
+
+.editButton:hover:not(:disabled) {
+	background: #1976d2;
+	transform: translateY(-1px);
+}
+
+.saveButton {
+	composes: button;
+	background: var(--code-success);
+	color: white;
+}
+
+.saveButton:hover:not(:disabled) {
+	background: #388e3c;
+	transform: translateY(-1px);
+}
+
+.cancelButton {
+	composes: button;
+	background: var(--code-error);
+	color: white;
+}
+
+.cancelButton:hover:not(:disabled) {
+	background: #d32f2f;
+	transform: translateY(-1px);
+}
+
+.formatButton {
+	composes: button;
+	background: var(--code-warning);
+	color: white;
+}
+
+.formatButton:hover:not(:disabled) {
+	background: #f57c00;
+	transform: translateY(-1px);
+}
+
+/* ========== ИНДИКАТОРЫ ========== */
+.languageBadge {
+	font-size: 11px;
+	padding: 2px 6px;
+	background: rgba(0, 0, 0, 0.6);
+	color: var(--code-text);
+	border-radius: 3px;
+	font-family: var(--code-font-family);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.statusIndicator {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	color: var(--code-line-numbers);
+}
+
+.statusDot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+
+.statusDot.idle {
+	background: var(--code-line-numbers);
+}
+
+.statusDot.editing {
+	background: var(--code-warning);
+}
+
+.statusDot.saving {
+	background: var(--code-success);
+	animation: pulse 1s infinite;
+}
+
+/* ========== ПЛЕЙСХОЛДЕР ========== */
 .placeholder {
-  pointer-events: none;
-  user-select: none;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: var(--code-line-numbers);
+	font-style: italic;
+	text-align: center;
+	pointer-events: none;
+	user-select: none;
+	z-index: 1;
+}
+
+.placeholderClickable {
+	composes: placeholder;
+	pointer-events: auto;
+	cursor: pointer;
+	padding: var(--code-padding);
+	margin: 0;
+	border: none;
+	background: transparent;
+	transition: all 0.2s ease;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
+	text-align: left;
+	transform: none;
+	font-family: var(--code-font-family);
+	font-size: var(--code-font-size);
+	line-height: var(--code-line-height);
+}
+
+.placeholderClickable:hover {
+	color: var(--code-text);
+	border-color: var(--code-accent);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+/* ========== АНИМАЦИИ ========== */
+@keyframes pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.5; }
+}
+
+.fadeIn {
+	animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(-4px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== АДАПТИВНОСТЬ ========== */
+@media (max-width: 768px) {
+	:root {
+		--line-numbers-width: 40px;
+		--code-padding: 8px;
+		--code-font-size: 12px;
+	}
+
+	.controls {
+		flex-direction: column;
+		gap: 8px;
+		align-items: stretch;
+	}
+
+	.controlsLeft,
+	.controlsRight {
+		justify-content: center;
+	}
+}
+
+/* ========== ACCESSIBILITY ========== */
+@media (prefers-reduced-motion: reduce) {
+	.button,
+	.placeholderClickable,
+	.editorContainer {
+		transition: none;
+	}
+
+	.statusDot.saving {
+		animation: none;
+	}
+}
+
+/* ========== ТЕМНАЯ ТЕМА (по умолчанию) ========== */
+.darkTheme {
+	/* Переменные уже установлены для темной темы */
+}
+
+/* ========== СВЕТЛАЯ ТЕМА ========== */
+.lightTheme {
+	--code-bg: #ffffff;
+	--code-editor-bg: #fafafa;
+	--code-text: #333333;
+	--code-line-numbers: #999999;
+	--code-line-numbers-bg: #f5f5f5;
+	--code-border: rgba(0, 0, 0, 0.1);
+}
+
+/* ========== ВЫСОКОКОНТРАСТНАЯ ТЕМА ========== */
+.highContrastTheme {
+	--code-bg: #000000;
+	--code-editor-bg: #000000;
+	--code-text: #ffffff;
+	--code-line-numbers: #ffffff;
+	--code-line-numbers-bg: #000000;
+	--code-border: #ffffff;
+	--code-accent: #00ffff;
+}
+
+/* ========== SCROLLBAR ========== */
+.codeContent::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+.codeContent::-webkit-scrollbar-track {
+	background: var(--code-line-numbers-bg);
+}
+
+.codeContent::-webkit-scrollbar-thumb {
+	background: var(--code-line-numbers);
+	border-radius: 4px;
+}
+
+.codeContent::-webkit-scrollbar-thumb:hover {
+	background: var(--code-text);
+}
+
+/* ========== LEGACY SUPPORT ========== */
+.codePreview {
+	/* Обратная совместимость */
+	position: relative;
+	padding-left: var(--line-numbers-width) !important;
+}
+
+.lineNumber {
+	/* Обратная совместимость */
+	display: inline-block;
+	width: var(--line-numbers-width);
+	margin-left: calc(-1 * var(--line-numbers-width));
+	padding: 0 8px;
+	text-align: right;
+	user-select: none;
+	pointer-events: none;
+	box-sizing: border-box;
+}
+
+.codeLine {
+	display: block;
+	position: relative;
+	min-height: calc(var(--code-line-height) * 1em);
+}
+
+/* ========== ПОДСВЕТКА СИНТАКСИСА ========== */
+
+/* HTML теги */
+:global(.html-tag) {
+	color: var(--syntax-html-tag);
+	font-weight: 500;
+}
+
+:global(.html-bracket) {
+	color: var(--syntax-html-bracket);
+}
+
+:global(.html-attr-name) {
+	color: var(--syntax-html-attr-name);
+}
+
+:global(.html-attr-value) {
+	color: var(--syntax-html-attr-value);
+}
+
+/* JSON подсветка */
+:global(.json-key) {
+	color: var(--syntax-json-key);
+}
+
+:global(.json-string) {
+	color: var(--syntax-json-string);
+}
+
+:global(.json-number) {
+	color: var(--syntax-json-number);
+}
+
+:global(.json-boolean) {
+	color: var(--syntax-json-boolean);
+	font-weight: 500;
 }

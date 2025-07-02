@@ -42,6 +42,43 @@ def db_session(test_session_factory):
     Простая реализация без вложенных транзакций.
     """
     session = test_session_factory()
+
+    # Создаем дефолтное сообщество для тестов
+    from orm.community import Community
+    from auth.orm import Author
+    import time
+
+    # Создаем системного автора если его нет
+    system_author = session.query(Author).filter(Author.slug == "system").first()
+    if not system_author:
+        system_author = Author(
+            name="System",
+            slug="system",
+            email="system@test.local",
+            created_at=int(time.time()),
+            updated_at=int(time.time()),
+            last_seen=int(time.time())
+        )
+        session.add(system_author)
+        session.flush()
+
+    # Создаем дефолтное сообщество если его нет
+    default_community = session.query(Community).filter(Community.id == 1).first()
+    if not default_community:
+        default_community = Community(
+            id=1,
+            name="Главное сообщество",
+            slug="main",
+            desc="Основное сообщество для тестов",
+            pic="",
+            created_at=int(time.time()),
+            created_by=system_author.id,
+            settings={"default_roles": ["reader", "author"], "available_roles": ["reader", "author", "artist", "expert", "editor", "admin"]},
+            private=False
+        )
+        session.add(default_community)
+        session.commit()
+
     yield session
 
     # Очищаем все данные после теста
@@ -62,6 +99,42 @@ def db_session_commit(test_session_factory):
     Используется когда нужно тестировать реальные транзакции.
     """
     session = test_session_factory()
+
+    # Создаем дефолтное сообщество для интеграционных тестов
+    from orm.community import Community
+    from auth.orm import Author
+    import time
+
+    # Создаем системного автора если его нет
+    system_author = session.query(Author).filter(Author.slug == "system").first()
+    if not system_author:
+        system_author = Author(
+            name="System",
+            slug="system",
+            email="system@test.local",
+            created_at=int(time.time()),
+            updated_at=int(time.time()),
+            last_seen=int(time.time())
+        )
+        session.add(system_author)
+        session.flush()
+
+    # Создаем дефолтное сообщество если его нет
+    default_community = session.query(Community).filter(Community.id == 1).first()
+    if not default_community:
+        default_community = Community(
+            id=1,
+            name="Главное сообщество",
+            slug="main",
+            desc="Основное сообщество для тестов",
+            pic="",
+            created_at=int(time.time()),
+            created_by=system_author.id,
+            settings={"default_roles": ["reader", "author"], "available_roles": ["reader", "author", "artist", "expert", "editor", "admin"]},
+            private=False
+        )
+        session.add(default_community)
+        session.commit()
 
     yield session
 
@@ -121,6 +194,43 @@ def oauth_db_session(test_session_factory):
     oauth.set_session_factory(lambda: test_session_factory())
 
     session = test_session_factory()
+
+    # Создаем дефолтное сообщество для OAuth тестов
+    from orm.community import Community
+    from auth.orm import Author
+    import time
+
+    # Создаем системного автора если его нет
+    system_author = session.query(Author).filter(Author.slug == "system").first()
+    if not system_author:
+        system_author = Author(
+            name="System",
+            slug="system",
+            email="system@test.local",
+            created_at=int(time.time()),
+            updated_at=int(time.time()),
+            last_seen=int(time.time())
+        )
+        session.add(system_author)
+        session.flush()
+
+    # Создаем дефолтное сообщество если его нет
+    default_community = session.query(Community).filter(Community.id == 1).first()
+    if not default_community:
+        default_community = Community(
+            id=1,
+            name="Главное сообщество",
+            slug="main",
+            desc="Основное сообщество для OAuth тестов",
+            pic="",
+            created_at=int(time.time()),
+            created_by=system_author.id,
+            settings={"default_roles": ["reader", "author"], "available_roles": ["reader", "author", "artist", "expert", "editor", "admin"]},
+            private=False
+        )
+        session.add(default_community)
+        session.commit()
+
     yield session
 
     # Очищаем данные и восстанавливаем оригинальную фабрику

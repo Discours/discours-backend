@@ -1,0 +1,23 @@
+{
+  "shout": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "topic": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "collection": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "bookmark": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "invite": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "chat": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "message": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "community": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "draft": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "reaction": [
+    "create:LIKE", "read:LIKE", "update_own:LIKE", "update_any:LIKE", "delete_own:LIKE", "delete_any:LIKE",
+    "create:COMMENT", "read:COMMENT", "update_own:COMMENT", "update_any:COMMENT", "delete_own:COMMENT", "delete_any:COMMENT",
+    "create:QUOTE", "read:QUOTE", "update_own:QUOTE", "update_any:QUOTE", "delete_own:QUOTE", "delete_any:QUOTE",
+    "create:DISLIKE", "read:DISLIKE", "update_own:DISLIKE", "update_any:DISLIKE", "delete_own:DISLIKE", "delete_any:DISLIKE",
+    "create:CREDIT", "read:CREDIT", "update_own:CREDIT", "update_any:CREDIT", "delete_own:CREDIT", "delete_any:CREDIT",
+    "create:PROOF", "read:PROOF", "update_own:PROOF", "update_any:PROOF", "delete_own:PROOF", "delete_any:PROOF",
+    "create:DISPROOF", "read:DISPROOF", "update_own:DISPROOF", "update_any:DISPROOF", "delete_own:DISPROOF", "delete_any:DISPROOF",
+    "create:AGREE", "read:AGREE", "update_own:AGREE", "update_any:AGREE", "delete_own:AGREE", "delete_any:AGREE",
+    "create:DISAGREE", "read:DISAGREE", "update_own:DISAGREE", "update_any:DISAGREE", "delete_own:DISAGREE", "delete_any:DISAGREE",
+    "create:SILENT", "read:SILENT", "update_own:SILENT", "update_any:SILENT", "delete_own:SILENT", "delete_any:SILENT"
+  ]
+}

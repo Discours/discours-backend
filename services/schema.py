@@ -1,16 +1,36 @@
 from asyncio.log import logger
-from typing import List
+from enum import Enum
 
-from ariadne import MutationType, ObjectType, QueryType, SchemaBindable
+from ariadne import (
+    MutationType,
+    ObjectType,
+    QueryType,
+    SchemaBindable,
+    load_schema_from_path,
+)
 
 from services.db import create_table_if_not_exists, local_session
 
+# Создаем основные типы
 query = QueryType()
 mutation = MutationType()
 type_draft = ObjectType("Draft")
 type_community = ObjectType("Community")
 type_collection = ObjectType("Collection")
-resolvers: List[SchemaBindable] = [query, mutation, type_draft, type_community, type_collection]
+type_author = ObjectType("Author")
+
+# Загружаем определения типов из файлов схемы
+type_defs = load_schema_from_path("schema/")
+
+# Список всех типов для схемы
+resolvers: SchemaBindable | type[Enum] | list[SchemaBindable | type[Enum]] = [
+    query,
+    mutation,
+    type_draft,
+    type_community,
+    type_collection,
+    type_author,
+]
 
 
 def create_all_tables() -> None:

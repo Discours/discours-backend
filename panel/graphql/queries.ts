@@ -3,8 +3,8 @@ import { gql } from 'graphql-tag'
 // Определяем GraphQL запрос
 export const ADMIN_GET_SHOUTS_QUERY: string =
   gql`
-  query AdminGetShouts($limit: Int, $offset: Int, $search: String, $status: String) {
-    adminGetShouts(limit: $limit, offset: $offset, search: $search, status: $status) {
+  query AdminGetShouts($limit: Int, $offset: Int, $search: String, $status: String, $community: Int) {
+    adminGetShouts(limit: $limit, offset: $offset, search: $search, status: $status, community: $community) {
       shouts {
         id
         title
@@ -103,8 +103,8 @@ export const ADMIN_GET_USERS_QUERY: string =
 
 export const ADMIN_GET_ROLES_QUERY: string =
   gql`
-  query AdminGetRoles {
-    adminGetRoles {
+  query AdminGetRoles($community: Int) {
+    adminGetRoles(community: $community) {
       id
       name
       description
@@ -177,6 +177,22 @@ export const GET_TOPICS_QUERY: string =
   }
 `.loc?.source.body || ''
 
+export const GET_TOPICS_BY_COMMUNITY_QUERY: string =
+  gql`
+  query GetTopicsByCommunity($community_id: Int!, $limit: Int, $offset: Int) {
+    get_topics_by_community(community_id: $community_id, limit: $limit, offset: $offset) {
+      id
+      slug
+      title
+      body
+      pic
+      community
+      parent_ids
+      oid
+    }
+  }
+`.loc?.source.body || ''
+
 export const GET_COLLECTIONS_QUERY: string =
   gql`
   query GetCollections {
@@ -237,6 +253,68 @@ export const ADMIN_GET_INVITES_QUERY: string =
       page
       perPage
       totalPages
+    }
+  }
+`.loc?.source.body || ''
+
+// Запросы для работы с ролями сообществ
+export const GET_COMMUNITY_ROLE_SETTINGS_QUERY: string =
+  gql`
+  query GetCommunityRoleSettings($community_id: Int!) {
+    adminGetCommunityRoleSettings(community_id: $community_id) {
+      default_roles
+      available_roles
+      error
+    }
+  }
+`.loc?.source.body || ''
+
+export const GET_COMMUNITY_ROLES_QUERY: string =
+  gql`
+  query GetCommunityRoles($community: Int) {
+    adminGetRoles(community: $community) {
+      id
+      name
+      description
+    }
+  }
+`.loc?.source.body || ''
+
+export const UPDATE_COMMUNITY_ROLE_SETTINGS_MUTATION: string =
+  gql`
+  mutation UpdateCommunityRoleSettings($community_id: Int!, $default_roles: [String!]!, $available_roles: [String!]!) {
+    adminUpdateCommunityRoleSettings(
+      community_id: $community_id,
+      default_roles: $default_roles,
+      available_roles: $available_roles
+    ) {
+      success
+      error
+    }
+  }
+`.loc?.source.body || ''
+
+export const CREATE_CUSTOM_ROLE_MUTATION: string =
+  gql`
+  mutation CreateCustomRole($role: CustomRoleInput!) {
+    adminCreateCustomRole(role: $role) {
+      success
+      error
+      role {
+        id
+        name
+        description
+      }
+    }
+  }
+`.loc?.source.body || ''
+
+export const DELETE_CUSTOM_ROLE_MUTATION: string =
+  gql`
+  mutation DeleteCustomRole($role_id: String!, $community_id: Int!) {
+    adminDeleteCustomRole(role_id: $role_id, community_id: $community_id) {
+      success
+      error
     }
   }
 `.loc?.source.body || ''

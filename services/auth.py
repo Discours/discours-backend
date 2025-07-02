@@ -5,7 +5,7 @@ from sqlalchemy import exc
 from starlette.requests import Request
 
 from auth.internal import verify_internal_auth
-from auth.orm import Author, Role
+from auth.orm import Author
 from cache.cache import get_cached_author_by_id
 from resolvers.stat import get_with_stat
 from services.db import local_session
@@ -79,15 +79,11 @@ async def check_auth(req: Request) -> tuple[int, list[str], bool]:
                 except (ValueError, TypeError):
                     logger.error(f"Невозможно преобразовать user_id {user_id} в число")
                 else:
-                    # Проверяем наличие админских прав через БД
-                    from auth.orm import AuthorRole
+                    # Проверяем наличие админских прав через новую RBAC систему
+                    from orm.community import get_user_roles_in_community
 
-                    admin_role = (
-                        session.query(AuthorRole)
-                        .filter(AuthorRole.author == user_id_int, AuthorRole.role.in_(["admin", "super"]))
-                        .first()
-                    )
-                    is_admin = admin_role is not None
+                    user_roles_in_community = get_user_roles_in_community(user_id_int, community_id=1)
+                    is_admin = any(role in ["admin", "super"] for role in user_roles_in_community)
         except Exception as e:
             logger.error(f"Ошибка при проверке прав администратора: {e}")
 
@@ -96,7 +92,7 @@ async def check_auth(req: Request) -> tuple[int, list[str], bool]:
 
 async def add_user_role(user_id: str, roles: Optional[list[str]] = None) -> Optional[str]:
     """
-    Добавление ролей пользователю в локальной БД.
+    Добавление ролей пользователю в локальной БД через CommunityAuthor.
 
     Args:
         user_id: ID пользователя
@@ -107,27 +103,21 @@ async def add_user_role(user_id: str, roles: Optional[list[str]] = None) -> Opti
 
     logger.info(f"Adding roles {roles} to user {user_id}")
 
-    logger.debug("Using local authentication")
+    from orm.community import assign_role_to_user
+
+    logger.debug("Using local authentication with new RBAC system")
     with local_session() as session:
         try:
             author = session.query(Author).filter(Author.id == user_id).one()
 
-            # Получаем существующие роли
-            existing_roles = {role.name for role in author.roles}
-
-            # Добавляем новые роли
+            # Добавляем роли через новую систему RBAC в дефолтное сообщество (ID=1)
             for role_name in roles:
-                if role_name not in existing_roles:
-                    # Получаем или создаем роль
-                    role = session.query(Role).filter(Role.name == role_name).first()
-                    if not role:
-                        role = Role(id=role_name, name=role_name)
-                        session.add(role)
+                success = assign_role_to_user(int(user_id), role_name, community_id=1)
+                if success:
+                    logger.debug(f"Роль {role_name} добавлена пользователю {user_id}")
+                else:
+                    logger.warning(f"Не удалось добавить роль {role_name} пользователю {user_id}")
 
-                    # Добавляем роль автору
-                    author.roles.append(role)
-
-            session.commit()
             return user_id
 
         except exc.NoResultFound:
@@ -190,7 +180,7 @@ def login_required(f: Callable) -> Callable:
             raise GraphQLError(msg)
 
         # Проверяем наличие роли reader
-        if "reader" not in user_roles:
+        if "reader" not in user_roles and not is_admin:
             logger.error(f"Пользователь {user_id} не имеет роли 'reader'")
             msg = "У вас нет необходимых прав для доступа"
             raise GraphQLError(msg)

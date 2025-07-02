@@ -1,4 +1,6 @@
 import { Component, createSignal, For, onMount, Show } from 'solid-js'
+import type { AuthorsSortField } from '../context/sort'
+import { AUTHORS_SORT_CONFIG } from '../context/sortConfig'
 import { query } from '../graphql'
 import type { Query, AdminUserInfo as User } from '../graphql/generated/schema'
 import { ADMIN_UPDATE_USER_MUTATION } from '../graphql/mutations'
@@ -6,6 +8,8 @@ import { ADMIN_GET_USERS_QUERY } from '../graphql/queries'
 import UserEditModal from '../modals/RolesModal'
 import styles from '../styles/Admin.module.css'
 import Pagination from '../ui/Pagination'
+import SortableHeader from '../ui/SortableHeader'
+import TableControls from '../ui/TableControls'
 import { formatDateRelative } from '../utils/date'
 
 export interface AuthorsRouteProps {
@@ -28,7 +32,7 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
     totalPages: number
   }>({
     page: 1,
-    limit: 10,
+    limit: 20,
     total: 0,
     totalPages: 1
   })
@@ -63,7 +67,7 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
       }
     } catch (error) {
       console.error('[AuthorsRoute] Failed to load authors:', error)
-      props.onError?.(error instanceof Error ? error.message : 'Failed to load authors')
+      props.onError?.(error instanceof Error ? error.message : 'Не удалось загрузить список пользователей')
     } finally {
       setLoading(false)
     }
@@ -131,21 +135,13 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
   }
 
   // Search handlers
-  function handleSearchChange(e: Event) {
-    const input = e.target as HTMLInputElement
-    setSearchQuery(input.value)
+  function handleSearchChange(value: string) {
+    setSearchQuery(value)
   }
 
   function handleSearch() {
     setPagination((prev) => ({ ...prev, page: 1 }))
     void loadUsers()
-  }
-
-  function handleSearchKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleSearch()
-    }
   }
 
   // Load authors on mount
@@ -155,34 +151,40 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
   })
 
   /**
-   * Компонент для отображения роли с иконкой
+   * Компонент для отображения роли с эмоджи и тултипом
    */
   const RoleBadge: Component<{ role: string }> = (props) => {
     const getRoleIcon = (role: string): string => {
-      switch (role.toLowerCase()) {
+      switch (role.toLowerCase().trim()) {
+        case 'администратор':
         case 'admin':
-          return '👑'
+          return '🪄'
+        case 'редактор':
         case 'editor':
-          return '✏️'
+          return '✒️'
+        case 'эксперт':
         case 'expert':
-          return '🎓'
+          return '🔬'
+        case 'автор':
         case 'author':
           return '📝'
+        case 'читатель':
         case 'reader':
-          return '👤'
+          return '📖'
         case 'banned':
+        case 'заблокирован':
           return '🚫'
         case 'verified':
+        case 'проверен':
           return '✓'
         default:
-          return '👤'
+          return '🎭'
       }
     }
 
     return (
-      <span class="role-badge" title={props.role}>
-        <span class="role-icon">{getRoleIcon(props.role)}</span>
-        <span class="role-name">{props.role}</span>
+      <span title={props.role} style={{ 'margin-right': '0.25rem' }}>
+        {getRoleIcon(props.role)}
       </span>
     )
   }
@@ -198,57 +200,67 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
       </Show>
 
       <Show when={!loading() && authors().length > 0}>
-        <div class={styles['authors-controls']}>
-          <div class={styles['search-container']}>
-            <div class={styles['search-input-group']}>
-              <input
-                type="text"
-                placeholder="Поиск по email, имени или ID..."
-                value={searchQuery()}
-                onInput={handleSearchChange}
-                onKeyDown={handleSearchKeyDown}
-                class={styles['search-input']}
-              />
-              <button class={styles['search-button']} onClick={handleSearch}>
-                Поиск
-              </button>
-            </div>
-          </div>
-        </div>
+        <TableControls
+          searchValue={searchQuery()}
+          onSearchChange={handleSearchChange}
+          onSearch={handleSearch}
+          searchPlaceholder="Поиск по email, имени или ID..."
+          isLoading={loading()}
+        />
 
         <div class={styles['authors-list']}>
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Email</th>
-                <th>Имя</th>
-                <th>Создан</th>
+                <SortableHeader
+                  field={'id' as AuthorsSortField}
+                  allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+                >
+                  ID
+                </SortableHeader>
+                <SortableHeader
+                  field={'email' as AuthorsSortField}
+                  allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+                >
+                  Email
+                </SortableHeader>
+                <SortableHeader
+                  field={'name' as AuthorsSortField}
+                  allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+                >
+                  Имя
+                </SortableHeader>
+                <SortableHeader
+                  field={'created_at' as AuthorsSortField}
+                  allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+                >
+                  Создан
+                </SortableHeader>
                 <th>Роли</th>
               </tr>
             </thead>
             <tbody>
               <For each={authors()}>
                 {(user) => (
-                  <tr>
+                  <tr
+                    onClick={() => {
+                      setSelectedUser(user)
+                      setShowEditModal(true)
+                    }}
+                  >
                     <td>{user.id}</td>
                     <td>{user.email}</td>
                     <td>{user.name || '-'}</td>
-                    <td>{formatDateRelative(user.created_at || Date.now())}</td>
+                    <td>{formatDateRelative(user.created_at || Date.now())()}</td>
                     <td class={styles['roles-cell']}>
                       <div class={styles['roles-container']}>
                         <For each={Array.from(user.roles || []).filter(Boolean)}>
                           {(role) => <RoleBadge role={role} />}
                         </For>
-                        <div
-                          class={styles['role-badge edit-role-badge']}
-                          onClick={() => {
-                            setSelectedUser(user)
-                            setShowEditModal(true)
-                          }}
-                        >
-                          <span class={styles['role-icon']}>🎭</span>
-                        </div>
+                        {/* Показываем сообщение если ролей нет */}
+                        {(!user.roles || user.roles.length === 0) && (
+                          <span style="color: #999; font-size: 0.875rem;">Нет ролей</span>
+                        )}
                       </div>
                     </td>
                   </tr>

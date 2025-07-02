@@ -1,8 +1,8 @@
 import time
-from typing import Dict, Set
+from typing import Any, Dict, Optional
 
 from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Session
 
 from auth.identity import Password
 from services.db import BaseModel as Base
@@ -32,7 +32,6 @@ class AuthorBookmark(Base):
         {"extend_existing": True},
     )
 
-    id = None  # type: ignore
     author = Column(ForeignKey("author.id"), primary_key=True)
     shout = Column(ForeignKey("shout.id"), primary_key=True)
 
@@ -54,7 +53,6 @@ class AuthorRating(Base):
         {"extend_existing": True},
     )
 
-    id = None  # type: ignore
     rater = Column(ForeignKey("author.id"), primary_key=True)
     author = Column(ForeignKey("author.id"), primary_key=True)
     plus = Column(Boolean)
@@ -77,57 +75,11 @@ class AuthorFollower(Base):
         Index("idx_author_follower_follower", "follower"),
         {"extend_existing": True},
     )
-
-    id = None  # type: ignore
+    id = None  # type: ignore[assignment]
     follower = Column(ForeignKey("author.id"), primary_key=True)
     author = Column(ForeignKey("author.id"), primary_key=True)
     created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
     auto = Column(Boolean, nullable=False, default=False)
-
-
-class RolePermission(Base):
-    """Связь роли с разрешениями"""
-
-    __tablename__ = "role_permission"
-    __table_args__ = {"extend_existing": True}
-
-    id = None  # type: ignore
-    role = Column(ForeignKey("role.id"), primary_key=True, index=True)
-    permission = Column(ForeignKey("permission.id"), primary_key=True, index=True)
-
-
-class Permission(Base):
-    """Модель разрешения в системе RBAC"""
-
-    __tablename__ = "permission"
-    __table_args__ = {"extend_existing": True}
-
-    id = Column(String, primary_key=True, unique=True, nullable=False, default=None)
-    resource = Column(String, nullable=False)
-    operation = Column(String, nullable=False)
-
-
-class Role(Base):
-    """Модель роли в системе RBAC"""
-
-    __tablename__ = "role"
-    __table_args__ = {"extend_existing": True}
-
-    id = Column(String, primary_key=True, unique=True, nullable=False, default=None)
-    name = Column(String, nullable=False)
-    permissions = relationship(Permission, secondary="role_permission", lazy="joined")
-
-
-class AuthorRole(Base):
-    """Связь автора с ролями"""
-
-    __tablename__ = "author_role"
-    __table_args__ = {"extend_existing": True}
-
-    id = None  # type: ignore
-    community = Column(ForeignKey("community.id"), primary_key=True, index=True, default=1)
-    author = Column(ForeignKey("author.id"), primary_key=True, index=True)
-    role = Column(ForeignKey("role.id"), primary_key=True, index=True)
 
 
 class Author(Base):
@@ -171,12 +123,7 @@ class Author(Base):
     last_seen = Column(Integer, nullable=False, default=lambda: int(time.time()))
     deleted_at = Column(Integer, nullable=True)
 
-    # Связи с ролями
-    roles = relationship(Role, secondary="author_role", lazy="joined")
-
-    # search_vector = Column(
-    #    TSVectorType("name", "slug", "bio", "about", regconfig="pg_catalog.russian")
-    # )
+    oid = Column(String, nullable=True)
 
     # Список защищенных полей, которые видны только владельцу и администраторам
     _protected_fields = ["email", "password", "provider_access_token", "provider_refresh_token"]
@@ -185,21 +132,6 @@ class Author(Base):
     def is_authenticated(self) -> bool:
         """Проверяет, аутентифицирован ли пользователь"""
         return self.id is not None
-
-    def get_permissions(self) -> Dict[str, Set[str]]:
-        """Получает все разрешения пользователя"""
-        permissions: Dict[str, Set[str]] = {}
-        for role in self.roles:
-            for permission in role.permissions:
-                if permission.resource not in permissions:
-                    permissions[permission.resource] = set()
-                permissions[permission.resource].add(permission.operation)
-        return permissions
-
-    def has_permission(self, resource: str, operation: str) -> bool:
-        """Проверяет наличие разрешения у пользователя"""
-        permissions = self.get_permissions()
-        return resource in permissions and operation in permissions[resource]
 
     def verify_password(self, password: str) -> bool:
         """Проверяет пароль пользователя"""
@@ -237,36 +169,39 @@ class Author(Base):
         """
         return str(self.slug or self.email or self.phone or "")
 
-    def dict(self, access: bool = False) -> Dict:
+    def dict(self, access: bool = False) -> Dict[str, Any]:
         """
-        Сериализует объект Author в словарь с учетом прав доступа.
+        Сериализует объект автора в словарь.
 
         Args:
-            access (bool, optional): Флаг, указывающий, доступны ли защищенные поля
+            access: Если True, включает защищенные поля
 
         Returns:
-            dict: Словарь с атрибутами Author, отфильтрованный по правам доступа
+            Dict: Словарь с данными автора
         """
-        # Получаем все атрибуты объекта
-        result = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        result: Dict[str, Any] = {
+            "id": self.id,
+            "name": self.name,
+            "slug": self.slug,
+            "bio": self.bio,
+            "about": self.about,
+            "pic": self.pic,
+            "links": self.links,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "last_seen": self.last_seen,
+            "deleted_at": self.deleted_at,
+            "email_verified": self.email_verified,
+        }
 
-        # Добавляем роли как список идентификаторов и названий
-        if hasattr(self, "roles"):
-            result["roles"] = []
-            for role in self.roles:
-                if isinstance(role, dict):
-                    result["roles"].append(role.get("id"))
-
-        # скрываем защищенные поля
-        if not access:
-            for field in self._protected_fields:
-                if field in result:
-                    result[field] = None
+        # Добавляем защищенные поля только если запрошен полный доступ
+        if access:
+            result.update({"email": self.email, "phone": self.phone, "oauth": self.oauth})
 
         return result
 
     @classmethod
-    def find_by_oauth(cls, provider: str, provider_id: str, session):
+    def find_by_oauth(cls, provider: str, provider_id: str, session: Session) -> Optional["Author"]:
         """
         Находит автора по OAuth провайдеру и ID
 
@@ -282,29 +217,30 @@ class Author(Base):
         authors = session.query(cls).filter(cls.oauth.isnot(None)).all()
         for author in authors:
             if author.oauth and provider in author.oauth:
-                if author.oauth[provider].get("id") == provider_id:
+                oauth_data = author.oauth[provider]  # type: ignore[index]
+                if isinstance(oauth_data, dict) and oauth_data.get("id") == provider_id:
                     return author
         return None
 
-    def set_oauth_account(self, provider: str, provider_id: str, email: str = None):
+    def set_oauth_account(self, provider: str, provider_id: str, email: Optional[str] = None) -> None:
         """
         Устанавливает OAuth аккаунт для автора
 
         Args:
             provider (str): Имя OAuth провайдера (google, github и т.д.)
             provider_id (str): ID пользователя у провайдера
-            email (str, optional): Email от провайдера
+            email (Optional[str]): Email от провайдера
         """
         if not self.oauth:
             self.oauth = {}  # type: ignore[assignment]
 
-        oauth_data = {"id": provider_id}
+        oauth_data: Dict[str, str] = {"id": provider_id}
         if email:
             oauth_data["email"] = email
 
         self.oauth[provider] = oauth_data  # type: ignore[index]
 
-    def get_oauth_account(self, provider: str):
+    def get_oauth_account(self, provider: str) -> Optional[Dict[str, Any]]:
         """
         Получает OAuth аккаунт провайдера
 
@@ -314,9 +250,12 @@ class Author(Base):
         Returns:
             dict или None: Данные OAuth аккаунта или None если не найден
         """
-        if not self.oauth:
+        oauth_data = getattr(self, "oauth", None)
+        if not oauth_data:
             return None
-        return self.oauth.get(provider)
+        if isinstance(oauth_data, dict):
+            return oauth_data.get(provider)
+        return None
 
     def remove_oauth_account(self, provider: str):
         """

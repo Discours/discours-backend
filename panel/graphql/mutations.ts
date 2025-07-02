@@ -3,6 +3,14 @@ export const ADMIN_LOGIN_MUTATION = `
     login(email: $email, password: $password) {
       success
       token
+      author {
+        id
+        name
+        email
+        slug
+        roles
+      }
+      error
     }
   }
 `
@@ -11,6 +19,7 @@ export const ADMIN_LOGOUT_MUTATION = `
   mutation AdminLogout {
     logout {
       success
+      message
     }
   }
 `

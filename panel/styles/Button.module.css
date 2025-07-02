@@ -1,94 +1,155 @@
 .button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border: none;
-  border-radius: var(--border-radius-md);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border: none;
+	border-radius: var(--border-radius-md, 8px);
+	font-weight: var(--font-weight-medium, 500);
+	cursor: pointer;
+	transition: all var(--transition-fast, 0.2s ease);
+	position: relative;
+	user-select: none;
+	outline: none;
+	/* Default size */
+	padding: 0.75rem 1.5rem;
+	font-size: var(--font-size-base, 1rem);
 }
 
 /* Variants */
 .button-primary {
-  background-color: var(--primary-color);
-  color: white;
+	background-color: var(--primary-color);
+	color: white;
 }
 
 .button-primary:hover:not(:disabled) {
-  background-color: var(--primary-color-dark);
+	background-color: var(--primary-color-dark);
 }
 
 .button-secondary {
-  background-color: var(--secondary-color-light);
-  color: var(--secondary-color-dark);
+	background-color: var(--secondary-color-light, #f8f9fa);
+	color: var(--secondary-color-dark, #6c757d);
+	border: 1px solid var(--border-color, #dee2e6);
 }
 
 .button-secondary:hover:not(:disabled) {
-  background-color: var(--secondary-color);
-  color: white;
+	background-color: var(--secondary-color, #6c757d);
+	color: white;
+	border-color: var(--secondary-color, #6c757d);
+	transform: translateY(-1px);
+}
+
+.button-secondary:active:not(:disabled) {
+	transform: translateY(0);
+	box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .button-danger {
-  background-color: var(--error-color);
-  color: white;
+	background-color: var(--error-color);
+	color: white;
 }
 
 .button-danger:hover:not(:disabled) {
-  background-color: var(--error-color-dark);
+	background-color: var(--error-color-dark);
 }
 
 /* Sizes */
+.small {
+	padding: 0.5rem 1rem;
+	font-size: var(--font-size-sm, 0.875rem);
+}
+
+.medium {
+	padding: 0.75rem 1.5rem;
+	font-size: var(--font-size-base, 1rem);
+}
+
+.large {
+	padding: 1rem 2rem;
+	font-size: var(--font-size-lg, 1.125rem);
+}
+
+/* Legacy support */
 .button-small {
-  padding: 0.5rem 1rem;
-  font-size: var(--font-size-sm);
+	padding: 0.5rem 1rem;
+	font-size: var(--font-size-sm, 0.875rem);
 }
 
 .button-medium {
-  padding: 0.75rem 1.5rem;
-  font-size: var(--font-size-base);
+	padding: 0.75rem 1.5rem;
+	font-size: var(--font-size-base, 1rem);
 }
 
 .button-large {
-  padding: 1rem 2rem;
-  font-size: var(--font-size-lg);
+	padding: 1rem 2rem;
+	font-size: var(--font-size-lg, 1.125rem);
 }
 
-/* States */
 .button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+	opacity: 0.6;
+	cursor: not-allowed;
 }
 
 .button-loading {
-  color: transparent;
+	color: transparent;
 }
 
 .button-full-width {
-  width: 100%;
+	width: 100%;
 }
 
 /* Loading Spinner */
 .loading-spinner {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 1.25em;
-  height: 1.25em;
-  border: 2px solid currentColor;
-  border-radius: 50%;
-  border-right-color: transparent;
-  animation: spin 0.75s linear infinite;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 1.25em;
+	height: 1.25em;
+	border: 2px solid currentColor;
+	border-radius: 50%;
+	border-right-color: transparent;
+	animation: spin 0.75s linear infinite;
+}
+
+/* Индикатор загрузки языка */
+.language-loader {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	border: 2px solid rgba(255, 255, 255, 0.3);
+	border-radius: 50%;
+	border-top-color: #fff;
+	animation: spin 1s linear infinite;
+}
+
+/* Стили для кнопки переключения языка */
+.language-button {
+	min-width: 52px;
+	font-weight: 600;
+	transition: all 0.2s ease;
+	position: relative;
 }
 
 @keyframes spin {
-  from {
-    transform: translate(-50%, -50%) rotate(0deg);
-  }
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
+	from {
+		transform: translate(-50%, -50%) rotate(0deg);
+	}
+	to {
+		transform: translate(-50%, -50%) rotate(360deg);
+	}
+}
+
+/* Исправление для индикатора языка */
+.language-loader {
+	transform: none;
+}
+
+@keyframes spin-simple {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+.language-loader {
+	animation: spin-simple 1s linear infinite;
 }

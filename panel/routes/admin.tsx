@@ -5,18 +5,20 @@
 
 import { useNavigate, useParams } from '@solidjs/router'
 import { Component, createEffect, createSignal, onMount, Show } from 'solid-js'
-import publyLogo from './assets/publy.svg?url'
-import { logout } from './context/auth'
+import publyLogo from '../assets/publy.svg?url'
+import { logout } from '../context/auth'
+import styles from '../styles/Admin.module.css'
+import Button from '../ui/Button'
+import CommunitySelector from '../ui/CommunitySelector'
+import LanguageSwitcher from '../ui/LanguageSwitcher'
 // Прямой импорт компонентов вместо ленивой загрузки
-import AuthorsRoute from './routes/authors'
-import CollectionsRoute from './routes/collections'
-import CommunitiesRoute from './routes/communities'
-import EnvRoute from './routes/env'
-import InvitesRoute from './routes/invites'
-import ShoutsRoute from './routes/shouts'
-import TopicsRoute from './routes/topics'
-import styles from './styles/Admin.module.css'
-import Button from './ui/Button'
+import AuthorsRoute from './authors'
+import CollectionsRoute from './collections'
+import CommunitiesRoute from './communities'
+import EnvRoute from './env'
+import InvitesRoute from './invites'
+import ShoutsRoute from './shouts'
+import { Topics as TopicsRoute } from './topics'
 
 /**
  * Интерфейс свойств компонента AdminPage
@@ -57,13 +59,6 @@ const AdminPage: Component<AdminPageProps> = (props) => {
     console.log('[AdminPage] Updated currentTab to:', newTab)
   })
 
-  // Определяем активную вкладку
-  const activeTab = () => {
-    const tab = currentTab()
-    console.log('[AdminPage] activeTab() returning:', tab)
-    return tab
-  }
-
   /**
    * Обрабатывает выход из системы
    */
@@ -103,52 +98,59 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         <div class={styles['header-container']}>
           <div class={styles['header-left']}>
             <img src={publyLogo} alt="Logo" class={styles.logo} />
-            <h1>Панель администратора</h1>
+            <h1>
+              Панель администратора
+              <span class={styles['version-badge']}>v{__APP_VERSION__}</span>
+            </h1>
           </div>
-          <button class={styles['logout-button']} onClick={handleLogout}>
-            Выйти
-          </button>
+          <div class={styles['header-right']}>
+            <CommunitySelector />
+            <LanguageSwitcher />
+            <button class={styles['logout-button']} onClick={handleLogout}>
+              Выйти
+            </button>
+          </div>
         </div>
 
         <nav class={styles['admin-tabs']}>
           <Button
-            variant={activeTab() === 'authors' ? 'primary' : 'secondary'}
+            variant={currentTab() === 'authors' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/authors')}
           >
             Авторы
           </Button>
           <Button
-            variant={activeTab() === 'shouts' ? 'primary' : 'secondary'}
+            variant={currentTab() === 'shouts' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/shouts')}
           >
             Публикации
           </Button>
           <Button
-            variant={activeTab() === 'topics' ? 'primary' : 'secondary'}
+            variant={currentTab() === 'topics' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/topics')}
           >
             Темы
           </Button>
           <Button
-            variant={activeTab() === 'communities' ? 'primary' : 'secondary'}
+            variant={currentTab() === 'communities' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/communities')}
           >
             Сообщества
           </Button>
           <Button
-            variant={activeTab() === 'collections' ? 'primary' : 'secondary'}
+            variant={currentTab() === 'collections' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/collections')}
           >
             Коллекции
           </Button>
           <Button
-            variant={activeTab() === 'invites' ? 'primary' : 'secondary'}
+            variant={currentTab() === 'invites' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/invites')}
           >
             Приглашения
           </Button>
           <Button
-            variant={activeTab() === 'env' ? 'primary' : 'secondary'}
+            variant={currentTab() === 'env' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/env')}
           >
             Переменные среды
@@ -166,31 +168,31 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         </Show>
 
         {/* Используем Show компоненты для каждой вкладки */}
-        <Show when={activeTab() === 'authors'}>
+        <Show when={currentTab() === 'authors'}>
           <AuthorsRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
-        <Show when={activeTab() === 'shouts'}>
+        <Show when={currentTab() === 'shouts'}>
           <ShoutsRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
-        <Show when={activeTab() === 'topics'}>
+        <Show when={currentTab() === 'topics'}>
           <TopicsRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
-        <Show when={activeTab() === 'communities'}>
+        <Show when={currentTab() === 'communities'}>
           <CommunitiesRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
-        <Show when={activeTab() === 'collections'}>
+        <Show when={currentTab() === 'collections'}>
           <CollectionsRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
-        <Show when={activeTab() === 'invites'}>
+        <Show when={currentTab() === 'invites'}>
           <InvitesRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
-        <Show when={activeTab() === 'env'}>
+        <Show when={currentTab() === 'env'}>
           <EnvRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
       </main>

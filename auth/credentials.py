@@ -42,7 +42,7 @@ class AuthCredentials(BaseModel):
         result = []
         for resource, operations in self.scopes.items():
             for operation in operations:
-                result.append(f"{resource}:{operation}")
+                result.extend([f"{resource}:{operation}"])
         return result
 
     def has_permission(self, resource: str, operation: str) -> bool:
@@ -71,18 +71,19 @@ class AuthCredentials(BaseModel):
         """
         return self.email in ADMIN_EMAILS if self.email else False
 
-    def to_dict(self) -> dict[str, Any]:
+    async def to_dict(self) -> dict[str, Any]:
         """
         Преобразует учетные данные в словарь
 
         Returns:
             Dict[str, Any]: Словарь с данными учетных данных
         """
+        permissions = self.get_permissions()
         return {
             "author_id": self.author_id,
             "logged_in": self.logged_in,
             "is_admin": self.is_admin,
-            "permissions": self.get_permissions(),
+            "permissions": list(permissions),
         }
 
     async def permissions(self) -> list[Permission]:

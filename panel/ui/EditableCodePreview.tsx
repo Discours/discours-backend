@@ -1,13 +1,14 @@
-import Prism from 'prismjs'
-import { createEffect, createSignal, onMount, Show } from 'solid-js'
-import 'prismjs/components/prism-json'
-import 'prismjs/components/prism-markup'
-import 'prismjs/components/prism-javascript'
-import 'prismjs/components/prism-css'
+import { createEffect, createMemo, createSignal, Show } from 'solid-js'
 import 'prismjs/themes/prism-tomorrow.css'
 
 import styles from '../styles/CodePreview.module.css'
-import { detectLanguage } from './CodePreview'
+import {
+  DEFAULT_EDITOR_CONFIG,
+  detectLanguage,
+  formatCode,
+  handleTabKey,
+  highlightCode
+} from '../utils/codeHelpers'
 
 interface EditableCodePreviewProps {
   content: string
@@ -18,202 +19,98 @@ interface EditableCodePreviewProps {
   maxHeight?: string
   placeholder?: string
   showButtons?: boolean
+  autoFormat?: boolean
+  readOnly?: boolean
+  theme?: 'dark' | 'light' | 'highContrast'
 }
 
 /**
- * Форматирует HTML контент для лучшего отображения
- * Убирает лишние пробелы и делает разметку красивой
- */
-const formatHtmlContent = (html: string): string => {
-  if (!html || typeof html !== 'string') return ''
-
-  // Удаляем лишние пробелы между тегами
-  const formatted = html
-    .replace(/>\s+</g, '><') // Убираем пробелы между тегами
-    .replace(/\s+/g, ' ') // Множественные пробелы в одиночные
-    .trim() // Убираем пробелы в начале и конце
-
-  // Добавляем отступы для лучшего отображения
-  const indent = '  '
-  let indentLevel = 0
-  const lines: string[] = []
-
-  // Разбиваем на токены (теги и текст)
-  const tokens = formatted.match(/<[^>]+>|[^<]+/g) || []
-
-  for (const token of tokens) {
-    if (token.startsWith('<')) {
-      if (token.startsWith('</')) {
-        // Закрывающий тег - уменьшаем отступ
-        indentLevel = Math.max(0, indentLevel - 1)
-        lines.push(indent.repeat(indentLevel) + token)
-      } else if (token.endsWith('/>')) {
-        // Самозакрывающийся тег
-        lines.push(indent.repeat(indentLevel) + token)
-      } else {
-        // Открывающий тег - добавляем отступ
-        lines.push(indent.repeat(indentLevel) + token)
-        indentLevel++
-      }
-    } else {
-      // Текстовое содержимое
-      const trimmed = token.trim()
-      if (trimmed) {
-        lines.push(indent.repeat(indentLevel) + trimmed)
-      }
-    }
-  }
-
-  return lines.join('\n')
-}
-
-/**
- * Генерирует номера строк для текста
- */
-const generateLineNumbers = (text: string): string[] => {
-  if (!text) return ['1']
-  const lines = text.split('\n')
-  return lines.map((_, index) => String(index + 1))
-}
-
-/**
- * Редактируемый компонент для кода с подсветкой синтаксиса
+ * Современный редактор кода с подсветкой синтаксиса и удобными возможностями редактирования
+ *
+ * Возможности:
+ * - Подсветка синтаксиса в реальном времени
+ * - Номера строк с синхронизацией скролла
+ * - Автоформатирование кода
+ * - Горячие клавиши (Ctrl+Enter для сохранения, Esc для отмены)
+ * - Обработка Tab для отступов
+ * - Сохранение позиции курсора
+ * - Адаптивный дизайн
+ * - Поддержка тем оформления
  */
 const EditableCodePreview = (props: EditableCodePreviewProps) => {
+  // Состояние компонента
   const [isEditing, setIsEditing] = createSignal(false)
   const [content, setContent] = createSignal(props.content)
-  let editorRef: HTMLDivElement | undefined
+  const [isSaving, setIsSaving] = createSignal(false)
+  const [hasChanges, setHasChanges] = createSignal(false)
+
+  // Ссылки на DOM элементы
+  let editorRef: HTMLTextAreaElement | undefined
   let highlightRef: HTMLPreElement | undefined
   let lineNumbersRef: HTMLDivElement | undefined
 
-  const language = () => props.language || detectLanguage(content())
+  // Реактивные вычисления
+  const language = createMemo(() => props.language || detectLanguage(content()))
 
-  /**
-   * Обновляет подсветку синтаксиса
-   */
-  const updateHighlight = () => {
-    if (!highlightRef) return
-
-    const code = content() || ''
-    const lang = language()
-
-    try {
-      if (Prism.languages[lang]) {
-        highlightRef.innerHTML = Prism.highlight(code, Prism.languages[lang], lang)
-      } else {
-        highlightRef.textContent = code
-      }
-    } catch (e) {
-      console.error('Error highlighting code:', e)
-      highlightRef.textContent = code
+  // Контент для отображения (отформатированный в режиме просмотра, исходный в режиме редактирования)
+  const displayContent = createMemo(() => {
+    if (isEditing()) {
+      return content() // В режиме редактирования показываем исходный код
     }
-  }
+    return props.autoFormat ? formatCode(content(), language()) : content() // В режиме просмотра - форматированный
+  })
+
+  const isEmpty = createMemo(() => !content()?.trim())
+  const status = createMemo(() => {
+    if (isSaving()) return 'saving'
+    if (isEditing()) return 'editing'
+    return 'idle'
+  })
 
   /**
-   * Обновляет номера строк
-   */
-  const updateLineNumbers = () => {
-    if (!lineNumbersRef) return
-
-    const lineNumbers = generateLineNumbers(content())
-    lineNumbersRef.innerHTML = lineNumbers
-      .map((num) => `<div class="${styles.lineNumber}">${num}</div>`)
-      .join('')
-  }
-
-  /**
-   * Синхронизирует скролл между редактором и подсветкой
+   * Синхронизирует скролл подсветки синтаксиса с textarea
    */
   const syncScroll = () => {
-    if (editorRef && highlightRef) {
-      highlightRef.scrollTop = editorRef.scrollTop
-      highlightRef.scrollLeft = editorRef.scrollLeft
-    }
-    if (editorRef && lineNumbersRef) {
-      lineNumbersRef.scrollTop = editorRef.scrollTop
+    if (!editorRef) return
+
+    const scrollTop = editorRef.scrollTop
+    const scrollLeft = editorRef.scrollLeft
+
+    // Синхронизируем только подсветку синтаксиса в режиме редактирования
+    if (highlightRef && isEditing()) {
+      highlightRef.scrollTop = scrollTop
+      highlightRef.scrollLeft = scrollLeft
     }
   }
+
+  /**
+   * Генерирует элементы номеров строк для CSS счетчика
+   */
+  const generateLineElements = createMemo(() => {
+    const lines = displayContent().split('\n')
+    return lines.map((_, _index) => <div class={styles.lineNumberItem} />)
+  })
 
   /**
    * Обработчик изменения контента
    */
   const handleInput = (e: Event) => {
-    const target = e.target as HTMLDivElement
+    const target = e.target as HTMLTextAreaElement
+    const newContent = target.value
 
-    // Сохраняем текущую позицию курсора
-    const selection = window.getSelection()
-    let caretOffset = 0
-
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0)
-      const preCaretRange = range.cloneRange()
-      preCaretRange.selectNodeContents(target)
-      preCaretRange.setEnd(range.endContainer, range.endOffset)
-      caretOffset = preCaretRange.toString().length
-    }
-
-    const newContent = target.textContent || ''
     setContent(newContent)
+    setHasChanges(newContent !== props.content)
     props.onContentChange(newContent)
-    updateHighlight()
-    updateLineNumbers()
-
-    // Восстанавливаем позицию курсора после обновления
-    requestAnimationFrame(() => {
-      if (target && selection) {
-        try {
-          const textNode = target.firstChild
-          if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-            const range = document.createRange()
-            const safeOffset = Math.min(caretOffset, textNode.textContent?.length || 0)
-            range.setStart(textNode, safeOffset)
-            range.setEnd(textNode, safeOffset)
-            selection.removeAllRanges()
-            selection.addRange(range)
-          }
-        } catch (error) {
-          console.warn('Could not restore caret position:', error)
-        }
-      }
-    })
   }
 
   /**
-   * Обработчик сохранения
-   */
-  const handleSave = () => {
-    if (props.onSave) {
-      props.onSave(content())
-    }
-    setIsEditing(false)
-  }
-
-  /**
-   * Обработчик отмены
-   */
-  const handleCancel = () => {
-    const originalContent = props.content
-    setContent(originalContent) // Возвращаем исходный контент
-
-    // Обновляем содержимое редактируемой области
-    if (editorRef) {
-      editorRef.textContent = originalContent
-    }
-
-    if (props.onCancel) {
-      props.onCancel()
-    }
-    setIsEditing(false)
-  }
-
-  /**
-   * Обработчик клавиш
+   * Обработчик горячих клавиш
    */
   const handleKeyDown = (e: KeyboardEvent) => {
     // Ctrl+Enter или Cmd+Enter для сохранения
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault()
-      handleSave()
+      void handleSave()
       return
     }
 
@@ -224,183 +121,261 @@ const EditableCodePreview = (props: EditableCodePreviewProps) => {
       return
     }
 
-    // Tab для отступа
-    if (e.key === 'Tab') {
+    // Ctrl+Shift+F для форматирования
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
       e.preventDefault()
-      const selection = window.getSelection()
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0)
-        range.deleteContents()
-        range.insertNode(document.createTextNode('  ')) // Два пробела
-        range.collapse(false)
-        selection.removeAllRanges()
-        selection.addRange(range)
+      handleFormat()
+      return
+    }
+
+    // Tab для отступов
+    if (handleTabKey(e)) {
+      // Обновляем контент после вставки отступа
+      setTimeout(() => {
+        const _target = e.target as HTMLTextAreaElement
         handleInput(e)
+      }, 0)
+    }
+  }
+
+  /**
+   * Форматирование кода
+   */
+  const handleFormat = () => {
+    if (!props.autoFormat) return
+
+    const formatted = formatCode(content(), language())
+    if (formatted !== content()) {
+      setContent(formatted)
+      setHasChanges(true)
+      props.onContentChange(formatted)
+
+      // Обновляем textarea
+      if (editorRef) {
+        editorRef.value = formatted
       }
     }
+  }
+
+  /**
+   * Сохранение изменений
+   */
+  const handleSave = async () => {
+    if (!props.onSave || isSaving()) return
+
+    setIsSaving(true)
+    try {
+      await props.onSave(content())
+      setHasChanges(false)
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Ошибка при сохранении:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  /**
+   * Отмена изменений
+   */
+  const handleCancel = () => {
+    const originalContent = props.content
+    setContent(originalContent)
+    setHasChanges(false)
+
+    // Обновляем textarea
+    if (editorRef) {
+      editorRef.value = originalContent
+    }
+
+    if (props.onCancel) {
+      props.onCancel()
+    }
+    setIsEditing(false)
+  }
+
+  /**
+   * Переход в режим редактирования
+   */
+  const startEditing = () => {
+    if (props.readOnly) return
+
+    // Форматируем контент при переходе в режим редактирования, если автоформатирование включено
+    if (props.autoFormat) {
+      const formatted = formatCode(content(), language())
+      if (formatted !== content()) {
+        setContent(formatted)
+        props.onContentChange(formatted)
+      }
+    }
+
+    setIsEditing(true)
+
+    // Фокус на editor после рендера
+    setTimeout(() => {
+      if (editorRef) {
+        editorRef.focus()
+        // Устанавливаем курсор в конец
+        editorRef.setSelectionRange(editorRef.value.length, editorRef.value.length)
+      }
+    }, 50)
   }
 
   // Эффект для обновления контента при изменении props
   createEffect(() => {
     if (!isEditing()) {
-      const formattedContent =
-        language() === 'markup' || language() === 'html' ? formatHtmlContent(props.content) : props.content
-      setContent(formattedContent)
-      updateHighlight()
-      updateLineNumbers()
+      setContent(props.content)
+      setHasChanges(false)
     }
   })
 
-  // Эффект для обновления подсветки при изменении контента
+  // Эффект для синхронизации textarea с content
   createEffect(() => {
-    content() // Реактивность
-    updateHighlight()
-    updateLineNumbers()
-  })
-
-  // Эффект для синхронизации редактируемой области с content
-  createEffect(() => {
-    if (editorRef) {
-      const currentContent = content()
-      if (editorRef.textContent !== currentContent) {
-        // Сохраняем позицию курсора
-        const selection = window.getSelection()
-        let caretOffset = 0
-
-        if (selection && selection.rangeCount > 0 && isEditing()) {
-          const range = selection.getRangeAt(0)
-          const preCaretRange = range.cloneRange()
-          preCaretRange.selectNodeContents(editorRef)
-          preCaretRange.setEnd(range.endContainer, range.endOffset)
-          caretOffset = preCaretRange.toString().length
-        }
-
-        editorRef.textContent = currentContent
-
-        // Восстанавливаем курсор только в режиме редактирования
-        if (isEditing() && selection) {
-          requestAnimationFrame(() => {
-            try {
-              const textNode = editorRef?.firstChild
-              if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-                const range = document.createRange()
-                const safeOffset = Math.min(caretOffset, textNode.textContent?.length || 0)
-                range.setStart(textNode, safeOffset)
-                range.setEnd(textNode, safeOffset)
-                selection.removeAllRanges()
-                selection.addRange(range)
-              }
-            } catch (error) {
-              console.warn('Could not restore caret position:', error)
-            }
-          })
-        }
-      }
+    if (editorRef && editorRef.value !== content()) {
+      editorRef.value = content()
     }
-  })
-
-  onMount(() => {
-    const formattedContent =
-      language() === 'markup' || language() === 'html' ? formatHtmlContent(props.content) : props.content
-    setContent(formattedContent)
-    updateHighlight()
-    updateLineNumbers()
   })
 
   return (
-    <div class={styles.editableCodeContainer}>
-      {/* Контейнер редактора - увеличиваем размер */}
-      <div
-        class={`${styles.editorWrapper} ${isEditing() ? styles.editorWrapperEditing : ''}`}
-        style="height: 100%;"
-      >
-        {/* Номера строк */}
-        <div ref={lineNumbersRef} class={styles.lineNumbersContainer} />
+    <div class={`${styles.editableCodeContainer} ${styles[props.theme || 'darkTheme']}`}>
+      {/* Основной контейнер редактора */}
+      <div class={`${styles.editorContainer} ${isEditing() ? styles.editing : ''}`}>
+        {/* Область кода */}
+        <div class={styles.codeArea}>
+          {/* Контейнер для кода со скроллом */}
+          <div class={styles.codeContentWrapper}>
+            {/* Контейнер для самого кода */}
+            <div class={styles.codeTextWrapper}>
+              {/* Нумерация строк внутри скроллящегося контейнера */}
+              <div ref={lineNumbersRef} class={styles.lineNumbers}>
+                {generateLineElements()}
+              </div>
+              {/* Подсветка синтаксиса в режиме редактирования */}
+              <Show when={isEditing()}>
+                <pre
+                  ref={highlightRef}
+                  class={styles.syntaxHighlight}
+                  aria-hidden="true"
+                  innerHTML={highlightCode(displayContent(), language())}
+                />
+              </Show>
 
-        {/* Подсветка синтаксиса (фон) - только в режиме редактирования */}
-        <Show when={isEditing()}>
-          <pre
-            ref={highlightRef}
-            class={`${styles.syntaxHighlight} language-${language()}`}
-            aria-hidden="true"
-          />
-        </Show>
-
-        {/* Редактируемая область */}
-        <div
-          ref={(el) => {
-            editorRef = el
-            // Синхронизируем содержимое при создании элемента
-            if (el && el.textContent !== content()) {
-              el.textContent = content()
-            }
-          }}
-          contentEditable={isEditing()}
-          class={`${styles.editorArea} ${isEditing() ? styles.editorAreaEditing : styles.editorAreaViewing}`}
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
-          onScroll={syncScroll}
-          spellcheck={false}
-        />
-
-        {/* Превью для неактивного режима */}
-        <Show when={!isEditing()}>
-          <pre
-            class={`${styles.codePreviewContainer} language-${language()}`}
-            onClick={() => setIsEditing(true)}
-            onScroll={(e) => {
-              // Синхронизируем номера строк при скролле в режиме просмотра
-              if (lineNumbersRef) {
-                lineNumbersRef.scrollTop = (e.target as HTMLElement).scrollTop
-              }
-            }}
-          >
-            <code
-              class={`language-${language()}`}
-              innerHTML={(() => {
-                try {
-                  return Prism.highlight(content(), Prism.languages[language()], language())
-                } catch {
-                  return content()
+              {/* Режим просмотра или редактирования */}
+              <Show
+                when={isEditing()}
+                fallback={
+                  <Show
+                    when={!isEmpty()}
+                    fallback={
+                      <div class={styles.placeholderClickable} onClick={startEditing}>
+                        {props.placeholder || 'Нажмите для редактирования...'}
+                      </div>
+                    }
+                  >
+                    <pre
+                      class={styles.codePreviewContent}
+                      onClick={startEditing}
+                      innerHTML={highlightCode(displayContent(), language())}
+                    />
+                  </Show>
                 }
-              })()}
-            />
-          </pre>
-        </Show>
+              >
+                <textarea
+                  ref={editorRef}
+                  class={styles.editorTextarea}
+                  value={content()}
+                  onInput={handleInput}
+                  onKeyDown={handleKeyDown}
+                  onScroll={syncScroll}
+                  placeholder={props.placeholder || 'Введите код...'}
+                  spellcheck={false}
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  wrap="off"
+                  style={`
+                    font-family: ${DEFAULT_EDITOR_CONFIG.fontFamily};
+                    font-size: ${DEFAULT_EDITOR_CONFIG.fontSize}px;
+                    line-height: ${DEFAULT_EDITOR_CONFIG.lineHeight};
+                    tab-size: ${DEFAULT_EDITOR_CONFIG.tabSize};
+                    background: transparent;
+                    color: transparent;
+                    caret-color: var(--code-text);
+                  `}
+                />
+              </Show>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Индикатор языка */}
-      <span class={styles.languageBadge}>{language()}</span>
+      {/* Панель управления */}
+      <div class={styles.controls}>
+        {/* Левая часть - информация */}
+        <div class={styles.controlsLeft}>
+          <span class={styles.languageBadge}>{language()}</span>
 
-      {/* Плейсхолдер */}
-      <Show when={!content()}>
-        <div class={styles.placeholder} onClick={() => setIsEditing(true)}>
-          {props.placeholder || 'Нажмите для редактирования...'}
-        </div>
-      </Show>
+          <div class={styles.statusIndicator}>
+            <div class={`${styles.statusDot} ${styles[status()]}`} />
+            <span>
+              {status() === 'saving' && 'Сохранение...'}
+              {status() === 'editing' && 'Редактирование'}
+              {status() === 'idle' && (hasChanges() ? 'Есть изменения' : 'Сохранено')}
+            </span>
+          </div>
 
-      {/* Кнопки управления внизу */}
-      <Show when={props.showButtons}>
-        <div class={styles.editorControls}>
-          <Show
-            when={isEditing()}
-            fallback={
-              <button class={styles.editButton} onClick={() => setIsEditing(true)}>
-                ✏️ Редактировать
-              </button>
-            }
-          >
-            <div class={styles.editingControls}>
-              <button class={styles.saveButton} onClick={handleSave}>
-                💾 Сохранить (Ctrl+Enter)
-              </button>
-              <button class={styles.cancelButton} onClick={handleCancel}>
-                ❌ Отмена (Esc)
-              </button>
-            </div>
+          <Show when={hasChanges()}>
+            <span style="color: var(--code-warning); font-size: 11px;">●</span>
           </Show>
         </div>
-      </Show>
+
+        {/* Правая часть - кнопки */}
+        <Show when={props.showButtons !== false}>
+          <div class={styles.controlsRight}>
+            <Show
+              when={!isEditing()}
+              fallback={
+                <div class={`${styles.editingControls} ${styles.fadeIn}`}>
+                  <Show when={props.autoFormat}>
+                    <button
+                      class={styles.formatButton}
+                      onClick={handleFormat}
+                      disabled={isSaving()}
+                      title="Форматировать код (Ctrl+Shift+F)"
+                    >
+                      🎨 Форматировать
+                    </button>
+                  </Show>
+
+                  <button
+                    class={styles.saveButton}
+                    onClick={handleSave}
+                    disabled={isSaving() || !hasChanges()}
+                    title="Сохранить изменения (Ctrl+Enter)"
+                  >
+                    {isSaving() ? '⏳ Сохранение...' : '💾 Сохранить'}
+                  </button>
+
+                  <button
+                    class={styles.cancelButton}
+                    onClick={handleCancel}
+                    disabled={isSaving()}
+                    title="Отменить изменения (Esc)"
+                  >
+                    ❌ Отмена
+                  </button>
+                </div>
+              }
+            >
+              <Show when={!props.readOnly}>
+                <button class={styles.editButton} onClick={startEditing} title="Редактировать код">
+                  ✏️ Редактировать
+                </button>
+              </Show>
+            </Show>
+          </div>
+        </Show>
+      </div>
     </div>
   )
 }

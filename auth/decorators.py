@@ -9,6 +9,7 @@ from auth.credentials import AuthCredentials
 from auth.exceptions import OperationNotAllowed
 from auth.internal import authenticate
 from auth.orm import Author
+from orm.community import CommunityAuthor
 from services.db import local_session
 from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 from settings import SESSION_COOKIE_NAME, SESSION_TOKEN_HEADER
@@ -165,25 +166,24 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
 
     # Проверяем auth из контекста - если уже авторизован, просто возвращаем
     auth = getattr(request, "auth", None)
-    if auth and auth.logged_in:
+    if auth and getattr(auth, "logged_in", False):
         logger.debug(f"[validate_graphql_context] Пользователь уже авторизован через request.auth: {auth.author_id}")
         return
 
     # Если аутентификации нет в request.auth, пробуем получить ее из scope
     if hasattr(request, "scope") and "auth" in request.scope:
         auth_cred = request.scope.get("auth")
-        if isinstance(auth_cred, AuthCredentials) and auth_cred.logged_in:
+        if isinstance(auth_cred, AuthCredentials) and getattr(auth_cred, "logged_in", False):
             logger.debug(f"[validate_graphql_context] Пользователь авторизован через scope: {auth_cred.author_id}")
-            # Больше не устанавливаем request.auth напрямую
             return
 
     # Если авторизации нет ни в auth, ни в scope, пробуем получить и проверить токен
     token = get_auth_token(request)
     if not token:
-        # Если токен не найден, возвращаем ошибку авторизации
+        # Если токен не найден, бросаем ошибку авторизации
         client_info = {
             "ip": getattr(request.client, "host", "unknown") if hasattr(request, "client") else "unknown",
-            "headers": get_safe_headers(request),
+            "headers": {k: v for k, v in get_safe_headers(request).items() if k not in ["authorization", "cookie"]},
         }
         logger.warning(f"[validate_graphql_context] Токен авторизации не найден: {client_info}")
         msg = "Unauthorized - please login"
@@ -211,7 +211,7 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
             logger.debug(f"[validate_graphql_context] Найден автор: id={author.id}, email={author.email}")
 
             # Получаем разрешения из ролей
-            scopes = author.get_permissions()
+            scopes = await author.get_permissions()
 
             # Создаем объект авторизации
             auth_cred = AuthCredentials(
@@ -231,6 +231,8 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
                 )
             else:
                 logger.error("[validate_graphql_context] Не удалось установить auth: отсутствует request.scope")
+                msg = "Internal server error: unable to set authentication context"
+                raise GraphQLError(msg)
         except exc.NoResultFound:
             logger.error(f"[validate_graphql_context] Пользователь с ID {auth_state.author_id} не найден в базе данных")
             msg = "Unauthorized - user not found"
@@ -261,94 +263,86 @@ def admin_auth_required(resolver: Callable) -> Callable:
 
     @wraps(resolver)
     async def wrapper(root: Any = None, info: Optional[GraphQLResolveInfo] = None, **kwargs: dict[str, Any]) -> Any:
+        # Подробное логирование для диагностики
+        logger.debug(f"[admin_auth_required] Начало проверки авторизации для {resolver.__name__}")
+
+        # Проверяем авторизацию пользователя
+        if info is None:
+            logger.error("[admin_auth_required] GraphQL info is None")
+            msg = "Invalid GraphQL context"
+            raise GraphQLError(msg)
+
+        # Логируем детали запроса
+        request = info.context.get("request")
+        client_info = {
+            "ip": getattr(request.client, "host", "unknown") if hasattr(request, "client") else "unknown",
+            "headers": {k: v for k, v in get_safe_headers(request).items() if k not in ["authorization", "cookie"]},
+        }
+        logger.debug(f"[admin_auth_required] Детали запроса: {client_info}")
+
+        # Проверяем наличие токена до validate_graphql_context
+        token = get_auth_token(request)
+        logger.debug(f"[admin_auth_required] Токен найден: {bool(token)}, длина: {len(token) if token else 0}")
+
         try:
-            # Подробное логирование для диагностики
-            logger.debug(f"[admin_auth_required] Начало проверки авторизации для {resolver.__name__}")
-
-            # Проверяем авторизацию пользователя
-            if info is None:
-                logger.error("[admin_auth_required] GraphQL info is None")
-                msg = "Invalid GraphQL context"
-                raise GraphQLError(msg)
-
-            # Логируем детали запроса
-            request = info.context.get("request")
-            client_info = {
-                "ip": getattr(request.client, "host", "unknown") if hasattr(request, "client") else "unknown",
-                "headers": {k: v for k, v in get_safe_headers(request).items() if k not in ["authorization", "cookie"]},
-            }
-            logger.debug(f"[admin_auth_required] Детали запроса: {client_info}")
-
-            # Проверяем наличие токена до validate_graphql_context
-            token = get_auth_token(request)
-            logger.debug(f"[admin_auth_required] Токен найден: {bool(token)}, длина: {len(token) if token else 0}")
-
-            # Проверяем авторизацию
+            # Проверяем авторизацию - НЕ ловим GraphQLError здесь!
             await validate_graphql_context(info)
             logger.debug("[admin_auth_required] validate_graphql_context успешно пройден")
+        except GraphQLError:
+            # Пробрасываем GraphQLError дальше - это ошибки авторизации
+            logger.debug("[admin_auth_required] GraphQLError от validate_graphql_context - пробрасываем дальше")
+            raise
 
-            if info:
-                # Получаем объект авторизации
-                auth = None
-                if hasattr(info.context["request"], "scope") and "auth" in info.context["request"].scope:
-                    auth = info.context["request"].scope.get("auth")
-                    logger.debug(f"[admin_auth_required] Auth из scope: {auth.author_id if auth else None}")
-                elif hasattr(info.context["request"], "auth"):
-                    auth = info.context["request"].auth
-                    logger.debug(f"[admin_auth_required] Auth из request: {auth.author_id if auth else None}")
-                else:
-                    logger.error("[admin_auth_required] Auth не найден ни в scope, ни в request")
+        # Получаем объект авторизации
+        auth = None
+        if hasattr(info.context["request"], "scope") and "auth" in info.context["request"].scope:
+            auth = info.context["request"].scope.get("auth")
+            logger.debug(f"[admin_auth_required] Auth из scope: {auth.author_id if auth else None}")
+        elif hasattr(info.context["request"], "auth"):
+            auth = info.context["request"].auth
+            logger.debug(f"[admin_auth_required] Auth из request: {auth.author_id if auth else None}")
+        else:
+            logger.error("[admin_auth_required] Auth не найден ни в scope, ни в request")
 
-                if not auth or not getattr(auth, "logged_in", False):
-                    logger.error("[admin_auth_required] Пользователь не авторизован после validate_graphql_context")
-                    msg = "Unauthorized - please login"
+        if not auth or not getattr(auth, "logged_in", False):
+            logger.error("[admin_auth_required] Пользователь не авторизован после validate_graphql_context")
+            msg = "Unauthorized - please login"
+            raise GraphQLError(msg)
+
+        # Проверяем, является ли пользователь администратором
+        try:
+            with local_session() as session:
+                # Преобразуем author_id в int для совместимости с базой данных
+                author_id = int(auth.author_id) if auth and auth.author_id else None
+                if not author_id:
+                    logger.error(f"[admin_auth_required] ID автора не определен: {auth}")
+                    msg = "Unauthorized - invalid user ID"
                     raise GraphQLError(msg)
 
-                # Проверяем, является ли пользователь администратором
-                with local_session() as session:
-                    try:
-                        # Преобразуем author_id в int для совместимости с базой данных
-                        author_id = int(auth.author_id) if auth and auth.author_id else None
-                        if not author_id:
-                            logger.error(f"[admin_auth_required] ID автора не определен: {auth}")
-                            msg = "Unauthorized - invalid user ID"
-                            raise GraphQLError(msg)
+                author = session.query(Author).filter(Author.id == author_id).one()
+                logger.debug(f"[admin_auth_required] Найден автор: {author.id}, {author.email}")
 
-                        author = session.query(Author).filter(Author.id == author_id).one()
-                        logger.debug(f"[admin_auth_required] Найден автор: {author.id}, {author.email}")
+                # Проверяем, является ли пользователь системным администратором
+                if author.email and author.email in ADMIN_EMAILS:
+                    logger.info(f"System admin access granted for {author.email} (ID: {author.id})")
+                    return await resolver(root, info, **kwargs)
 
-                        # Проверяем, является ли пользователь администратором
-                        if author.email in ADMIN_EMAILS:
-                            logger.info(f"Admin access granted for {author.email} (ID: {author.id})")
-                            return await resolver(root, info, **kwargs)
+                # Системный администратор определяется ТОЛЬКО по ADMIN_EMAILS
+                logger.warning(f"System admin access denied for {author.email} (ID: {author.id}). Not in ADMIN_EMAILS.")
+                msg = "Unauthorized - system admin access required"
+                raise GraphQLError(msg)
 
-                        # Проверяем роли пользователя
-                        admin_roles = ["admin", "super"]
-                        user_roles = [role.id for role in author.roles] if author.roles else []
-                        logger.debug(f"[admin_auth_required] Роли пользователя: {user_roles}")
-
-                        if any(role in admin_roles for role in user_roles):
-                            logger.info(
-                                f"Admin access granted for {author.email} (ID: {author.id}) with role: {user_roles}"
-                            )
-                            return await resolver(root, info, **kwargs)
-
-                        logger.warning(f"Admin access denied for {author.email} (ID: {author.id}). Roles: {user_roles}")
-                        msg = "Unauthorized - not an admin"
-                        raise GraphQLError(msg)
-                    except exc.NoResultFound:
-                        logger.error(
-                            f"[admin_auth_required] Пользователь с ID {auth.author_id} не найден в базе данных"
-                        )
-                        msg = "Unauthorized - user not found"
-                        raise GraphQLError(msg) from None
-
+        except exc.NoResultFound:
+            logger.error(f"[admin_auth_required] Пользователь с ID {auth.author_id} не найден в базе данных")
+            msg = "Unauthorized - user not found"
+            raise GraphQLError(msg) from None
+        except GraphQLError:
+            # Пробрасываем GraphQLError дальше
+            raise
         except Exception as e:
-            error_msg = str(e)
-            if not isinstance(e, GraphQLError):
-                error_msg = f"Admin access error: {error_msg}"
-                logger.error(f"Error in admin_auth_required: {error_msg}")
-            logger.error(f"[admin_auth_required] Ошибка авторизации: {error_msg}")
+            # Ловим только неожиданные ошибки, не GraphQLError
+            error_msg = f"Admin access error: {e!s}"
+            logger.error(f"[admin_auth_required] Неожиданная ошибка: {error_msg}")
             raise GraphQLError(error_msg) from e
 
     return wrapper
@@ -396,7 +390,11 @@ def permission_required(resource: str, operation: str, func: Callable) -> Callab
 
                 # Проверяем роли пользователя
                 admin_roles = ["admin", "super"]
-                user_roles = [role.id for role in author.roles] if author.roles else []
+                ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
+                if ca:
+                    user_roles = ca.role_list
+                else:
+                    user_roles = []
 
                 if any(role in admin_roles for role in user_roles):
                     logger.debug(
@@ -499,7 +497,11 @@ def editor_or_admin_required(func: Callable) -> Callable:
                     return await func(parent, info, *args, **kwargs)
 
                 # Получаем список ролей пользователя
-                user_roles = [role.id for role in author.roles] if author.roles else []
+                ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
+                if ca:
+                    user_roles = ca.role_list
+                else:
+                    user_roles = []
                 logger.debug(f"[decorators] Роли пользователя {author_id}: {user_roles}")
 
                 # Проверяем наличие роли admin или editor

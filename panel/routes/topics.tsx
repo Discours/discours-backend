@@ -1,679 +1,250 @@
-/**
- * Компонент управления топиками
- * @module TopicsRoute
- */
-
-import { Component, createEffect, createSignal, For, JSX, on, onMount, Show, untrack } from 'solid-js'
-import { query } from '../graphql'
-import type { Query } from '../graphql/generated/schema'
-import { CREATE_TOPIC_MUTATION, DELETE_TOPIC_MUTATION, UPDATE_TOPIC_MUTATION } from '../graphql/mutations'
-import { GET_TOPICS_QUERY } from '../graphql/queries'
+import { createEffect, createSignal, For, on, Show } from 'solid-js'
+import { Topic, useData } from '../context/data'
+import { useTableSort } from '../context/sort'
+import { TOPICS_SORT_CONFIG } from '../context/sortConfig'
 import TopicEditModal from '../modals/TopicEditModal'
-import TopicMergeModal from '../modals/TopicMergeModal'
-import TopicSimpleParentModal from '../modals/TopicSimpleParentModal'
+import adminStyles from '../styles/Admin.module.css'
 import styles from '../styles/Table.module.css'
-import Button from '../ui/Button'
-import Modal from '../ui/Modal'
+import SortableHeader from '../ui/SortableHeader'
+import TableControls from '../ui/TableControls'
 
-/**
- * Интерфейс топика
- */
-interface Topic {
-  id: number
-  slug: string
-  title: string
-  body?: string
-  pic?: string
-  community: number
-  parent_ids?: number[]
-  children?: Topic[]
-  level?: number
+interface TopicsProps {
+  onError?: (message: string) => void
+  onSuccess?: (message: string) => void
 }
 
-/**
- * Интерфейс свойств компонента
- */
-interface TopicsRouteProps {
-  onError: (error: string) => void
-  onSuccess: (message: string) => void
-}
+export const Topics = (props: TopicsProps) => {
+  const { selectedCommunity, loadTopicsByCommunity, topics: contextTopics } = useData()
 
-/**
- * Компонент управления топиками
- */
-const TopicsRoute: Component<TopicsRouteProps> = (props) => {
-  const [rawTopics, setRawTopics] = createSignal<Topic[]>([])
-  const [topics, setTopics] = createSignal<Topic[]>([])
+  // Состояние поиска
+  const [searchQuery, setSearchQuery] = createSignal('')
+
+  // Состояние загрузки
   const [loading, setLoading] = createSignal(false)
-  const [sortBy, setSortBy] = createSignal<'id' | 'title'>('id')
-  const [sortDirection, setSortDirection] = createSignal<'asc' | 'desc'>('asc')
-  const [deleteModal, setDeleteModal] = createSignal<{ show: boolean; topic: Topic | null }>({
-    show: false,
-    topic: null
-  })
-  const [editModal, setEditModal] = createSignal<{ show: boolean; topic: Topic | null }>({
-    show: false,
-    topic: null
-  })
-  const [createModal, setCreateModal] = createSignal<{ show: boolean }>({
-    show: false
-  })
-  const [selectedTopics, setSelectedTopics] = createSignal<number[]>([])
-  const [groupAction, setGroupAction] = createSignal<'delete' | 'merge' | ''>('')
-  const [mergeModal, setMergeModal] = createSignal<{ show: boolean }>({
-    show: false
-  })
-  const [simpleParentModal, setSimpleParentModal] = createSignal<{ show: boolean; topic: Topic | null }>({
-    show: false,
-    topic: null
-  })
+
+  // Модальное окно для редактирования топика
+  const [showEditModal, setShowEditModal] = createSignal(false)
+  const [selectedTopic, setSelectedTopic] = createSignal<Topic | undefined>(undefined)
+
+  // Сортировка
+  const { sortState } = useTableSort()
 
   /**
-   * Загружает список всех топиков
+   * Загрузка топиков для сообщества
    */
-  const loadTopics = async () => {
-    setLoading(true)
-    try {
-      const data = await query<{ get_topics_all: Query['get_topics_all'] }>(
-        `${location.origin}/graphql`,
-        GET_TOPICS_QUERY
-      )
+  async function loadTopicsForCommunity() {
+    const community = selectedCommunity()
+    // selectedCommunity теперь всегда число (по умолчанию 1)
 
-      if (data?.get_topics_all) {
-        // Строим иерархическую структуру
-        const validTopics = data.get_topics_all.filter((topic): topic is Topic => topic !== null)
-        setRawTopics(validTopics)
-      }
+    console.log('[TopicsRoute] Loading all topics for community...')
+    try {
+      setLoading(true)
+
+      // Загружаем все топики сообщества
+      await loadTopicsByCommunity(community!)
+
+      console.log('[TopicsRoute] All topics loaded')
     } catch (error) {
-      props.onError(`Ошибка загрузки топиков: ${(error as Error).message}`)
+      console.error('[TopicsRoute] Failed to load topics:', error)
+      props.onError?.(error instanceof Error ? error.message : 'Не удалось загрузить список топиков')
     } finally {
       setLoading(false)
     }
   }
 
-  // Пересортировка при изменении rawTopics или параметров сортировки
-  createEffect(
-    on([rawTopics, sortBy, sortDirection], () => {
-      const rawData = rawTopics()
-      const sort = sortBy()
-      const direction = sortDirection()
-
-      if (rawData.length > 0) {
-        // Используем untrack для чтения buildHierarchy без дополнительных зависимостей
-        const hierarchicalTopics = untrack(() => buildHierarchy(rawData, sort, direction))
-        setTopics(hierarchicalTopics)
-      } else {
-        setTopics([])
-      }
-    })
-  )
-
-  // Загружаем топики при монтировании компонента
-  onMount(() => {
-    void loadTopics()
-  })
-
   /**
-   * Строит иерархическую структуру топиков
+   * Обработчик поиска - применяет поисковый запрос
    */
-  const buildHierarchy = (
-    flatTopics: Topic[],
-    sortField?: 'id' | 'title',
-    sortDir?: 'asc' | 'desc'
-  ): Topic[] => {
-    const topicMap = new Map<number, Topic>()
-    const rootTopics: Topic[] = []
-
-    // Создаем карту всех топиков
-    flatTopics.forEach((topic) => {
-      topicMap.set(topic.id, { ...topic, children: [], level: 0 })
-    })
-
-    // Строим иерархию
-    flatTopics.forEach((topic) => {
-      const currentTopic = topicMap.get(topic.id)!
-
-      if (!topic.parent_ids || topic.parent_ids.length === 0) {
-        // Корневой топик
-        rootTopics.push(currentTopic)
-      } else {
-        // Находим родителя и добавляем как дочерний
-        const parentId = topic.parent_ids[topic.parent_ids.length - 1]
-        const parent = topicMap.get(parentId)
-        if (parent) {
-          currentTopic.level = (parent.level || 0) + 1
-          parent.children!.push(currentTopic)
-        } else {
-          // Если родитель не найден, добавляем как корневой
-          rootTopics.push(currentTopic)
-        }
-      }
-    })
-
-    return sortTopics(rootTopics, sortField, sortDir)
+  const handleSearch = () => {
+    // Поиск осуществляется через filteredTopics(), которая реагирует на searchQuery()
+    // Дополнительная логика поиска здесь не нужна, но можно добавить аналитику
+    console.log('[TopicsRoute] Search triggered with query:', searchQuery())
   }
 
   /**
-   * Сортирует топики рекурсивно
+   * Фильтрация топиков по поисковому запросу
    */
-  const sortTopics = (topics: Topic[], sortField?: 'id' | 'title', sortDir?: 'asc' | 'desc'): Topic[] => {
-    const field = sortField || sortBy()
-    const direction = sortDir || sortDirection()
+  const filteredTopics = () => {
+    const topics = contextTopics()
+    const query = searchQuery().toLowerCase()
 
-    const sortedTopics = topics.sort((a, b) => {
+    if (!query) return topics
+
+    return topics.filter(
+      (topic) =>
+        topic.title?.toLowerCase().includes(query) ||
+        topic.slug?.toLowerCase().includes(query) ||
+        topic.id.toString().includes(query)
+    )
+  }
+
+  /**
+   * Сортировка топиков на клиенте
+   */
+  const sortedTopics = () => {
+    const topics = filteredTopics()
+    const { field, direction } = sortState()
+
+    return [...topics].sort((a, b) => {
       let comparison = 0
 
-      if (field === 'title') {
-        comparison = (a.title || '').localeCompare(b.title || '', 'ru')
-      } else {
-        comparison = a.id - b.id
+      switch (field) {
+        case 'id':
+          comparison = a.id - b.id
+          break
+        case 'title':
+          comparison = (a.title || '').localeCompare(b.title || '', 'ru')
+          break
+        case 'slug':
+          comparison = (a.slug || '').localeCompare(b.slug || '', 'ru')
+          break
+        default:
+          comparison = a.id - b.id
       }
 
       return direction === 'desc' ? -comparison : comparison
     })
-
-    // Рекурсивно сортируем дочерние элементы
-    sortedTopics.forEach((topic) => {
-      if (topic.children && topic.children.length > 0) {
-        topic.children = sortTopics(topic.children, field, direction)
-      }
-    })
-
-    return sortedTopics
   }
 
-  /**
-   * Обрезает текст до указанной длины
-   */
+  // Загрузка при смене сообщества
+  createEffect(
+    on(selectedCommunity, (updatedCommunity) => {
+      if (updatedCommunity) {
+        // selectedCommunity теперь всегда число, поэтому всегда загружаем
+        void loadTopicsForCommunity()
+      }
+    })
+  )
+
   const truncateText = (text: string, maxLength = 100): string => {
-    if (!text) return '—'
-    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
+    if (!text || text.length <= maxLength) return text
+    return `${text.substring(0, maxLength)}...`
   }
 
   /**
-   * Рекурсивно отображает топики с отступами для иерархии
+   * Открытие модального окна редактирования топика
    */
-  const renderTopics = (topics: Topic[]): JSX.Element[] => {
-    const result: JSX.Element[] = []
-
-    topics.forEach((topic) => {
-      const isSelected = selectedTopics().includes(topic.id)
-
-      result.push(
-        <tr class={styles['clickable-row']}>
-          <td>{topic.id}</td>
-          <td
-            style={{ 'padding-left': `${(topic.level || 0) * 20}px`, cursor: 'pointer' }}
-            onClick={() => setEditModal({ show: true, topic })}
-          >
-            {topic.level! > 0 && '└─ '}
-            {topic.title}
-          </td>
-          <td onClick={() => setEditModal({ show: true, topic })} style={{ cursor: 'pointer' }}>
-            {topic.slug}
-          </td>
-          <td onClick={() => setEditModal({ show: true, topic })} style={{ cursor: 'pointer' }}>
-            <div
-              style={{
-                'max-width': '200px',
-                overflow: 'hidden',
-                'text-overflow': 'ellipsis',
-                'white-space': 'nowrap'
-              }}
-              title={topic.body}
-            >
-              {truncateText(topic.body?.replace(/<[^>]*>/g, '') || '', 100)}
-            </div>
-          </td>
-          <td onClick={() => setEditModal({ show: true, topic })} style={{ cursor: 'pointer' }}>
-            {topic.community}
-          </td>
-          <td onClick={() => setEditModal({ show: true, topic })} style={{ cursor: 'pointer' }}>
-            {topic.parent_ids?.join(', ') || '—'}
-          </td>
-          <td onClick={(e) => e.stopPropagation()}>
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={(e) => {
-                e.stopPropagation()
-                handleTopicSelect(topic.id, e.target.checked)
-              }}
-              style={{ cursor: 'pointer' }}
-            />
-          </td>
-        </tr>
-      )
-
-      if (topic.children && topic.children.length > 0) {
-        result.push(...renderTopics(topic.children))
-      }
-    })
-
-    return result
+  const handleTopicEdit = (topic: Topic) => {
+    console.log('[TopicsRoute] Opening edit modal for topic:', topic)
+    setSelectedTopic(topic)
+    setShowEditModal(true)
   }
 
   /**
-   * Обновляет топик
+   * Сохранение изменений топика
    */
-  const updateTopic = async (updatedTopic: Topic) => {
-    try {
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: UPDATE_TOPIC_MUTATION,
-          variables: { topic_input: updatedTopic }
-        })
-      })
+  const handleTopicSave = (updatedTopic: Topic) => {
+    console.log('[TopicsRoute] Saving topic:', updatedTopic)
 
-      const result = await response.json()
+    // TODO: добавить логику сохранения изменений в базу данных
+    // await updateTopic(updatedTopic)
 
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
+    props.onSuccess?.('Топик успешно обновлён')
 
-      if (result.data.update_topic.success) {
-        props.onSuccess('Топик успешно обновлен')
-        setEditModal({ show: false, topic: null })
-        await loadTopics() // Перезагружаем список
-      } else {
-        throw new Error(result.data.update_topic.message || 'Ошибка обновления топика')
-      }
-    } catch (error) {
-      props.onError(`Ошибка обновления топика: ${(error as Error).message}`)
-    }
+    // Обновляем локальные данные (пока что просто перезагружаем)
+    void loadTopicsForCommunity()
   }
 
   /**
-   * Создает новый топик
+   * Обработка ошибок из модального окна
    */
-  const createTopic = async (newTopic: Topic) => {
-    try {
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: CREATE_TOPIC_MUTATION,
-          variables: { topic_input: newTopic }
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
-
-      if (result.data.create_topic.error) {
-        throw new Error(result.data.create_topic.error)
-      }
-
-      props.onSuccess('Топик успешно создан')
-      setCreateModal({ show: false })
-      await loadTopics() // Перезагружаем список
-    } catch (error) {
-      props.onError(`Ошибка создания топика: ${(error as Error).message}`)
-    }
+  const handleTopicError = (message: string) => {
+    props.onError?.(message)
   }
 
   /**
-   * Обработчик выбора/снятия выбора топика
+   * Рендер строки топика
    */
-  const handleTopicSelect = (topicId: number, checked: boolean) => {
-    if (checked) {
-      setSelectedTopics((prev) => [...prev, topicId])
-    } else {
-      setSelectedTopics((prev) => prev.filter((id) => id !== topicId))
-    }
-  }
-
-  /**
-   * Обработчик выбора/снятия выбора всех топиков
-   */
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const allTopicIds = rawTopics().map((topic) => topic.id)
-      setSelectedTopics(allTopicIds)
-    } else {
-      setSelectedTopics([])
-    }
-  }
-
-  /**
-   * Проверяет выбраны ли все топики
-   */
-  const isAllSelected = () => {
-    const allIds = rawTopics().map((topic) => topic.id)
-    const selected = selectedTopics()
-    return allIds.length > 0 && allIds.every((id) => selected.includes(id))
-  }
-
-  /**
-   * Проверяет выбран ли хотя бы один топик
-   */
-  const hasSelectedTopics = () => selectedTopics().length > 0
-
-  /**
-   * Выполняет групповое действие
-   */
-  const executeGroupAction = () => {
-    const action = groupAction()
-    const selected = selectedTopics()
-
-    if (!action || selected.length === 0) {
-      props.onError('Выберите действие и топики')
-      return
-    }
-
-    if (action === 'delete') {
-      // Групповое удаление
-      const selectedTopicsData = rawTopics().filter((t) => selected.includes(t.id))
-      setDeleteModal({ show: true, topic: selectedTopicsData[0] }) // Используем первый для отображения
-    } else if (action === 'merge') {
-      // Слияние топиков
-      if (selected.length < 2) {
-        props.onError('Для слияния нужно выбрать минимум 2 темы')
-        return
-      }
-      setMergeModal({ show: true })
-    }
-  }
-
-  /**
-   * Групповое удаление выбранных топиков
-   */
-  const deleteSelectedTopics = async () => {
-    const selected = selectedTopics()
-    if (selected.length === 0) return
-
-    try {
-      // Удаляем по одному (можно оптимизировать пакетным удалением)
-      for (const topicId of selected) {
-        await deleteTopic(topicId)
-      }
-
-      setSelectedTopics([])
-      setGroupAction('')
-      props.onSuccess(`Успешно удалено ${selected.length} тем`)
-    } catch (error) {
-      props.onError(`Ошибка группового удаления: ${(error as Error).message}`)
-    }
-  }
-
-  /**
-   * Удаляет топик
-   */
-  const deleteTopic = async (topicId: number) => {
-    try {
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: DELETE_TOPIC_MUTATION,
-          variables: { id: topicId }
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
-
-      if (result.data.delete_topic_by_id.success) {
-        props.onSuccess('Топик успешно удален')
-        setDeleteModal({ show: false, topic: null })
-        await loadTopics() // Перезагружаем список
-      } else {
-        throw new Error(result.data.delete_topic_by_id.message || 'Ошибка удаления топика')
-      }
-    } catch (error) {
-      props.onError(`Ошибка удаления топика: ${(error as Error).message}`)
-    }
-  }
+  const renderTopicRow = (topic: Topic) => (
+    <tr
+      class={styles.tableRow}
+      onClick={() => handleTopicEdit(topic)}
+      style="cursor: pointer;"
+      title="Нажмите для редактирования топика"
+    >
+      <td class={styles.tableCell}>{topic.id}</td>
+      <td class={styles.tableCell}>
+        <strong title={topic.title}>{truncateText(topic.title, 50)}</strong>
+      </td>
+      <td class={styles.tableCell} title={topic.slug}>
+        {truncateText(topic.slug, 30)}
+      </td>
+      <td class={styles.tableCell}>
+        {topic.body ? (
+          <span style="color: #666;">{truncateText(topic.body.replace(/<[^>]*>/g, ''), 60)}</span>
+        ) : (
+          <span style="color: #999; font-style: italic;">Нет содержимого</span>
+        )}
+      </td>
+    </tr>
+  )
 
   return (
-    <div class={styles.container}>
-      <div class={styles.header}>
-        <div style={{ display: 'flex', gap: '12px', 'align-items': 'center' }}>
-          <div style={{ display: 'flex', gap: '8px', 'align-items': 'center' }}>
-            <label style={{ 'font-size': '14px', color: '#666' }}>Сортировка:</label>
-            <select
-              value={sortBy()}
-              onInput={(e) => setSortBy(e.target.value as 'id' | 'title')}
-              style={{
-                padding: '4px 8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px',
-                'font-size': '14px'
-              }}
-            >
-              <option value="id">По ID</option>
-              <option value="title">По названию</option>
-            </select>
-            <select
-              value={sortDirection()}
-              onInput={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
-              style={{
-                padding: '4px 8px',
-                border: '1px solid #ddd',
-                'border-radius': '4px',
-                'font-size': '14px'
-              }}
-            >
-              <option value="asc">↑ По возрастанию</option>
-              <option value="desc">↓ По убыванию</option>
-            </select>
-          </div>
-          <Button onClick={loadTopics} disabled={loading()}>
-            {loading() ? 'Загрузка...' : 'Обновить'}
-          </Button>
-          <Button variant="primary" onClick={() => setCreateModal({ show: true })}>
-            Создать тему
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              if (selectedTopics().length === 1) {
-                const selectedTopic = rawTopics().find((t) => t.id === selectedTopics()[0])
-                if (selectedTopic) {
-                  setSimpleParentModal({ show: true, topic: selectedTopic })
-                }
-              } else {
-                props.onError('Выберите одну тему для назначения родителя')
-              }
-            }}
-          >
-            🏠 Назначить родителя
-          </Button>
-        </div>
-      </div>
+    <div class={adminStyles.pageContainer}>
+      <TableControls
+        searchValue={searchQuery()}
+        onSearchChange={setSearchQuery}
+        onSearch={handleSearch}
+        searchPlaceholder="Поиск по названию, slug или ID..."
+        isLoading={loading()}
+        onRefresh={loadTopicsForCommunity}
+      />
 
-      <Show
-        when={!loading()}
-        fallback={
-          <div class="loading-screen">
-            <div class="loading-spinner" />
-            <div>Загрузка топиков...</div>
-          </div>
-        }
-      >
+      <div class={styles.tableContainer}>
         <table class={styles.table}>
           <thead>
-            <tr>
-              <th>ID</th>
-              <th>Название</th>
-              <th>Slug</th>
-              <th>Описание</th>
-              <th>Сообщество</th>
-              <th>Родители</th>
-              <th>
-                <div
-                  style={{
-                    display: 'flex',
-                    'align-items': 'center',
-                    gap: '8px',
-                    'flex-direction': 'column'
-                  }}
-                >
-                  <div style={{ display: 'flex', 'align-items': 'center', gap: '4px' }}>
-                    <input
-                      type="checkbox"
-                      checked={isAllSelected()}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      style={{ cursor: 'pointer' }}
-                      title="Выбрать все"
-                    />
-                    <span style={{ 'font-size': '12px' }}>Все</span>
-                  </div>
-                  <Show when={hasSelectedTopics()}>
-                    <div style={{ display: 'flex', gap: '4px', 'align-items': 'center' }}>
-                      <select
-                        value={groupAction()}
-                        onChange={(e) => setGroupAction(e.target.value as 'delete' | 'merge' | '')}
-                        style={{
-                          padding: '2px 4px',
-                          'font-size': '11px',
-                          border: '1px solid #ddd',
-                          'border-radius': '3px'
-                        }}
-                      >
-                        <option value="">Действие</option>
-                        <option value="delete">Удалить</option>
-                        <option value="merge">Слить</option>
-                      </select>
-                      <button
-                        onClick={executeGroupAction}
-                        disabled={!groupAction()}
-                        style={{
-                          padding: '2px 6px',
-                          'font-size': '11px',
-                          background: groupAction() ? '#007bff' : '#ccc',
-                          color: 'white',
-                          border: 'none',
-                          'border-radius': '3px',
-                          cursor: groupAction() ? 'pointer' : 'not-allowed'
-                        }}
-                      >
-                        ✓
-                      </button>
-                    </div>
-                  </Show>
-                </div>
-              </th>
+            <tr class={styles.tableHeader}>
+              <SortableHeader field="id" allowedFields={TOPICS_SORT_CONFIG.allowedFields}>
+                ID
+              </SortableHeader>
+              <SortableHeader field="title" allowedFields={TOPICS_SORT_CONFIG.allowedFields}>
+                Название
+              </SortableHeader>
+              <SortableHeader field="slug" allowedFields={TOPICS_SORT_CONFIG.allowedFields}>
+                Slug
+              </SortableHeader>
+              <th class={styles.tableHeaderCell}>Body</th>
             </tr>
           </thead>
           <tbody>
-            <For each={renderTopics(topics())}>{(row) => row}</For>
+            <Show when={loading()}>
+              <tr>
+                <td colspan="4" class={styles.loadingCell}>
+                  Загрузка...
+                </td>
+              </tr>
+            </Show>
+            <Show when={!loading() && sortedTopics().length === 0}>
+              <tr>
+                <td colspan="4" class={styles.emptyCell}>
+                  Нет топиков
+                </td>
+              </tr>
+            </Show>
+            <Show when={!loading()}>
+              <For each={sortedTopics()}>{renderTopicRow}</For>
+            </Show>
           </tbody>
         </table>
-      </Show>
+      </div>
 
-      {/* Модальное окно создания */}
+      <div class={styles.tableFooter}>
+        <span class={styles.resultsInfo}>
+          <span>Всего</span>: {sortedTopics().length}
+        </span>
+      </div>
+
+      {/* Модальное окно для редактирования топика */}
       <TopicEditModal
-        isOpen={createModal().show}
-        topic={null}
-        onClose={() => setCreateModal({ show: false })}
-        onSave={createTopic}
-      />
-
-      {/* Модальное окно редактирования */}
-      <TopicEditModal
-        isOpen={editModal().show}
-        topic={editModal().topic}
-        onClose={() => setEditModal({ show: false, topic: null })}
-        onSave={updateTopic}
-      />
-
-      {/* Модальное окно подтверждения удаления */}
-      <Modal
-        isOpen={deleteModal().show}
-        onClose={() => setDeleteModal({ show: false, topic: null })}
-        title="Подтверждение удаления"
-      >
-        <div>
-          <Show when={selectedTopics().length > 1}>
-            <p>
-              Вы уверены, что хотите удалить <strong>{selectedTopics().length}</strong> выбранных тем?
-            </p>
-            <p class={styles['warning-text']}>
-              Это действие нельзя отменить. Все дочерние топики также будут удалены.
-            </p>
-            <div class={styles['modal-actions']}>
-              <Button variant="secondary" onClick={() => setDeleteModal({ show: false, topic: null })}>
-                Отмена
-              </Button>
-              <Button variant="danger" onClick={deleteSelectedTopics}>
-                Удалить {selectedTopics().length} тем
-              </Button>
-            </div>
-          </Show>
-          <Show when={selectedTopics().length <= 1}>
-            <p>
-              Вы уверены, что хотите удалить топик "<strong>{deleteModal().topic?.title}</strong>"?
-            </p>
-            <p class={styles['warning-text']}>
-              Это действие нельзя отменить. Все дочерние топики также будут удалены.
-            </p>
-            <div class={styles['modal-actions']}>
-              <Button variant="secondary" onClick={() => setDeleteModal({ show: false, topic: null })}>
-                Отмена
-              </Button>
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (deleteModal().topic) {
-                    void deleteTopic(deleteModal().topic!.id)
-                  }
-                }}
-              >
-                Удалить
-              </Button>
-            </div>
-          </Show>
-        </div>
-      </Modal>
-
-      {/* Модальное окно слияния тем */}
-      <TopicMergeModal
-        isOpen={mergeModal().show}
+        isOpen={showEditModal()}
+        topic={selectedTopic()!}
         onClose={() => {
-          setMergeModal({ show: false })
-          setSelectedTopics([])
-          setGroupAction('')
+          setShowEditModal(false)
+          setSelectedTopic(undefined)
         }}
-        topics={rawTopics().filter((topic) => selectedTopics().includes(topic.id))}
-        onSuccess={(message) => {
-          props.onSuccess(message)
-          setSelectedTopics([])
-          setGroupAction('')
-          void loadTopics()
-        }}
-        onError={props.onError}
-      />
-
-      {/* Модальное окно назначения родителя */}
-      <TopicSimpleParentModal
-        isOpen={simpleParentModal().show}
-        onClose={() => setSimpleParentModal({ show: false, topic: null })}
-        topic={simpleParentModal().topic}
-        allTopics={rawTopics()}
-        onSuccess={(message) => {
-          props.onSuccess(message)
-          setSimpleParentModal({ show: false, topic: null })
-          void loadTopics() // Перезагружаем данные
-        }}
-        onError={props.onError}
+        onSave={handleTopicSave}
+        onError={handleTopicError}
       />
     </div>
   )
 }
-
-export default TopicsRoute

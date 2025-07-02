@@ -2,23 +2,24 @@ import json
 import secrets
 import time
 import traceback
-from typing import Any
+from typing import Any, Dict, List, Union
 
 from graphql import GraphQLResolveInfo
 from graphql.error import GraphQLError
 
 from auth.email import send_auth_email
-from auth.exceptions import InvalidToken, ObjectNotExist
+from auth.exceptions import InvalidPassword, InvalidToken, ObjectNotExist
 from auth.identity import Identity, Password
 from auth.jwtcodec import JWTCodec
-from auth.orm import Author, Role
+from auth.orm import Author
 from auth.tokens.storage import TokenStorage
 
 # import asyncio # Убираем, так как резолвер будет синхронным
+from orm.community import CommunityFollower
 from services.auth import login_required
 from services.db import local_session
 from services.redis import redis
-from services.schema import mutation, query
+from services.schema import mutation, query, type_author
 from settings import (
     ADMIN_EMAILS,
     SESSION_COOKIE_HTTPONLY,
@@ -29,6 +30,60 @@ from settings import (
 )
 from utils.generate_slug import generate_unique_slug
 from utils.logger import root_logger as logger
+
+# Создаем роль в сообществе если не существует
+role_names = {
+    "reader": "Читатель",
+    "author": "Автор",
+    "artist": "Художник",
+    "expert": "Эксперт",
+    "editor": "Редактор",
+    "admin": "Администратор",
+}
+role_descriptions = {
+    "reader": "Может читать и комментировать",
+    "author": "Может создавать публикации",
+    "artist": "Может быть credited artist",
+    "expert": "Может добавлять доказательства",
+    "editor": "Может модерировать контент",
+    "admin": "Полные права",
+}
+
+
+# Добавляем резолвер для поля roles в типе Author
+@type_author.field("roles")
+def resolve_roles(obj: Union[Dict, Any], info: GraphQLResolveInfo) -> List[str]:
+    """
+    Резолвер для поля roles - возвращает список ролей автора
+
+    Args:
+        obj: Объект автора (словарь или ORM объект)
+        info: Информация о запросе GraphQL
+
+    Returns:
+        List[str]: Список ролей автора
+    """
+    try:
+        # Если obj это ORM модель Author
+        if hasattr(obj, "get_roles"):
+            return obj.get_roles()
+
+        # Если obj это словарь
+        if isinstance(obj, dict):
+            roles_data = obj.get("roles_data", {})
+
+            # Если roles_data это список, возвращаем его
+            if isinstance(roles_data, list):
+                return roles_data
+
+            # Если roles_data это словарь, возвращаем роли для сообщества 1
+            if isinstance(roles_data, dict):
+                return roles_data.get("1", [])
+
+        return []
+    except Exception as e:
+        print(f"[AuthorType.resolve_roles] Ошибка при получении ролей: {e}")
+        return []
 
 
 @mutation.field("getSession")
@@ -149,42 +204,82 @@ async def confirm_email(_: None, _info: GraphQLResolveInfo, token: str) -> dict[
         }
 
 
-def create_user(user_dict: dict[str, Any]) -> Author:
-    """Create new user in database"""
+def create_user(user_dict: dict[str, Any], community_id: int | None = None) -> Author:
+    """
+    Create new user in database with default roles for community
+
+    Args:
+        user_dict: Dictionary with user data
+        community_id: ID сообщества для назначения дефолтных ролей (по умолчанию 1)
+
+    Returns:
+        Созданный пользователь
+    """
     user = Author(**user_dict)
+    target_community_id = community_id or 1  # По умолчанию основное сообщество
+
     with local_session() as session:
         # Добавляем пользователя в БД
         session.add(user)
         session.flush()  # Получаем ID пользователя
 
-        # Получаем или создаём стандартную роль "reader"
-        reader_role = session.query(Role).filter(Role.id == "reader").first()
-        if not reader_role:
-            reader_role = Role(id="reader", name="Читатель")
-            session.add(reader_role)
-            session.flush()
+        # Получаем сообщество для назначения дефолтных ролей
+        from orm.community import Community, CommunityAuthor
 
-        # Получаем основное сообщество
-        from orm.community import Community
+        community = session.query(Community).filter(Community.id == target_community_id).first()
+        if not community:
+            logger.warning(f"Сообщество {target_community_id} не найдено, используем сообщество ID=1")
+            target_community_id = 1
+            community = session.query(Community).filter(Community.id == target_community_id).first()
 
-        main_community = session.query(Community).filter(Community.id == 1).first()
-        if not main_community:
-            main_community = Community(
-                id=1,
-                name="Discours",
-                slug="discours",
-                desc="Cообщество Discours",
-                created_by=user.id,
+        if community:
+            # Инициализируем права сообщества если нужно
+            try:
+                import asyncio
+
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(community.initialize_role_permissions())
+            except Exception as e:
+                logger.warning(f"Не удалось инициализировать права сообщества {target_community_id}: {e}")
+
+            # Получаем дефолтные роли сообщества или используем стандартные
+            try:
+                default_roles = community.get_default_roles()
+                if not default_roles:
+                    # Если в сообществе нет настроенных дефолтных ролей, используем стандартные
+                    default_roles = ["reader", "author"]
+            except AttributeError:
+                # Если метод get_default_roles не существует, используем стандартные роли
+                default_roles = ["reader", "author"]
+
+            logger.info(
+                f"Назначаем дефолтные роли {default_roles} пользователю {user.id} в сообществе {target_community_id}"
             )
-            session.add(main_community)
-            session.flush()
 
-        # Создаём связь автор-роль-сообщество
-        from auth.orm import AuthorRole
+            # Создаем CommunityAuthor с дефолтными ролями
+            community_author = CommunityAuthor(
+                community_id=target_community_id,
+                author_id=user.id,
+                roles=",".join(default_roles),  # CSV строка с ролями
+            )
+            session.add(community_author)
+            logger.info(f"Создана запись CommunityAuthor для пользователя {user.id} с ролями: {default_roles}")
 
-        author_role = AuthorRole(author=user.id, role=reader_role.id, community=main_community.id)
-        session.add(author_role)
+            # Добавляем пользователя в подписчики сообщества (CommunityFollower отвечает только за подписку)
+            existing_follower = (
+                session.query(CommunityFollower)
+                .filter(CommunityFollower.community == target_community_id, CommunityFollower.follower == user.id)
+                .first()
+            )
+
+            if not existing_follower:
+                follower = CommunityFollower(community=target_community_id, follower=int(user.id))
+                session.add(follower)
+                logger.info(f"Пользователь {user.id} добавлен в подписчики сообщества {target_community_id}")
+
         session.commit()
+        logger.info(f"Пользователь {user.id} успешно создан с ролями в сообществе {target_community_id}")
+
     return user
 
 
@@ -271,7 +366,26 @@ async def send_link(
         return user
 
 
+print("[CRITICAL DEBUG] About to register login function decorator")
+
+
+# Создаем временную обертку для отладки
+def debug_login_wrapper(original_func):
+    async def wrapper(*args, **kwargs):
+        print(f"[CRITICAL DEBUG] WRAPPER: login function called with args={args}, kwargs={kwargs}")
+        try:
+            result = await original_func(*args, **kwargs)
+            print(f"[CRITICAL DEBUG] WRAPPER: login function returned: {result}")
+            return result
+        except Exception as e:
+            print(f"[CRITICAL DEBUG] WRAPPER: login function exception: {e}")
+            raise
+
+    return wrapper
+
+
 @mutation.field("login")
+@debug_login_wrapper
 async def login(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> dict[str, Any]:
     """
     Авторизация пользователя с помощью email и пароля.
@@ -284,11 +398,14 @@ async def login(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> dict[str, A
     Returns:
         AuthResult с данными пользователя и токеном или сообщением об ошибке
     """
-    logger.info(f"[auth] login: Попытка входа для {kwargs.get('email')}")
+    print(f"[CRITICAL DEBUG] login function called with kwargs: {kwargs}")
+    logger.info(f"[auth] login: НАЧАЛО ФУНКЦИИ для {kwargs.get('email')}")
+    print("[CRITICAL DEBUG] about to start try block")
 
     # Гарантируем, что всегда возвращаем непустой объект AuthResult
 
     try:
+        logger.info("[auth] login: ВХОД В ОСНОВНОЙ TRY БЛОК")
         # Нормализуем email
         email = kwargs.get("email", "").lower()
 
@@ -337,29 +454,19 @@ async def login(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> dict[str, A
             try:
                 password = kwargs.get("password", "")
                 verify_result = Identity.password(author, password)
-                logger.info(
-                    f"[auth] login: РЕЗУЛЬТАТ ПРОВЕРКИ ПАРОЛЯ: {verify_result if isinstance(verify_result, dict) else 'успешно'}"
-                )
+                logger.info(f"[auth] login: РЕЗУЛЬТАТ ПРОВЕРКИ ПАРОЛЯ: успешно для {email}")
 
-                if isinstance(verify_result, dict) and verify_result.get("error"):
-                    logger.warning(f"[auth] login: Неверный пароль для {email}: {verify_result.get('error')}")
-                    return {
-                        "success": False,
-                        "token": None,
-                        "author": None,
-                        "error": verify_result.get("error", "Ошибка авторизации"),
-                    }
-            except Exception as e:
-                logger.error(f"[auth] login: Ошибка при проверке пароля: {e!s}")
+                # Если проверка прошла успешно, verify_result содержит объект автора
+                valid_author = verify_result
+
+            except (InvalidPassword, Exception) as e:
+                logger.warning(f"[auth] login: Неверный пароль для {email}: {e!s}")
                 return {
                     "success": False,
                     "token": None,
                     "author": None,
-                    "error": str(e),
+                    "error": str(e) if isinstance(e, InvalidPassword) else "Ошибка авторизации",
                 }
-
-            # Получаем правильный объект автора - результат verify_result
-            valid_author = verify_result if not isinstance(verify_result, dict) else author
 
             # Создаем токен через правильную функцию вместо прямого кодирования
             try:
@@ -452,26 +559,49 @@ async def login(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> dict[str, A
                 # Для ответа клиенту используем dict() с параметром True,
                 # чтобы получить полный доступ к данным для самого пользователя
                 logger.info(f"[auth] login: Успешный вход для {email}")
-                author_dict = valid_author.dict(True)
+                try:
+                    author_dict = valid_author.dict(True)
+                except Exception as dict_error:
+                    logger.error(f"[auth] login: Ошибка при вызове dict(): {dict_error}")
+                    # Fallback - используем базовые поля вручную
+                    author_dict = {
+                        "id": valid_author.id,
+                        "email": valid_author.email,
+                        "name": getattr(valid_author, "name", ""),
+                        "slug": getattr(valid_author, "slug", ""),
+                        "username": getattr(valid_author, "username", ""),
+                    }
+
                 result = {"success": True, "token": token, "author": author_dict, "error": None}
                 logger.info(
                     f"[auth] login: Возвращаемый результат: {{success: {result['success']}, token_length: {len(token) if token else 0}}}"
                 )
+                logger.info(f"[auth] login: УСПЕШНЫЙ RETURN - возвращаем: {result}")
                 return result
             except Exception as token_error:
                 logger.error(f"[auth] login: Ошибка при создании токена: {token_error!s}")
                 logger.error(traceback.format_exc())
-                return {
+                error_result = {
                     "success": False,
                     "token": None,
                     "author": None,
                     "error": f"Ошибка авторизации: {token_error!s}",
                 }
+                logger.info(f"[auth] login: ОШИБКА ТОКЕНА RETURN - возвращаем: {error_result}")
+                return error_result
 
     except Exception as e:
-        logger.error(f"[auth] login: Ошибка при авторизации {email}: {e!s}")
+        logger.error(f"[auth] login: Ошибка при авторизации {kwargs.get('email', 'UNKNOWN')}: {e!s}")
         logger.error(traceback.format_exc())
-        return {"success": False, "token": None, "author": None, "error": str(e)}
+        result = {"success": False, "token": None, "author": None, "error": str(e)}
+        logger.info(f"[auth] login: ВОЗВРАЩАЕМ РЕЗУЛЬТАТ ОШИБКИ: {result}")
+        return result
+
+    # Этой строки никогда не должно быть достигнуто
+    logger.error("[auth] login: КРИТИЧЕСКАЯ ОШИБКА - достигнут конец функции без return!")
+    emergency_result = {"success": False, "token": None, "author": None, "error": "Внутренняя ошибка сервера"}
+    logger.error(f"[auth] login: ЭКСТРЕННЫЙ RETURN: {emergency_result}")
+    return emergency_result
 
 
 @query.field("isEmailUsed")
@@ -969,3 +1099,21 @@ async def cancel_email_change(_: None, info: GraphQLResolveInfo) -> dict[str, An
         logger.error(f"[auth] cancelEmailChange: Ошибка при отмене смены email: {e!s}")
         logger.error(traceback.format_exc())
         return {"success": False, "error": str(e), "author": None}
+
+
+def follow_community(self, info, community_id: int) -> dict[str, Any]:
+    """
+    Подписаться на сообщество
+    """
+    from orm.community import CommunityFollower
+    from services.db import local_session
+
+    with local_session() as session:
+        follower = CommunityFollower(
+            follower=int(info.context.user.id),  # type: ignore[arg-type]
+            community=community_id,
+        )
+        session.add(follower)
+        session.commit()
+
+        return {"success": True, "message": "Successfully followed community"}

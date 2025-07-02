@@ -9,6 +9,7 @@ import CollectionEditModal from '../modals/CollectionEditModal'
 import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
+import TableControls from '../ui/TableControls'
 
 /**
  * Интерфейс для коллекции
@@ -39,12 +40,20 @@ interface CollectionsRouteProps {
  */
 const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
   const [collections, setCollections] = createSignal<Collection[]>([])
+  const [filteredCollections, setFilteredCollections] = createSignal<Collection[]>([])
   const [loading, setLoading] = createSignal(false)
-  const [editModal, setEditModal] = createSignal<{ show: boolean; collection: Collection | null }>({
+  const [searchQuery, setSearchQuery] = createSignal('')
+  const [editModal, setEditModal] = createSignal<{
+    show: boolean
+    collection: Collection | null
+  }>({
     show: false,
     collection: null
   })
-  const [deleteModal, setDeleteModal] = createSignal<{ show: boolean; collection: Collection | null }>({
+  const [deleteModal, setDeleteModal] = createSignal<{
+    show: boolean
+    collection: Collection | null
+  }>({
     show: false,
     collection: null
   })
@@ -72,12 +81,50 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
         throw new Error(result.errors[0].message)
       }
 
-      setCollections(result.data.get_collections_all || [])
+      const allCollections = result.data.get_collections_all || []
+      setCollections(allCollections)
+      filterCollections(allCollections, searchQuery())
     } catch (error) {
       props.onError(`Ошибка загрузки коллекций: ${(error as Error).message}`)
     } finally {
       setLoading(false)
     }
+  }
+
+  /**
+   * Фильтрует коллекции по поисковому запросу
+   */
+  const filterCollections = (allCollections: Collection[], query: string) => {
+    if (!query) {
+      setFilteredCollections(allCollections)
+      return
+    }
+
+    const lowerQuery = query.toLowerCase()
+    const filtered = allCollections.filter(
+      (collection) =>
+        collection.title.toLowerCase().includes(lowerQuery) ||
+        collection.slug.toLowerCase().includes(lowerQuery) ||
+        collection.id.toString().includes(lowerQuery) ||
+        collection.desc?.toLowerCase().includes(lowerQuery)
+    )
+    setFilteredCollections(filtered)
+  }
+
+  /**
+   * Обрабатывает изменение поискового запроса
+   */
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    filterCollections(collections(), value)
+  }
+
+  /**
+   * Обработчик поиска - применяет текущий поисковый запрос
+   */
+  const handleSearch = () => {
+    filterCollections(collections(), searchQuery())
+    console.log('[CollectionsRoute] Search triggered with query:', searchQuery())
   }
 
   /**
@@ -179,20 +226,23 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
   // Загружаем коллекции при монтировании компонента
   onMount(() => {
     void loadCollections()
+    setFilteredCollections(collections())
   })
 
   return (
     <div class={styles.container}>
-      <div class={styles.header}>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Button onClick={openCreateModal} variant="primary">
+      <TableControls
+        isLoading={loading()}
+        searchValue={searchQuery()}
+        onSearchChange={handleSearchChange}
+        onSearch={handleSearch}
+        searchPlaceholder="Поиск по названию, slug или ID..."
+        actions={
+          <button class={`${styles.button} ${styles.primary}`} onClick={openCreateModal}>
             Создать коллекцию
-          </Button>
-          <Button onClick={loadCollections} disabled={loading()}>
-            {loading() ? 'Загрузка...' : 'Обновить'}
-          </Button>
-        </div>
-      </div>
+          </button>
+        }
+      />
 
       <Show
         when={!loading()}
@@ -218,7 +268,7 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
             </tr>
           </thead>
           <tbody>
-            <For each={collections()}>
+            <For each={filteredCollections()}>
               {(collection) => (
                 <tr
                   onClick={() => openEditModal(collection)}

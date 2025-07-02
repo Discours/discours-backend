@@ -11,6 +11,7 @@ from sqlalchemy.orm import exc
 from auth.orm import Author
 from auth.state import AuthState
 from auth.tokens.storage import TokenStorage as TokenManager
+from orm.community import CommunityAuthor
 from services.db import local_session
 from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 from utils.logger import root_logger as logger
@@ -48,7 +49,11 @@ async def verify_internal_auth(token: str) -> tuple[int, list, bool]:
             author = session.query(Author).filter(Author.id == payload.user_id).one()
 
             # Получаем роли
-            roles = [role.id for role in author.roles]
+            ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
+            if ca:
+                roles = ca.role_list
+            else:
+                roles = []
             logger.debug(f"[verify_internal_auth] Роли пользователя: {roles}")
 
             # Определяем, является ли пользователь администратором

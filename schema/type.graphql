@@ -13,11 +13,11 @@ type AuthorStat {
 type Author {
 	id: Int!
 	slug: String!
-	name: String
+	name: String!
 	pic: String
 	bio: String
 	about: String
-	links: [String]
+	links: [String!]
 	created_at: Int
 	last_seen: Int
 	updated_at: Int

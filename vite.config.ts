@@ -1,12 +1,23 @@
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import solidPlugin from 'vite-plugin-solid'
+
+// Читаем версию из package.json
+const packageJsonPath = resolve(__dirname, 'package.json')
+const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+const version = packageJson.version
 
 // Конфигурация для разных окружений
 const isProd = process.env.NODE_ENV === 'production'
 
 export default defineConfig({
   plugins: [solidPlugin()],
+
+  // Определяем переменные окружения
+  define: {
+    __APP_VERSION__: JSON.stringify(version)
+  },
 
   build: {
     target: 'esnext',

@@ -1,46 +1,82 @@
+import { createMemo } from 'solid-js'
+import { useI18n } from '../intl/i18n'
+
+export type Language = 'ru' | 'en'
+
 /**
- * Форматирование даты в формате "X дней назад"
+ * Форматирование даты в формате "X дней назад" с поддержкой многоязычности
  * @param timestamp - Временная метка
+ * @param language - Язык для форматирования ('ru' | 'en')
  * @returns Форматированная строка с относительной датой
  */
-export function formatDateRelative(timestamp?: number): string {
-  if (!timestamp) return 'Н/Д'
+export function formatDateRelativeStatic(timestamp?: number, language: Language = 'ru'): string {
+  if (!timestamp) return ''
 
   const now = Math.floor(Date.now() / 1000)
   const diff = now - timestamp
 
   // Меньше минуты
   if (diff < 60) {
-    return 'только что'
+    return language === 'ru' ? 'только что' : 'just now'
   }
 
   // Меньше часа
   if (diff < 3600) {
     const minutes = Math.floor(diff / 60)
-    return `${minutes} ${getMinutesForm(minutes)} назад`
+    if (language === 'ru') {
+      return `${minutes} ${getMinutesForm(minutes)} назад`
+    } else {
+      return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`
+    }
   }
 
   // Меньше суток
   if (diff < 86400) {
     const hours = Math.floor(diff / 3600)
-    return `${hours} ${getHoursForm(hours)} назад`
+    if (language === 'ru') {
+      return `${hours} ${getHoursForm(hours)} назад`
+    } else {
+      return `${hours} hour${hours !== 1 ? 's' : ''} ago`
+    }
   }
 
   // Меньше 30 дней
   if (diff < 2592000) {
     const days = Math.floor(diff / 86400)
-    return `${days} ${getDaysForm(days)} назад`
+    if (language === 'ru') {
+      return `${days} ${getDaysForm(days)} назад`
+    } else {
+      return `${days} day${days !== 1 ? 's' : ''} ago`
+    }
   }
 
   // Меньше года
   if (diff < 31536000) {
     const months = Math.floor(diff / 2592000)
-    return `${months} ${getMonthsForm(months)} назад`
+    if (language === 'ru') {
+      return `${months} ${getMonthsForm(months)} назад`
+    } else {
+      return `${months} month${months !== 1 ? 's' : ''} ago`
+    }
   }
 
   // Больше года
   const years = Math.floor(diff / 31536000)
-  return `${years} ${getYearsForm(years)} назад`
+  if (language === 'ru') {
+    return `${years} ${getYearsForm(years)} назад`
+  } else {
+    return `${years} year${years !== 1 ? 's' : ''} ago`
+  }
+}
+
+/**
+ * Реактивная версия форматирования даты, которая автоматически обновляется при смене языка
+ * @param timestamp - Временная метка
+ * @returns Реактивный сигнал с форматированной строкой
+ */
+export function formatDateRelative(timestamp?: number) {
+  const { language } = useI18n()
+  return createMemo(() => formatDateRelativeStatic(timestamp, language()))
 }
 
 /**

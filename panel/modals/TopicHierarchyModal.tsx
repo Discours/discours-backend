@@ -1,4 +1,4 @@
-import { Component, createSignal, For, JSX, Show } from 'solid-js'
+import { createSignal, For, JSX, Show } from 'solid-js'
 import styles from '../styles/Form.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
@@ -262,7 +262,13 @@ const TopicHierarchyModal = (props: TopicHierarchyModalProps) => {
                   'background-color': isSelected ? '#e3f2fd' : isTarget ? '#d4edda' : 'transparent'
                 }}
               >
-                <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    'align-items': 'center',
+                    gap: '8px'
+                  }}
+                >
                   <Show when={hasChildren}>
                     <button
                       onClick={(e) => {

@@ -17,6 +17,7 @@ from starlette.types import ASGIApp
 from auth.credentials import AuthCredentials
 from auth.orm import Author
 from auth.tokens.storage import TokenStorage as TokenManager
+from orm.community import CommunityAuthor
 from services.db import local_session
 from settings import (
     ADMIN_EMAILS as ADMIN_EMAILS_LIST,
@@ -117,10 +118,14 @@ class AuthMiddleware:
                         ), UnauthenticatedUser()
 
                     # Получаем разрешения из ролей
-                    scopes = author.get_permissions()
+                    scopes = await author.get_permissions()
 
                     # Получаем роли для пользователя
-                    roles = [role.id for role in author.roles] if author.roles else []
+                    ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
+                    if ca:
+                        roles = ca.role_list
+                    else:
+                        roles = []
 
                     # Обновляем last_seen
                     author.last_seen = int(time.time())

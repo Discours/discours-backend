@@ -1,3 +1,4 @@
+from math import ceil
 from typing import Any, Optional
 
 from graphql import GraphQLResolveInfo
@@ -69,22 +70,41 @@ async def get_topics_with_stats(
             - 'comments' - по количеству комментариев
 
     Returns:
-        list: Список тем с их статистикой, отсортированный по популярности
+        dict: Объект с пагинированным списком тем и метаданными пагинации
     """
+    # Нормализуем параметры
+    limit = max(1, min(100, limit or 10))  # Ограничиваем количество записей от 1 до 100
+    offset = max(0, offset or 0)  # Смещение не может быть отрицательным
+
     # Формируем ключ кеша с помощью универсальной функции
     cache_key = f"topics:stats:limit={limit}:offset={offset}:community_id={community_id}:by={by}"
 
     # Функция для получения тем из БД
-    async def fetch_topics_with_stats() -> list[dict]:
+    async def fetch_topics_with_stats() -> dict[str, Any]:
         logger.debug(f"Выполняем запрос на получение тем со статистикой: limit={limit}, offset={offset}, by={by}")
 
         with local_session() as session:
+            # Базовый запрос для получения общего количества
+            total_query = select(func.count(Topic.id))
+
             # Базовый запрос для получения тем
             base_query = select(Topic)
 
             # Добавляем фильтр по сообществу, если указан
             if community_id:
+                total_query = total_query.where(Topic.community == community_id)
                 base_query = base_query.where(Topic.community == community_id)
+
+            # Получаем общее количество записей
+            total_count = session.execute(total_query).scalar()
+
+            # Вычисляем информацию о пагинации
+            per_page = limit
+            if total_count is None or per_page in (None, 0):
+                total_pages = 1
+            else:
+                total_pages = ceil(total_count / per_page)
+            current_page = (offset // per_page) + 1 if per_page > 0 else 1
 
             # Применяем сортировку на основе параметра by
             if by:
@@ -190,7 +210,13 @@ async def get_topics_with_stats(
             topic_ids = [topic.id for topic in topics]
 
             if not topic_ids:
-                return []
+                return {
+                    "topics": [],
+                    "total": total_count,
+                    "page": current_page,
+                    "perPage": per_page,
+                    "totalPages": total_pages,
+                }
 
             # Исправляю S608 - используем параметризированные запросы
             if topic_ids:
@@ -241,7 +267,7 @@ async def get_topics_with_stats(
                 comments_stats = {row[0]: row[1] for row in session.execute(text(comments_stats_query), params)}
 
             # Формируем результат с добавлением статистики
-            result = []
+            result_topics = []
             for topic in topics:
                 topic_dict = topic.dict()
                 topic_dict["stat"] = {
@@ -250,12 +276,18 @@ async def get_topics_with_stats(
                     "authors": authors_stats.get(topic.id, 0),
                     "comments": comments_stats.get(topic.id, 0),
                 }
-                result.append(topic_dict)
+                result_topics.append(topic_dict)
 
                 # Кешируем каждую тему отдельно для использования в других функциях
                 await cache_topic(topic_dict)
 
-            return result
+            return {
+                "topics": result_topics,
+                "total": total_count,
+                "page": current_page,
+                "perPage": per_page,
+                "totalPages": total_pages,
+            }
 
     # Используем универсальную функцию для кеширования запросов
     return await cached_query(cache_key, fetch_topics_with_stats)
@@ -760,8 +792,10 @@ async def set_topic_parent(
                 if potential_parent.id == child_id:
                     return True
 
-                # Ищем всех потомков parent'а
-                descendants = session.query(Topic).filter(Topic.parent_ids.op("@>")([potential_parent.id])).all()
+                # Ищем всех потомков parent'а (совместимо с SQLite)
+                descendants = session.query(Topic).all()
+                # Фильтруем темы, у которых в parent_ids есть potential_parent.id
+                descendants = [d for d in descendants if d.parent_ids and potential_parent.id in d.parent_ids]
 
                 for descendant in descendants:
                     if descendant.id == child_id or is_descendant(descendant, child_id):

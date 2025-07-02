@@ -9,23 +9,36 @@ from services.db import BaseModel as Base
 class ReactionKind(Enumeration):
     # TYPE = <reaction index> # rating diff
 
-    # editor mode
+    # editor specials
     AGREE = "AGREE"  # +1
     DISAGREE = "DISAGREE"  # -1
-    ASK = "ASK"  # +0
-    PROPOSE = "PROPOSE"  # +0
+
+    # coauthor specials
+    ASK = "ASK"  # 0
+    PROPOSE = "PROPOSE"  # 0
+
+    # generic internal reactions
     ACCEPT = "ACCEPT"  # +1
     REJECT = "REJECT"  # -1
 
-    # expert mode
+    # experts speacials
     PROOF = "PROOF"  # +1
     DISPROOF = "DISPROOF"  # -1
 
-    # public feed
-    QUOTE = "QUOTE"  # +0 TODO: use to bookmark in collection
-    COMMENT = "COMMENT"  # +0
+    # comment and quote
+    QUOTE = "QUOTE"  # 0
+    COMMENT = "COMMENT"  # 0
+
+    # generic rating
     LIKE = "LIKE"  # +1
     DISLIKE = "DISLIKE"  # -1
+
+    # credit artist or researcher
+    CREDIT = "CREDIT"  # +1
+    SILENT = "SILENT"  # 0
+
+
+REACTION_KINDS = ReactionKind.__members__.keys()
 
 
 class Reaction(Base):

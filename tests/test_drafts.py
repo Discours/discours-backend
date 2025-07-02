@@ -1,22 +1,13 @@
 import pytest
 
-from auth.orm import Author, AuthorRole, Role
+from auth.orm import Author
+from orm.community import CommunityAuthor
 from orm.shout import Shout
 from resolvers.draft import create_draft, load_drafts
 
 
 def ensure_test_user_with_roles(db_session):
-    """Создает тестового пользователя с ID 1 и назначает ему роли"""
-    # Создаем роли если их нет
-    reader_role = db_session.query(Role).filter(Role.id == "reader").first()
-    if not reader_role:
-        reader_role = Role(id="reader", name="Читатель")
-        db_session.add(reader_role)
-
-    author_role = db_session.query(Role).filter(Role.id == "author").first()
-    if not author_role:
-        author_role = Role(id="author", name="Автор")
-        db_session.add(author_role)
+    """Создает тестового пользователя с ID 1 и назначает ему роли через CommunityAuthor"""
 
     # Создаем пользователя с ID 1 если его нет
     test_user = db_session.query(Author).filter(Author.id == 1).first()
@@ -26,15 +17,25 @@ def ensure_test_user_with_roles(db_session):
         db_session.add(test_user)
         db_session.flush()
 
-    # Удаляем старые роли и добавляем новые
-    db_session.query(AuthorRole).filter(AuthorRole.author == 1).delete()
+    # Удаляем старые роли
+    existing_community_author = (
+        db_session.query(CommunityAuthor)
+        .filter(CommunityAuthor.author_id == test_user.id, CommunityAuthor.community_id == 1)
+        .first()
+    )
 
-    # Добавляем роли
-    for role_id in ["reader", "author"]:
-        author_role_link = AuthorRole(community=1, author=1, role=role_id)
-        db_session.add(author_role_link)
+    if existing_community_author:
+        db_session.delete(existing_community_author)
 
+    # Создаем новую запись с ролями
+    community_author = CommunityAuthor(
+        community_id=1,
+        author_id=test_user.id,
+        roles="reader,author",  # CSV строка с ролями
+    )
+    db_session.add(community_author)
     db_session.commit()
+
     return test_user
 
 

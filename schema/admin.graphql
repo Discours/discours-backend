@@ -148,17 +148,96 @@ input AdminInviteIdInput {
 	shout_id: Int!
 }
 
+# Типы для управления ролями в сообществах
+type CommunityMember {
+	id: Int!
+	name: String
+	email: String
+	slug: String
+	roles: [String!]!
+}
+
+type CommunityMembersResponse {
+	members: [CommunityMember!]!
+	total: Int!
+	community_id: Int!
+}
+
+# Роли пользователя в сообществе
+type UserCommunityRoles {
+	author_id: Int!
+	community_id: Int!
+	roles: [String!]!
+}
+
+type RoleOperationResult {
+	success: Boolean!
+	error: String
+	author_id: Int
+	role_id: String
+	community_id: Int
+	roles: [String!]
+	removed: Boolean
+}
+
+# Результат обновления ролей пользователя в сообществе
+type CommunityRoleUpdateResult {
+	success: Boolean!
+	error: String
+	author_id: Int!
+	community_id: Int!
+	roles: [String!]!
+}
+
+type CommunityRoleSettings {
+	community_id: Int!
+	default_roles: [String!]!
+	available_roles: [String!]!
+	error: String
+}
+
+type CommunityRoleSettingsUpdateResult {
+	success: Boolean!
+	error: String
+	community_id: Int!
+	default_roles: [String!]
+	available_roles: [String!]
+}
+
+# Ввод для создания произвольной роли
+input CustomRoleInput {
+	id: String!
+	name: String!
+	description: String
+	icon: String
+	community_id: Int!
+}
+
+# Результат создания роли
+type CustomRoleResult {
+	success: Boolean!
+	error: String
+	role: Role
+}
+
 extend type Query {
 	getEnvVariables: [EnvSection!]!
 	# Запросы для управления пользователями
 	adminGetUsers(limit: Int, offset: Int, search: String): AdminUserListResponse!
-	adminGetRoles: [Role!]!
+	adminGetRoles(community: Int): [Role!]
+
+	# Запросы для управления ролями в сообществах
+	adminGetUserCommunityRoles(author_id: Int!, community_id: Int!): UserCommunityRoles!
+	adminGetCommunityMembers(community_id: Int!, limit: Int, offset: Int): CommunityMembersResponse!
+	adminGetCommunityRoleSettings(community_id: Int!): CommunityRoleSettings!
+
 	# Запросы для управления публикациями
 	adminGetShouts(
 		limit: Int
 		offset: Int
 		search: String
 		status: String
+		community: Int
 	): AdminShoutListResponse!
 	# Запросы для управления приглашениями
 	adminGetInvites(
@@ -170,17 +249,25 @@ extend type Query {
 }
 
 extend type Mutation {
-	updateEnvVariable(key: String!, value: String!): Boolean!
-	updateEnvVariables(variables: [EnvVariableInput!]!): Boolean!
-
-	# Мутации для управления пользователями
+	# Admin mutations для управления переменными окружения
+	updateEnvVariable(variable: EnvVariableInput!): OperationResult!
+	updateEnvVariables(variables: [EnvVariableInput!]!): OperationResult!
+	# Admin mutations для управления пользователями
 	adminUpdateUser(user: AdminUserUpdateInput!): OperationResult!
-	# Мутации для управления публикациями
+	adminDeleteUser(id: Int!): OperationResult!
+
+	# Mutations для управления ролями в сообществах
+	adminUpdateUserCommunityRoles(
+		author_id: Int!,
+		community_id: Int!,
+		roles: [String!]!
+	): CommunityRoleUpdateResult!
+
+	# Admin mutations для управления публикациями
 	adminUpdateShout(shout: AdminShoutUpdateInput!): OperationResult!
 	adminDeleteShout(id: Int!): OperationResult!
 	adminRestoreShout(id: Int!): OperationResult!
-	# Мутации для управления приглашениями
-	adminCreateInvite(invite: AdminInviteUpdateInput!): OperationResult!
+	# Admin mutations для управления приглашениями
 	adminUpdateInvite(invite: AdminInviteUpdateInput!): OperationResult!
 	adminDeleteInvite(
 		inviter_id: Int!
@@ -188,4 +275,16 @@ extend type Mutation {
 		shout_id: Int!
 	): OperationResult!
 	adminDeleteInvitesBatch(invites: [AdminInviteIdInput!]!): OperationResult!
+
+	# Управление ролями пользователей в сообществах
+	adminSetUserCommunityRoles(author_id: Int!, community_id: Int!, roles: [String!]!): RoleOperationResult!
+	adminAddUserToRole(author_id: Int!, role_id: String!, community_id: Int!): RoleOperationResult!
+	adminRemoveUserFromRole(author_id: Int!, role_id: String!, community_id: Int!): RoleOperationResult!
+
+	# Управление настройками ролей сообщества
+	adminUpdateCommunityRoleSettings(community_id: Int!, default_roles: [String!]!, available_roles: [String!]!): CommunityRoleSettingsUpdateResult!
+
+	# Создание и удаление произвольных ролей
+	adminCreateCustomRole(role: CustomRoleInput!): CustomRoleResult!
+	adminDeleteCustomRole(role_id: String!, community_id: Int!): OperationResult!
 }
