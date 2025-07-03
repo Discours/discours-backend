@@ -2,14 +2,19 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/v0.7.5-lightgrey)
+![Version](https://img.shields.io/badge/v0.7.7-lightgrey)
 ![Python](https://img.shields.io/badge/python%203.12+-gold?logo=python&logoColor=black)
 ![GraphQL](https://img.shields.io/badge/graphql%20api-pink?logo=graphql&logoColor=black)
 ![Tests](https://img.shields.io/badge/tests%2090%25-lightcyan?logo=pytest&logoColor=black)
-![SolidJS](https://img.shields.io/badge/solidjs-blue?logo=solid&logoColor=black)
+![SolidJS](https://img.shields.io/badge/solidjs%201.9.1-blue?logo=solid&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/postgresql-lightblue?logo=postgresql&logoColor=black)
-![Redis](https://img.shields.io/badge/redis-salmon?logo=redis&logoColor=black)
+![Redis](https://img.shields.io/badge/redis%207.0.15-salmon?logo=redis&logoColor=black)
 ![txtai](https://img.shields.io/badge/txtai-lavender?logo=elasticsearch&logoColor=black)
+![TypeScript](https://img.shields.io/badge/typescript%205.7.2-blue?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/vite%205.4.11-purple?logo=vite&logoColor=white)
+![Ariadne](https://img.shields.io/badge/ariadne%200.23.0-green?logo=python&logoColor=white)
+![Granian](https://img.shields.io/badge/granian%201.8.0-orange?logo=python&logoColor=white)
+![Biome](https://img.shields.io/badge/biome%202.0.6-yellow?logo=code&logoColor=black)
 
 </div>
 
@@ -17,15 +22,11 @@ Backend service providing GraphQL API for content management system with reactio
 
 ## 📚 Documentation
 
- • [API Documentation](docs/api.md)
- • [Authentication Guide](docs/auth.md)
- • [Caching System](docs/redis-schema.md)
- • [Features Overview](docs/features.md)
-
-![API](https://img.shields.io/badge/api-docs-lightblue?logo=swagger&logoColor=black)
-![Auth](https://img.shields.io/badge/auth-guide-lightcyan?logo=key&logoColor=black)
-![Cache](https://img.shields.io/badge/redis-schema-salmon?logo=redis&logoColor=black)
-![Features](https://img.shields.io/badge/features-overview-lavender?logo=list&logoColor=black)
+- [API Documentation](docs/api.md)
+- [Authentication Guide](docs/auth.md)
+- [Caching System](docs/redis-schema.md)
+- [Features Overview](docs/features.md)
+- [RBAC System](docs/rbac-system.md)
 
 ## 🚀 Core Features
 ### Shouts (Posts)
@@ -56,14 +57,15 @@ Backend service providing GraphQL API for content management system with reactio
 ## 🛠️ Tech Stack
 
 **Core:** Python 3.12 • GraphQL • PostgreSQL • SQLAlchemy • JWT • Redis • txtai
-**Server:** Starlette • Granian • Nginx
-**Tools:** Pytest • MyPy • Ruff
-**Deploy:** Dokku • Gitea • Glitchtip
+**Server:** Starlette • Granian 1.8.0 • Nginx
+**Frontend:** SolidJS 1.9.1 • TypeScript 5.7.2 • Vite 5.4.11
+**GraphQL:** Ariadne 0.23.0
+**Tools:** Pytest • MyPy • Biome 2.0.6
 
 ## 🔧 Development
 
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-lightcyan?logo=git&logoColor=black)
-![Ruff](https://img.shields.io/badge/ruff-gold?logo=ruff&logoColor=black)
+![Biome](https://img.shields.io/badge/biome%202.0.6-yellow?logo=code&logoColor=black)
 ![Mypy](https://img.shields.io/badge/mypy-lavender?logo=python&logoColor=black)
 
 ### 📦 Prepare environment:
@@ -92,11 +94,14 @@ python -m granian main:app --interface asgi
 ### ⚡ Useful Commands
 
 ```shell
-# Linting and import sorting
-ruff check . --fix --select I
+# Linting and formatting with Biome
+biome check . --write
 
-# Code formatting
-ruff format . --line-length=120
+# Lint only
+biome lint .
+
+# Format only
+biome format . --write
 
 # Run tests
 pytest
@@ -114,7 +119,7 @@ python -m granian main:app --interface asgi
 ![Types](https://img.shields.io/badge/typed-pink?logo=python&logoColor=black)
 ![Docs](https://img.shields.io/badge/documented-lightcyan?logo=markdown&logoColor=black)
 
-**Ruff** for linting • **120 char** lines • **Type hints** required • **Docstrings** for public methods
+**Biome 2.0.6** for linting and formatting • **120 char** lines • **Type hints** required • **Docstrings** for public methods
 
 ### 🔍 GraphQL Development
 
