@@ -8,12 +8,12 @@
 ![Tests](https://img.shields.io/badge/tests%2090%25-lightcyan?logo=pytest&logoColor=black)
 ![SolidJS](https://img.shields.io/badge/solidjs%201.9.1-blue?logo=solid&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/postgresql-lightblue?logo=postgresql&logoColor=black)
-![Redis](https://img.shields.io/badge/redis%207.0.15-salmon?logo=redis&logoColor=black)
+![Redis](https://img.shields.io/badge/redis%206.2.0-salmon?logo=redis&logoColor=black)
 ![txtai](https://img.shields.io/badge/txtai-lavender?logo=elasticsearch&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/typescript%205.7.2-blue?logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/vite%205.4.11-purple?logo=vite&logoColor=white)
+![Vite](https://img.shields.io/badge/vite%207.0.0-purple?logo=vite&logoColor=white)
 ![Ariadne](https://img.shields.io/badge/ariadne%200.23.0-green?logo=python&logoColor=white)
-![Granian](https://img.shields.io/badge/granian%201.8.0-orange?logo=python&logoColor=white)
+![Granian](https://img.shields.io/badge/granian%202.4.1-orange?logo=python&logoColor=white)
 ![Biome](https://img.shields.io/badge/biome%202.0.6-yellow?logo=code&logoColor=black)
 
 </div>
