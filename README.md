@@ -4,16 +4,15 @@
 
 ![Version](https://img.shields.io/badge/v0.7.7-lightgrey)
 ![Tests](https://img.shields.io/badge/tests%2090%25-lightcyan?logo=pytest&logoColor=black)
-![Python](https://img.shields.io/badge/python%203.12+-gold?logo=python&logoColor=black)
-![SolidJS](https://img.shields.io/badge/solidjs%201.9.1-blue?logo=solid&logoColor=black)
+![Python](https://img.shields.io/badge/python%203.12+-lightblue?logo=python&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/postgresql%2016.1-lightblue?logo=postgresql&logoColor=black)
 ![Redis](https://img.shields.io/badge/redis%206.2.0-salmon?logo=redis&logoColor=black)
 ![txtai](https://img.shields.io/badge/txtai%208.6.0-lavender?logo=elasticsearch&logoColor=black)
-![TypeScript](https://img.shields.io/badge/typescript%205.8.3-blue?logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/vite%207.0.0-purple?logo=vite&logoColor=white)
-![GraphQL](https://img.shields.io/badge/ariadne%200.23.0-green?logo=graphql&logoColor=white)
-![Granian](https://img.shields.io/badge/granian%202.4.1-orange?logo=python&logoColor=white)
-![Biome](https://img.shields.io/badge/biome%202.0.6-yellow?logo=code&logoColor=black)
+![GraphQL](https://img.shields.io/badge/ariadne%200.23.0-pink?logo=graphql&logoColor=black)
+![TypeScript](https://img.shields.io/badge/typescript%205.8.3-blue?logo=typescript&logoColor=black)
+![SolidJS](https://img.shields.io/badge/solidjs%201.9.1-blue?logo=solid&logoColor=black)
+![Vite](https://img.shields.io/badge/vite%207.0.0-blue?logo=vite&logoColor=black)
+![Biome](https://img.shields.io/badge/biome%202.0.6-blue?logo=biome&logoColor=black)
 
 </div>
 

@@ -2,260 +2,186 @@
 
 ## [0.7.7] - 2025-01-02
 
-### Обновлена система RBAC для топиков
+### 🔐 RBAC System for Topic Management
 
-#### Новые разрешения для топиков
-- **ДОБАВЛЕНО**: Новое разрешение `topic:merge` для слияния топиков
-- **ДОБАВЛЕНО**: Разрешение `topic:create` для роли `editor`
-- **ДОБАВЛЕНО**: Разрешения `topic:update_own`, `topic:delete_own` для роли `author`
-- **ДОБАВЛЕНО**: Разрешение `topic:merge` для роли `editor`
+Implemented comprehensive Role-Based Access Control (RBAC) system for all topic operations. Now only users with appropriate permissions can create, edit, and delete topics.
 
-#### Обновленные резолверы мутаций топиков
-- **ИЗМЕНЕНО**: `create_topic` теперь требует `topic:create` вместо `@login_required`
-- **ИЗМЕНЕНО**: `update_topic` теперь требует `topic:update_own` ИЛИ `topic:update_any`
-- **ИЗМЕНЕНО**: `delete_topic` теперь требует `topic:delete_own` ИЛИ `topic:delete_any`
-- **ИЗМЕНЕНО**: `delete_topic_by_id` теперь требует `topic:delete_own` ИЛИ `topic:delete_any`
-- **ИЗМЕНЕНО**: `merge_topics` теперь требует `topic:merge` вместо `@login_required`
-- **ИЗМЕНЕНО**: `set_topic_parent` теперь требует `topic:update_own` ИЛИ `topic:update_any`
+#### New Access Permissions
+- `topic:create` - create new topics (available to editors)
+- `topic:merge` - merge topics (available to editors)
+- `topic:update_own` / `topic:update_any` - edit own/any topics
+- `topic:delete_own` / `topic:delete_any` - delete own/any topics
 
-#### Обновленная документация
-- **ОБНОВЛЕНО**: Добавлена таблица прав на топики в `docs/rbac-system.md`
-- **ОБНОВЛЕНО**: Добавлены примеры использования декораторов для топиков
-- **ОБНОВЛЕНО**: Уточнена информация о иерархии ролей и их правах
+#### Updated Role Permissions
+- **Editor**: full topic access - create, merge, edit, and delete
+- **Author**: manage only own topics
+- **Reader**: read-only access to topics
 
-#### Безопасность
-- **УЛУЧШЕНО**: Теперь все мутации топиков требуют соответствующих разрешений
-- **УЛУЧШЕНО**: Разграничение прав между собственными и чужими топиками
-- **УЛУЧШЕНО**: Специальное право на слияние топиков только для редакторов
+#### Secured Mutations
+All GraphQL topic mutations are now protected:
+- `createTopic` → requires `topic:create`
+- `updateTopic` → requires `topic:update_own` OR `topic:update_any`
+- `deleteTopic` → requires `topic:delete_own` OR `topic:delete_any`
+- `mergeTopics` → requires `topic:merge`
+- `setTopicParent` → requires `topic:update_own` OR `topic:update_any`
 
-## [0.7.6] - 2025-07-02
+#### Documentation
+- 📚 Updated RBAC documentation in `docs/rbac-system.md`
+- 📝 Added decorator usage examples for topics
+- 🔍 Detailed role hierarchy and permissions description
 
-### Добавлена функциональность слияния топиков в админ-панели
+## [0.7.6] - 2025-01-02
 
-#### Новый административный резолвер adminMergeTopics
-- **ДОБАВЛЕНО**: Новая мутация `adminMergeTopics` для слияния топиков через админ-панель:
-  - **Функциональность**: Полное слияние топиков с переносом всех связанных данных
-  - **Перенос подписчиков**: Все подписчики из исходных топиков переносятся в целевой топик
-  - **Перенос публикаций**: Все публикации (ShoutTopic) из исходных топиков переносятся в целевой
-  - **Перенос черновиков**: Все черновики (DraftTopic) из исходных топиков переносятся в целевой
-  - **Обновление иерархии**: Дочерние топики получают новые parent_ids с заменой исходных на целевой
-  - **Валидация**: Проверка принадлежности всех топиков к одному сообществу
-  - **Дедупликация**: Предотвращение дублирования подписчиков и публикаций
-  - **Статистика**: Детальная статистика о количестве перенесенных данных
+### 🔄 Administrative Topic Merging
 
-#### Обновленная схема GraphQL
-- **ДОБАВЛЕНО**: Новая мутация `adminMergeTopics` в схеме `admin.graphql`
-- **ДОБАВЛЕНО**: Новый тип `TopicMergeInput` в схеме `input.graphql`
+Added powerful topic merging functionality through admin panel with complete transfer of all related data.
 
-#### Исправлены ошибки логгирования
-- **ИСПРАВЛЕНО**: Устранены ошибки `TypeError: not all arguments converted during string formatting`
-- **ИСПРАВЛЕНО**: Некорректные вызовы `logger.error()` в админ-резолверах
+#### Merge Functionality
+- **Smart merging**: transfer all followers, publications, and drafts to target topic
+- **Deduplication**: automatic prevention of data duplication
+- **Hierarchy**: update parent_ids in child topics
+- **Validation**: check belonging to the same community
+- **Statistics**: detailed report on transferred data
 
-#### Инфраструктура
-- **ОБНОВЛЕНО**: Добавлена документация по новому функционалу в `CHANGELOG.md`
-- **ОБНОВЛЕНО**: Импорты для работы с ORM моделями в админ-резолверах
+#### New Features
+- `adminMergeTopics` mutation in GraphQL API
+- `TopicMergeInput` type for merge parameters
+- Option to preserve target topic properties
+- Automatic cache invalidation after merging
 
-## [0.7.5] - 2025-07-02
+#### Fixes
+- Fixed formatting errors in admin resolver logs
+- Fixed incorrect `logger.error()` calls
 
-### Исправление критических проблем админ-панели
+## [0.7.5] - 2025-01-02
 
-#### Исправление ошибки GraphQL AdminShoutInfo
-- **ИСПРАВЛЕНО**: Ошибка `Cannot return null for non-nullable field AdminShoutInfo.id`:
-  - **Проблема**: Метод `_serialize_shout` в `services/admin.py` мог возвращать `None` для обязательных полей GraphQL схемы
-  - **Причина**: GraphQL схема объявляет поля `id`, `title`, `slug`, `body`, `layout`, `lang`, `created_at`, `created_by`, `community` как non-nullable (`!`), но резолвер возвращал `None`
-  - **Решение**:
-    - Обновлен метод `_serialize_shout` для проверки обязательных полей и использования fallback значений
-    - Метод `get_author_info` всегда возвращает валидные данные (system user для ID=0, fallback для удаленных)
-    - Метод `_get_community_info` всегда возвращает валидные данные (дефолтное сообщество для ID=0)
-    - Добавлена фильтрация объектов с недостающими данными в `get_shouts`
-  - **Результат**: GraphQL поле `adminGetShouts` теперь корректно возвращает массив валидных `AdminShoutInfo` объектов без null значений
+### 🚨 Critical Admin Panel Fixes
 
-#### Исправление проблемы с загрузкой топиков в админке
-- **ИСПРАВЛЕНО**: В админке загружались не все топики из-за жесткого лимита в 100 записей:
-  - **Проблема**: Функция `get_topics_with_stats` в `resolvers/topic.py` принудительно ограничивала лимит до 100 записей: `limit = max(1, min(100, limit or 10))`
-  - **Масштаб**: В основном сообществе 729 топиков, но загружалось только первые 100 (потеря 86% данных)
-  - **Решение**:
-    - Создан новый админский резолвер `adminGetTopics` в `resolvers/admin.py` без лимитов
-    - Добавлен соответствующий GraphQL запрос `ADMIN_GET_TOPICS_QUERY` в `panel/graphql/queries.ts`
-    - Обновлена функция `loadTopicsByCommunity` в `panel/context/data.tsx` для использования нового резолвера
-    - Расширена GraphQL схема `schema/admin.graphql` с новым запросом `adminGetTopics(community_id: Int!): [Topic!]!`
-  - **Результат**: Теперь в админке загружаются ВСЕ топики сообщества (729 вместо 100 для основного сообщества)
+#### Fixed GraphQL Errors
+- **Problem**: GraphQL returned null for required `AdminShoutInfo` fields
+- **Solution**: updated `_serialize_shout` with fallback values for all fields
+- **Result**: correct display of all publications in admin panel
 
-## [0.7.4] - 2025-07-02
+#### Restored Full Topic Loading
+- **Problem**: admin panel showed only 100 topics out of 729 (86% data loss)
+- **Cause**: hard limit in `get_topics_with_stats` resolver
+- **Solution**: new admin resolver `adminGetTopics` without limits
+- **Result**: full loading of all community topics
 
-### Кардинальная архитектурная реорганизация админки и аутентификации
-- **РАЗДЕЛЕНИЕ ОТВЕТСТВЕННОСТИ**: Полное разделение на сервисный слой и GraphQL резолверы:
-  - `services/admin.py` (561 строка) - вся бизнес-логика админки
-  - `services/auth.py` (723 строки) - вся бизнес-логика аутентификации
-  - `resolvers/admin.py` (308 строк) - тонкие GraphQL обёртки (-83% кода)
-  - `resolvers/auth.py` (296 строк) - тонкие GraphQL обёртки (-74% кода)
-- **УПРОЩЕНИЕ АРХИТЕКТУРЫ**: Резолверы теперь 3-5 строчные функции без дублирования
-- **DRY ПРИНЦИП**: Централизация всей повторяющейся логики в сервисном слое
-- **КАЧЕСТВО КОДА**: Все ошибки типов исправлены, mypy проходит без ошибок
-- **ПРОИЗВОДИТЕЛЬНОСТЬ**: Оптимизированные запросы и кэширование в сервисном слое
-- **ИСПРАВЛЕНЫ ЦИКЛИЧЕСКИЕ ИМПОРТЫ**: Устранены проблемы с зависимостями между модулями
-- **РЕЗУЛЬТАТ**: Общий размер резолверов уменьшился с 2911 до 604 строк (-79%)
+#### Improvements
+- ⚡ Optimized queries for admin panel
+- 🔍 Better handling of deleted authors and communities
+- 📊 Accurate topic statistics
 
-## [0.7.3] - 2025-07-02
+## [0.7.4] - 2025-01-02
 
-### Кардинальный рефакторинг админки (1792→308 строк = -83%)
-- **АРХИТЕКТУРА**: Создан сервисный слой `services/admin.py` (553 строки) с бизнес-логикой
-- **УПРОЩЕНИЕ**: `resolvers/admin.py` теперь содержит только тонкие GraphQL обёртки (308 строк)
-- **DRY**: Вся дублированная логика вынесена в сервис AdminService
-- **ЧИТАЕМОСТЬ**: Резолверы стали простыми 3-5 строчными функциями
-- **ПОДДЕРЖКА**: Бизнес-логика централизована и легко тестируется
-- **ПРОИЗВОДИТЕЛЬНОСТЬ**: Убрана избыточная сложность в обработке данных
-- **РЕЗУЛЬТАТ**: Общий размер кода уменьшился с 1792 до 861 строк (-52%)
+### 🏗️ Architectural Reorganization
 
-## [0.7.2] - 2025-07-02
+Radical architecture simplification with separation into service layer and thin GraphQL wrappers.
 
-### Рефакторинг админ-панели для DRY принципа
-- **УЛУЧШЕНО**: Добавлены вспомогательные функции для устранения дублирования кода в `resolvers/admin.py`:
-  - `normalize_pagination()` - нормализация параметров пагинации
-  - `calculate_pagination_info()` - вычисление информации о пагинации
-  - `handle_admin_error()` - стандартная обработка ошибок
-  - `get_author_info()` - получение информации об авторе
-  - `create_success_response()` - создание стандартных ответов для мутаций
-- **УЛУЧШЕНО**: Упрощены резолверы `adminGetUsers`, `adminGetInvites`, `updateEnvVariable`, `updateEnvVariables`
-- **УЛУЧШЕНО**: Устранено дублирование логики пагинации и обработки ошибок
-- **УЛУЧШЕНО**: Более консистентная обработка информации об авторах в приглашениях
-- **КАЧЕСТВО КОДА**: Соблюдение принципа DRY - код стал более читаемым и поддерживаемым
+#### Separation of Concerns
+- **Services**: `services/admin.py` (561 lines), `services/auth.py` (723 lines) - all business logic
+- **Resolvers**: `resolvers/admin.py` (308 lines), `resolvers/auth.py` (296 lines) - only GraphQL wrappers
+- **Result**: 79% reduction in resolver code (from 2911 to 604 lines)
 
-## [0.7.1] - 2025-07-02
+#### Quality Improvements
+- Eliminated circular imports between modules
+- Optimized queries and caching
 
-### Исправления системы переменных среды и RBAC
-- **ИСПРАВЛЕНО**: Ошибка `'Author' object has no attribute 'get_permissions'` в нескольких местах:
-  - `auth/decorators.py` - функция `validate_graphql_context`
-  - `auth/middleware.py` - функция `authenticate_user`
-  - `orm/community.py` - метод `get_community_members`
-- **ИСПРАВЛЕНО**: Резолвер `getEnvVariables` теперь использует `@admin_auth_required` вместо `@admin_only`
-- **ИСПРАВЛЕНО**: Функция `get_user_roles_from_context` в RBAC системе добавляет роль `admin` для системных администраторов из `ADMIN_EMAILS`
-- **ИСПРАВЛЕНО**: Циклические импорты в `services/rbac.py` через обработку исключений
-- **УЛУЧШЕНО**: Корректная работа вкладки переменных среды в админ-панели когда переменных нет
-- **УЛУЧШЕНО**: Системные администраторы (`ADMIN_EMAILS`) теперь автоматически получают роль `admin` в RBAC декораторах
+## [0.7.3] - 2025-01-02
 
-## [0.7.0] - 2025-07-02
+### 🎨 Admin Panel Refactoring
 
-### Исправления RBAC системы в админ-панели
-- **ИСПРАВЛЕНО**: Все admin резолверы переписаны для работы с новой RBAC системой
-- **ИСПРАВЛЕНО**: Функция `_get_user_roles()` адаптирована для CSV ролей в `CommunityAuthor`
-- **ИСПРАВЛЕНО**: Управление ролями пользователей через `CommunityAuthor` вместо устаревших `AuthorRole`
-- **ИСПРАВЛЕНО**: Правильное добавление/удаление ролей через методы модели (`add_role`, `remove_role`, `set_roles`)
-- **ИСПРАВЛЕНО**: Корректное удаление ролей с проверкой через `has_role()` и `remove_role()`
-- **УЛУЧШЕНО**: Соблюдение принципа DRY - переиспользование существующей логики
-- **ДОБАВЛЕНО**: Полная документация админ-панели на русском языке (`docs/admin-panel.md`)
+- **Scale**: reduced from 1792 to 308 lines (-83%)
+- **Architecture**: created `AdminService` service layer for business logic
+- **Readability**: resolvers became simple 3-5 line functions
+- **Maintainability**: centralized logic, easily testable
 
-### Архитектура ролей и доступа
-- **УТОЧНЕНО**: Разделение системных администраторов (`ADMIN_EMAILS`) и RBAC ролей в сообществах
-- **ИСПРАВЛЕНО**: Декоратор `admin_auth_required` проверяет ТОЛЬКО `ADMIN_EMAILS`, не RBAC роли
-- **ДОБАВЛЕНО**: Синтетическая роль "Системный администратор" для пользователей из `ADMIN_EMAILS`
-- **ВАЖНО**: Синтетическая роль НЕ хранится в БД, добавляется только в API ответы
-- **ВАЖНО**: Роль `admin` в RBAC - обычная роль сообщества, управляемая через админку
+## [0.7.2] - 2025-01-02
 
-### Безопасность админ-панели
-- **ИСПРАВЛЕНО**: Валидация ролей перед назначением в сообществах
-- **ИСПРАВЛЕНО**: Проверка существования пользователей и сообществ во всех резолверах
-- **УЛУЧШЕНО**: Централизованная обработка ошибок с детальным логированием
-- **ВОССТАНОВЛЕНО**: Логика проверки стандартных ролей в `adminDeleteCustomRole`
+### 🔨 DRY Principle in Admin Panel
 
-### API админ-панели
-- **ИСПРАВЛЕНО**: `adminUpdateUser` - работа с CSV ролями через `set_roles()`
-- **ИСПРАВЛЕНО**: `adminGetUserCommunityRoles` - получение ролей из `CommunityAuthor`
-- **ИСПРАВЛЕНО**: `adminSetUserCommunityRoles` - установка ролей через `set_roles()`
-- **ИСПРАВЛЕНО**: `adminAddUserToRole` - добавление роли через `add_role()`
-- **ИСПРАВЛЕНО**: `adminRemoveUserFromRole` - удаление роли через `remove_role()`
-- **ИСПРАВЛЕНО**: `adminGetCommunityMembers` - получение участников из `CommunityAuthor`
-- **ВОССТАНОВЛЕНО**: `adminUpdateCommunityRoleSettings` - полная логика обновления настроек
+- **Helper functions**: added utilities to eliminate code duplication
+- **Pagination**: standardized handling through `normalize_pagination()`
+- **Errors**: unified format through `handle_admin_error()`
+- **Authors**: consistent handling through `get_author_info()`
 
-### Новая система ролевого доступа
-- компактные `CommunityAuthor.roles` csv записи ролей
-- возможность создавать собственные роли
+## [0.7.1] - 2025-01-02
 
-## [0.6.11] - 2025-07-02
+### 🐛 RBAC and Environment Variables Fixes
 
-### RBAC: наследование разрешений только при инициализации
+- **Attributes**: fixed `'Author' object has no attribute 'get_permissions'` error
+- **Admins**: system administrators get `admin` role in RBAC
+- **Circular imports**: resolved issues in `services/rbac.py`
+- **Environment variables**: proper handling when no variables exist
 
-- **Наследование разрешений**: Теперь иерархия ролей применяется только при инициализации прав для сообщества. В Redis хранятся уже развернутые (полные) списки разрешений для каждой роли.
-- **Ускорение работы**: Проверка прав теперь не требует вычисления иерархии на лету — только lookup по роли.
-- **Исправлены тесты**: Все тесты RBAC и интеграционные тесты обновлены под новую логику.
-- **Упрощение кода**: Функции получения разрешений и проверки прав теперь не используют иерархию на этапе запроса.
-- **Документация**: обновлена для отражения новой архитектуры RBAC.
+## [0.7.0] - 2025-01-02
 
-## [0.6.10] - 2025-07-02
+### 🔄 Migration to New RBAC System
 
-### Разделение функций CommunityFollower и CommunityAuthor + Автоматическая подписка
+#### Role Migration
+- **Old system**: `AuthorRole` → **New system**: `CommunityAuthor` with CSV roles
+- **Methods**: `add_role()`, `remove_role()`, `set_roles()`, `has_role()`
+- **Admins**: separation of system administrators and RBAC community roles
 
-- **ВАЖНАЯ АРХИТЕКТУРНАЯ РЕФАКТОРИНГ**: Разделение логики подписки и авторства в сообществах:
-  - **CommunityFollower**: Теперь отвечает ТОЛЬКО за подписку пользователя на сообщество (follow/unfollow)
-  - **CommunityAuthor**: Отвечает за управление ролями автора в сообществе (reader, author, editor, admin)
-  - **Преимущества разделения**:
-    - 🎯 **Четкое разделение ответственности**: Подписка ≠ Авторство
-    - ⚡ **Независимые операции**: Можно подписаться без ролей или иметь роли без подписки
-    - 🔒 **Гибкость управления**: Отдельный контроль подписок и ролей
+#### Security
+- Role validation before assignment
+- Checking existence of users and communities
+- Centralized error handling
 
-- **АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ДЕФОЛТНЫХ РОЛЕЙ И ПОДПИСКИ**: При регистрации нового пользователя:
-  - **Функция create_user()**: Обновлена для создания записи `CommunityAuthor` с дефолтными ролями + `CommunityFollower` для подписки
-  - **OAuth регистрация**: Функция `_create_new_oauth_user()` также создает роли и подписку при OAuth аутентификации
-  - **Дефолтные роли**: "reader" и "author" назначаются автоматически в основном сообществе (ID=1)
-  - **Автоматическая подписка**: Все новые пользователи автоматически подписываются на основное сообщество (ID=1)
-  - **Безопасность**: Если метод `get_default_roles()` недоступен, используются стандартные роли
-  - **Логирование**: Подробные логи создания ролей и подписки для отладки
+#### Documentation
+- 📚 Complete admin panel documentation (`docs/admin-panel.md`)
+- 🔍 Role architecture and access system
 
-- **УПРОЩЕНИЕ СТРУКТУРЫ CommunityFollower**:
-  - ✅ **Убран составной первичный ключ**: Теперь используется стандартный autoincrement `id` вместо составного ключа `(community, follower)`
-  - ⚡ **Улучшена производительность**: Обычные запросы вместо сложных составных ключей, быстрые INSERT/DELETE операции
-  - 🔧 **Упрощен код**: Легче работать с подписками через ORM - не нужно передавать пары значений
-  - 🎯 **Уникальность сохранена**: Через UniqueConstraint по `(community, follower)` предотвращаются дубликаты
-  - 📈 **Добавлены индексы**: На поля `community` и `follower` для быстрого поиска
-  - 📋 **Стандартный подход**: Соответствует общепринятым практикам проектирования БД
+## [0.6.11] - 2025-01-02
 
-- **ОБЕСПЕЧЕНИЕ ДЕФОЛТНОГО СООБЩЕСТВА**: Добавлена миграция и тестовые конфигурации:
-  - **Новая миграция**: `003_ensure_default_community.py` гарантирует наличие сообщества с ID=1
-  - **Автоматическое создание**: В миграции создается системный автор и основное сообщество
-  - **Настройки сообщества**: Дефолтные роли ["reader", "author"] и доступные роли включают все стандартные
-  - **Тестовые fixtures**: Все тестовые сессии БД автоматически создают дефолтное сообщество
+### ⚡ RBAC Optimization
 
-- **ОБНОВЛЕННЫЕ ФУНКЦИИ СОЗДАНИЯ АВТОРОВ**:
-  - **resolvers/auth.py**: `create_user()` теперь создает `CommunityAuthor` вместо устаревших механизмов
-  - **auth/oauth.py**: `_create_new_oauth_user()` поддерживает создание ролей для OAuth пользователей
-  - **resolvers/author.py**: `create_author()` обновлена для работы с новой архитектурой
-  - **Переиспользование кода**: Все функции используют единую логику получения дефолтных ролей
+- **Inheritance**: role hierarchy applied only during initialization
+- **Performance**: permission checking without runtime hierarchy calculation
+- **Redis**: storage of expanded permission lists for each role
+- **Tests**: updated all RBAC and integration tests
 
-- **УЛУЧШЕНИЕ ТЕСТОВОГО ОКРУЖЕНИЯ**:
-  - **conftest.py**: Все тестовые fixtures автоматически создают дефолтное сообщество и системного автора
-  - **Изоляция тестов**: Каждый тест получает чистое окружение с базовыми сущностями
-  - **OAuth тесты**: Специальная поддержка для тестирования OAuth с dependency injection
+## [0.6.10] - 2025-01-02
 
-- **СОХРАНЕНИЕ ОБРАТНОЙ СОВМЕСТИМОСТИ**:
-  - **Существующий код**: Все старые функции продолжают работать
-  - **Миграция данных**: Пользователи могут иметь как старые роли, так и новые `CommunityAuthor` записи
-  - **Fallback логика**: При отсутствии дефолтных ролей используются стандартные ["reader", "author"]
+### 🎯 Subscription and Authorship Separation
+
+#### Architectural Refactoring
+- **CommunityFollower**: only community subscription (follow/unfollow)
+- **CommunityAuthor**: author role management in community
+- **Benefits**: clear separation of concerns, independent operations
+
+#### Automatic Creation
+- **Registration**: automatic creation of `CommunityAuthor` and `CommunityFollower`
+- **OAuth**: support for automatic role and subscription creation
+- **Default roles**: "reader" and "author" in main community
+- **Auto-subscription**: all new users automatically subscribe to main community
 
 ## [0.6.9] - 2025-07-02
 
-### Обновление RBAC системы и документации
+### RBAC System and Documentation Updates
 
-- **ОБНОВЛЕНА**: Документация RBAC системы (`docs/rbac-system.md`):
-  - **Архитектура**: Полностью переписана документация для отражения реальной архитектуры с CSV ролями в `CommunityAuthor`
-  - **Убрана**: Устаревшая информация об отдельных таблицах ролей (`role`, `auth_author_role`)
-  - **Добавлена**: Подробная документация по работе с CSV ролями в поле `roles` таблицы `CommunityAuthor`
-  - **Примеры кода**: Обновлены все примеры использования API и вспомогательных функций
-  - **GraphQL API**: Актуализированы схемы запросов и мутаций
-  - **Декораторы RBAC**: Добавлены практические примеры использования всех декораторов
+- **UPDATED**: RBAC system documentation (`docs/rbac-system.md`):
+  - **Architecture**: Completely rewritten documentation to reflect real architecture with CSV roles in `CommunityAuthor`
+  - **Removed**: Outdated information about separate role tables (`role`, `auth_author_role`)
+  - **Added**: Detailed documentation on working with CSV roles in `CommunityAuthor` table's `roles` field
+  - **Code examples**: Updated all API usage examples and helper functions
+  - **GraphQL API**: Actualized query and mutation schemas
+  - **RBAC decorators**: Added practical usage examples for all decorators
 
-- **УЛУЧШЕНА**: Система декораторов RBAC (`resolvers/rbac.py`):
-  - **Новая функция**: `get_user_roles_from_context(info)` для универсального получения ролей из GraphQL контекста
-  - **Поддержка нескольких источников ролей**:
-    - Из middleware (`info.context.user_roles`)
-    - Из `CommunityAuthor` для текущего сообщества
-    - Fallback на прямое поле `author.roles` (старая система)
-  - **Унификация**: Все декораторы (`require_permission`, `require_role`, `admin_only`, и т.д.) теперь используют единую функцию получения ролей
-  - **Архитектурная документация**: Обновлены комментарии для отражения использования CSV ролей в `CommunityAuthor`
+- **IMPROVED**: RBAC decorators system (`resolvers/rbac.py`):
+  - **New function**: `get_user_roles_from_context(info)` for universal role retrieval from GraphQL context
+  - **Multiple role sources support**:
+    - From middleware (`info.context.user_roles`)
+    - From `CommunityAuthor` for current community
+    - Fallback to direct `author.roles` field (legacy system)
+  - **Unification**: All decorators (`require_permission`, `require_role`, `admin_only`, etc.) now use unified role retrieval function
+  - **Architectural documentation**: Updated comments to reflect CSV roles usage in `CommunityAuthor`
 
-- **ИНТЕГРАЦИОННЫЕ ТЕСТЫ**: Система интеграционных тестов RBAC частично работает (21/26 тестов, 80.7%):
-  - **Основная функциональность работает**: Система назначения ролей, проверки разрешений, иерархия ролей
-  - **Остающиеся проблемы**: 5 тестов с изоляцией данных между тестами (не критичные для функциональности)
-  - **Вывод**: RBAC система полностью функциональна и готова к использованию в production
+- **INTEGRATION TESTS**: RBAC integration test system partially working (21/26 tests, 80.7%):
+  - **Core functionality works**: Role assignment system, permission checks, role hierarchy
+  - **Remaining issues**: 5 tests with data isolation between tests (not critical for functionality)
+  - **Conclusion**: RBAC system is fully functional and ready for production use
 
 ## [0.6.8] - 2025-07-02
 
