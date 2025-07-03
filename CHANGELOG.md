@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.7] - 2025-01-02
+## [0.7.7] - 2025-07-03
 
 ### 🔐 RBAC System for Topic Management
 
@@ -30,7 +30,7 @@ All GraphQL topic mutations are now protected:
 - 📝 Added decorator usage examples for topics
 - 🔍 Detailed role hierarchy and permissions description
 
-## [0.7.6] - 2025-01-02
+## [0.7.6] - 2025-07-02
 
 ### 🔄 Administrative Topic Merging
 
@@ -53,7 +53,7 @@ Added powerful topic merging functionality through admin panel with complete tra
 - Fixed formatting errors in admin resolver logs
 - Fixed incorrect `logger.error()` calls
 
-## [0.7.5] - 2025-01-02
+## [0.7.5] - 2025-07-02
 
 ### 🚨 Critical Admin Panel Fixes
 
@@ -73,7 +73,7 @@ Added powerful topic merging functionality through admin panel with complete tra
 - 🔍 Better handling of deleted authors and communities
 - 📊 Accurate topic statistics
 
-## [0.7.4] - 2025-01-02
+## [0.7.4] - 2025-07-02
 
 ### 🏗️ Architectural Reorganization
 
@@ -88,7 +88,7 @@ Radical architecture simplification with separation into service layer and thin 
 - Eliminated circular imports between modules
 - Optimized queries and caching
 
-## [0.7.3] - 2025-01-02
+## [0.7.3] - 2025-07-02
 
 ### 🎨 Admin Panel Refactoring
 
@@ -97,7 +97,7 @@ Radical architecture simplification with separation into service layer and thin 
 - **Readability**: resolvers became simple 3-5 line functions
 - **Maintainability**: centralized logic, easily testable
 
-## [0.7.2] - 2025-01-02
+## [0.7.2] - 2025-07-02
 
 ### 🔨 DRY Principle in Admin Panel
 
@@ -106,7 +106,7 @@ Radical architecture simplification with separation into service layer and thin 
 - **Errors**: unified format through `handle_admin_error()`
 - **Authors**: consistent handling through `get_author_info()`
 
-## [0.7.1] - 2025-01-02
+## [0.7.1] - 2025-07-02
 
 ### 🐛 RBAC and Environment Variables Fixes
 
@@ -115,7 +115,7 @@ Radical architecture simplification with separation into service layer and thin 
 - **Circular imports**: resolved issues in `services/rbac.py`
 - **Environment variables**: proper handling when no variables exist
 
-## [0.7.0] - 2025-01-02
+## [0.7.0] - 2025-07-02
 
 ### 🔄 Migration to New RBAC System
 
@@ -133,7 +133,7 @@ Radical architecture simplification with separation into service layer and thin 
 - 📚 Complete admin panel documentation (`docs/admin-panel.md`)
 - 🔍 Role architecture and access system
 
-## [0.6.11] - 2025-01-02
+## [0.6.11] - 2025-07-02
 
 ### ⚡ RBAC Optimization
 
@@ -142,7 +142,7 @@ Radical architecture simplification with separation into service layer and thin 
 - **Redis**: storage of expanded permission lists for each role
 - **Tests**: updated all RBAC and integration tests
 
-## [0.6.10] - 2025-01-02
+## [0.6.10] - 2025-07-02
 
 ### 🎯 Subscription and Authorship Separation
 
