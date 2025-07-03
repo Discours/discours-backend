@@ -118,11 +118,6 @@ const AutoTranslator = (props: { children: JSX.Element; language: () => Language
         'TH'
       ]
       if (textElements.includes(element.tagName)) {
-        // Более приоритетная обработка для кнопок
-        if (element.tagName === 'BUTTON') {
-          console.log(`👆 Проверка кнопки: "${element.textContent?.trim()}"`)
-        }
-
         // Ищем прямые текстовые узлы внутри элемента
         const directTextNodes = Array.from(element.childNodes).filter(
           (child) => child.nodeType === Node.TEXT_NODE && child.textContent?.trim()
@@ -147,9 +142,6 @@ const AutoTranslator = (props: { children: JSX.Element; language: () => Language
           // Если у кнопки нет прямых текстовых узлов, но есть вложенные элементы
           const buttonText = element.textContent?.trim()
           if (buttonText && CYRILLIC_REGEX.test(buttonText)) {
-            console.log(`🔍 Кнопка с вложенными элементами: "${buttonText}"`)
-
-            // Проверяем, есть ли у кнопки value атрибут
             const valueAttr = element.getAttribute('value')
             if (valueAttr && CYRILLIC_REGEX.test(valueAttr)) {
               const currentLang = props.language()

@@ -87,8 +87,10 @@
   "editor": [
     "shout:delete_any",
     "shout:update_any",
-    "topic:delete_any",
-    "topic:update_any",
+    "topic:create",
+    "topic:delete_own",
+    "topic:update_own",
+    "topic:merge",
     "reaction:delete_any:*",
     "reaction:update_any:*",
     "invite:delete_any",

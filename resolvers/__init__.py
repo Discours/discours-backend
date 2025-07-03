@@ -1,7 +1,9 @@
 from cache.triggers import events_register
 from resolvers.admin import (
+    admin_create_topic,
     admin_get_roles,
     admin_get_users,
+    admin_update_topic,
 )
 from resolvers.auth import (
     confirm_email,
@@ -81,9 +83,11 @@ from resolvers.topic import (
 events_register()
 
 __all__ = [
+    "admin_create_topic",
     "admin_get_roles",
     # admin
     "admin_get_users",
+    "admin_update_topic",
     "confirm_email",
     "create_draft",
     # reaction

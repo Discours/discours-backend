@@ -44,8 +44,8 @@
 
 .modal-large .content {
 	flex: 1;
-	overflow: hidden;
-	padding: 0;
+	overflow-y: auto;
+	padding: 1.5rem;
 }
 
 .header {

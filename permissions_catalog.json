@@ -1,6 +1,6 @@
 {
   "shout": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
-  "topic": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
+  "topic": ["create", "read", "update_own", "update_any", "delete_own", "delete_any", "merge"],
   "collection": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
   "bookmark": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],
   "invite": ["create", "read", "update_own", "update_any", "delete_own", "delete_any"],

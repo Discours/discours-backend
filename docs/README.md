@@ -18,6 +18,7 @@ python dev.py
 - [Архитектура](auth-architecture.md) - Диаграммы и схемы
 - [Миграция](auth-migration.md) - Переход на новую версию
 - [Безопасность](security.md) - Пароли, email, RBAC
+- [Система RBAC](rbac-system.md) - Роли, разрешения, топики
 - [OAuth](oauth.md) - Google, GitHub, Facebook, X, Telegram, VK, Yandex
 - [OAuth настройка](oauth-setup.md) - Инструкции по настройке OAuth провайдеров
 
@@ -52,7 +53,8 @@ python dev.py
 ### Авторизация
 - **Модульная архитектура**: SessionTokenManager, VerificationTokenManager, OAuthTokenManager
 - **OAuth провайдеры**: 7 поддерживаемых провайдеров с PKCE
-- **RBAC**: user/moderator/admin роли
+- **RBAC**: Система ролей reader/author/artist/expert/editor/admin с наследованием
+- **Права на топики**: Специальные разрешения для создания, редактирования и слияния топиков
 - **Производительность**: 50% ускорение Redis, 30% меньше памяти
 
 ### Nginx (упрощенная конфигурация)

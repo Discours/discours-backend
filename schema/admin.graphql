@@ -220,6 +220,13 @@ type CustomRoleResult {
 	role: Role
 }
 
+# Результат операций с топиками
+type AdminTopicResult {
+	success: Boolean!
+	error: String
+	topic: Topic
+}
+
 extend type Query {
 	getEnvVariables: [EnvSection!]!
 	# Запросы для управления пользователями
@@ -289,4 +296,9 @@ extend type Mutation {
 	# Создание и удаление произвольных ролей
 	adminCreateCustomRole(role: CustomRoleInput!): CustomRoleResult!
 	adminDeleteCustomRole(role_id: String!, community_id: Int!): OperationResult!
+
+	# Admin mutations для управления топиками
+	adminUpdateTopic(topic: AdminTopicInput!): AdminTopicResult!
+	adminCreateTopic(topic: AdminTopicInput!): AdminTopicResult!
+	adminMergeTopics(merge_input: TopicMergeInput!): AdminTopicResult!
 }

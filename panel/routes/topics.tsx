@@ -14,7 +14,7 @@ interface TopicsProps {
 }
 
 export const Topics = (props: TopicsProps) => {
-  const { selectedCommunity, loadTopicsByCommunity, topics: contextTopics } = useData()
+  const { selectedCommunity, loadTopicsByCommunity, topics: contextTopics, getTopicTitle } = useData()
 
   // Состояние поиска
   const [searchQuery, setSearchQuery] = createSignal('')
@@ -133,16 +133,32 @@ export const Topics = (props: TopicsProps) => {
   /**
    * Сохранение изменений топика
    */
-  const handleTopicSave = (updatedTopic: Topic) => {
+  const handleTopicSave = async (updatedTopic: Topic) => {
     console.log('[TopicsRoute] Saving topic:', updatedTopic)
+    console.log('[TopicsRoute] Topic parent_ids:', updatedTopic.parent_ids)
 
-    // TODO: добавить логику сохранения изменений в базу данных
-    // await updateTopic(updatedTopic)
+    // Сразу обновляем локальные данные для мгновенного отображения
+    const currentTopics = contextTopics()
+    console.log('[TopicsRoute] Current topics count:', currentTopics.length)
+
+    const updatedTopics = currentTopics.map(topic =>
+      topic.id === updatedTopic.id ? updatedTopic : topic
+    )
+
+    console.log('[TopicsRoute] Updated topics count:', updatedTopics.length)
+
+    // Обновляем состояние контекста напрямую (это сработает мгновенно)
+    const { setTopics } = useData()
+    setTopics(updatedTopics)
 
     props.onSuccess?.('Топик успешно обновлён')
 
-    // Обновляем локальные данные (пока что просто перезагружаем)
-    void loadTopicsForCommunity()
+    // Ждем большее время чтобы сервер точно обработал изменения и инвалидировал кеш
+    console.log('[TopicsRoute] Scheduling reload in 500ms...')
+    setTimeout(() => {
+      console.log('[TopicsRoute] Reloading topics from server...')
+      void loadTopicsForCommunity()
+    }, 500)
   }
 
   /**
@@ -150,6 +166,40 @@ export const Topics = (props: TopicsProps) => {
    */
   const handleTopicError = (message: string) => {
     props.onError?.(message)
+  }
+
+  /**
+   * Рендер родительских тем для топика
+   */
+  const renderParentTopics = (parentIds?: number[]) => {
+    if (!parentIds || parentIds.length === 0) {
+      return <span style="color: #999; font-style: italic;">Нет родителей</span>
+    }
+
+    return (
+      <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+        <For each={parentIds}>
+          {(parentId) => {
+            const parentTitle = getTopicTitle(parentId)
+            return (
+              <span
+                style="
+                  background: #e3f2fd;
+                  color: #1976d2;
+                  padding: 2px 6px;
+                  border-radius: 12px;
+                  font-size: 0.75rem;
+                  white-space: nowrap;
+                "
+                title={`ID: ${parentId}`}
+              >
+                #{parentTitle || `ID:${parentId}`}
+              </span>
+            )
+          }}
+        </For>
+      </div>
+    )
   }
 
   /**
@@ -168,6 +218,9 @@ export const Topics = (props: TopicsProps) => {
       </td>
       <td class={styles.tableCell} title={topic.slug}>
         {truncateText(topic.slug, 30)}
+      </td>
+      <td class={styles.tableCell}>
+        {renderParentTopics(topic.parent_ids)}
       </td>
       <td class={styles.tableCell}>
         {topic.body ? (
@@ -203,20 +256,21 @@ export const Topics = (props: TopicsProps) => {
               <SortableHeader field="slug" allowedFields={TOPICS_SORT_CONFIG.allowedFields}>
                 Slug
               </SortableHeader>
+              <th class={styles.tableHeaderCell}>Родительские темы</th>
               <th class={styles.tableHeaderCell}>Body</th>
             </tr>
           </thead>
           <tbody>
             <Show when={loading()}>
               <tr>
-                <td colspan="4" class={styles.loadingCell}>
+                <td colspan="5" class={styles.loadingCell}>
                   Загрузка...
                 </td>
               </tr>
             </Show>
             <Show when={!loading() && sortedTopics().length === 0}>
               <tr>
-                <td colspan="4" class={styles.emptyCell}>
+                <td colspan="5" class={styles.emptyCell}>
                   Нет топиков
                 </td>
               </tr>

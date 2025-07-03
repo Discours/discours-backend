@@ -2,6 +2,7 @@ import { Component, createEffect, createSignal } from 'solid-js'
 import formStyles from '../styles/Form.module.css'
 import styles from '../styles/Modal.module.css'
 import Button from '../ui/Button'
+import HTMLEditor from '../ui/HTMLEditor'
 import Modal from '../ui/Modal'
 
 interface Collection {
@@ -166,12 +167,9 @@ const CollectionEditModal: Component<CollectionEditModalProps> = (props) => {
                 Описание
               </span>
             </label>
-            <textarea
-              class={formStyles.textarea}
+            <HTMLEditor
               value={formData().desc}
-              onInput={(e) => updateField('desc', e.target.value)}
-              placeholder="Описание коллекции (необязательно)"
-              rows="4"
+              onInput={(value) => updateField('desc', value)}
             />
           </div>
 

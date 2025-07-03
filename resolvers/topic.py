@@ -18,8 +18,8 @@ from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
 from resolvers.stat import get_with_stat
-from services.auth import login_required
 from services.db import local_session
+from services.rbac import require_any_permission, require_permission
 from services.redis import redis
 from services.schema import mutation, query
 from utils.logger import root_logger as logger
@@ -397,7 +397,7 @@ async def get_topic(_: None, _info: GraphQLResolveInfo, slug: str) -> Optional[A
 
 # Мутация для создания новой темы
 @mutation.field("create_topic")
-@login_required
+@require_permission("topic:create")
 async def create_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str, Any]) -> dict[str, Any]:
     with local_session() as session:
         # TODO: проверить права пользователя на создание темы для конкретного сообщества
@@ -414,7 +414,7 @@ async def create_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str
 
 # Мутация для обновления темы
 @mutation.field("update_topic")
-@login_required
+@require_any_permission(["topic:update_own", "topic:update_any"])
 async def update_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str, Any]) -> dict[str, Any]:
     slug = topic_input["slug"]
     with local_session() as session:
@@ -439,7 +439,7 @@ async def update_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str
 
 # Мутация для удаления темы
 @mutation.field("delete_topic")
-@login_required
+@require_any_permission(["topic:delete_own", "topic:delete_any"])
 async def delete_topic(_: None, info: GraphQLResolveInfo, slug: str) -> dict[str, Any]:
     viewer_id = info.context.get("author", {}).get("id")
     with local_session() as session:
@@ -483,7 +483,7 @@ async def get_topic_authors(_: None, _info: GraphQLResolveInfo, slug: str) -> li
 
 # Мутация для удаления темы по ID (для админ-панели)
 @mutation.field("delete_topic_by_id")
-@login_required
+@require_any_permission(["topic:delete_own", "topic:delete_any"])
 async def delete_topic_by_id(_: None, info: GraphQLResolveInfo, topic_id: int) -> dict[str, Any]:
     """
     Удаляет тему по ID. Используется в админ-панели.
@@ -535,7 +535,7 @@ async def delete_topic_by_id(_: None, info: GraphQLResolveInfo, topic_id: int) -
 
 # Мутация для слияния тем
 @mutation.field("merge_topics")
-@login_required
+@require_permission("topic:merge")
 async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str, Any]) -> dict[str, Any]:
     """
     Сливает несколько тем в одну с переносом всех связей.
@@ -731,7 +731,7 @@ async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str,
 
 # Мутация для простого назначения родителя темы
 @mutation.field("set_topic_parent")
-@login_required
+@require_any_permission(["topic:update_own", "topic:update_any"])
 async def set_topic_parent(
     _: None, info: GraphQLResolveInfo, topic_id: int, parent_id: int | None = None
 ) -> dict[str, Any]:

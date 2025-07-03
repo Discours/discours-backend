@@ -31,10 +31,12 @@
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: 2rem;
+	gap: 1.5rem;
 	padding: 2rem;
 	background: var(--form-bg);
 	position: relative;
+	border-radius: 0.75rem;
+	animation: formSlideIn 0.3s ease-out;
 }
 
 .fieldGroup {
@@ -47,7 +49,7 @@
 .content {
 	display: flex;
 	flex-direction: column;
-	gap: 2rem;
+	gap: 1.25rem;
 }
 
 /* =================================================================
@@ -58,6 +60,18 @@
 	display: block;
 	margin: 0;
 	padding: 0;
+	font-weight: 600;
+	color: var(--form-text);
+	margin-bottom: 0.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.label > span:first-child {
+	font-size: 0.875rem;
+	line-height: 1.5;
+	color: var(--form-text);
 }
 
 .labelText {
@@ -169,6 +183,11 @@
 	animation: shake 0.3s ease-in-out;
 }
 
+.inputError {
+	border-bottom-color: var(--form-error) !important;
+	color: var(--form-error);
+}
+
 @keyframes shake {
 	0%, 100% { transform: translateX(0); }
 	25% { transform: translateX(-3px); }
@@ -182,15 +201,61 @@
 	border-bottom-color: var(--form-success);
 }
 
-/* Отключенное состояние */
+/* Отключенное состояние с улучшенным дизайном */
 .input.disabled,
 .textarea.disabled,
 .select.disabled {
 	color: var(--form-text-muted);
 	background: var(--form-bg-light);
 	border-bottom-style: dashed;
+	border-bottom-color: var(--form-divider-hover);
 	cursor: not-allowed;
+	opacity: 0.7;
+	position: relative;
+}
+
+/* Эффект "замочка" для disabled полей (кроме communityDisplay) */
+.input.disabled:not(.communityDisplay)::after,
+.textarea.disabled::after,
+.select.disabled::after {
+	content: "🔒";
+	position: absolute;
+	right: 0.5rem;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 0.875rem;
 	opacity: 0.6;
+	pointer-events: none;
+}
+
+/* Специальные стили для отображения сообщества */
+.communityDisplay {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-weight: 500;
+	background: var(--form-bg-light) !important;
+	border: 1px solid var(--form-divider) !important;
+	border-bottom: 1px solid var(--form-divider) !important; /* Переопределяем стиль input */
+	border-radius: 0.375rem;
+	padding: 0.75rem;
+	color: var(--form-text-light);
+	cursor: not-allowed;
+	position: relative;
+}
+
+.communityDisplay::before {
+	content: "🏢";
+	font-size: 1rem;
+	opacity: 0.8;
+	flex-shrink: 0;
+}
+
+.communityDisplay::after {
+	content: "🔒";
+	margin-left: auto;
+	opacity: 0.6;
+	flex-shrink: 0;
 }
 
 /* Hover эффект для интерактивных элементов */
@@ -198,53 +263,45 @@
 .textarea:not(.disabled):not(:focus):hover,
 .select:not(.disabled):not(:focus):hover {
 	border-bottom-color: var(--form-divider-hover);
-	transform: translateY(-0.5px);
 }
 
-/* Специфичные настройки для textarea */
+/* Специальная обработка textarea */
 .textarea {
-	resize: vertical;
 	min-height: 6rem;
-	padding-top: 0.875rem;
-	padding-bottom: 0.875rem;
+	resize: vertical;
+	padding-top: 0.75rem;
+	padding-bottom: 0.75rem;
 }
 
-/* Специфичные настройки для select */
+/* Обновленный select с современным дизайном */
 .select {
-	cursor: pointer;
 	appearance: none;
-	background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
 	background-repeat: no-repeat;
-	background-position: right 0.5rem center;
+	background-position: right 0.75rem center;
 	background-size: 1rem;
 	padding-right: 2.5rem;
-	transition: var(--form-transition);
 }
 
-.select:focus {
-	background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%233b82f6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+.select.disabled {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
 }
 
 /* =================================================================
-   СОСТОЯНИЯ И СООБЩЕНИЯ
+   СООБЩЕНИЯ ОБ ОШИБКАХ И ПОДСКАЗКИ
    ================================================================= */
 
 .fieldError {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	font-size: 0.875rem;
 	color: var(--form-error);
-	font-weight: 500;
-	margin-top: 0.5rem;
-	animation: slideInError 0.3s ease-out;
+	font-size: 0.875rem;
+	margin-top: 0.375rem;
+	padding-left: 0.75rem;
+	opacity: 0;
+	transform: translateY(-0.5rem);
+	animation: slideInError 0.3s ease forwards;
 }
 
 @keyframes slideInError {
-	from {
-		opacity: 0;
-		transform: translateY(-0.5rem);
-	}
 	to {
 		opacity: 1;
 		transform: translateY(0);
@@ -252,55 +309,68 @@
 }
 
 .errorIcon {
-	font-size: 1rem;
-	animation: pulse 1s ease-in-out infinite;
+	display: inline-block;
+	margin-right: 0.375rem;
+	animation: pulse 1s infinite;
 }
 
 @keyframes pulse {
 	0%, 100% { opacity: 1; }
-	50% { opacity: 0.7; }
+	50% { opacity: 0.5; }
 }
 
+/* Улучшенные hints с иконками */
 .hint {
+	font-size: 0.8125rem;
+	color: var(--form-text-muted);
+	margin-top: 0.375rem;
 	display: flex;
 	align-items: flex-start;
 	gap: 0.5rem;
-	font-size: 0.875rem;
-	color: var(--form-text-light);
-	margin-top: 0.5rem;
 	line-height: 1.4;
-	opacity: 0.8;
 	transition: var(--form-transition-fast);
+	padding-left: 0.25rem;
 }
 
-.fieldGroup:focus-within .hint {
-	opacity: 1;
-	color: var(--form-primary);
+.hint::before {
+	content: "💡";
+	font-size: 0.875rem;
+	flex-shrink: 0;
+	opacity: 0.8;
 }
 
-.hintIcon {
-	font-size: 1rem;
-	margin-top: 0.1rem;
-	opacity: 0.7;
+/* Специальные стили для информационных hint'ов */
+.hint.warningHint {
+	color: var(--form-warning);
+	background: rgba(245, 158, 11, 0.08);
+	padding: 0.5rem 0.75rem;
+	border-radius: 0.5rem;
+	border-left: 3px solid var(--form-warning);
+	margin-top: 0.5rem;
+}
+
+.hint.warningHint::before {
+	content: "";
 }
 
 /* =================================================================
-   ТАБЫ - ЭЛЕГАНТНЫЙ МИНИМАЛИЗМ
+   ТАБЫ И НАВИГАЦИЯ
    ================================================================= */
 
 .tabs {
 	display: flex;
+	border-bottom: 1px solid var(--form-divider);
 	margin-bottom: 2rem;
-	gap: 0;
-	position: relative;
+	overflow-x: auto;
 }
 
 .tab {
+	position: relative;
+	padding: 1rem 1.5rem;
 	background: none;
 	border: none;
-	padding: 1rem 1.5rem;
 	font-size: 0.875rem;
-	font-weight: 400;
+	font-weight: 500;
 	color: var(--form-text-light);
 	cursor: pointer;
 	transition: var(--form-transition);
@@ -308,46 +378,43 @@
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	position: relative;
-	overflow: hidden;
+	outline: none;
 }
 
 .tab::before {
 	content: '';
 	position: absolute;
-	top: 0;
+	bottom: 0;
 	left: 0;
 	right: 0;
-	bottom: 0;
-	background: var(--form-bg-hover);
-	opacity: 0;
+	height: 2px;
+	background: var(--form-primary);
+	transform: scaleX(0);
 	transition: var(--form-transition);
-	z-index: -1;
+	transform-origin: center;
 }
 
 .tab:hover {
 	color: var(--form-text);
-	transform: translateY(-1px);
+	background: var(--form-bg-hover);
 }
 
 .tab:hover::before {
-	opacity: 0.5;
+	transform: scaleX(0.3);
 }
 
 .tab.active {
-	color: var(--form-text);
-	border-bottom: 2px solid var(--form-text);
-	font-weight: 500;
-	border-radius: 0;
+	color: var(--form-primary);
+	font-weight: 600;
 }
 
 .tab.active::before {
-	opacity: 0;
+	transform: scaleX(1);
 }
 
 .tabIcon {
 	font-size: 1rem;
-	transition: var(--form-transition);
+	transition: var(--form-transition-fast);
 }
 
 .tab:hover .tabIcon,
@@ -356,72 +423,80 @@
 }
 
 /* =================================================================
-   КНОПКИ С СОВРЕМЕННЫМИ ЭФФЕКТАМИ
+   КНОПКИ НОВОГО ПОКОЛЕНИЯ
    ================================================================= */
 
 .button {
-	padding: 0.875rem 1.5rem;
-	font-size: 0.875rem;
-	font-weight: 600;
-	border: none;
-	background: none;
-	cursor: pointer;
-	transition: var(--form-transition);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 0.5rem;
-	text-decoration: none;
-	white-space: nowrap;
+	padding: 0.75rem 1.5rem;
+	font-size: 0.875rem;
+	font-weight: 600;
+	line-height: 1.25;
+	border-radius: 0.5rem;
+	border: none;
+	cursor: pointer;
+	transition: var(--form-transition);
 	position: relative;
 	overflow: hidden;
+	text-decoration: none;
+	white-space: nowrap;
+	user-select: none;
 }
 
 .button::before {
-	content: '';
+	content: "";
 	position: absolute;
-	top: 50%;
-	left: 50%;
-	width: 0;
-	height: 0;
-	background: rgba(255, 255, 255, 0.2);
-	border-radius: 50%;
-	transition: width 0.3s ease, height 0.3s ease;
-	transform: translate(-50%, -50%);
-	z-index: 0;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+	transition: left 0.5s;
 }
 
-.button:active::before {
-	width: 300px;
-	height: 300px;
+.button:hover::before {
+	left: 100%;
 }
 
-.button > * {
-	position: relative;
-	z-index: 1;
+.button:active {
+	transform: translateY(1px);
+}
+
+.button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.button:disabled::before {
+	display: none;
 }
 
 .button.primary {
-	background: var(--form-primary);
+	background: linear-gradient(135deg, var(--form-primary), var(--form-primary-hover));
 	color: white;
-	box-shadow: var(--form-shadow-subtle);
+	box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
-.button.primary:hover {
-	background: var(--form-primary-hover);
+.button.primary:hover:not(:disabled) {
 	transform: translateY(-1px);
 	box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
 }
 
 .button.secondary {
-	color: var(--form-text-light);
-	border-bottom: 1px solid var(--form-divider);
+	background: var(--form-bg);
+	color: var(--form-text);
+	border: 2px solid var(--form-divider);
 }
 
-.button.secondary:hover {
-	color: var(--form-text);
+.button.secondary:hover:not(:disabled) {
 	background: var(--form-bg-hover);
+	border-color: var(--form-divider-hover);
 	transform: translateY(-1px);
+	box-shadow: var(--form-shadow-subtle);
 }
 
 /* =================================================================
@@ -430,38 +505,40 @@
 
 .codePreview {
 	background: var(--form-bg-light);
-	padding: 1.25rem;
-	font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+	border: 1px solid var(--form-divider);
+	border-radius: 0.5rem;
+	padding: 1rem;
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 	font-size: 0.875rem;
 	line-height: 1.6;
-	overflow-x: auto;
-	margin-top: 0.5rem;
-	border-left: 3px solid var(--form-primary);
+	color: var(--form-text);
+	cursor: pointer;
 	transition: var(--form-transition);
+	position: relative;
+	overflow: hidden;
 }
 
 .codePreview:hover {
-	background: var(--form-bg-hover);
+	border-color: var(--form-primary);
+	background: var(--form-primary-light);
 }
 
 .spinner {
 	display: inline-block;
 	width: 1rem;
 	height: 1rem;
-	border: 2px solid transparent;
-	border-top: 2px solid currentColor;
+	border: 2px solid var(--form-text-muted);
 	border-radius: 50%;
-	animation: spin 1s linear infinite;
+	border-top-color: var(--form-primary);
+	animation: spin 1s ease-in-out infinite;
 }
 
 @keyframes spin {
-	to {
-		transform: rotate(360deg);
-	}
+	to { transform: rotate(360deg); }
 }
 
 /* =================================================================
-   УЛУЧШЕННЫЕ АНИМАЦИИ
+   АНИМАЦИИ И ПЕРЕХОДЫ
    ================================================================= */
 
 @keyframes slideIn {
@@ -476,48 +553,47 @@
 }
 
 @keyframes fadeIn {
-	from {
-		opacity: 0;
-	}
-	to {
-		opacity: 1;
-	}
-}
-
-.fieldGroup {
-	animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.form {
-	animation: fadeIn 0.3s ease-out;
+	from { opacity: 0; }
+	to { opacity: 1; }
 }
 
 /* =================================================================
-   УЛУЧШЕННАЯ АДАПТИВНОСТЬ
+   КОНТЕЙНЕРЫ
+   ================================================================= */
+
+.fieldGroup {
+	animation: slideIn 0.3s ease;
+}
+
+.form {
+	animation: fadeIn 0.5s ease;
+}
+
+/* =================================================================
+   АДАПТИВНОСТЬ
    ================================================================= */
 
 @media (max-width: 768px) {
 	.form {
-		padding: 1rem;
-		gap: 1.25rem;
+		padding: 1.5rem;
+		gap: 1.5rem;
 	}
 
 	.fieldGroup {
-		gap: 0.5rem;
+		gap: 0.375rem;
 	}
 
 	.input,
 	.textarea,
 	.select {
-		padding: 0.875rem 0;
-		font-size: 1rem;
+		font-size: 0.875rem;
+		padding: 0.75rem 0;
 	}
 
 	.tabs {
-		overflow-x: auto;
-		scrollbar-width: none;
-		-ms-overflow-style: none;
-		padding-bottom: 0.5rem;
+		margin-bottom: 1.5rem;
+		border-bottom: 1px solid var(--form-divider);
+		-webkit-overflow-scrolling: touch;
 	}
 
 	.tabs::-webkit-scrollbar {
@@ -526,57 +602,56 @@
 
 	.tab {
 		padding: 0.875rem 1rem;
-		flex-shrink: 0;
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 	}
 
 	.button {
-		padding: 0.875rem 1.25rem;
-		font-size: 0.875rem;
+		padding: 0.75rem 1.25rem;
+		font-size: 0.8125rem;
 	}
 
 	.labelText {
-		font-size: 0.9rem;
+		font-size: 0.8125rem;
 	}
 
 	.hint {
-		font-size: 0.8rem;
+		font-size: 0.6875rem;
 	}
 }
 
 @media (max-width: 480px) {
 	.form {
-		padding: 0.75rem;
+		padding: 1rem;
 		gap: 1rem;
 	}
 
 	.fieldGroup {
-		gap: 0.375rem;
+		gap: 0.25rem;
 	}
 
 	.tab {
 		padding: 0.75rem 0.875rem;
-		font-size: 0.8rem;
+		font-size: 0.75rem;
 	}
 
 	.labelText {
-		font-size: 0.875rem;
+		font-size: 0.75rem;
 	}
 
 	.input,
 	.textarea,
 	.select {
-		font-size: 1rem;
-		padding: 0.75rem 0;
+		font-size: 0.8125rem;
+		padding: 0.625rem 0;
 	}
 
 	.button {
-		padding: 0.75rem 1rem;
-		font-size: 0.875rem;
+		padding: 0.625rem 1rem;
+		font-size: 0.75rem;
 	}
 
 	.hint {
-		font-size: 0.75rem;
+		font-size: 0.625rem;
 	}
 
 	.labelIcon {
@@ -585,108 +660,104 @@
 }
 
 /* =================================================================
-   ДОПОЛНИТЕЛЬНЫЕ УТИЛИТЫ
+   ACCESSIBILITY
    ================================================================= */
 
 .visuallyHidden {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
-	white-space: nowrap;
-	border: 0;
+	position: absolute !important;
+	width: 1px !important;
+	height: 1px !important;
+	padding: 0 !important;
+	margin: -1px !important;
+	overflow: hidden !important;
+	clip: rect(0, 0, 0, 0) !important;
+	white-space: nowrap !important;
+	border: 0 !important;
 }
 
 /* =================================================================
-   УПРАВЛЕНИЕ РОЛЯМИ
+   РОЛИ - КОМПОНЕНТ ДЛЯ ВЫБОРА РОЛЕЙ
    ================================================================= */
 
 .rolesGrid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-	gap: 0.75rem;
-	margin-top: 0.75rem;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 1rem;
+	margin-top: 1rem;
 }
 
 .roleCard {
 	position: relative;
-	padding: 1rem;
+	padding: 1.25rem;
 	background: var(--form-bg);
-	border: 1px solid var(--form-divider);
+	border: 2px solid var(--form-divider);
+	border-radius: 0.75rem;
 	cursor: pointer;
 	transition: var(--form-transition);
 	overflow: hidden;
-	user-select: none;
 	display: flex;
 	flex-direction: column;
-	min-height: 85px;
+	gap: 0.75rem;
 }
 
 .roleCard::before {
 	content: '';
 	position: absolute;
 	top: 0;
-	left: 0;
-	right: 0;
-	height: 3px;
-	background: transparent;
-	transition: var(--form-transition);
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
+	transition: left 0.5s ease;
 }
 
 .roleCard:hover {
-	border-color: var(--form-divider-hover);
-	background: var(--form-bg-hover);
-	transform: translateY(-1px);
-	box-shadow: var(--form-shadow-subtle);
+	border-color: var(--form-primary);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .roleCard:hover::before {
-	background: linear-gradient(90deg, var(--form-primary-light), var(--form-primary));
+	left: 100%;
 }
 
 .roleCard.roleCardSelected {
 	border-color: var(--form-primary);
 	background: var(--form-primary-light);
-	box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
 
 .roleCard.roleCardSelected::before {
-	background: linear-gradient(90deg, var(--form-primary), var(--form-primary-hover));
+	display: none;
 }
 
 .roleCard:active {
-	transform: translateY(0) scale(0.98);
+	transform: translateY(-1px);
 }
 
 .roleHeader {
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 0.75rem;
+	gap: 1rem;
 }
 
 .roleName {
+	font-size: 1rem;
 	font-weight: 600;
-	font-size: 0.95rem;
 	color: var(--form-text);
+	margin: 0;
 	line-height: 1.3;
-	flex: 1;
-	margin-right: 0.5rem;
 }
 
 .roleCardSelected .roleName {
-	color: var(--form-primary-hover);
+	color: var(--form-primary);
 }
 
 .roleDescription {
-	font-size: 0.85rem;
+	font-size: 0.875rem;
 	color: var(--form-text-light);
-	line-height: 1.4;
-	margin-top: auto;
-	flex: 1;
+	line-height: 1.5;
+	margin: 0;
 }
 
 .roleCardSelected .roleDescription {
@@ -694,49 +765,48 @@
 }
 
 .roleCheckmark {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
+	width: 1.5rem;
+	height: 1.5rem;
 	border: 2px solid var(--form-divider);
-	background: var(--form-bg);
-	font-size: 0.75rem;
-	font-weight: 700;
-	color: transparent;
+	border-radius: 50%;
+	position: relative;
 	transition: var(--form-transition);
 	flex-shrink: 0;
+	background: var(--form-bg);
 }
 
 .roleCard:hover .roleCheckmark {
 	border-color: var(--form-primary);
-	background: var(--form-primary-light);
+	transform: scale(1.1);
 }
 
 .roleCardSelected .roleCheckmark {
 	border-color: var(--form-primary);
 	background: var(--form-primary);
-	color: white;
 	transform: scale(1.1);
 }
 
 .roleCheckmark::before {
 	content: '✓';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%) scale(0);
+	color: white;
+	font-weight: bold;
 	transition: var(--form-transition);
-	transform: scale(0);
 }
 
 .roleCardSelected .roleCheckmark::before {
-	transform: scale(1);
+	transform: translate(-50%, -50%) scale(1);
 }
 
-/* Специальные состояния ролей */
 .roleCard.adminRole {
 	border-color: var(--form-warning);
 }
 
 .roleCard.adminRole::before {
-	background: linear-gradient(90deg, #f59e0b, #d97706);
+	background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.1), transparent);
 }
 
 .roleCard.adminRole.roleCardSelected {
@@ -745,8 +815,7 @@
 }
 
 .roleCard.systemRole {
-	opacity: 0.7;
-	pointer-events: none;
+	opacity: 0.8;
 }
 
 .roleCard.systemRole .roleDescription::after {
@@ -755,39 +824,71 @@
 	color: var(--form-text-muted);
 }
 
-/* Секция управления ролями */
+/* =================================================================
+   СЕКЦИИ ФОРМЫ
+   ================================================================= */
+
 .section {
-	margin-bottom: 2rem;
+	background: var(--form-bg);
+	border-radius: 0.75rem;
+	padding: 1.5rem;
+	border: 1px solid var(--form-divider);
+	transition: var(--form-transition);
+	position: relative;
 }
 
-.section:last-child {
-	margin-bottom: 0;
+.section::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: linear-gradient(90deg, var(--form-primary), var(--form-primary-light));
+	border-radius: 0.75rem 0.75rem 0 0;
+	opacity: 0;
+	transition: var(--form-transition);
+}
+
+.section:hover::before,
+.section:focus-within::before {
+	opacity: 1;
+}
+
+.section:hover {
+	border-color: var(--form-divider-hover);
+	box-shadow: var(--form-shadow-subtle);
+}
+
+.section:focus-within {
+	border-color: var(--form-primary-light);
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.06);
 }
 
 .sectionTitle {
-	font-size: 1.1rem;
+	font-size: 1.125rem;
 	font-weight: 600;
 	color: var(--form-text);
-	margin-bottom: 0.5rem;
+	margin: 0 0 0.75rem 0;
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
 }
 
 .sectionDescription {
-	font-size: 0.9rem;
+	font-size: 0.875rem;
 	color: var(--form-text-light);
-	margin-bottom: 1rem;
-	line-height: 1.5;
+	margin: 0 0 1.5rem 0;
+	line-height: 1.6;
 }
 
-/* Кнопки действий */
 .actions {
 	display: flex;
 	gap: 1rem;
+	align-items: center;
 	justify-content: flex-end;
 	margin-top: 2rem;
-	padding-top: 1.5rem;
+	padding-top: 2rem;
 	border-top: 1px solid var(--form-divider);
 }
 
@@ -795,16 +896,14 @@
 	min-width: 120px;
 }
 
-/* Адаптивность для управления ролями */
 @media (max-width: 768px) {
 	.rolesGrid {
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 0.5rem;
+		grid-template-columns: 1fr;
+		gap: 0.75rem;
 	}
 
 	.roleCard {
-		padding: 0.875rem;
-		min-height: 75px;
+		padding: 1rem;
 	}
 
 	.roleName {
@@ -812,158 +911,1259 @@
 	}
 
 	.roleDescription {
-		font-size: 0.75rem;
+		font-size: 0.8125rem;
 	}
 
 	.actions {
-		flex-direction: column-reverse;
 		gap: 0.75rem;
 	}
 
 	.actions .button {
-		width: 100%;
-		min-width: auto;
+		min-width: 100px;
 	}
 }
 
 @media (max-width: 480px) {
 	.rolesGrid {
-		grid-template-columns: 1fr;
 		gap: 0.5rem;
 	}
 
 	.roleCard {
-		padding: 0.75rem;
-		min-height: 65px;
+		padding: 0.875rem;
 	}
 
 	.roleHeader {
-		align-items: center;
-		margin-bottom: 0.5rem;
+		gap: 0.75rem;
 	}
 
 	.roleCheckmark {
-		width: 20px;
-		height: 20px;
-		font-size: 0.7rem;
+		width: 1.25rem;
+		height: 1.25rem;
 	}
 
 	.roleName {
-		font-size: 0.85rem;
+		font-size: 0.8125rem;
 	}
 
 	.roleDescription {
 		font-size: 0.75rem;
-		line-height: 1.3;
 	}
 
 	.sectionTitle {
-		font-size: 1rem;
+		font-size: 1.125rem;
 	}
 
 	.sectionDescription {
-		font-size: 0.85rem;
+		font-size: 0.8125rem;
 	}
 }
 
 /* =================================================================
-   ДОПОЛНИТЕЛЬНЫЕ КЛАССЫ ДЛЯ МОДАЛЬНЫХ ОКОН
+   МОДАЛЬНЫЕ ОКНА
    ================================================================= */
 
 .modalContent {
-	padding: 0;
+	max-height: 80vh;
+	overflow-y: auto;
 }
 
 .modalActions {
 	display: flex;
 	gap: 1rem;
 	justify-content: flex-end;
+	align-items: center;
 	margin-top: 2rem;
 	padding-top: 1.5rem;
 	border-top: 1px solid var(--form-divider);
 }
 
 .modalWide {
-	max-width: 800px;
-	width: 100%;
+	max-width: 90vw;
+	width: 900px;
 }
 
-/* Дополнительные классы для textarea */
+/* =================================================================
+   TEXTAREA С ДЕЙСТВИЯМИ
+   ================================================================= */
+
 .textareaContainer {
 	position: relative;
 }
 
 .textareaActions {
 	display: flex;
-	gap: 0.5rem;
-	margin-top: 0.75rem;
+	gap: 0.75rem;
+	justify-content: flex-end;
+	margin-top: 1rem;
 }
 
-/* Классы для вспомогательного текста */
+/* =================================================================
+   ДОПОЛНИТЕЛЬНЫЕ УТИЛИТЫ
+   ================================================================= */
+
 .formHelp {
-	font-size: 0.875rem;
-	color: var(--form-text-light);
-	margin-top: 1rem;
-	padding: 1rem;
 	background: var(--form-bg-light);
-	border-left: 3px solid var(--form-primary);
+	border: 1px solid var(--form-divider);
+	border-radius: 0.5rem;
+	padding: 1rem;
+	margin: 1rem 0;
+	font-size: 0.875rem;
+	line-height: 1.6;
 }
 
 .formError {
-	padding: 1rem;
 	background: rgba(239, 68, 68, 0.1);
-	border-left: 3px solid var(--form-error);
+	border: 1px solid var(--form-error);
+	border-radius: 0.5rem;
+	padding: 1rem;
+	margin: 1rem 0;
 	color: var(--form-error);
-	font-weight: 500;
-	margin-top: 1rem;
+	font-size: 0.875rem;
+	line-height: 1.6;
 }
 
 .formActions {
 	display: flex;
 	gap: 1rem;
-	justify-content: flex-end;
+	justify-content: space-between;
+	align-items: center;
 	margin-top: 2rem;
-	padding-top: 1.5rem;
+	padding-top: 2rem;
 	border-top: 1px solid var(--form-divider);
 }
 
-/* Стили для заголовков */
 .title {
 	font-size: 1.5rem;
-	font-weight: 600;
+	font-weight: 700;
 	color: var(--form-text);
-	margin-bottom: 1.5rem;
-	text-align: center;
+	margin: 0 0 1.5rem 0;
+	line-height: 1.3;
 }
 
 .errorMessage {
-	padding: 1rem;
-	background: rgba(239, 68, 68, 0.1);
-	border: 1px solid rgba(239, 68, 68, 0.3);
 	color: var(--form-error);
-	font-weight: 500;
-	margin-bottom: 1rem;
-	text-align: center;
+	font-size: 0.875rem;
+	margin-top: 0.375rem;
+	padding-left: 0.75rem;
+	opacity: 0;
+	transform: translateY(-0.5rem);
+	animation: slideInError 0.3s ease forwards;
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
 }
 
 @media (max-width: 768px) {
 	.modalActions,
+	.textareaActions,
 	.formActions {
-		flex-direction: column-reverse;
 		gap: 0.75rem;
 	}
 
 	.modalActions .button,
-	.formActions .button {
-		width: 100%;
+	.textareaActions .button {
+		min-width: 100px;
 	}
 
 	.textareaActions {
-		flex-direction: column;
-		gap: 0.5rem;
+		justify-content: center;
 	}
 
 	.textareaActions .button {
-		width: 100%;
+		flex: 1;
 	}
+}
+
+/* =================================================================
+   СТИЛИ ДЛЯ ТОПИК МОДАЛКИ
+   ================================================================= */
+
+.inputGroup {
+	display: flex;
+	gap: 0.5rem;
+	align-items: flex-end;
+}
+
+.inputGroup .input {
+	flex: 1;
+}
+
+/* Текущие родительские топики */
+.currentParents {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.parentBadge {
+	display: inline-flex;
+	align-items: center;
+	background: var(--form-primary-light);
+	border: 1px solid var(--form-primary);
+	border-radius: 1rem;
+	padding: 0.375rem 0.75rem;
+	font-size: 0.8125rem;
+	color: var(--form-primary);
+	transition: var(--form-transition);
+	gap: 0.375rem;
+	max-width: 200px;
+}
+
+.parentBadge:hover {
+	background: var(--form-primary);
+	color: var(--form-bg);
+}
+
+.parentBadge:hover .parentRemoveBtn {
+	color: var(--form-bg);
+	opacity: 1;
+}
+
+.parentBadgeTitle {
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+}
+
+.parentBadgeTitle::before {
+	content: '#';
+	font-weight: 600;
+	margin-right: 0.125rem;
+}
+
+.parentRemoveBtn {
+	background: transparent;
+	color: var(--form-primary);
+	border: none;
+	border-radius: 50%;
+	width: 16px;
+	height: 16px;
+	font-size: 10px;
+	line-height: 1;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+	flex-shrink: 0;
+	opacity: 0.7;
+}
+
+.parentRemoveBtn:hover {
+	opacity: 1;
+	transform: scale(1.1);
+}
+
+.selectedParents {
+	margin: 1rem 0;
+}
+
+.parentsList {
+	list-style: none;
+	padding: 0;
+	margin: 0.75rem 0 0 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.parentItem {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.75rem 1rem;
+	background: var(--form-bg-light);
+	border: 1px solid var(--form-divider);
+	border-radius: 0.5rem;
+	transition: var(--form-transition);
+}
+
+.parentItem:hover {
+	background: var(--form-primary-light);
+	border-color: var(--form-primary);
+}
+
+.parentInfo {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	flex: 1;
+}
+
+.parentTitle {
+	font-weight: 600;
+	color: var(--form-text);
+	font-size: 0.9375rem;
+}
+
+.parentSlug {
+	color: var(--form-text-muted);
+	font-size: 0.8125rem;
+	font-family: monospace;
+}
+
+.parentDepth {
+	color: var(--form-text-light);
+	font-size: 0.75rem;
+}
+
+.sectionHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 1rem;
+}
+
+.availableParents {
+	margin-top: 1.5rem;
+}
+
+.parentsGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 0.75rem;
+	margin-top: 1rem;
+}
+
+.parentCheckbox {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	padding: 1rem;
+	background: var(--form-bg);
+	border: 2px solid var(--form-divider);
+	border-radius: 0.5rem;
+	cursor: pointer;
+	transition: var(--form-transition);
+}
+
+.parentCheckbox:hover {
+	border-color: var(--form-primary);
+	background: var(--form-primary-light);
+	transform: translateY(-1px);
+}
+
+.parentCheckbox input[type="checkbox"] {
+	margin: 0;
+	flex-shrink: 0;
+}
+
+.parentLabel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	flex: 1;
+	min-width: 0;
+}
+
+.parentStats {
+	color: var(--form-text-light);
+	font-size: 0.75rem;
+}
+
+.noParents {
+	text-align: center;
+	color: var(--form-text-muted);
+	font-style: italic;
+	padding: 2rem;
+	background: var(--form-bg-light);
+	border: 1px dashed var(--form-divider);
+	border-radius: 0.5rem;
+	margin-top: 1rem;
+}
+
+.showMoreHint {
+	text-align: center;
+	color: var(--form-text-muted);
+	font-size: 0.8125rem;
+	margin-top: 1rem;
+	padding: 0.75rem;
+	background: var(--form-bg-light);
+	border-radius: 0.5rem;
+}
+
+.bodyPreview {
+	background: var(--form-bg-light);
+	border: 2px dashed var(--form-divider);
+	border-radius: 0.5rem;
+	padding: 1rem;
+	cursor: pointer;
+	transition: var(--form-transition);
+	min-height: 4rem;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+.bodyPreview:hover {
+	border-color: var(--form-primary);
+	background: var(--form-primary-light);
+}
+
+.bodyContent {
+	color: var(--form-text);
+	font-size: 0.875rem;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.bodyPlaceholder {
+	color: var(--form-text-muted);
+	font-style: italic;
+	text-align: center;
+	font-size: 0.875rem;
+}
+
+.bodyHint {
+	color: var(--form-text-light);
+	font-size: 0.75rem;
+	text-align: center;
+	margin-top: 0.5rem;
+	opacity: 0.8;
+}
+
+/* =================================================================
+   TOPIC PILLS CLOUD COMPONENT
+   ================================================================= */
+
+.topicPillsCloud {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.pillsCloudHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 1rem;
+	margin-bottom: 1rem;
+	flex-shrink: 0;
+}
+
+.headerSection {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.pillsCloudControls {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	flex-shrink: 0;
+}
+
+.pillsSearchInput {
+	width: 100%;
+	padding: 0.5rem 0.75rem;
+	font-size: 0.875rem;
+	border-radius: 0.375rem;
+	border: 1px solid var(--form-divider);
+	background: white;
+	font-weight: 400;
+}
+
+.pillsSearchInput:focus {
+	border-color: var(--form-primary);
+	box-shadow: 0 0 0 2px var(--form-primary-light);
+}
+
+.pillsCloudTitle {
+	font-size: 1rem;
+	font-weight: 600;
+	color: var(--form-text);
+	margin: 0;
+}
+
+.selectedTopicsDisplay {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.selectedLabel {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--form-text);
+}
+
+.selectedTopicsContainer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.375rem;
+	min-height: 2rem;
+	align-items: center;
+}
+
+.pillCompact {
+	padding: 0.25rem 0.5rem !important;
+	font-size: 0.75rem !important;
+	border-radius: 0.875rem !important;
+	gap: 0.25rem !important;
+}
+
+.pillsSearchContainer {
+	position: relative;
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.clearSearchBtn {
+	position: absolute;
+	right: 0.5rem;
+	background: transparent;
+	border: none;
+	color: var(--form-text-muted);
+	font-size: 1.125rem;
+	line-height: 1;
+	cursor: pointer;
+	padding: 0.25rem;
+	border-radius: 50%;
+	width: 1.5rem;
+	height: 1.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+}
+
+.clearSearchBtn:hover {
+	background: var(--form-divider);
+	color: var(--form-text);
+}
+
+.selectionCounter {
+	font-size: 0.8125rem;
+	color: var(--form-text-muted);
+	font-weight: 500;
+	flex-shrink: 0;
+	background: var(--form-bg-light);
+	padding: 0.25rem 0.5rem;
+	border-radius: 0.25rem;
+	border: 1px solid var(--form-divider);
+}
+
+.pillsContainer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	flex: 1;
+	min-height: 200px;
+	padding: 1rem;
+	border: 1px solid var(--form-divider);
+	border-radius: 0.5rem;
+	background: white;
+	overflow-y: auto;
+	align-content: flex-start;
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+	scrollbar-width: thin;
+	scrollbar-color: var(--form-divider) transparent;
+}
+
+.pillsContainer::-webkit-scrollbar {
+	width: 6px;
+}
+
+.pillsContainer::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.pillsContainer::-webkit-scrollbar-thumb {
+	background: var(--form-divider);
+	border-radius: 3px;
+}
+
+.pillsContainer::-webkit-scrollbar-thumb:hover {
+	background: var(--form-text-muted);
+}
+
+.topicPill {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.5rem 0.875rem;
+	background: var(--form-bg);
+	border: 1px solid var(--form-divider);
+	border-radius: 1.25rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: var(--form-text);
+	cursor: pointer;
+	transition: var(--form-transition);
+	position: relative;
+	gap: 0.375rem;
+	line-height: 1.3;
+	max-width: 100%;
+	overflow: hidden;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+	white-space: nowrap;
+}
+
+.topicPill:hover {
+	background: var(--form-primary-light);
+	border-color: var(--form-primary);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pillSelected {
+	background: var(--form-primary);
+	color: white;
+	border-color: var(--form-primary);
+	font-weight: 600;
+	box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+	transform: translateY(-1px);
+}
+
+.pillSelected:hover {
+	background: var(--form-primary-hover);
+	border-color: var(--form-primary-hover);
+	box-shadow: 0 3px 10px rgba(59, 130, 246, 0.4);
+}
+
+.pillDisabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+.pillNested {
+	background: var(--form-bg-subtle);
+	border-left: 3px solid var(--form-primary-light);
+}
+
+.pillDepthIndicator {
+	font-family: monospace;
+	color: var(--form-text-muted);
+	font-size: 0.75rem;
+}
+
+.pillTitle {
+	font-weight: 500;
+	word-break: break-word;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	overflow: hidden;
+	max-width: 150px;
+}
+
+.pillTitle::before {
+	content: '#';
+	font-weight: 600;
+	margin-right: 0.125rem;
+	opacity: 0.8;
+}
+
+.pillRemoveIcon {
+	font-size: 1.125rem;
+	font-weight: bold;
+	margin-left: 0.25rem;
+	opacity: 0.8;
+}
+
+.pillRemoveIcon:hover {
+	opacity: 1;
+}
+
+.emptyState {
+	text-align: center;
+	color: var(--form-text-muted);
+	font-style: italic;
+	padding: 1.5rem;
+	font-size: 0.875rem;
+}
+
+/* Адаптивный макет для модального окна */
+.modalFormGrid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+	.modalFormGrid {
+		grid-template-columns: 400px 1fr;
+		gap: 1.5rem;
+		align-items: start;
+	}
+}
+
+@media (min-width: 1200px) {
+	.modalFormGrid {
+		grid-template-columns: 450px 1fr;
+		gap: 2rem;
+	}
+}
+
+.formMainSection {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.formSideSection {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.compactSection {
+	background: var(--form-bg-light);
+	border: 1px solid var(--form-divider);
+	border-radius: 0.5rem;
+	padding: 1rem;
+}
+
+.compactSection .sectionTitle {
+	margin-bottom: 0.75rem;
+	font-size: 0.9375rem;
+}
+
+/* Адаптивность для топик модалки */
+@media (max-width: 768px) {
+	.parentsGrid {
+		grid-template-columns: 1fr;
+		gap: 0.5rem;
+	}
+
+	.parentCheckbox {
+		padding: 0.875rem;
+	}
+
+	.currentParents {
+		gap: 0.375rem;
+	}
+
+	.parentBadge {
+		padding: 0.3125rem 0.625rem;
+		font-size: 0.75rem;
+		max-width: 140px;
+	}
+
+	.parentBadgeTitle {
+		font-size: 0.75rem;
+	}
+
+	.parentRemoveBtn {
+		width: 14px;
+		height: 14px;
+		font-size: 9px;
+	}
+
+	.inputGroup {
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.sectionHeader {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.75rem;
+	}
+
+	.modalFormGrid {
+		grid-template-columns: 1fr;
+		gap: 1rem;
+	}
+
+	.pillsContainer {
+		min-height: 120px;
+		max-height: 200px;
+		gap: 0.375rem;
+		padding: 0.75rem;
+	}
+
+	.topicPill {
+		font-size: 0.75rem;
+		padding: 0.1875rem 0.4375rem;
+		border-radius: 0.75rem;
+	}
+
+	.pillTitle {
+		max-width: 120px;
+	}
+
+	.pillsCloudHeader {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.75rem;
+	}
+
+	.headerSection {
+		gap: 0.5rem;
+	}
+
+	.selectedTopicsContainer {
+		gap: 0.25rem;
+	}
+
+	.pillCompact {
+		padding: 0.1875rem 0.4375rem !important;
+		font-size: 0.6875rem !important;
+	}
+
+	.pillsSearchInput {
+		width: 100%;
+		font-size: 0.875rem;
+	}
+
+	.clearSearchBtn {
+		width: 1.25rem;
+		height: 1.25rem;
+		font-size: 0.875rem;
+		right: 0.375rem;
+	}
+
+	.compactSection {
+		padding: 0.75rem;
+	}
+}
+
+@media (max-width: 480px) {
+	.topicModalContent {
+		height: 75vh;
+		max-height: 400px;
+	}
+
+	.topicModalBody {
+		padding: 0.75rem;
+	}
+
+	.topicModalActions {
+		padding: 0.5rem 0.75rem;
+		gap: 0.75rem;
+		height: 50px;
+	}
+
+	.topicSelectionFullHeight {
+		padding: 0.5rem;
+		min-height: 250px;
+	}
+
+	.topicSelectionFullHeight .pillsContainer {
+		padding: 0.5rem;
+		gap: 0.375rem;
+		min-height: 120px;
+		max-height: 180px;
+	}
+
+	.topicPill {
+		padding: 0.375rem 0.625rem;
+		font-size: 0.8125rem;
+		gap: 0.25rem;
+	}
+
+	.pillCompact {
+		padding: 0.1875rem 0.375rem !important;
+		font-size: 0.625rem !important;
+	}
+
+	.selectedLabel {
+		font-size: 0.75rem;
+	}
+
+	.parentItem {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.75rem;
+	}
+
+	.parentCheckbox {
+		padding: 0.75rem;
+		gap: 0.5rem;
+	}
+
+	.currentParents {
+		gap: 0.25rem;
+	}
+
+	.parentBadge {
+		padding: 0.25rem 0.5rem;
+		font-size: 0.6875rem;
+		max-width: 120px;
+	}
+
+	.parentBadgeTitle {
+		font-size: 0.6875rem;
+	}
+
+	.parentRemoveBtn {
+		width: 12px;
+		height: 12px;
+		font-size: 8px;
+	}
+}
+
+/* Топик модальное окно - специальная структура */
+.topicModalContent {
+	display: flex;
+	flex-direction: column;
+	height: 85vh;
+	max-height: 750px;
+	overflow: hidden;
+	padding: 0;
+	border-radius: 0.75rem;
+}
+
+.topicModalBody {
+	flex: 1;
+	overflow: hidden;
+	padding: 1rem;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	background: white;
+}
+
+.topicModalActions {
+	padding: 0.75rem 1rem;
+	border-top: 1px solid var(--form-divider);
+	background: var(--form-bg-light);
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 0.75rem;
+	flex-shrink: 0;
+	height: 60px;
+	border-radius: 0 0 0.75rem 0.75rem;
+}
+
+.topicModalActions .button {
+	min-width: 120px;
+	font-weight: 600;
+	padding: 0.75rem 1.5rem;
+	border-radius: 0.5rem;
+	transition: all 0.2s ease;
+}
+
+.topicModalActions .button:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.topicSelectionFullHeight {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	background: var(--form-bg-light);
+	border-radius: 0.75rem;
+	padding: 1rem;
+	border: 1px solid var(--form-divider);
+	min-height: 0;
+	overflow: hidden;
+}
+
+.topicSelectionFullHeight .topicPillsCloud {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.topicSelectionFullHeight .pillsContainer {
+	flex: 1;
+	background: white;
+	border: 1px solid var(--form-divider);
+	overflow-y: auto;
+	min-height: 0;
+}
+
+.topicSelectionFullHeight .errorMessage {
+	flex-shrink: 0;
+	margin-bottom: 0;
+}
+
+/* Адаптация модальной сетки для топиков */
+.topicModalBody .modalFormGrid {
+	flex: 1;
+	height: 100%;
+	min-height: 0;
+	align-items: stretch;
+	overflow: hidden;
+}
+
+.topicModalBody .formMainSection {
+	overflow-y: auto;
+	padding-right: 0.5rem;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	max-height: 100%;
+}
+
+.topicModalBody .formSideSection {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+}
+
+/* Мобильная адаптация для топик модалки */
+@media (max-width: 768px) {
+	.topicModalContent {
+		height: 90vh;
+		max-height: 650px;
+	}
+
+	.topicModalBody {
+		padding: 0.75rem;
+		overflow-y: auto;
+	}
+
+	.topicModalActions {
+		padding: 0.5rem 0.75rem;
+		height: 50px;
+		flex-shrink: 0;
+	}
+
+	.topicModalBody .modalFormGrid {
+		grid-template-columns: 1fr;
+		gap: 1rem;
+	}
+
+	.topicSelectionFullHeight {
+		padding: 0.75rem;
+		min-height: 300px;
+	}
+
+	.topicSelectionFullHeight .pillsContainer {
+		min-height: 200px;
+		padding: 0.75rem;
+	}
+
+	.topicPill {
+		padding: 0.375rem 0.625rem;
+		font-size: 0.8125rem;
+	}
+
+	.currentParents {
+		gap: 0.375rem;
+	}
+
+	.parentBadge {
+		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+		max-width: 150px;
+	}
+
+	.parentRemoveBtn {
+		width: 14px;
+		height: 14px;
+		font-size: 9px;
+	}
+}
+
+/* =================================================================
+   HTML РЕДАКТОР С CONTENTEDITABLE
+   ================================================================= */
+
+.htmlEditorContenteditable {
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+	font-size: 0.875rem;
+	line-height: 1.5;
+	padding: 0.75rem;
+	border: 2px solid var(--form-divider);
+	border-radius: 0.5rem;
+	background: var(--form-bg) !important;
+	color: var(--form-text);
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	tab-size: 2;
+	outline: none;
+	overflow-y: auto;
+	resize: vertical;
+	transition: var(--form-transition);
+	box-sizing: border-box;
+	min-height: 6rem;
+	width: 100%;
+}
+
+.htmlEditorContenteditable:focus {
+	border-color: var(--form-primary);
+	background: var(--form-bg) !important;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.htmlEditorContenteditable:empty:before {
+	content: attr(data-placeholder);
+	color: var(--form-text-muted);
+	font-style: italic;
+	pointer-events: none;
+	position: absolute;
+	top: 0.75rem;
+	left: 0.75rem;
+}
+
+.htmlEditorContenteditable div {
+	margin: 0;
+	padding: 0;
+}
+
+.htmlEditorContenteditable br {
+	display: block;
+	margin: 0;
+	padding: 0;
+}
+
+/* Улучшенная подсветка Prism */
+.htmlEditorContenteditable .token.tag {
+	color: #0066cc;
+	font-weight: normal;
+}
+
+.htmlEditorContenteditable .token.attr-name {
+	color: #8B5CF6;
+	font-weight: normal;
+}
+
+.htmlEditorContenteditable .token.attr-value {
+	color: #059669;
+	font-weight: normal;
+}
+
+.htmlEditorContenteditable .token.punctuation {
+	color: #374151;
+	font-weight: normal;
+}
+
+.htmlEditorContenteditable .token.comment {
+	color: #9CA3AF;
+	font-style: italic;
+	font-weight: normal;
+}
+
+.htmlEditorContenteditable code {
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	background: transparent !important;
+	padding: 0;
+	margin: 0;
+	border: none;
+	display: block;
+	white-space: inherit;
+	word-wrap: inherit;
+	tab-size: inherit;
+	color: inherit;
+}
+
+/* Убираем фон у всех элементов Prism и других элементов */
+.htmlEditorContenteditable *,
+.htmlEditorContenteditable .token,
+.htmlEditorContenteditable .token.tag,
+.htmlEditorContenteditable .token.attr-name,
+.htmlEditorContenteditable .token.attr-value,
+.htmlEditorContenteditable .token.punctuation,
+.htmlEditorContenteditable .token.comment,
+.htmlEditorContenteditable span,
+.htmlEditorContenteditable pre {
+	background: transparent !important;
+	background-color: transparent !important;
+}
+
+/* Выделение текста */
+.htmlEditorContenteditable::selection {
+	background: rgba(59, 130, 246, 0.3);
+}
+
+.htmlEditorContenteditable *::selection {
+	background: rgba(59, 130, 246, 0.3);
+}
+
+@media (max-width: 768px) {
+	.htmlEditorContenteditable {
+		font-size: 0.8rem;
+		padding: 0.625rem;
+		min-height: 5rem;
+	}
+
+	.htmlEditorContenteditable:empty:before {
+		top: 0.625rem;
+		left: 0.625rem;
+	}
+}
+
+/* Убираем старые стили */
+.htmlEditorContainer,
+.htmlEditorHighlight,
+.htmlEditorTextarea,
+.htmlEditor {
+	display: none;
+}
+
+/* Стили для HTML подсказки */
+.hint.htmlHint {
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+	font-size: 0.75rem;
+	background: var(--form-bg-light);
+	padding: 0.75rem;
+	border-radius: 0.375rem;
+	border-left: 3px solid var(--form-primary);
+	margin-top: 0.5rem;
+}
+
+.htmlHint code {
+	background: rgba(59, 130, 246, 0.1);
+	padding: 0.125rem 0.25rem;
+	border-radius: 0.25rem;
+	font-size: 0.7rem;
+	color: var(--form-primary);
+	font-weight: 600;
+}
+
+@media (max-width: 768px) {
+	.htmlEditor {
+		font-size: 0.8rem;
+		padding: 0.75rem !important;
+		min-height: 6rem;
+	}
+
+	.htmlHint {
+		font-size: 0.7rem;
+		padding: 0.5rem;
+	}
+
+	.htmlHint code {
+		font-size: 0.65rem;
+		padding: 0.1rem 0.2rem;
+	}
+}
+
+/* Улучшенные стили для select с иконкой */
+.select {
+	cursor: pointer;
+	padding-right: 2.5rem;
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+	background-position: right 0.75rem center;
+	background-repeat: no-repeat;
+	background-size: 1rem;
+	appearance: none;
+}
+
+.select.disabled {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+/* Анимация появления формы */
+@keyframes formSlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(1rem);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.form {
+	animation: formSlideIn 0.3s ease-out;
 }

@@ -6,7 +6,7 @@ import { query } from '../graphql'
 import type { Query, AdminShoutInfo as Shout } from '../graphql/generated/schema'
 import { ADMIN_GET_SHOUTS_QUERY } from '../graphql/queries'
 import styles from '../styles/Admin.module.css'
-import EditableCodePreview from '../ui/EditableCodePreview'
+import HTMLEditor from '../ui/HTMLEditor'
 import Modal from '../ui/Modal'
 import Pagination from '../ui/Pagination'
 import SortableHeader from '../ui/SortableHeader'
@@ -351,53 +351,73 @@ const ShoutsRoute = (props: ShoutsRouteProps) => {
       <Modal
         isOpen={showBodyModal()}
         onClose={() => setShowBodyModal(false)}
-        title="Содержимое публикации"
+        title="Редактирование содержимого публикации"
         size="large"
+        footer={
+          <>
+            <button
+              type="button"
+              class={`${styles.button} ${styles.secondary}`}
+              onClick={() => setShowBodyModal(false)}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              class={`${styles.button} ${styles.primary}`}
+              onClick={() => {
+                // TODO: добавить логику сохранения изменений в базу данных
+                props.onSuccess?.('Содержимое публикации обновлено')
+                setShowBodyModal(false)
+              }}
+            >
+              Сохранить
+            </button>
+          </>
+        }
       >
-        <EditableCodePreview
-          content={selectedShoutBody()}
-          maxHeight="85vh"
-          language="html"
-          autoFormat={true}
-          onContentChange={(newContent) => {
-            setSelectedShoutBody(newContent)
-          }}
-          onSave={(_content) => {
-            // FIXME: добавить логику сохранения изменений в базу данных
-            props.onSuccess?.('Содержимое публикации обновлено')
-            setShowBodyModal(false)
-          }}
-          onCancel={() => {
-            setShowBodyModal(false)
-          }}
-          placeholder="Введите содержимое публикации..."
-        />
+        <div style="padding: 1rem;">
+          <HTMLEditor
+            value={selectedShoutBody()}
+            onInput={(value) => setSelectedShoutBody(value)}
+          />
+        </div>
       </Modal>
 
       <Modal
         isOpen={showMediaBodyModal()}
         onClose={() => setShowMediaBodyModal(false)}
-        title="Содержимое media.body"
+        title="Редактирование содержимого media.body"
         size="large"
+        footer={
+          <>
+            <button
+              type="button"
+              class={`${styles.button} ${styles.secondary}`}
+              onClick={() => setShowMediaBodyModal(false)}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              class={`${styles.button} ${styles.primary}`}
+              onClick={() => {
+                // TODO: добавить логику сохранения изменений media.body
+                props.onSuccess?.('Содержимое media.body обновлено')
+                setShowMediaBodyModal(false)
+              }}
+            >
+              Сохранить
+            </button>
+          </>
+        }
       >
-        <EditableCodePreview
-          content={selectedMediaBody()}
-          maxHeight="85vh"
-          language="html"
-          autoFormat={true}
-          onContentChange={(newContent) => {
-            setSelectedMediaBody(newContent)
-          }}
-          onSave={(_content) => {
-            // FIXME: добавить логику сохранения изменений media.body
-            props.onSuccess?.('Содержимое media.body обновлено')
-            setShowMediaBodyModal(false)
-          }}
-          onCancel={() => {
-            setShowMediaBodyModal(false)
-          }}
-          placeholder="Введите содержимое media.body..."
-        />
+        <div style="padding: 1rem;">
+          <HTMLEditor
+            value={selectedMediaBody()}
+            onInput={(value) => setSelectedMediaBody(value)}
+          />gjl
+        </div>
       </Modal>
     </div>
   )

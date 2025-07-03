@@ -189,11 +189,275 @@ async def admin_get_topics(_: None, _info: GraphQLResolveInfo, community_id: int
                 for topic in topics
             ]
 
-            logger.info("Загружено топиков для сообщества", len(result))
+            logger.info(f"Загружено топиков для сообщества: {len(result)}")
             return result
 
     except Exception as e:
         raise handle_error("получении списка топиков", e) from e
+
+
+@mutation.field("adminUpdateTopic")
+@admin_auth_required
+async def admin_update_topic(_: None, _info: GraphQLResolveInfo, topic: dict[str, Any]) -> dict[str, Any]:
+    """Обновляет топик через админ-панель"""
+    try:
+        from orm.topic import Topic
+        from resolvers.topic import invalidate_topics_cache
+        from services.db import local_session
+        from services.redis import redis
+
+        topic_id = topic.get("id")
+        if not topic_id:
+            return {"success": False, "error": "ID топика не указан"}
+
+        with local_session() as session:
+            existing_topic = session.query(Topic).filter(Topic.id == topic_id).first()
+            if not existing_topic:
+                return {"success": False, "error": "Топик не найден"}
+
+            # Сохраняем старый slug для удаления из кеша
+            old_slug = str(getattr(existing_topic, "slug", ""))
+
+            # Обновляем поля топика
+            for key, value in topic.items():
+                if key != "id" and hasattr(existing_topic, key):
+                    setattr(existing_topic, key, value)
+
+            session.add(existing_topic)
+            session.commit()
+
+            # Инвалидируем кеш
+            await invalidate_topics_cache(topic_id)
+
+            # Если slug изменился, удаляем старый ключ
+            new_slug = str(getattr(existing_topic, "slug", ""))
+            if old_slug != new_slug:
+                await redis.execute("DEL", f"topic:slug:{old_slug}")
+                logger.debug(f"Удален ключ кеша для старого slug: {old_slug}")
+
+            logger.info(f"Топик {topic_id} обновлен через админ-панель")
+            return {"success": True, "topic": existing_topic}
+
+    except Exception as e:
+        logger.error(f"Ошибка обновления топика: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminCreateTopic")
+@admin_auth_required
+async def admin_create_topic(_: None, _info: GraphQLResolveInfo, topic: dict[str, Any]) -> dict[str, Any]:
+    """Создает новый топик через админ-панель"""
+    try:
+        from orm.topic import Topic
+        from resolvers.topic import invalidate_topics_cache
+        from services.db import local_session
+
+        with local_session() as session:
+            # Создаем новый топик
+            new_topic = Topic(**topic)
+            session.add(new_topic)
+            session.commit()
+
+            # Инвалидируем кеш всех тем
+            await invalidate_topics_cache()
+
+            logger.info(f"Топик {new_topic.id} создан через админ-панель")
+            return {"success": True, "topic": new_topic}
+
+    except Exception as e:
+        logger.error(f"Ошибка создания топика: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminMergeTopics")
+@admin_auth_required
+async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: dict[str, Any]) -> dict[str, Any]:
+    """
+    Административное слияние топиков с переносом всех публикаций и подписчиков
+
+    Args:
+        merge_input: Данные для слияния:
+            - target_topic_id: ID целевой темы (в которую сливаем)
+            - source_topic_ids: Список ID исходных тем (которые сливаем)
+            - preserve_target_properties: Сохранить свойства целевой темы
+
+    Returns:
+        dict: Результат операции с информацией о слиянии
+    """
+    try:
+        from orm.draft import DraftTopic
+        from orm.shout import ShoutTopic
+        from orm.topic import Topic, TopicFollower
+        from resolvers.topic import invalidate_topic_followers_cache, invalidate_topics_cache
+        from services.db import local_session
+        from services.redis import redis
+
+        target_topic_id = merge_input["target_topic_id"]
+        source_topic_ids = merge_input["source_topic_ids"]
+        preserve_target = merge_input.get("preserve_target_properties", True)
+
+        # Проверяем что ID не пересекаются
+        if target_topic_id in source_topic_ids:
+            return {"success": False, "error": "Целевая тема не может быть в списке исходных тем"}
+
+        with local_session() as session:
+            # Получаем целевую тему
+            target_topic = session.query(Topic).filter(Topic.id == target_topic_id).first()
+            if not target_topic:
+                return {"success": False, "error": f"Целевая тема с ID {target_topic_id} не найдена"}
+
+            # Получаем исходные темы
+            source_topics = session.query(Topic).filter(Topic.id.in_(source_topic_ids)).all()
+            if len(source_topics) != len(source_topic_ids):
+                found_ids = [t.id for t in source_topics]
+                missing_ids = [topic_id for topic_id in source_topic_ids if topic_id not in found_ids]
+                return {"success": False, "error": f"Исходные темы с ID {missing_ids} не найдены"}
+
+            # Проверяем что все темы принадлежат одному сообществу
+            target_community = target_topic.community
+            for source_topic in source_topics:
+                if source_topic.community != target_community:
+                    return {"success": False, "error": f"Тема '{source_topic.title}' принадлежит другому сообществу"}
+
+            # Собираем статистику для отчета
+            merge_stats = {"followers_moved": 0, "publications_moved": 0, "drafts_moved": 0, "source_topics_deleted": 0}
+
+            # Переносим подписчиков из исходных тем в целевую
+            for source_topic in source_topics:
+                # Получаем подписчиков исходной темы
+                source_followers = session.query(TopicFollower).filter(TopicFollower.topic == source_topic.id).all()
+
+                for follower in source_followers:
+                    # Проверяем, не подписан ли уже пользователь на целевую тему
+                    existing = (
+                        session.query(TopicFollower)
+                        .filter(TopicFollower.topic == target_topic_id, TopicFollower.follower == follower.follower)
+                        .first()
+                    )
+
+                    if not existing:
+                        # Создаем новую подписку на целевую тему
+                        new_follower = TopicFollower(
+                            topic=target_topic_id,
+                            follower=follower.follower,
+                            created_at=follower.created_at,
+                            auto=follower.auto,
+                        )
+                        session.add(new_follower)
+                        merge_stats["followers_moved"] += 1
+
+                    # Удаляем старую подписку
+                    session.delete(follower)
+
+            # Переносим публикации из исходных тем в целевую
+            for source_topic in source_topics:
+                # Получаем связи публикаций с исходной темой
+                shout_topics = session.query(ShoutTopic).filter(ShoutTopic.topic == source_topic.id).all()
+
+                for shout_topic in shout_topics:
+                    # Проверяем, не связана ли уже публикация с целевой темой
+                    existing = (
+                        session.query(ShoutTopic)
+                        .filter(ShoutTopic.topic == target_topic_id, ShoutTopic.shout == shout_topic.shout)
+                        .first()
+                    )
+
+                    if not existing:
+                        # Создаем новую связь с целевой темой
+                        new_shout_topic = ShoutTopic(
+                            topic=target_topic_id, shout=shout_topic.shout, main=shout_topic.main
+                        )
+                        session.add(new_shout_topic)
+                        merge_stats["publications_moved"] += 1
+
+                    # Удаляем старую связь
+                    session.delete(shout_topic)
+
+            # Переносим черновики из исходных тем в целевую
+            for source_topic in source_topics:
+                # Получаем связи черновиков с исходной темой
+                draft_topics = session.query(DraftTopic).filter(DraftTopic.topic == source_topic.id).all()
+
+                for draft_topic in draft_topics:
+                    # Проверяем, не связан ли уже черновик с целевой темой
+                    existing = (
+                        session.query(DraftTopic)
+                        .filter(DraftTopic.topic == target_topic_id, DraftTopic.shout == draft_topic.shout)
+                        .first()
+                    )
+
+                    if not existing:
+                        # Создаем новую связь с целевой темой
+                        new_draft_topic = DraftTopic(
+                            topic=target_topic_id, shout=draft_topic.shout, main=draft_topic.main
+                        )
+                        session.add(new_draft_topic)
+                        merge_stats["drafts_moved"] += 1
+
+                    # Удаляем старую связь
+                    session.delete(draft_topic)
+
+            # Обновляем parent_ids дочерних топиков
+            for source_topic in source_topics:
+                # Находим всех детей исходной темы
+                child_topics = session.query(Topic).filter(Topic.parent_ids.contains(int(source_topic.id))).all()  # type: ignore[arg-type]
+
+                for child_topic in child_topics:
+                    current_parent_ids = list(child_topic.parent_ids or [])
+                    # Заменяем ID исходной темы на ID целевой темы
+                    updated_parent_ids = [
+                        target_topic_id if parent_id == source_topic.id else parent_id
+                        for parent_id in current_parent_ids
+                    ]
+                    child_topic.parent_ids = updated_parent_ids
+
+            # Объединяем parent_ids если не сохраняем только целевые свойства
+            if not preserve_target:
+                current_parent_ids = list(target_topic.parent_ids or [])
+                all_parent_ids = set(current_parent_ids)
+                for source_topic in source_topics:
+                    source_parent_ids = list(source_topic.parent_ids or [])
+                    if source_parent_ids:
+                        all_parent_ids.update(source_parent_ids)
+                # Убираем IDs исходных тем из parent_ids
+                all_parent_ids.discard(target_topic_id)
+                for source_id in source_topic_ids:
+                    all_parent_ids.discard(source_id)
+                target_topic.parent_ids = list(all_parent_ids) if all_parent_ids else []
+
+            # Инвалидируем кеши ПЕРЕД удалением тем
+            for source_topic in source_topics:
+                await invalidate_topic_followers_cache(int(source_topic.id))
+                if source_topic.slug:
+                    await redis.execute("DEL", f"topic:slug:{source_topic.slug}")
+                await redis.execute("DEL", f"topic:id:{source_topic.id}")
+
+            # Удаляем исходные темы
+            for source_topic in source_topics:
+                session.delete(source_topic)
+                merge_stats["source_topics_deleted"] += 1
+                logger.info(f"Удалена исходная тема: {source_topic.title} (ID: {source_topic.id})")
+
+            # Сохраняем изменения
+            session.commit()
+
+            # Инвалидируем кеши целевой темы и общие кеши
+            await invalidate_topics_cache(target_topic_id)
+            await invalidate_topic_followers_cache(target_topic_id)
+
+            logger.info(f"Успешно слиты темы {source_topic_ids} в тему {target_topic_id} через админ-панель")
+            logger.info(f"Статистика слияния: {merge_stats}")
+
+            return {
+                "success": True,
+                "topic": target_topic,
+                "message": f"Успешно слито {len(source_topics)} тем в '{target_topic.title}'",
+                "stats": merge_stats,
+            }
+
+    except Exception as e:
+        logger.error(f"Ошибка при слиянии тем через админ-панель: {e}")
+        return {"success": False, "error": f"Ошибка при слиянии тем: {e}"}
 
 
 # === ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ===
@@ -206,8 +470,8 @@ async def get_env_variables(_: None, _info: GraphQLResolveInfo) -> list[dict[str
     try:
         return await admin_service.get_env_variables()
     except Exception as e:
-        logger.error("Ошибка получения переменных окружения", e)
-        raise GraphQLError("Не удалось получить переменные окружения", e) from e
+        logger.error(f"Ошибка получения переменных окружения: {e}")
+        raise GraphQLError("Не удалось получить переменные окружения") from e
 
 
 @mutation.field("updateEnvVariable")
@@ -234,8 +498,8 @@ async def admin_get_roles(_: None, _info: GraphQLResolveInfo, community: int = N
     try:
         return admin_service.get_roles(community)
     except Exception as e:
-        logger.error("Ошибка получения ролей", e)
-        raise GraphQLError("Не удалось получить роли", e) from e
+        logger.error(f"Ошибка получения ролей: {e}")
+        raise GraphQLError("Не удалось получить роли") from e
 
 
 # === ЗАГЛУШКИ ДЛЯ ОСТАЛЬНЫХ РЕЗОЛВЕРОВ ===

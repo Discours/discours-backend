@@ -11,6 +11,7 @@ import styles from '../styles/Modal.module.css'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
 import RoleManager from '../ui/RoleManager'
+import HTMLEditor from '../ui/HTMLEditor'
 
 interface Community {
   id: number
@@ -284,12 +285,9 @@ const CommunityEditModal = (props: CommunityEditModalProps) => {
                     Описание
                   </span>
                 </label>
-                <textarea
-                  class={formStyles.textarea}
+                <HTMLEditor
                   value={formData().desc || ''}
-                  onInput={(e) => updateField('desc', e.currentTarget.value)}
-                  placeholder="Описание сообщества"
-                  rows={4}
+                  onInput={(value) => updateField('desc', value)}
                 />
               </div>
 

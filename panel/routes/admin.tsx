@@ -98,10 +98,6 @@ const AdminPage: Component<AdminPageProps> = (props) => {
         <div class={styles['header-container']}>
           <div class={styles['header-left']}>
             <img src={publyLogo} alt="Logo" class={styles.logo} />
-            <h1>
-              Панель администратора
-              <span class={styles['version-badge']}>v{__APP_VERSION__}</span>
-            </h1>
           </div>
           <div class={styles['header-right']}>
             <CommunitySelector />

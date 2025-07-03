@@ -25,6 +25,16 @@ input TopicInput {
 	parent_ids: [Int]
 }
 
+input AdminTopicInput {
+	id: Int!
+	slug: String
+	title: String
+	body: String
+	pic: String
+	community: Int
+	parent_ids: [Int]
+}
+
 input TopicMergeInput {
 	target_topic_id: Int!
 	source_topic_ids: [Int!]!

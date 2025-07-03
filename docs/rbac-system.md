@@ -132,17 +132,27 @@ reader → author → artist → expert → editor → admin
 
 | Роль | Базовые права | Дополнительные права |
 |------|---------------|---------------------|
-| `reader` | `*:read`, базовые реакции | `chat:*`, `message:*` |
+| `reader` | `*:read`, базовые реакции | `chat:*`, `message:*`, `bookmark:*` |
 | `author` | Наследует `reader` + `*:create`, `*:update_own`, `*:delete_own` | `draft:*` |
 | `artist` | Наследует `author` | `reaction:CREDIT:accept`, `reaction:CREDIT:decline` |
 | `expert` | Наследует `author` | `reaction:PROOF:*`, `reaction:DISPROOF:*`, `reaction:AGREE:*`, `reaction:DISAGREE:*` |
-| `editor` | `*:read`, `*:create`, `*:update_any`, `*:delete_any` | `community:read`, `community:update_own` |
+| `editor` | `*:read`, `*:create`, `*:update_any`, `*:delete_any` | `community:read`, `community:update_own`, `topic:merge`, `topic:create`, `topic:update_own`, `topic:delete_own` |
 | `admin` | Все права (`*`) | Полный доступ ко всем функциям |
 
 ### Формат разрешений
-- Базовые: `<entity>:<action>` (например: `shout:create`)
+- Базовые: `<entity>:<action>` (например: `shout:create`, `topic:create`)
 - Реакции: `reaction:<type>:<action>` (например: `reaction:LIKE:create`)
+- Специальные: `topic:merge` (слияние топиков)
 - Wildcard: `<entity>:*` или `*` (только для admin)
+
+### Права на топики
+- `topic:create` - создание новых топиков (роли: `author`, `editor`)
+- `topic:read` - чтение топиков (роли: `reader` и выше)
+- `topic:update_own` - обновление собственных топиков (роли: `author`)
+- `topic:update_any` - обновление любых топиков (роли: `editor`)
+- `topic:delete_own` - удаление собственных топиков (роли: `author`)
+- `topic:delete_any` - удаление любых топиков (роли: `editor`)
+- `topic:merge` - слияние топиков (роли: `editor`)
 
 ## GraphQL API
 
@@ -243,6 +253,18 @@ from resolvers.rbac import (
 async def create_shout(self, info: GraphQLResolveInfo, **kwargs):
     # Только пользователи с правом создания статей
     return await self._create_shout_logic(**kwargs)
+
+@mutation.field("create_topic")
+@require_permission("topic:create")
+async def create_topic(self, info: GraphQLResolveInfo, topic_input: dict):
+    # Только пользователи с правом создания топиков (author, editor)
+    return await self._create_topic_logic(topic_input)
+
+@mutation.field("merge_topics")
+@require_permission("topic:merge")
+async def merge_topics(self, info: GraphQLResolveInfo, merge_input: dict):
+    # Только пользователи с правом слияния топиков (editor)
+    return await self._merge_topics_logic(merge_input)
 ```
 
 #### Проверка любого из разрешений (OR логика)
@@ -252,6 +274,18 @@ async def create_shout(self, info: GraphQLResolveInfo, **kwargs):
 async def update_shout(self, info: GraphQLResolveInfo, shout_id: int, **kwargs):
     # Может редактировать свои статьи ИЛИ любые статьи
     return await self._update_shout_logic(shout_id, **kwargs)
+
+@mutation.field("update_topic")
+@require_any_permission(["topic:update_own", "topic:update_any"])
+async def update_topic(self, info: GraphQLResolveInfo, topic_input: dict):
+    # Может редактировать свои топики ИЛИ любые топики
+    return await self._update_topic_logic(topic_input)
+
+@mutation.field("delete_topic")
+@require_any_permission(["topic:delete_own", "topic:delete_any"])
+async def delete_topic(self, info: GraphQLResolveInfo, topic_id: int):
+    # Может удалять свои топики ИЛИ любые топики
+    return await self._delete_topic_logic(topic_id)
 ```
 
 #### Проверка конкретной роли

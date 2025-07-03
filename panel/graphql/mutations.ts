@@ -176,3 +176,37 @@ export const SET_TOPIC_PARENT_MUTATION = `
     }
   }
 `
+
+export const ADMIN_UPDATE_TOPIC_MUTATION = `
+  mutation AdminUpdateTopic($topic: AdminTopicInput!) {
+    adminUpdateTopic(topic: $topic) {
+      success
+      error
+      topic {
+        id
+        title
+        slug
+        body
+        community
+        parent_ids
+      }
+    }
+  }
+`
+
+export const ADMIN_CREATE_TOPIC_MUTATION = `
+  mutation AdminCreateTopic($topic: AdminTopicInput!) {
+    adminCreateTopic(topic: $topic) {
+      success
+      error
+      topic {
+        id
+        title
+        slug
+        body
+        community
+        parent_ids
+      }
+    }
+  }
+`

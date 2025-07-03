@@ -1,5 +1,4 @@
 {
-  "Панель администратора": "Admin Panel",
   "Выйти": "Logout",
   "Авторы": "Authors",
   "Публикации": "Publications",
@@ -10,7 +9,7 @@
   "Переменные среды": "Environment Variables",
   "Ошибка при выходе": "Logout error",
 
-  "Вход в панель администратора": "Admin Panel Login",
+  "Вход": "Login",
   "Имя пользователя": "Username",
   "Пароль": "Password",
   "Войти": "Login",
@@ -230,5 +229,9 @@
   "123": "123",
   "Введите содержимое media.body...": "Enter media.body content...",
   "Поиск по названию, slug или ID...": "Search by title, slug or ID...",
-  "Дискурс": "Discours"
+  "Дискурс": "Discours",
+
+  "Родительские топики отображаются вверху списка синим цветом. Кликните по топику чтобы добавить или убрать из выбранных.": "Parent topics are displayed at the top of the list in blue color. Click on the topic to add or remove from selected.",
+  "Выбрано:": "Selected:",
+  "Поиск по топикам...": "Search by topics..."
 }

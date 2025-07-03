@@ -56,21 +56,12 @@ const LoginPage = () => {
       <div class={styles['login-form-container']}>
         <form class={formStyles.form} onSubmit={handleSubmit}>
           <img src={publyLogo} alt="Logo" class={styles['login-logo']} />
-          <h1 class={formStyles.title}>Вход в админ панель</h1>
-
           <div class={formStyles.fieldGroup}>
-            <label class={formStyles.label}>
-              <span class={formStyles.labelText}>
-                <span class={formStyles.labelIcon}>📧</span>
-                Email
-                <span class={formStyles.required}>*</span>
-              </span>
-            </label>
             <input
               type="email"
               value={username()}
               onInput={(e) => setUsername(e.currentTarget.value)}
-              placeholder="admin@discours.io"
+              placeholder="admin@media"
               required
               class={`${formStyles.input} ${error() ? formStyles.error : ''}`}
               disabled={loading()}
@@ -78,13 +69,6 @@ const LoginPage = () => {
           </div>
 
           <div class={formStyles.fieldGroup}>
-            <label class={formStyles.label}>
-              <span class={formStyles.labelText}>
-                <span class={formStyles.labelIcon}>🔒</span>
-                Пароль
-                <span class={formStyles.required}>*</span>
-              </span>
-            </label>
             <input
               type="password"
               value={password()}
@@ -103,7 +87,7 @@ const LoginPage = () => {
             </div>
           )}
 
-          <div class={formStyles.actions}>
+          <div class={formStyles.actions} style={{ 'margin': 'auto' }}>
             <Button
               variant="primary"
               type="submit"

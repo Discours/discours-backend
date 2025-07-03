@@ -1,4 +1,5 @@
 import { createContext, createEffect, createSignal, JSX, onMount, useContext } from 'solid-js'
+import { query } from '../graphql'
 import {
   ADMIN_GET_ROLES_QUERY,
   ADMIN_GET_TOPICS_QUERY,
@@ -42,6 +43,7 @@ interface DataContextType {
   // Топики
   topics: () => Topic[]
   allTopics: () => Topic[]
+  setTopics: (topics: Topic[]) => void
   getTopicById: (id: number) => Topic | undefined
   getTopicTitle: (id: number) => string
   loadTopicsByCommunity: (communityId: number) => Promise<Topic[]>
@@ -69,6 +71,7 @@ const DataContext = createContext<DataContextType>({
   // Топики
   topics: () => [],
   allTopics: () => [],
+  setTopics: () => {},
   getTopicById: () => undefined,
   getTopicTitle: () => '',
   loadTopicsByCommunity: async () => [],
@@ -94,6 +97,13 @@ export function DataProvider(props: { children: JSX.Element }) {
   const [topics, setTopics] = createSignal<Topic[]>([])
   const [allTopics, setAllTopics] = createSignal<Topic[]>([])
   const [roles, setRoles] = createSignal<Role[]>([])
+
+  // Обертка для setTopics с логированием
+  const setTopicsWithLogging = (newTopics: Topic[]) => {
+    console.log('[DataProvider] setTopics called with', newTopics.length, 'topics')
+    console.log('[DataProvider] Sample topic parent_ids:', newTopics.slice(0, 3).map(t => ({ id: t.id, title: t.title, parent_ids: t.parent_ids })))
+    setTopics(newTopics)
+  }
 
   // Инициализация выбранного сообщества из localStorage
   const initialCommunity = (() => {
@@ -151,23 +161,12 @@ export function DataProvider(props: { children: JSX.Element }) {
   // Загрузка сообществ
   const loadCommunities = async () => {
     try {
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: GET_COMMUNITIES_QUERY
-        })
-      })
+      const result = await query<{ get_communities_all: Community[] }>(
+        `${location.origin}/graphql`,
+        GET_COMMUNITIES_QUERY
+      )
 
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
-
-      const communitiesData = result.data.get_communities_all || []
+      const communitiesData = result.get_communities_all || []
       setCommunities(communitiesData)
       return communitiesData
     } catch (error) {
@@ -179,24 +178,13 @@ export function DataProvider(props: { children: JSX.Element }) {
   // Загрузка всех топиков
   const loadTopics = async () => {
     try {
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: GET_TOPICS_QUERY
-        })
-      })
+      const result = await query<{ get_topics_all: Topic[] }>(
+        `${location.origin}/graphql`,
+        GET_TOPICS_QUERY
+      )
 
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
-
-      const topicsData = result.data.get_topics_all || []
-      setTopics(topicsData)
+      const topicsData = result.get_topics_all || []
+      setTopicsWithLogging(topicsData)
       return topicsData
     } catch (error) {
       console.error('Ошибка загрузки топиков:', error)
@@ -210,29 +198,16 @@ export function DataProvider(props: { children: JSX.Element }) {
       setIsLoading(true)
 
       // Используем админский резолвер для получения всех топиков без лимитов
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: ADMIN_GET_TOPICS_QUERY,
-          variables: {
-            community_id: communityId
-          }
-        })
-      })
+      const result = await query<{ adminGetTopics: Topic[] }>(
+        `${location.origin}/graphql`,
+        ADMIN_GET_TOPICS_QUERY,
+        { community_id: communityId }
+      )
 
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
-
-      const allTopicsData = result.data.adminGetTopics || []
+      const allTopicsData = result.adminGetTopics || []
 
       // Сохраняем все данные сразу для отображения
-      setTopics(allTopicsData)
+      setTopicsWithLogging(allTopicsData)
       setAllTopics(allTopicsData)
 
       console.log(`[DataProvider] Загружено ${allTopicsData.length} топиков для сообщества ${communityId}`)
@@ -255,27 +230,13 @@ export function DataProvider(props: { children: JSX.Element }) {
 
       const variables = communityId ? { community: communityId } : {}
 
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: ADMIN_GET_ROLES_QUERY,
-          variables
-        })
-      })
+      const result = await query<{ adminGetRoles: Role[] }>(
+        `${location.origin}/graphql`,
+        ADMIN_GET_ROLES_QUERY,
+        variables
+      )
 
-      const result = await response.json()
-      console.log('[DataProvider] Ответ от сервера для ролей:', result)
-
-      if (result.errors) {
-        console.warn('Не удалось загрузить роли (возможно не авторизован):', result.errors[0].message)
-        setRoles([])
-        return []
-      }
-
-      const rolesData = result.data.adminGetRoles || []
+      const rolesData = result.adminGetRoles || []
       console.log('[DataProvider] Роли успешно загружены:', rolesData)
       setRoles(rolesData)
       return rolesData
@@ -316,7 +277,12 @@ export function DataProvider(props: { children: JSX.Element }) {
   }
 
   const getCommunityName = (id: number): string => getCommunityById(id)?.name || ''
-  const getTopicTitle = (id: number): string => getTopicById(id)?.title || ''
+  const getTopicTitle = (id: number): string => {
+    const topic = getTopicById(id)
+    const title = topic?.title || ''
+    console.log(`[DataProvider] getTopicTitle(${id}) -> "${title}", parent_ids:`, topic?.parent_ids)
+    return title
+  }
 
   // Методы для работы с топиками
   const getTopicById = (id: number): Topic | undefined => {
@@ -344,6 +310,7 @@ export function DataProvider(props: { children: JSX.Element }) {
     // Топики
     topics,
     allTopics,
+    setTopics: setTopicsWithLogging,
     getTopicById,
     getTopicTitle,
     loadTopicsByCommunity,
@@ -357,26 +324,9 @@ export function DataProvider(props: { children: JSX.Element }) {
     isLoading,
     loadData,
     // biome-ignore lint/suspicious/noExplicitAny: grahphql
-    queryGraphQL: async (query: string, variables?: Record<string, any>) => {
+    queryGraphQL: async (queryStr: string, variables?: Record<string, any>) => {
       try {
-        const response = await fetch('/graphql', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            query,
-            variables
-          })
-        })
-
-        const result = await response.json()
-
-        if (result.errors) {
-          throw new Error(result.errors[0].message)
-        }
-
-        return result.data
+        return await query(`${location.origin}/graphql`, queryStr, variables)
       } catch (error) {
         console.error('Ошибка выполнения GraphQL запроса:', error)
         return null

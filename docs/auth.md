@@ -255,7 +255,6 @@ export const AdminPanel: Component = () => {
 
   return (
     <div>
-      <h1>Панель администратора</h1>
       {/* Контент админки */}
     </div>
   )
