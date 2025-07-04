@@ -194,6 +194,33 @@ export const ADMIN_UPDATE_TOPIC_MUTATION = `
   }
 `
 
+export const ADMIN_UPDATE_REACTION_MUTATION = `
+  mutation AdminUpdateReaction($reaction: AdminReactionUpdateInput!) {
+    adminUpdateReaction(reaction: $reaction) {
+      success
+      error
+    }
+  }
+`
+
+export const ADMIN_DELETE_REACTION_MUTATION = `
+  mutation AdminDeleteReaction($reaction_id: Int!) {
+    adminDeleteReaction(reaction_id: $reaction_id) {
+      success
+      error
+    }
+  }
+`
+
+export const ADMIN_RESTORE_REACTION_MUTATION = `
+  mutation AdminRestoreReaction($reaction_id: Int!) {
+    adminRestoreReaction(reaction_id: $reaction_id) {
+      success
+      error
+    }
+  }
+`
+
 export const ADMIN_CREATE_TOPIC_MUTATION = `
   mutation AdminCreateTopic($topic: AdminTopicInput!) {
     adminCreateTopic(topic: $topic) {

@@ -274,8 +274,6 @@ main {
 	white-space: nowrap;
 }
 
-
-
 .roles-cell {
 	min-width: 200px;
 }
@@ -332,9 +330,6 @@ main {
 	border: 1px solid var(--border-color);
 	border-radius: 4px;
 	background-color: white;
-}
-
-.shouts-list {
 }
 
 .status-badge {
@@ -584,8 +579,6 @@ td {
 	hyphens: auto;
 }
 
-
-
 /* Responsive Styles */
 @media (max-width: 1024px) {
 	.header-container {
@@ -676,4 +669,199 @@ td {
 	.search-input-group {
 		flex-direction: column;
 	}
+}
+
+/* Styles for reaction-related components */
+.reactions-container {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.reactions-list {
+	width: 100%;
+	overflow-x: auto;
+}
+
+.reactions-list table {
+	width: 100%;
+	border-collapse: collapse;
+	background-color: white;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	border-radius: 8px;
+	table-layout: fixed;
+}
+
+/* Оптимизация ширины колонок для реакций */
+.reactions-list th:nth-child(1), /* ID */
+.reactions-list td:nth-child(1) {
+	width: 80px;
+	text-align: center;
+}
+
+.reactions-list th:nth-child(2), /* ТИП */
+.reactions-list td:nth-child(2) {
+	width: 60px;
+	text-align: center;
+}
+
+.reactions-list th:nth-child(3), /* ТЕКСТ */
+.reactions-list td:nth-child(3) {
+	width: 25%;
+}
+
+.reactions-list th:nth-child(4), /* АВТОР */
+.reactions-list td:nth-child(4) {
+	width: 18%;
+}
+
+.reactions-list th:nth-child(5), /* ПУБЛИКАЦИЯ */
+.reactions-list td:nth-child(5) {
+	width: 22%;
+}
+
+.reactions-list th:nth-child(6), /* СОЗДАНО */
+.reactions-list td:nth-child(6) {
+	width: 120px;
+}
+
+.reactions-list th:nth-child(7), /* СТАТУС */
+.reactions-list td:nth-child(7) {
+	width: 100px;
+	text-align: center;
+}
+
+.reactions-list th:nth-child(8), /* ДЕЙСТВИЯ */
+.reactions-list td:nth-child(8) {
+	width: 120px;
+	text-align: center;
+}
+
+.reactions-list th,
+.reactions-list td {
+	padding: 0.75rem;
+	text-align: left;
+	border-bottom: 1px solid #e0e0e0;
+}
+
+.reactions-list th {
+	background-color: #f8f9fa;
+	font-weight: 600;
+	color: #333;
+}
+
+.reactions-list tr:hover {
+	background-color: #f8f9fa;
+	cursor: pointer;
+}
+
+.reactions-list tr.deleted-row {
+	background-color: #fff5f5;
+	color: #666;
+}
+
+.reactions-list tr.deleted-row:hover {
+	background-color: #fed7d7;
+}
+
+.body-cell {
+	max-width: 200px;
+}
+
+.body-preview {
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+	font-size: 0.875rem;
+	line-height: 1.4;
+}
+
+.author-cell {
+	min-width: 150px;
+}
+
+.author-email {
+	font-size: 0.75rem;
+	color: #666;
+	margin-top: 0.25rem;
+}
+
+.shout-cell {
+	min-width: 200px;
+}
+
+.shout-title {
+	font-weight: 500;
+	margin-bottom: 0.25rem;
+}
+
+.shout-meta {
+	font-size: 0.75rem;
+	color: #666;
+}
+
+.status-active {
+	color: #28a745;
+	font-weight: 500;
+}
+
+.status-deleted {
+	color: #dc3545;
+	font-weight: 500;
+}
+
+.actions-cell {
+	min-width: 120px;
+}
+
+.actions-cell button {
+	margin-right: 0.5rem;
+}
+
+.filters-section {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+.additional-filters {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.filter-select,
+.filter-input {
+	padding: 0.5rem;
+	border: 1px solid #d1d5db;
+	border-radius: 4px;
+	font-size: 0.875rem;
+	min-width: 120px;
+}
+
+.filter-select:focus,
+.filter-input:focus {
+	outline: none;
+	border-color: #3b82f6;
+	box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.stat-info {
+	display: flex;
+	gap: 1rem;
+	font-size: 0.875rem;
+	color: #666;
+}
+
+.stat-info span {
+	padding: 0.25rem 0.5rem;
+	background-color: #f8f9fa;
+	border-radius: 4px;
+}
+
+.reaction-icon {
+	font-size: 1.25rem;
+	display: inline-block;
+	cursor: pointer;
 }

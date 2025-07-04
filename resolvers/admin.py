@@ -617,3 +617,234 @@ async def admin_get_community_role_settings(_: None, _info: GraphQLResolveInfo, 
             "available_roles": ["reader", "author", "artist", "expert", "editor", "admin"],
             "error": str(e),
         }
+
+
+# === РЕАКЦИИ ===
+
+
+@query.field("adminGetReactions")
+@admin_auth_required
+async def admin_get_reactions(
+    _: None,
+    _info: GraphQLResolveInfo,
+    limit: int = 20,
+    offset: int = 0,
+    search: str = "",
+    kind: str = None,
+    shout_id: int = None,
+    status: str = "all",
+) -> dict[str, Any]:
+    """Получает список реакций для админ-панели"""
+    try:
+        from sqlalchemy import and_, case, func, or_
+        from sqlalchemy.orm import aliased
+
+        from auth.orm import Author
+        from orm.reaction import Reaction
+        from orm.shout import Shout
+        from services.db import local_session
+
+        with local_session() as session:
+            # Базовый запрос с джойнами
+            query = (
+                session.query(Reaction, Author, Shout)
+                .join(Author, Reaction.created_by == Author.id)
+                .join(Shout, Reaction.shout == Shout.id)
+            )
+
+            # Фильтрация
+            filters = []
+
+            # Фильтр по статусу (как в публикациях)
+            if status == "active":
+                filters.append(Reaction.deleted_at.is_(None))
+            elif status == "deleted":
+                filters.append(Reaction.deleted_at.isnot(None))
+            # Если status == "all", не добавляем фильтр - показываем все
+
+            if search:
+                filters.append(
+                    or_(
+                        Reaction.body.ilike(f"%{search}%"),
+                        Author.name.ilike(f"%{search}%"),
+                        Author.email.ilike(f"%{search}%"),
+                        Shout.title.ilike(f"%{search}%"),
+                    )
+                )
+            if kind:
+                filters.append(Reaction.kind == kind)
+            if shout_id:
+                filters.append(Reaction.shout == shout_id)
+
+            if filters:
+                query = query.filter(and_(*filters))
+
+            # Общее количество
+            total = query.count()
+
+            # Получаем реакции с пагинацией
+            reactions_data = query.order_by(Reaction.created_at.desc()).offset(offset).limit(limit).all()
+
+            # Формируем результат
+            reactions = []
+            for reaction, author, shout in reactions_data:
+                # Получаем статистику для каждой реакции
+                aliased_reaction = aliased(Reaction)
+                stats = (
+                    session.query(
+                        func.count(aliased_reaction.id.distinct()).label("comments_count"),
+                        func.sum(
+                            case(
+                                (aliased_reaction.kind == "LIKE", 1), (aliased_reaction.kind == "DISLIKE", -1), else_=0
+                            )
+                        ).label("rating"),
+                    )
+                    .filter(
+                        aliased_reaction.reply_to == reaction.id,
+                        # Убираем фильтр deleted_at чтобы включить все реакции в статистику
+                    )
+                    .first()
+                )
+
+                reactions.append(
+                    {
+                        "id": reaction.id,
+                        "kind": reaction.kind,
+                        "body": reaction.body or "",
+                        "created_at": reaction.created_at,
+                        "updated_at": reaction.updated_at,
+                        "deleted_at": reaction.deleted_at,
+                        "reply_to": reaction.reply_to,
+                        "created_by": {
+                            "id": author.id,
+                            "name": author.name,
+                            "email": author.email,
+                            "slug": author.slug,
+                        },
+                        "shout": {
+                            "id": shout.id,
+                            "title": shout.title,
+                            "slug": shout.slug,
+                            "layout": shout.layout,
+                            "created_at": shout.created_at,
+                            "published_at": shout.published_at,
+                            "deleted_at": shout.deleted_at,
+                        },
+                        "stat": {
+                            "comments_count": stats.comments_count or 0,
+                            "rating": stats.rating or 0,
+                        },
+                    }
+                )
+
+            # Расчет пагинации
+            per_page = limit
+            total_pages = (total + per_page - 1) // per_page
+            page = (offset // per_page) + 1
+
+            logger.info(f"Загружено реакций для админ-панели: {len(reactions)}")
+            return {
+                "reactions": reactions,
+                "total": total,
+                "page": page,
+                "perPage": per_page,
+                "totalPages": total_pages,
+            }
+
+    except Exception as e:
+        raise handle_error("получении списка реакций", e) from e
+
+
+@mutation.field("adminUpdateReaction")
+@admin_auth_required
+async def admin_update_reaction(_: None, _info: GraphQLResolveInfo, reaction: dict[str, Any]) -> dict[str, Any]:
+    """Обновляет реакцию"""
+    try:
+        import time
+
+        from orm.reaction import Reaction
+        from services.db import local_session
+
+        reaction_id = reaction.get("id")
+        if not reaction_id:
+            return {"success": False, "error": "ID реакции не указан"}
+
+        with local_session() as session:
+            # Находим реакцию
+            db_reaction = session.query(Reaction).filter(Reaction.id == reaction_id).first()
+            if not db_reaction:
+                return {"success": False, "error": "Реакция не найдена"}
+
+            # Обновляем поля
+            if "body" in reaction:
+                db_reaction.body = reaction["body"]
+            if "deleted_at" in reaction:
+                db_reaction.deleted_at = reaction["deleted_at"]
+
+            # Обновляем время изменения
+            db_reaction.updated_at = int(time.time())
+
+            session.commit()
+
+            logger.info(f"Реакция {reaction_id} обновлена через админ-панель")
+            return {"success": True}
+
+    except Exception as e:
+        logger.error(f"Ошибка обновления реакции: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminDeleteReaction")
+@admin_auth_required
+async def admin_delete_reaction(_: None, _info: GraphQLResolveInfo, reaction_id: int) -> dict[str, Any]:
+    """Удаляет реакцию (мягкое удаление)"""
+    try:
+        import time
+
+        from orm.reaction import Reaction
+        from services.db import local_session
+
+        with local_session() as session:
+            # Находим реакцию
+            db_reaction = session.query(Reaction).filter(Reaction.id == reaction_id).first()
+            if not db_reaction:
+                return {"success": False, "error": "Реакция не найдена"}
+
+            # Устанавливаем время удаления
+            db_reaction.deleted_at = int(time.time())
+
+            session.commit()
+
+            logger.info(f"Реакция {reaction_id} удалена через админ-панель")
+            return {"success": True}
+
+    except Exception as e:
+        logger.error(f"Ошибка удаления реакции: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminRestoreReaction")
+@admin_auth_required
+async def admin_restore_reaction(_: None, _info: GraphQLResolveInfo, reaction_id: int) -> dict[str, Any]:
+    """Восстанавливает удаленную реакцию"""
+    try:
+        from orm.reaction import Reaction
+        from services.db import local_session
+
+        with local_session() as session:
+            # Находим реакцию
+            db_reaction = session.query(Reaction).filter(Reaction.id == reaction_id).first()
+            if not db_reaction:
+                return {"success": False, "error": "Реакция не найдена"}
+
+            # Убираем время удаления
+            db_reaction.deleted_at = None
+
+            session.commit()
+
+            logger.info(f"Реакция {reaction_id} восстановлена через админ-панель")
+            return {"success": True}
+
+    except Exception as e:
+        logger.error(f"Ошибка восстановления реакции: {e}")
+        return {"success": False, "error": str(e)}

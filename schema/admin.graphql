@@ -227,6 +227,36 @@ type AdminTopicResult {
 	topic: Topic
 }
 
+# Типы для управления реакциями
+type AdminReactionInfo {
+	id: Int!
+	shout: AdminShoutInfo!
+	created_at: Int!
+	created_by: Author!
+	updated_at: Int
+	deleted_at: Int
+	deleted_by: Author
+	kind: ReactionKind!
+	body: String
+	reply_to: Int
+	stat: Stat
+}
+
+# Тип для пагинированного ответа реакций
+type AdminReactionListResponse {
+	reactions: [AdminReactionInfo!]!
+	total: Int!
+	page: Int!
+	perPage: Int!
+	totalPages: Int!
+}
+
+input AdminReactionUpdateInput {
+	id: Int!
+	body: String
+	deleted_at: Int
+}
+
 extend type Query {
 	getEnvVariables: [EnvSection!]!
 	# Запросы для управления пользователями
@@ -255,6 +285,15 @@ extend type Query {
 	): AdminInviteListResponse!
 	# Запросы для управления топиками
 	adminGetTopics(community_id: Int!): [Topic!]!
+	# Запросы для управления реакциями
+	adminGetReactions(
+		limit: Int
+		offset: Int
+		search: String
+		kind: ReactionKind
+		shout_id: Int
+		status: String
+	): AdminReactionListResponse!
 }
 
 extend type Mutation {
@@ -301,4 +340,8 @@ extend type Mutation {
 	adminUpdateTopic(topic: AdminTopicInput!): AdminTopicResult!
 	adminCreateTopic(topic: AdminTopicInput!): AdminTopicResult!
 	adminMergeTopics(merge_input: TopicMergeInput!): AdminTopicResult!
+	# Admin mutations для управления реакциями
+	adminUpdateReaction(reaction: AdminReactionUpdateInput!): OperationResult!
+	adminDeleteReaction(reaction_id: Int!): OperationResult!
+	adminRestoreReaction(reaction_id: Int!): OperationResult!
 }

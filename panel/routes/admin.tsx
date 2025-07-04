@@ -17,6 +17,7 @@ import CollectionsRoute from './collections'
 import CommunitiesRoute from './communities'
 import EnvRoute from './env'
 import InvitesRoute from './invites'
+import ReactionsRoute from './reactions'
 import ShoutsRoute from './shouts'
 import { Topics as TopicsRoute } from './topics'
 
@@ -146,6 +147,12 @@ const AdminPage: Component<AdminPageProps> = (props) => {
             Приглашения
           </Button>
           <Button
+            variant={currentTab() === 'reactions' ? 'primary' : 'secondary'}
+            onClick={() => navigate('/admin/reactions')}
+          >
+            Реакции
+          </Button>
+          <Button
             variant={currentTab() === 'env' ? 'primary' : 'secondary'}
             onClick={() => navigate('/admin/env')}
           >
@@ -186,6 +193,10 @@ const AdminPage: Component<AdminPageProps> = (props) => {
 
         <Show when={currentTab() === 'invites'}>
           <InvitesRoute onError={handleError} onSuccess={handleSuccess} />
+        </Show>
+
+        <Show when={currentTab() === 'reactions'}>
+          <ReactionsRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
 
         <Show when={currentTab() === 'env'}>

@@ -101,7 +101,6 @@ export function DataProvider(props: { children: JSX.Element }) {
   // Обертка для setTopics с логированием
   const setTopicsWithLogging = (newTopics: Topic[]) => {
     console.log('[DataProvider] setTopics called with', newTopics.length, 'topics')
-    console.log('[DataProvider] Sample topic parent_ids:', newTopics.slice(0, 3).map(t => ({ id: t.id, title: t.title, parent_ids: t.parent_ids })))
     setTopics(newTopics)
   }
 

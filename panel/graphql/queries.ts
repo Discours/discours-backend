@@ -193,6 +193,46 @@ export const GET_TOPICS_BY_COMMUNITY_QUERY: string =
   }
 `.loc?.source.body || ''
 
+export const ADMIN_GET_REACTIONS_QUERY: string =
+  gql`
+  query AdminGetReactions($limit: Int, $offset: Int, $search: String, $kind: ReactionKind, $shout_id: Int, $status: String) {
+    adminGetReactions(limit: $limit, offset: $offset, search: $search, kind: $kind, shout_id: $shout_id, status: $status) {
+      reactions {
+        id
+        kind
+        body
+        created_at
+        updated_at
+        deleted_at
+        reply_to
+        created_by {
+          id
+          name
+          email
+          slug
+        }
+        shout {
+          id
+          title
+          slug
+          layout
+          created_at
+          published_at
+          deleted_at
+        }
+        stat {
+          comments_count
+          rating
+        }
+      }
+      total
+      page
+      perPage
+      totalPages
+    }
+  }
+`.loc?.source.body || ''
+
 export const ADMIN_GET_TOPICS_QUERY: string =
   gql`
   query AdminGetTopics($community_id: Int!) {
