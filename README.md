@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/v0.7.7-lightgrey)
+![Version](https://img.shields.io/badge/v0.7.8-lightgrey)
 ![Tests](https://img.shields.io/badge/tests%2090%25-lightcyan?logo=pytest&logoColor=black)
 ![Python](https://img.shields.io/badge/python%203.12+-lightblue?logo=python&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/postgresql%2016.1-lightblue?logo=postgresql&logoColor=black)
