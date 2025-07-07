@@ -1,5 +1,6 @@
 import asyncio
 import os
+from contextlib import asynccontextmanager
 from importlib import import_module
 from pathlib import Path
 
@@ -42,8 +43,6 @@ middleware = [
     Middleware(
         CORSMiddleware,
         allow_origins=[
-            "https://localhost:3000",
-            "http://localhost:3000",
             "https://testing.discours.io",
             "https://testing3.discours.io",
             "https://v3.dscrs.site",
@@ -185,6 +184,7 @@ async def dev_start() -> None:
 background_tasks = []
 
 
+@asynccontextmanager
 async def lifespan(app: Starlette):
     """
     Функция жизненного цикла приложения.
@@ -265,7 +265,14 @@ if DEVMODE:
     # Для DEV режима регистрируем дополнительный CORS middleware только для localhost
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[
+            "https://localhost:3000",
+            "https://localhost:3001",
+            "https://localhost:3002",
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://localhost:3002",
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
