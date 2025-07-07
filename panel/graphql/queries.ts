@@ -34,18 +34,21 @@ export const ADMIN_GET_SHOUTS_QUERY: string =
           name
           email
           slug
+          created_at
         }
         updated_by {
           id
           name
           email
           slug
+          created_at
         }
         deleted_by {
           id
           name
           email
           slug
+          created_at
         }
         community {
           id
@@ -57,6 +60,7 @@ export const ADMIN_GET_SHOUTS_QUERY: string =
           name
           email
           slug
+          created_at
         }
         topics {
           id
@@ -210,6 +214,7 @@ export const ADMIN_GET_REACTIONS_QUERY: string =
           name
           email
           slug
+          created_at
         }
         shout {
           id

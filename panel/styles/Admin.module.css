@@ -707,17 +707,17 @@ td {
 
 .reactions-list th:nth-child(3), /* ТЕКСТ */
 .reactions-list td:nth-child(3) {
-	width: 25%;
+	width: 28%;
 }
 
 .reactions-list th:nth-child(4), /* АВТОР */
 .reactions-list td:nth-child(4) {
-	width: 18%;
+	width: 20%;
 }
 
 .reactions-list th:nth-child(5), /* ПУБЛИКАЦИЯ */
 .reactions-list td:nth-child(5) {
-	width: 22%;
+	width: 25%;
 }
 
 .reactions-list th:nth-child(6), /* СОЗДАНО */
@@ -725,14 +725,8 @@ td {
 	width: 120px;
 }
 
-.reactions-list th:nth-child(7), /* СТАТУС */
+.reactions-list th:nth-child(7), /* ДЕЙСТВИЯ */
 .reactions-list td:nth-child(7) {
-	width: 100px;
-	text-align: center;
-}
-
-.reactions-list th:nth-child(8), /* ДЕЙСТВИЯ */
-.reactions-list td:nth-child(8) {
 	width: 120px;
 	text-align: center;
 }
@@ -845,6 +839,29 @@ td {
 	outline: none;
 	border-color: #3b82f6;
 	box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.filter-checkbox {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	padding: 6px 10px;
+	border-radius: 4px;
+	transition: all 0.2s ease;
+	user-select: none;
+	font-size: 0.875rem;
+}
+
+.filter-checkbox:hover {
+	background-color: #f0f4f8;
+}
+
+.filter-checkbox input[type="checkbox"] {
+	width: 16px;
+	height: 16px;
+	cursor: pointer;
+	accent-color: #3b82f6;
 }
 
 .stat-info {

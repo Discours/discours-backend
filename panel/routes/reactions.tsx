@@ -1,4 +1,4 @@
-import { Component, createSignal, For, onMount, Show } from 'solid-js'
+import { Component, createSignal, createEffect, For, onMount, Show } from 'solid-js'
 import { query } from '../graphql'
 import type { Query } from '../graphql/generated/schema'
 import { ADMIN_DELETE_REACTION_MUTATION, ADMIN_RESTORE_REACTION_MUTATION, ADMIN_UPDATE_REACTION_MUTATION } from '../graphql/mutations'
@@ -31,6 +31,7 @@ interface AdminReaction {
     name: string
     email: string
     slug: string
+    created_at: number
   }
   shout: {
     id: number
@@ -70,8 +71,7 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
   // Фильтры
   const [searchQuery, setSearchQuery] = createSignal('')
   const [kindFilter, setKindFilter] = createSignal('')
-  const [shoutIdFilter, setShoutIdFilter] = createSignal('')
-  const [statusFilter, setStatusFilter] = createSignal('all')
+  const [showDeletedOnly, setShowDeletedOnly] = createSignal(false)
 
   /**
    * Загрузка списка реакций
@@ -80,6 +80,11 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
     console.log('[ReactionsRoute] Loading reactions...')
     try {
       setLoading(true)
+
+      // Определяем, является ли поисковый запрос ID публикации
+      const query_value = searchQuery().trim()
+      const isShoutId = /^\d+$/.test(query_value) // Проверяем, состоит ли запрос только из цифр
+
       const data = await query<{ adminGetReactions: {
         reactions: AdminReaction[]
         total: number
@@ -90,10 +95,10 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
         `${location.origin}/graphql`,
         ADMIN_GET_REACTIONS_QUERY,
         {
-          search: searchQuery(),
+          search: isShoutId ? '' : query_value, // Если это ID, не передаем в обычный поиск
           kind: kindFilter() || undefined,
-          shout_id: shoutIdFilter() ? parseInt(shoutIdFilter()) : undefined,
-          status: statusFilter(),
+          shout_id: isShoutId ? parseInt(query_value) : undefined, // Если это ID, передаем в shout_id
+          status: showDeletedOnly() ? 'deleted' : 'all',
           limit: pagination().limit,
           offset: (pagination().page - 1) * pagination().limit
         }
@@ -187,9 +192,28 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
     void loadReactions()
   }
 
+  // Флаг для пропуска первого вызова createEffect при монтировании
+  let isInitialized = false
+
   // Load reactions on mount
   onMount(() => {
     console.log('[ReactionsRoute] Component mounted, loading reactions...')
+    isInitialized = true
+    void loadReactions()
+  })
+
+  // Автоматически применяем фильтры при изменении (но не при первом рендере)
+  createEffect(() => {
+    // Отслеживаем изменения фильтров и поиска
+    searchQuery()
+    kindFilter()
+    showDeletedOnly()
+
+    // Пропускаем первый вызов при инициализации
+    if (!isInitialized) return
+
+    // Сбрасываем страницу на первую и перезагружаем данные
+    setPagination((prev) => ({ ...prev, page: 1 }))
     void loadReactions()
   })
 
@@ -269,6 +293,35 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
     }
   }
 
+  /**
+   * Получает название статуса реакции
+   */
+  const getReactionStatusTitle = (reaction: AdminReaction): string => {
+    return reaction.deleted_at ? 'Удалена' : 'Активна'
+  }
+
+  /**
+   * Получает цвет фона для ID реакции в зависимости от статуса
+   */
+  const getReactionStatusBackgroundColor = (reaction: AdminReaction): string => {
+    return reaction.deleted_at ? '#fee2e2' : '#d1fae5' // Пастельный красный для удаленных, зеленый для активных
+  }
+
+  /**
+   * Форматирует tooltip для автора с email и датой регистрации
+   */
+  const formatAuthorTooltip = (author: { email?: string | null; created_at?: number | null }): string => {
+    if (!author.email) return ''
+    if (!author.created_at) return author.email
+
+    const registrationDate = new Date(author.created_at * 1000).toLocaleDateString('ru-RU', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+    return `${author.email} с ${registrationDate}`
+  }
+
   return (
     <div class={styles['reactions-container']}>
       <Show when={loading()}>
@@ -281,7 +334,7 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
             searchValue={searchQuery()}
             onSearchChange={handleSearchChange}
             onSearch={handleSearch}
-            searchPlaceholder="Поиск по тексту, автору или публикации..."
+            searchPlaceholder="Поиск по тексту, автору, публикации или ID публикации..."
             isLoading={loading()}
           />
 
@@ -308,27 +361,14 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
               <option value="SILENT">Причастность</option>
             </select>
 
-            <select
-              value={statusFilter()}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              class={styles['filter-select']}
-            >
-              <option value="all">Все статусы</option>
-              <option value="active">Активные</option>
-              <option value="deleted">Удаленные</option>
-            </select>
-
-            <input
-              type="text"
-              placeholder="ID публикации"
-              value={shoutIdFilter()}
-              onInput={(e) => setShoutIdFilter(e.target.value)}
-              class={styles['filter-input']}
-            />
-
-            <Button variant="primary" onClick={() => void loadReactions()}>
-              Применить фильтры
-            </Button>
+            <label class={styles['filter-checkbox']}>
+              <input
+                type="checkbox"
+                checked={showDeletedOnly()}
+                onChange={(e) => setShowDeletedOnly(e.target.checked)}
+              />
+              Только удаленные
+            </label>
           </div>
         </div>
 
@@ -347,7 +387,6 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
                   <th>Автор</th>
                   <th>Публикация</th>
                   <th>Создано</th>
-                  <th>Статус</th>
                   <th>Действия</th>
                 </tr>
               </thead>
@@ -361,7 +400,16 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
                         setShowEditModal(true)
                       }}
                     >
-                      <td>{reaction.id}</td>
+                      <td
+                        style={{
+                          'background-color': getReactionStatusBackgroundColor(reaction),
+                          padding: '8px 12px',
+                          'border-radius': '4px'
+                        }}
+                        title={getReactionStatusTitle(reaction)}
+                      >
+                        {reaction.id}
+                      </td>
                       <td>
                         <span title={getReactionName(reaction.kind)} class={styles['reaction-icon']}>
                           {getReactionIcon(reaction.kind)}
@@ -373,7 +421,7 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
                         </div>
                       </td>
                       <td>
-                        <div class={styles['author-cell']}>
+                        <div class={styles['author-cell']} title={formatAuthorTooltip(reaction.created_by)}>
                           <div>{reaction.created_by.name || 'Без имени'}</div>
                           <div class={styles['author-email']}>{reaction.created_by.email}</div>
                         </div>
@@ -390,11 +438,6 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
                         </div>
                       </td>
                       <td>{formatDateRelative(reaction.created_at)()}</td>
-                      <td>
-                        <span class={reaction.deleted_at ? styles['status-deleted'] : styles['status-active']}>
-                          {reaction.deleted_at ? 'Удалено' : 'Активно'}
-                        </span>
-                      </td>
                       <td>
                         <div class={styles['actions-cell']} onClick={(e) => e.stopPropagation()}>
                           <Show when={reaction.deleted_at}>

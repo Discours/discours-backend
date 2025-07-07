@@ -193,6 +193,21 @@ const ShoutsRoute = (props: ShoutsRouteProps) => {
     return `${text.substring(0, maxLength)}...`
   }
 
+  /**
+   * Форматирует tooltip для автора с email и датой регистрации
+   */
+  function formatAuthorTooltip(author: { email?: string | null; created_at?: number | null }): string {
+    if (!author.email) return ''
+    if (!author.created_at) return author.email
+
+    const registrationDate = new Date(author.created_at * 1000).toLocaleDateString('ru-RU', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+    return `${author.email} с ${registrationDate}`
+  }
+
   return (
     <div class={styles['shouts-container']}>
       <Show when={loading()}>
@@ -258,7 +273,7 @@ const ShoutsRoute = (props: ShoutsRouteProps) => {
                             {(author) => (
                               <Show when={author}>
                                 {(safeAuthor) => (
-                                  <span class={styles['author-badge']} title={safeAuthor()?.email || ''}>
+                                  <span class={styles['author-badge']} title={formatAuthorTooltip(safeAuthor()!)}>
                                     {safeAuthor()?.name || safeAuthor()?.email || `ID:${safeAuthor()?.id}`}
                                   </span>
                                 )}
