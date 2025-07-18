@@ -141,7 +141,7 @@ export const Topics = (props: TopicsProps) => {
     const currentTopics = contextTopics()
     console.log('[TopicsRoute] Current topics count:', currentTopics.length)
 
-    const updatedTopics = currentTopics.map(topic =>
+    const updatedTopics = currentTopics.map((topic) =>
       topic.id === updatedTopic.id ? updatedTopic : topic
     )
 
@@ -219,9 +219,7 @@ export const Topics = (props: TopicsProps) => {
       <td class={styles.tableCell} title={topic.slug}>
         {truncateText(topic.slug, 30)}
       </td>
-      <td class={styles.tableCell}>
-        {renderParentTopics(topic.parent_ids)}
-      </td>
+      <td class={styles.tableCell}>{renderParentTopics(topic.parent_ids)}</td>
       <td class={styles.tableCell}>
         {topic.body ? (
           <span style="color: #666;">{truncateText(topic.body.replace(/<[^>]*>/g, ''), 60)}</span>

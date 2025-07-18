@@ -3,7 +3,7 @@
  * @module TopicPillsCloud
  */
 
-import { createSignal, createMemo, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 import styles from '../styles/Form.module.css'
 
 /**
@@ -60,15 +60,14 @@ const TopicPillsCloud = (props: TopicPillsCloudProps) => {
 
     // Исключаем запрещенные топики
     if (props.excludeTopics?.length) {
-      topics = topics.filter(topic => !props.excludeTopics!.includes(topic.id))
+      topics = topics.filter((topic) => !props.excludeTopics!.includes(topic.id))
     }
 
     // Фильтруем по поисковому запросу
     const query = searchQuery().toLowerCase().trim()
     if (query) {
-      topics = topics.filter(topic =>
-        topic.title.toLowerCase().includes(query) ||
-        topic.slug.toLowerCase().includes(query)
+      topics = topics.filter(
+        (topic) => topic.title.toLowerCase().includes(query) || topic.slug.toLowerCase().includes(query)
       )
     }
 
@@ -98,8 +97,8 @@ const TopicPillsCloud = (props: TopicPillsCloudProps) => {
   /**
    * Обработчик клика по топику
    */
-      const handleTopicClick = (topicId: string) => {
-      const currentSelection = [...props.selectedTopics]
+  const handleTopicClick = (topicId: string) => {
+    const currentSelection = [...props.selectedTopics]
     const index = currentSelection.indexOf(topicId)
 
     if (index >= 0) {
@@ -135,13 +134,11 @@ const TopicPillsCloud = (props: TopicPillsCloudProps) => {
     return topic.parent_ids?.length || 0
   }
 
-
-
   /**
    * Получить выбранные топики как объекты
    */
   const selectedTopicObjects = createMemo(() => {
-    return props.topics.filter(topic => props.selectedTopics.includes(topic.id))
+    return props.topics.filter((topic) => props.selectedTopics.includes(topic.id))
   })
 
   return (
@@ -212,18 +209,14 @@ const TopicPillsCloud = (props: TopicPillsCloudProps) => {
                 type="button"
                 class={`${styles.topicPill} ${
                   selected ? styles.pillSelected : ''
-                } ${disabled ? styles.pillDisabled : ''} ${
-                  depth > 0 ? styles.pillNested : ''
-                }`}
+                } ${disabled ? styles.pillDisabled : ''} ${depth > 0 ? styles.pillNested : ''}`}
                 onClick={() => !disabled && handleTopicClick(topic.id)}
                 disabled={disabled}
                 title={`${topic.title} (${topic.slug})`}
                 data-depth={depth}
               >
                 <Show when={depth > 0}>
-                  <span class={styles.pillDepthIndicator}>
-                    {'  '.repeat(depth)}└
-                  </span>
+                  <span class={styles.pillDepthIndicator}>{'  '.repeat(depth)}└</span>
                 </Show>
                 <span class={styles.pillTitle}>{topic.title}</span>
                 <Show when={selected}>
@@ -237,10 +230,7 @@ const TopicPillsCloud = (props: TopicPillsCloudProps) => {
 
       <Show when={filteredTopics().length === 0}>
         <div class={styles.emptyState}>
-          <Show
-            when={searchQuery().trim()}
-            fallback={<span>Нет доступных топиков</span>}
-          >
+          <Show when={searchQuery().trim()} fallback={<span>Нет доступных топиков</span>}>
             <span>Ничего не найдено по запросу "{searchQuery()}"</span>
           </Show>
         </div>

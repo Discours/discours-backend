@@ -273,7 +273,10 @@ const ShoutsRoute = (props: ShoutsRouteProps) => {
                             {(author) => (
                               <Show when={author}>
                                 {(safeAuthor) => (
-                                  <span class={styles['author-badge']} title={formatAuthorTooltip(safeAuthor()!)}>
+                                  <span
+                                    class={styles['author-badge']}
+                                    title={formatAuthorTooltip(safeAuthor()!)}
+                                  >
                                     {safeAuthor()?.name || safeAuthor()?.email || `ID:${safeAuthor()?.id}`}
                                   </span>
                                 )}
@@ -392,10 +395,7 @@ const ShoutsRoute = (props: ShoutsRouteProps) => {
         }
       >
         <div style="padding: 1rem;">
-          <HTMLEditor
-            value={selectedShoutBody()}
-            onInput={(value) => setSelectedShoutBody(value)}
-          />
+          <HTMLEditor value={selectedShoutBody()} onInput={(value) => setSelectedShoutBody(value)} />
         </div>
       </Modal>
 
@@ -428,10 +428,8 @@ const ShoutsRoute = (props: ShoutsRouteProps) => {
         }
       >
         <div style="padding: 1rem;">
-          <HTMLEditor
-            value={selectedMediaBody()}
-            onInput={(value) => setSelectedMediaBody(value)}
-          />gjl
+          <HTMLEditor value={selectedMediaBody()} onInput={(value) => setSelectedMediaBody(value)} />
+          gjl
         </div>
       </Modal>
     </div>

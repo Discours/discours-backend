@@ -1,11 +1,11 @@
-import { createEffect, createSignal, For, Show, on } from 'solid-js'
+import { createEffect, createSignal, on, Show } from 'solid-js'
 import { Topic, useData } from '../context/data'
 import { query } from '../graphql'
 import { ADMIN_UPDATE_TOPIC_MUTATION } from '../graphql/mutations'
 import styles from '../styles/Form.module.css'
+import HTMLEditor from '../ui/HTMLEditor'
 import Modal from '../ui/Modal'
 import TopicPillsCloud, { type TopicPill } from '../ui/TopicPillsCloud'
-import HTMLEditor from '../ui/HTMLEditor'
 
 interface TopicEditModalProps {
   topic: Topic
@@ -16,7 +16,7 @@ interface TopicEditModalProps {
 }
 
 export default function TopicEditModal(props: TopicEditModalProps) {
-  const { communities, topics, getCommunityName, selectedCommunity } = useData()
+  const { topics, getCommunityName, selectedCommunity } = useData()
 
   // Состояние формы
   const [formData, setFormData] = createSignal({
@@ -50,11 +50,16 @@ export default function TopicEditModal(props: TopicEditModalProps) {
   })
 
   // Обновление доступных родителей при изменении сообщества в форме
-  createEffect(on(() => formData().community, (communityId) => {
-    if (communityId > 0) {
-      updateAvailableParents(communityId)
-    }
-  }))
+  createEffect(
+    on(
+      () => formData().community,
+      (communityId) => {
+        if (communityId > 0) {
+          updateAvailableParents(communityId)
+        }
+      }
+    )
+  )
 
   // Обновление доступных родителей при смене сообщества
   const updateAvailableParents = (communityId: number, excludeTopicId?: number) => {
@@ -73,12 +78,12 @@ export default function TopicEditModal(props: TopicEditModalProps) {
    * Преобразование Topic в TopicPill для компонента TopicPillsCloud
    */
   const convertTopicsToTopicPills = (topics: Topic[]): TopicPill[] => {
-    return topics.map(topic => ({
+    return topics.map((topic) => ({
       id: topic.id.toString(),
       title: topic.title || '',
       slug: topic.slug || '',
       community: getCommunityName(topic.community),
-      parent_ids: (topic.parent_ids || []).map(id => id.toString()),
+      parent_ids: (topic.parent_ids || []).map((id) => id.toString())
     }))
   }
 
@@ -86,7 +91,7 @@ export default function TopicEditModal(props: TopicEditModalProps) {
    * Обработка изменения выбора родительских топиков из таблеточек
    */
   const handleParentSelectionChange = (selectedIds: string[]) => {
-    const parentIds = selectedIds.map(id => Number.parseInt(id))
+    const parentIds = selectedIds.map((id) => Number.parseInt(id))
     setFormData((prev) => ({
       ...prev,
       parent_ids: parentIds
@@ -219,10 +224,7 @@ export default function TopicEditModal(props: TopicEditModalProps) {
             <div class={styles.field}>
               <label class={styles.label}>
                 Описание:
-                <HTMLEditor
-                  value={formData().body}
-                  onInput={(value) => handleFieldChange('body', value)}
-                />
+                <HTMLEditor value={formData().body} onInput={(value) => handleFieldChange('body', value)} />
               </label>
             </div>
           </div>
@@ -233,19 +235,17 @@ export default function TopicEditModal(props: TopicEditModalProps) {
               {/* Компонент с таблеточками для выбора родителей */}
               <div class={styles.field}>
                 <TopicPillsCloud
-                    topics={convertTopicsToTopicPills(availableParents())}
-                    selectedTopics={formData().parent_ids.map(id => id.toString())}
-                    onSelectionChange={handleParentSelectionChange}
-                    excludeTopics={[formData().id.toString()]}
-                    showSearch={true}
-                    searchPlaceholder="Задайте родительские темы..."
-                    hideSelectedInHeader={true}
-                  />
-
+                  topics={convertTopicsToTopicPills(availableParents())}
+                  selectedTopics={formData().parent_ids.map((id) => id.toString())}
+                  onSelectionChange={handleParentSelectionChange}
+                  excludeTopics={[formData().id.toString()]}
+                  showSearch={true}
+                  searchPlaceholder="Задайте родительские темы..."
+                  hideSelectedInHeader={true}
+                />
               </div>
             </div>
           </Show>
-
         </div>
       </Modal>
     </>

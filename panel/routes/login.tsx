@@ -87,7 +87,7 @@ const LoginPage = () => {
             </div>
           )}
 
-          <div class={formStyles.actions} style={{ 'margin': 'auto' }}>
+          <div class={formStyles.actions} style={{ margin: 'auto' }}>
             <Button
               variant="primary"
               type="submit"

@@ -1,7 +1,10 @@
-import { Component, createSignal, createEffect, For, onMount, Show } from 'solid-js'
+import { Component, createEffect, createSignal, For, onMount, Show } from 'solid-js'
 import { query } from '../graphql'
-import type { Query } from '../graphql/generated/schema'
-import { ADMIN_DELETE_REACTION_MUTATION, ADMIN_RESTORE_REACTION_MUTATION, ADMIN_UPDATE_REACTION_MUTATION } from '../graphql/mutations'
+import {
+  ADMIN_DELETE_REACTION_MUTATION,
+  ADMIN_RESTORE_REACTION_MUTATION,
+  ADMIN_UPDATE_REACTION_MUTATION
+} from '../graphql/mutations'
 import { ADMIN_GET_REACTIONS_QUERY } from '../graphql/queries'
 import ReactionEditModal from '../modals/ReactionEditModal'
 import styles from '../styles/Admin.module.css'
@@ -85,24 +88,22 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
       const query_value = searchQuery().trim()
       const isShoutId = /^\d+$/.test(query_value) // Проверяем, состоит ли запрос только из цифр
 
-      const data = await query<{ adminGetReactions: {
-        reactions: AdminReaction[]
-        total: number
-        page: number
-        perPage: number
-        totalPages: number
-      } }>(
-        `${location.origin}/graphql`,
-        ADMIN_GET_REACTIONS_QUERY,
-        {
-          search: isShoutId ? '' : query_value, // Если это ID, не передаем в обычный поиск
-          kind: kindFilter() || undefined,
-          shout_id: isShoutId ? parseInt(query_value) : undefined, // Если это ID, передаем в shout_id
-          status: showDeletedOnly() ? 'deleted' : 'all',
-          limit: pagination().limit,
-          offset: (pagination().page - 1) * pagination().limit
+      const data = await query<{
+        adminGetReactions: {
+          reactions: AdminReaction[]
+          total: number
+          page: number
+          perPage: number
+          totalPages: number
         }
-      )
+      }>(`${location.origin}/graphql`, ADMIN_GET_REACTIONS_QUERY, {
+        search: isShoutId ? '' : query_value, // Если это ID, не передаем в обычный поиск
+        kind: kindFilter() || undefined,
+        shout_id: isShoutId ? Number.parseInt(query_value) : undefined, // Если это ID, передаем в shout_id
+        status: showDeletedOnly() ? 'deleted' : 'all',
+        limit: pagination().limit,
+        offset: (pagination().page - 1) * pagination().limit
+      })
       if (data?.adminGetReactions?.reactions) {
         console.log('[ReactionsRoute] Reactions loaded:', data.adminGetReactions.reactions.length)
         setReactions(data.adminGetReactions.reactions as AdminReaction[])
@@ -417,7 +418,9 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
                       </td>
                       <td class={styles['body-cell']}>
                         <div class={styles['body-preview']}>
-                          {reaction.body ? reaction.body.substring(0, 100) + (reaction.body.length > 100 ? '...' : '') : '-'}
+                          {reaction.body
+                            ? reaction.body.substring(0, 100) + (reaction.body.length > 100 ? '...' : '')
+                            : '-'}
                         </div>
                       </td>
                       <td>
@@ -441,12 +444,20 @@ const ReactionsRoute: Component<ReactionsRouteProps> = (props) => {
                       <td>
                         <div class={styles['actions-cell']} onClick={(e) => e.stopPropagation()}>
                           <Show when={reaction.deleted_at}>
-                            <Button variant="primary" size="small" onClick={() => restoreReaction(reaction.id)}>
+                            <Button
+                              variant="primary"
+                              size="small"
+                              onClick={() => restoreReaction(reaction.id)}
+                            >
                               Восстановить
                             </Button>
                           </Show>
                           <Show when={!reaction.deleted_at}>
-                            <Button variant="danger" size="small" onClick={() => deleteReaction(reaction.id)}>
+                            <Button
+                              variant="danger"
+                              size="small"
+                              onClick={() => deleteReaction(reaction.id)}
+                            >
                               Удалить
                             </Button>
                           </Show>

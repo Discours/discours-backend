@@ -1,8 +1,8 @@
-import { Component, createSignal, createEffect } from 'solid-js'
+import { Component, createEffect, createSignal } from 'solid-js'
 import styles from '../styles/Modal.module.css'
 import Button from '../ui/Button'
-import Modal from '../ui/Modal'
 import HTMLEditor from '../ui/HTMLEditor'
+import Modal from '../ui/Modal'
 
 interface ReactionEditModalProps {
   reaction: {
@@ -64,7 +64,7 @@ const ReactionEditModal: Component<ReactionEditModalProps> = (props) => {
 
       const updateData: { id: number; body?: string; deleted_at?: number } = {
         id: props.reaction.id,
-        body: body(),
+        body: body()
       }
 
       await props.onSave(updateData)
@@ -116,20 +116,11 @@ const ReactionEditModal: Component<ReactionEditModalProps> = (props) => {
   return (
     <Modal isOpen={props.isOpen} onClose={props.onClose} title="Редактирование реакции">
       <div class={styles['modal-content']}>
-        {error() && (
-          <div class={styles['error-message']}>
-            {error()}
-          </div>
-        )}
+        {error() && <div class={styles['error-message']}>{error()}</div>}
 
         <div class={styles['form-group']}>
           <label class={styles['form-label']}>ID реакции:</label>
-          <input
-            type="text"
-            value={props.reaction.id}
-            disabled
-            class={styles['form-input']}
-          />
+          <input type="text" value={props.reaction.id} disabled class={styles['form-input']} />
         </div>
 
         <div class={styles['form-group']}>

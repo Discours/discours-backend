@@ -9,9 +9,9 @@ import {
 import formStyles from '../styles/Form.module.css'
 import styles from '../styles/Modal.module.css'
 import Button from '../ui/Button'
+import HTMLEditor from '../ui/HTMLEditor'
 import Modal from '../ui/Modal'
 import RoleManager from '../ui/RoleManager'
-import HTMLEditor from '../ui/HTMLEditor'
 
 interface Community {
   id: number
@@ -285,10 +285,7 @@ const CommunityEditModal = (props: CommunityEditModalProps) => {
                     Описание
                   </span>
                 </label>
-                <HTMLEditor
-                  value={formData().desc || ''}
-                  onInput={(value) => updateField('desc', value)}
-                />
+                <HTMLEditor value={formData().desc || ''} onInput={(value) => updateField('desc', value)} />
               </div>
 
               <div class={formStyles.fieldGroup}>

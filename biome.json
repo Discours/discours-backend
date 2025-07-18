@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.0.6/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
   "files": {
     "includes": [
       "**/*.tsx",
@@ -27,7 +27,7 @@
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 108,
-    "includes": ["**", "!src/graphql/schema", "!gen", "!panel/graphql/generated"]
+    "includes": ["**", "!panel/graphql/generated"]
   },
   "javascript": {
     "formatter": {

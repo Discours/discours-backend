@@ -167,10 +167,7 @@ const CollectionEditModal: Component<CollectionEditModalProps> = (props) => {
                 Описание
               </span>
             </label>
-            <HTMLEditor
-              value={formData().desc}
-              onInput={(value) => updateField('desc', value)}
-            />
+            <HTMLEditor value={formData().desc} onInput={(value) => updateField('desc', value)} />
           </div>
 
           <div class={formStyles.fieldGroup}>

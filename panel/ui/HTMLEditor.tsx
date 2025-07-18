@@ -3,8 +3,8 @@
  * @module HTMLEditor
  */
 
-import { createEffect, onMount, untrack, createSignal } from 'solid-js'
 import Prism from 'prismjs'
+import { createEffect, createSignal, onMount, untrack } from 'solid-js'
 import 'prismjs/components/prism-markup'
 import 'prismjs/themes/prism.css'
 import styles from '../styles/Form.module.css'
@@ -69,7 +69,7 @@ const HTMLEditor = (props: HTMLEditorProps) => {
           const range = document.createRange()
           const selection = window.getSelection()
           const codeElement = editorElement?.querySelector('code')
-          if (codeElement && codeElement.firstChild) {
+          if (codeElement?.firstChild) {
             range.setStart(codeElement.firstChild, codeElement.firstChild.textContent?.length || 0)
             range.setEnd(codeElement.firstChild, codeElement.firstChild.textContent?.length || 0)
             selection?.removeAllRanges()
@@ -112,16 +112,12 @@ const HTMLEditor = (props: HTMLEditorProps) => {
       savedRange = range.cloneRange()
 
       // Вычисляем общий offset относительно всего текстового содержимого
-      const walker = document.createTreeWalker(
-        editorElement,
-        NodeFilter.SHOW_TEXT,
-        null
-      )
+      const walker = document.createTreeWalker(editorElement, NodeFilter.SHOW_TEXT, null)
 
-      let node
+      let node: Node | null = null
       let totalOffset = 0
 
-      while (node = walker.nextNode()) {
+      while ((node = walker.nextNode())) {
         if (node === range.startContainer) {
           cursorOffset = totalOffset + range.startOffset
           break
@@ -147,17 +143,13 @@ const HTMLEditor = (props: HTMLEditorProps) => {
         forceHighlight(codeElement)
 
         // Восстанавливаем позицию курсора только если элемент в фокусе
-        if (cursorOffset > 0 && document.activeElement === editorElement) {
+        if (savedRange && document.activeElement === editorElement) {
           setTimeout(() => {
-            const walker = document.createTreeWalker(
-              codeElement,
-              NodeFilter.SHOW_TEXT,
-              null
-            )
+            const walker = document.createTreeWalker(codeElement, NodeFilter.SHOW_TEXT, null)
             let currentOffset = 0
-            let node
+            let node: Node | null = null
 
-            while (node = walker.nextNode()) {
+            while ((node = walker.nextNode())) {
               const nodeLength = node.textContent?.length || 0
               if (currentOffset + nodeLength >= cursorOffset) {
                 try {
@@ -169,8 +161,13 @@ const HTMLEditor = (props: HTMLEditorProps) => {
                   range.setEnd(node, targetOffset)
                   newSelection?.removeAllRanges()
                   newSelection?.addRange(range)
-                } catch (e) {
-                  // Игнорируем ошибки позиционирования курсора
+                } catch (_e) {
+                  // Используем savedRange как резервный вариант
+                  if (savedRange) {
+                    const newSelection = window.getSelection()
+                    newSelection?.removeAllRanges()
+                    newSelection?.addRange(savedRange)
+                  }
                 }
                 break
               }
@@ -253,7 +250,7 @@ const HTMLEditor = (props: HTMLEditorProps) => {
 
     try {
       processNode(editorElement)
-    } catch (e) {
+    } catch (_e) {
       // В случае ошибки возвращаем базовый textContent
       return editorElement.textContent || ''
     }
@@ -284,7 +281,7 @@ const HTMLEditor = (props: HTMLEditorProps) => {
         }
         setIsUpdating(false)
       })
-    }, 100)  // Ещё меньше задержка
+    }, 100) // Ещё меньше задержка
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {

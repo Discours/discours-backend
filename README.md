@@ -117,7 +117,7 @@ python -m granian main:app --interface asgi
 ![Types](https://img.shields.io/badge/typed-pink?logo=python&logoColor=black)
 ![Docs](https://img.shields.io/badge/documented-lightcyan?logo=markdown&logoColor=black)
 
-**Biome 2.0.6** for linting and formatting • **120 char** lines • **Type hints** required • **Docstrings** for public methods
+**Biome 2.1.2** for linting and formatting • **120 char** lines • **Type hints** required • **Docstrings** for public methods
 
 ### 🔍 GraphQL Development
 
