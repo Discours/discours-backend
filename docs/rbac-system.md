@@ -1,403 +1,477 @@
-# Система RBAC (Role-Based Access Control)
+# Система ролей и разрешений (RBAC)
 
-## Обзор
+## Общее описание
 
-Система управления доступом на основе ролей для платформы Discours. Роли хранятся в CSV формате в таблице `CommunityAuthor` и могут быть назначены пользователям в рамках конкретного сообщества.
+Система управления доступом на основе ролей (Role-Based Access Control, RBAC) обеспечивает гибкое управление правами пользователей в рамках сообществ платформы.
 
-> **v0.6.11: Важно!** Наследование разрешений между ролями происходит **только при инициализации** прав для сообщества. В Redis хранятся уже развернутые (полные) списки разрешений для каждой роли. При запросе прав никакого on-the-fly наследования не происходит — только lookup по роли.
+## Архитектура системы
 
-## Архитектура
+### Основные компоненты
 
-### Основные принципы
-- **CSV хранение**: Роли хранятся как CSV строка в поле `roles` таблицы `CommunityAuthor`
-- **Простота**: Один пользователь может иметь несколько ролей в одном сообществе
-- **Привязка к сообществу**: Роли существуют в контексте конкретного сообщества
-- **Иерархия ролей**: `reader` → `author` → `artist` → `expert` → `editor` → `admin`
-- **Наследование прав**: Каждая роль наследует все права предыдущих ролей **только при инициализации**
+1. **Community** - сообщество, контекст для ролей
+2. **CommunityAuthor** - связь пользователя с сообществом и его ролями
+3. **Role** - роль пользователя (reader, author, editor, admin)
+4. **Permission** - разрешение на выполнение действия
+5. **RBAC Service** - сервис управления ролями и разрешениями
 
-### Схема базы данных
+### Модель данных
 
-#### Таблица `community_author`
 ```sql
+-- Основная таблица связи пользователя с сообществом
 CREATE TABLE community_author (
     id INTEGER PRIMARY KEY,
-    community_id INTEGER REFERENCES community(id) NOT NULL,
-    author_id INTEGER REFERENCES author(id) NOT NULL,
-    roles TEXT,                         -- CSV строка ролей ("reader,author,expert")
-    joined_at INTEGER NOT NULL,         -- Unix timestamp присоединения
-
-    CONSTRAINT uq_community_author UNIQUE (community_id, author_id)
+    community_id INTEGER REFERENCES community(id),
+    author_id INTEGER REFERENCES author(id),
+    roles TEXT, -- CSV строка ролей: "reader,author,editor"
+    joined_at INTEGER NOT NULL,
+    UNIQUE(community_id, author_id)
 );
-```
 
-#### Индексы
-```sql
+-- Индексы для производительности
 CREATE INDEX idx_community_author_community ON community_author(community_id);
 CREATE INDEX idx_community_author_author ON community_author(author_id);
 ```
 
-## Работа с ролями
+## Роли в системе
 
-### Модель CommunityAuthor
+### Базовые роли
 
-#### Основные методы
-```python
-from orm.community import CommunityAuthor
+#### 1. `reader` (Читатель)
+- **Обязательная роль для всех пользователей**
+- **Права:**
+  - Чтение публикаций
+  - Просмотр комментариев
+  - Подписка на сообщества
+  - Базовая навигация по платформе
 
-# Получение списка ролей
-ca = session.query(CommunityAuthor).first()
-roles = ca.role_list  # ['reader', 'author', 'expert']
+#### 2. `author` (Автор)
+- **Права:**
+  - Все права `reader`
+  - Создание публикаций (шаутов)
+  - Редактирование своих публикаций
+  - Комментирование
+  - Создание черновиков
 
-# Установка ролей
-ca.role_list = ['reader', 'author']
+#### 3. `artist` (Художник)
+- **Права:**
+  - Все права `author`
+  - Может быть указан как credited artist
+  - Загрузка и управление медиафайлами
 
-# Проверка роли
-has_author = ca.has_role('author')  # True
+#### 4. `expert` (Эксперт)
+- **Права:**
+  - Все права `author`
+  - Добавление доказательств (evidence)
+  - Верификация контента
+  - Экспертная оценка публикаций
 
-# Добавление роли
-ca.add_role('expert')
+#### 5. `editor` (Редактор)
+- **Права:**
+  - Все права `expert`
+  - Модерация контента
+  - Редактирование чужих публикаций
+  - Управление тегами и категориями
+  - Модерация комментариев
 
-# Удаление роли
-ca.remove_role('author')
-
-# Установка полного списка ролей
-ca.set_roles(['reader', 'editor'])
-
-# Получение всех разрешений
-permissions = await ca.get_permissions()  # ['shout:read', 'shout:create', ...]
-
-# Проверка разрешения
-can_create = await ca.has_permission('shout:create')  # True
-```
-
-### Вспомогательные функции
-
-#### Основные функции из `orm/community.py`
-```python
-from orm.community import (
-    get_user_roles_in_community,
-    check_user_permission_in_community,
-    assign_role_to_user,
-    remove_role_from_user,
-    get_all_community_members_with_roles,
-    bulk_assign_roles
-)
-
-# Получение ролей пользователя
-roles = get_user_roles_in_community(author_id=123, community_id=1)
-# Возвращает: ['reader', 'author']
-
-# Проверка разрешения
-has_perm = await check_user_permission_in_community(
-    author_id=123,
-    permission='shout:create',
-    community_id=1
-)
-
-# Назначение роли
-success = assign_role_to_user(
-    author_id=123,
-    role='expert',
-    community_id=1
-)
-
-# Удаление роли
-success = remove_role_from_user(
-    author_id=123,
-    role='author',
-    community_id=1
-)
-
-# Получение всех участников с ролями
-members = get_all_community_members_with_roles(community_id=1)
-# Возвращает: [{'author_id': 123, 'roles': ['reader', 'author'], ...}, ...]
-
-# Массовое назначение ролей
-bulk_assign_roles([
-    {'author_id': 123, 'roles': ['reader', 'author']},
-    {'author_id': 456, 'roles': ['expert', 'editor']}
-], community_id=1)
-```
-
-## Система разрешений
+#### 6. `admin` (Администратор)
+- **Права:**
+  - Все права `editor`
+  - Управление пользователями
+  - Управление ролями
+  - Настройка сообщества
+  - Полный доступ к административной панели
 
 ### Иерархия ролей
+
 ```
-reader → author → artist → expert → editor → admin
+admin > editor > expert > artist/author > reader
 ```
 
-Каждая роль наследует все права предыдущих ролей в дефолтной иерархии **только при создании сообщества**.
+Каждая роль автоматически включает права всех ролей ниже по иерархии.
 
-### Стандартные роли и их права
-
-| Роль | Базовые права | Дополнительные права |
-|------|---------------|---------------------|
-| `reader` | `*:read`, базовые реакции | `chat:*`, `message:*`, `bookmark:*` |
-| `author` | Наследует `reader` + `*:create`, `*:update_own`, `*:delete_own` | `draft:*` |
-| `artist` | Наследует `author` | `reaction:CREDIT:accept`, `reaction:CREDIT:decline` |
-| `expert` | Наследует `author` | `reaction:PROOF:*`, `reaction:DISPROOF:*`, `reaction:AGREE:*`, `reaction:DISAGREE:*` |
-| `editor` | `*:read`, `*:create`, `*:update_any`, `*:delete_any` | `community:read`, `community:update_own`, `topic:merge`, `topic:create`, `topic:update_own`, `topic:delete_own` |
-| `admin` | Все права (`*`) | Полный доступ ко всем функциям |
+## Разрешения (Permissions)
 
 ### Формат разрешений
-- Базовые: `<entity>:<action>` (например: `shout:create`, `topic:create`)
-- Реакции: `reaction:<type>:<action>` (например: `reaction:LIKE:create`)
-- Специальные: `topic:merge` (слияние топиков)
-- Wildcard: `<entity>:*` или `*` (только для admin)
 
-### Права на топики
-- `topic:create` - создание новых топиков (роли: `author`, `editor`)
-- `topic:read` - чтение топиков (роли: `reader` и выше)
-- `topic:update_own` - обновление собственных топиков (роли: `author`)
-- `topic:update_any` - обновление любых топиков (роли: `editor`)
-- `topic:delete_own` - удаление собственных топиков (роли: `author`)
-- `topic:delete_any` - удаление любых топиков (роли: `editor`)
-- `topic:merge` - слияние топиков (роли: `editor`)
+Разрешения записываются в формате `resource:action`:
 
-## GraphQL API
+- `shout:create` - создание публикаций
+- `shout:edit` - редактирование публикаций
+- `shout:delete` - удаление публикаций
+- `comment:create` - создание комментариев
+- `comment:moderate` - модерация комментариев
+- `user:manage` - управление пользователями
+- `community:settings` - настройки сообщества
 
-### Запросы
+### Категории разрешений
 
-#### Получение участников сообщества с ролями
-```graphql
-query AdminGetCommunityMembers(
-    $community_id: Int!
-    $page: Int = 1
-    $limit: Int = 50
-) {
-    adminGetCommunityMembers(
-        community_id: $community_id
-        page: $page
-        limit: $limit
-    ) {
-        success
-        error
-        members {
-            id
-            name
-            slug
-            email
-            roles
-            is_follower
-            created_at
-        }
-        total
-        page
-        limit
-        has_next
-    }
-}
-```
+#### Контент (Content)
+- `shout:create` - создание шаутов
+- `shout:edit_own` - редактирование своих шаутов
+- `shout:edit_any` - редактирование любых шаутов
+- `shout:delete_own` - удаление своих шаутов
+- `shout:delete_any` - удаление любых шаутов
+- `shout:publish` - публикация шаутов
+- `shout:feature` - продвижение шаутов
 
-### Мутации
+#### Комментарии (Comments)
+- `comment:create` - создание комментариев
+- `comment:edit_own` - редактирование своих комментариев
+- `comment:edit_any` - редактирование любых комментариев
+- `comment:delete_own` - удаление своих комментариев
+- `comment:delete_any` - удаление любых комментариев
+- `comment:moderate` - модерация комментариев
 
-#### Назначение ролей пользователю
-```graphql
-mutation AdminSetUserCommunityRoles(
-    $author_id: Int!
-    $community_id: Int!
-    $roles: [String!]!
-) {
-    adminSetUserCommunityRoles(
-        author_id: $author_id
-        community_id: $community_id
-        roles: $roles
-    ) {
-        success
-        error
-        author_id
-        community_id
-        roles
-    }
-}
-```
+#### Пользователи (Users)
+- `user:view_profile` - просмотр профилей
+- `user:edit_own_profile` - редактирование своего профиля
+- `user:manage_roles` - управление ролями пользователей
+- `user:ban` - блокировка пользователей
 
-#### Обновление настроек ролей сообщества
-```graphql
-mutation AdminUpdateCommunityRoleSettings(
-    $community_id: Int!
-    $default_roles: [String!]!
-    $available_roles: [String!]!
-) {
-    adminUpdateCommunityRoleSettings(
-        community_id: $community_id
-        default_roles: $default_roles
-        available_roles: $available_roles
-    ) {
-        success
-        error
-        community_id
-        default_roles
-        available_roles
-    }
-}
-```
+#### Сообщество (Community)
+- `community:view` - просмотр сообщества
+- `community:settings` - настройки сообщества
+- `community:manage_members` - управление участниками
+- `community:analytics` - просмотр аналитики
 
-## Использование декораторов RBAC
+## Логика работы системы
 
-### Импорт декораторов
+### 1. Регистрация пользователя
+
+При регистрации пользователя:
+
 ```python
-from resolvers.rbac import (
-    require_permission, require_role, admin_only,
-    authenticated_only, require_any_permission,
-    require_all_permissions, RBACError
+# 1. Создается запись в Author
+user = Author(email=email, name=name, ...)
+
+# 2. Создается связь с дефолтным сообществом (ID=1)
+community_author = CommunityAuthor(
+    community_id=1,
+    author_id=user.id,
+    roles="reader,author"  # Дефолтные роли
+)
+
+# 3. Создается подписка на сообщество
+follower = CommunityFollower(
+    community=1,
+    follower=user.id
 )
 ```
 
-### Примеры использования
+### 2. Проверка авторизации
 
-#### Проверка конкретного разрешения
+При входе в систему проверяется наличие роли `reader`:
+
 ```python
-@mutation.field("createShout")
-@require_permission("shout:create")
-async def create_shout(self, info: GraphQLResolveInfo, **kwargs):
-    # Только пользователи с правом создания статей
-    return await self._create_shout_logic(**kwargs)
+def login(email, password):
+    # 1. Найти пользователя
+    author = Author.get_by_email(email)
 
-@mutation.field("create_topic")
-@require_permission("topic:create")
-async def create_topic(self, info: GraphQLResolveInfo, topic_input: dict):
-    # Только пользователи с правом создания топиков (author, editor)
-    return await self._create_topic_logic(topic_input)
+    # 2. Проверить пароль
+    if not verify_password(password, author.password):
+        return error("Неверный пароль")
 
-@mutation.field("merge_topics")
-@require_permission("topic:merge")
-async def merge_topics(self, info: GraphQLResolveInfo, merge_input: dict):
-    # Только пользователи с правом слияния топиков (editor)
-    return await self._merge_topics_logic(merge_input)
+    # 3. Получить роли в дефолтном сообществе
+    user_roles = get_user_roles_in_community(author.id, community_id=1)
+
+    # 4. Проверить наличие роли reader
+    if "reader" not in user_roles and author.email not in ADMIN_EMAILS:
+        return error("Нет прав для входа. Требуется роль 'reader'.")
+
+    # 5. Создать сессию
+    return create_session(author)
 ```
 
-#### Проверка любого из разрешений (OR логика)
+### 3. Проверка разрешений
+
+При выполнении действий проверяются разрешения:
+
 ```python
-@mutation.field("updateShout")
-@require_any_permission(["shout:update_own", "shout:update_any"])
-async def update_shout(self, info: GraphQLResolveInfo, shout_id: int, **kwargs):
-    # Может редактировать свои статьи ИЛИ любые статьи
-    return await self._update_shout_logic(shout_id, **kwargs)
+@login_required
+async def create_shout(info, input):
+    user_id = info.context["author"]["id"]
 
-@mutation.field("update_topic")
-@require_any_permission(["topic:update_own", "topic:update_any"])
-async def update_topic(self, info: GraphQLResolveInfo, topic_input: dict):
-    # Может редактировать свои топики ИЛИ любые топики
-    return await self._update_topic_logic(topic_input)
+    # Проверяем разрешение на создание шаутов
+    has_permission = await check_user_permission_in_community(
+        user_id,
+        "shout:create",
+        community_id=1
+    )
 
-@mutation.field("delete_topic")
-@require_any_permission(["topic:delete_own", "topic:delete_any"])
-async def delete_topic(self, info: GraphQLResolveInfo, topic_id: int):
-    # Может удалять свои топики ИЛИ любые топики
-    return await self._delete_topic_logic(topic_id)
+    if not has_permission:
+        raise GraphQLError("Недостаточно прав для создания публикации")
+
+    # Создаем шаут
+    return Shout.create(input)
 ```
 
-#### Проверка конкретной роли
+### 4. Управление ролями
+
+#### Назначение ролей
+
 ```python
-@mutation.field("verifyEvidence")
-@require_role("expert")
-async def verify_evidence(self, info: GraphQLResolveInfo, **kwargs):
-    # Только эксперты могут верифицировать доказательства
-    return await self._verify_evidence_logic(**kwargs)
+# Назначить роль пользователю
+assign_role_to_user(user_id=123, role="editor", community_id=1)
+
+# Убрать роль
+remove_role_from_user(user_id=123, role="editor", community_id=1)
+
+# Установить все роли
+community.set_user_roles(user_id=123, roles=["reader", "author", "editor"])
 ```
 
-#### Только для администраторов
+#### Проверка ролей
+
 ```python
-@mutation.field("deleteAnyContent")
-@admin_only
-async def delete_any_content(self, info: GraphQLResolveInfo, content_id: int):
-    # Только администраторы
-    return await self._delete_content_logic(content_id)
+# Получить роли пользователя
+roles = get_user_roles_in_community(user_id=123, community_id=1)
+
+# Проверить конкретную роль
+has_role = "editor" in roles
+
+# Проверить разрешение
+has_permission = await check_user_permission_in_community(
+    user_id=123,
+    permission="shout:edit_any",
+    community_id=1
+)
 ```
 
-### Обработка ошибок
+## Конфигурация сообщества
+
+### Дефолтные роли
+
+Каждое сообщество может настроить свои дефолтные роли для новых пользователей:
+
 ```python
-from resolvers.rbac import RBACError
+# Получить дефолтные роли
+default_roles = community.get_default_roles()  # ["reader", "author"]
 
-try:
-    result = await some_rbac_protected_function()
-except RBACError as e:
-    return {"success": False, "error": str(e)}
+# Установить дефолтные роли
+community.set_default_roles(["reader"])  # Только reader по умолчанию
 ```
 
-## Настройка сообщества
+### Доступные роли
 
-### Управление ролями в сообществе
+Сообщество может ограничить список доступных ролей:
+
 ```python
-from orm.community import Community
+# Все роли доступны по умолчанию
+available_roles = ["reader", "author", "artist", "expert", "editor", "admin"]
 
-community = session.query(Community).filter(Community.id == 1).first()
-
-# Установка доступных ролей
-community.set_available_roles(['reader', 'author', 'expert', 'admin'])
-
-# Установка дефолтных ролей для новых участников
-community.set_default_roles(['reader'])
-
-# Получение настроек
-available = community.get_available_roles()  # ['reader', 'author', 'expert', 'admin']
-default = community.get_default_roles()      # ['reader']
+# Ограничить только базовыми ролями
+community.set_available_roles(["reader", "author", "editor"])
 ```
 
-### Автоматическое назначение дефолтных ролей
-При создании связи пользователя с сообществом автоматически назначаются роли из `default_roles`.
+## Миграция данных
 
-## Интеграция с GraphQL контекстом
+### Проблемы существующих пользователей
 
-### Middleware для установки ролей
+1. **Пользователи без роли `reader`** - не могут войти в систему
+2. **Старая система ролей** - данные в `Author.roles` устарели
+3. **Отсутствие связей `CommunityAuthor`** - новые пользователи без ролей
+
+### Решения
+
+#### 1. Автоматическое добавление роли `reader`
+
 ```python
-async def rbac_middleware(request, call_next):
-    # Получаем автора из контекста
-    author = getattr(request.state, 'author', None)
-    if author:
-        # Устанавливаем роли в контекст для текущего сообщества
-        community_id = get_current_community_id(request)
-        if community_id:
-            user_roles = get_user_roles_in_community(author.id, community_id)
-            request.state.user_roles = user_roles
+async def ensure_user_has_reader_role(user_id: int) -> bool:
+    """Убеждается, что у пользователя есть роль 'reader'"""
+    existing_roles = get_user_roles_in_community(user_id, community_id=1)
 
-    response = await call_next(request)
-    return response
+    if "reader" not in existing_roles:
+        success = assign_role_to_user(user_id, "reader", community_id=1)
+        if success:
+            logger.info(f"Роль 'reader' добавлена пользователю {user_id}")
+            return True
+
+    return True
 ```
 
-### Получение ролей в resolver'ах
+#### 2. Массовое исправление ролей
+
 ```python
-def get_user_roles_from_context(info):
-    """Получение ролей пользователя из GraphQL контекста"""
-    # Из middleware
-    user_roles = getattr(info.context, "user_roles", [])
-    if user_roles:
-        return user_roles
+async def fix_all_users_reader_role() -> dict[str, int]:
+    """Проверяет всех пользователей и добавляет роль 'reader'"""
+    stats = {"checked": 0, "fixed": 0, "errors": 0}
 
-    # Из author'а напрямую
-    author = getattr(info.context, "author", None)
-    if author and hasattr(author, "roles"):
-        return author.roles.split(",") if author.roles else []
+    all_authors = session.query(Author).all()
 
-    return []
+    for author in all_authors:
+        stats["checked"] += 1
+        try:
+            await ensure_user_has_reader_role(author.id)
+            stats["fixed"] += 1
+        except Exception as e:
+            logger.error(f"Ошибка для пользователя {author.id}: {e}")
+            stats["errors"] += 1
+
+    return stats
 ```
 
-## Миграция и обновления
+#### 3. Миграция из старой системы
 
-### Миграция с предыдущей системы ролей
-Если в проекте была отдельная таблица ролей, необходимо:
+```python
+def migrate_old_roles_to_community_author():
+    """Переносит роли из старой системы в CommunityAuthor"""
 
-1. Создать миграцию для добавления поля `roles` в `CommunityAuthor`
-2. Перенести данные из старых таблиц в CSV формат
-3. Удалить старые таблицы ролей
+    # Получаем все старые роли из Author.roles
+    old_roles = session.query(AuthorRole).all()
 
-```bash
-alembic revision --autogenerate -m "Add CSV roles to CommunityAuthor"
-alembic upgrade head
+    for role in old_roles:
+        # Создаем запись CommunityAuthor
+        ca = CommunityAuthor(
+            community_id=role.community,
+            author_id=role.author,
+            roles=role.role
+        )
+        session.add(ca)
+
+    session.commit()
 ```
 
-### Обновление CHANGELOG.md
-После внесения изменений в RBAC систему обновляется `CHANGELOG.md` с новой версией.
+## API для работы с ролями
+
+### GraphQL мутации
+
+```graphql
+# Назначить роль пользователю
+mutation AssignRole($userId: Int!, $role: String!, $communityId: Int) {
+    assignRole(userId: $userId, role: $role, communityId: $communityId) {
+        success
+        message
+    }
+}
+
+# Убрать роль
+mutation RemoveRole($userId: Int!, $role: String!, $communityId: Int) {
+    removeRole(userId: $userId, role: $role, communityId: $communityId) {
+        success
+        message
+    }
+}
+
+# Установить все роли пользователя
+mutation SetUserRoles($userId: Int!, $roles: [String!]!, $communityId: Int) {
+    setUserRoles(userId: $userId, roles: $roles, communityId: $communityId) {
+        success
+        message
+    }
+}
+```
+
+### GraphQL запросы
+
+```graphql
+# Получить роли пользователя
+query GetUserRoles($userId: Int!, $communityId: Int) {
+    userRoles(userId: $userId, communityId: $communityId) {
+        roles
+        permissions
+        community {
+            id
+            name
+        }
+    }
+}
+
+# Получить всех участников сообщества с ролями
+query GetCommunityMembers($communityId: Int!) {
+    communityMembers(communityId: $communityId) {
+        authorId
+        roles
+        permissions
+        joinedAt
+        author {
+            id
+            name
+            email
+        }
+    }
+}
+```
+
+## Безопасность
+
+### Принципы безопасности
+
+1. **Принцип минимальных привилегий** - пользователь получает только необходимые права
+2. **Разделение обязанностей** - разные роли для разных функций
+3. **Аудит действий** - логирование всех изменений ролей
+4. **Проверка на каждом уровне** - валидация разрешений в API и UI
+
+### Защита от атак
+
+1. **Privilege Escalation** - проверка прав на изменение ролей
+2. **Mass Assignment** - валидация входных данных
+3. **CSRF** - использование токенов для изменения ролей
+4. **XSS** - экранирование данных ролей в UI
+
+### Логирование
+
+```python
+# Логирование изменений ролей
+logger.info(f"Role {role} assigned to user {user_id} by admin {admin_id}")
+logger.warning(f"Failed login attempt for user without reader role: {user_id}")
+logger.error(f"Permission denied: user {user_id} tried to access {resource}")
+```
+
+## Тестирование
+
+### Тестовые сценарии
+
+1. **Регистрация пользователя** - проверка назначения дефолтных ролей
+2. **Вход в систему** - проверка требования роли `reader`
+3. **Назначение ролей** - проверка прав администратора
+4. **Проверка разрешений** - валидация доступа к ресурсам
+5. **Иерархия ролей** - наследование прав
+
+### Пример тестов
+
+```python
+def test_user_registration_assigns_default_roles():
+    """Проверяет назначение дефолтных ролей при регистрации"""
+    user = create_user(email="test@test.com")
+    roles = get_user_roles_in_community(user.id, community_id=1)
+
+    assert "reader" in roles
+    assert "author" in roles
+
+def test_login_requires_reader_role():
+    """Проверяет требование роли reader для входа"""
+    user = create_user_without_roles(email="test@test.com")
+
+    result = login(email="test@test.com", password="password")
+
+    assert result["success"] == False
+    assert "reader" in result["error"]
+
+def test_role_hierarchy():
+    """Проверяет иерархию ролей"""
+    user = create_user(email="admin@test.com")
+    assign_role_to_user(user.id, "admin", community_id=1)
+
+    # Админ должен иметь все права
+    assert check_permission(user.id, "shout:create")
+    assert check_permission(user.id, "user:manage")
+    assert check_permission(user.id, "community:settings")
+```
 
 ## Производительность
 
-### Оптимизация
-- CSV роли хранятся в одном поле, что снижает количество JOIN'ов
-- Индексы на `community_id` и `author_id` ускоряют запросы
-- Кеширование разрешений на уровне приложения
+### Оптимизации
 
-### Рекомендации
-- Избегать частых изменений ролей
-- Кешировать результаты `get_role_permissions_for_community()`
-- Использовать bulk операции для массового назначения ролей
+1. **Кеширование ролей** - хранение ролей пользователя в Redis
+2. **Индексы БД** - быстрый поиск по `community_id` и `author_id`
+3. **Batch операции** - массовое назначение ролей
+4. **Ленивая загрузка** - загрузка разрешений по требованию
+
+### Мониторинг
+
+```python
+# Метрики для Prometheus
+role_checks_total = Counter('rbac_role_checks_total')
+permission_checks_total = Counter('rbac_permission_checks_total')
+role_assignments_total = Counter('rbac_role_assignments_total')
+```
