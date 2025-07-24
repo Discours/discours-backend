@@ -6,7 +6,7 @@ from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import relationship
 
-from orm.author import Author
+from auth.orm import Author
 from orm.base import BaseModel as Base
 from services.logger import root_logger as logger
 
