@@ -1,7 +1,6 @@
 bcrypt
 PyJWT
 authlib
-passlib==1.7.4
 google-analytics-data
 colorlog
 psycopg2-binary
@@ -12,6 +11,7 @@ starlette
 gql
 ariadne
 granian
+bcrypt
 
 # NLP and search
 httpx
@@ -21,7 +21,6 @@ pydantic
 trafilatura
 
 types-requests
-types-passlib
 types-Authlib
 types-orjson
 types-PyYAML

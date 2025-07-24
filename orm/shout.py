@@ -4,9 +4,9 @@ from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from auth.orm import Author
+from orm.base import BaseModel as Base
 from orm.reaction import Reaction
 from orm.topic import Topic
-from services.db import BaseModel as Base
 
 
 class ShoutTopic(Base):
@@ -21,7 +21,7 @@ class ShoutTopic(Base):
 
     __tablename__ = "shout_topic"
 
-    id = None  # type: ignore
+    id = None  # type: ignore[misc]
     shout = Column(ForeignKey("shout.id"), primary_key=True, index=True)
     topic = Column(ForeignKey("topic.id"), primary_key=True, index=True)
     main = Column(Boolean, nullable=True)
@@ -36,7 +36,7 @@ class ShoutTopic(Base):
 class ShoutReactionsFollower(Base):
     __tablename__ = "shout_reactions_followers"
 
-    id = None  # type: ignore
+    id = None  # type: ignore[misc]
     follower = Column(ForeignKey("author.id"), primary_key=True, index=True)
     shout = Column(ForeignKey("shout.id"), primary_key=True, index=True)
     auto = Column(Boolean, nullable=False, default=False)
@@ -56,7 +56,7 @@ class ShoutAuthor(Base):
 
     __tablename__ = "shout_author"
 
-    id = None  # type: ignore
+    id = None  # type: ignore[misc]
     shout = Column(ForeignKey("shout.id"), primary_key=True, index=True)
     author = Column(ForeignKey("author.id"), primary_key=True, index=True)
     caption = Column(String, nullable=True, default="")

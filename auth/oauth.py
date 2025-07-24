@@ -586,22 +586,7 @@ def _create_new_oauth_user(provider: str, profile: dict, email: str, session: An
     # Получаем сообщество для назначения дефолтных ролей
     community = session.query(Community).filter(Community.id == target_community_id).first()
     if community:
-        # Инициализируем права сообщества если нужно
-        try:
-            import asyncio
-
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(community.initialize_role_permissions())
-        except Exception as e:
-            logger.warning(f"Не удалось инициализировать права сообщества {target_community_id}: {e}")
-
-        # Получаем дефолтные роли сообщества или используем стандартные
-        try:
-            default_roles = community.get_default_roles()
-            if not default_roles:
-                default_roles = ["reader", "author"]
-        except AttributeError:
-            default_roles = ["reader", "author"]
+        default_roles = community.get_default_roles()
 
         # Создаем CommunityAuthor с дефолтными ролями
         community_author = CommunityAuthor(

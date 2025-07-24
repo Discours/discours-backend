@@ -153,37 +153,54 @@ class AuthService:
 
     def create_user(self, user_dict: dict[str, Any], community_id: int | None = None) -> Author:
         """Создает нового пользователя с дефолтными ролями"""
+        # Нормализуем email
+        if "email" in user_dict:
+            user_dict["email"] = user_dict["email"].lower()
+
+        # Проверяем уникальность email
+        with local_session() as session:
+            existing_user = session.query(Author).filter(Author.email == user_dict["email"]).first()
+            if existing_user:
+                # Если пользователь с таким email уже существует, возвращаем его
+                logger.warning(f"Пользователь с email {user_dict['email']} уже существует")
+                return existing_user
+
+        # Генерируем уникальный slug
+        base_slug = user_dict.get("slug", generate_unique_slug(user_dict.get("name", user_dict.get("email", "user"))))
+
+        # Проверяем уникальность slug
+        with local_session() as session:
+            # Добавляем суффикс, если slug уже существует
+            counter = 1
+            unique_slug = base_slug
+            while session.query(Author).filter(Author.slug == unique_slug).first():
+                unique_slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            user_dict["slug"] = unique_slug
+
         user = Author(**user_dict)
-        target_community_id = community_id or 1
+        target_community_id = int(community_id) if community_id is not None else 1
 
         with local_session() as session:
             session.add(user)
-            session.flush()
+            session.flush()  # Получаем ID пользователя
 
             # Получаем сообщество для назначения ролей
+            logger.debug(f"Ищем сообщество с ID {target_community_id}")
             community = session.query(Community).filter(Community.id == target_community_id).first()
+
+            # Отладочная информация
+            all_communities = session.query(Community).all()
+            logger.debug(f"Все сообщества в базе: {[c.id for c in all_communities]}")
+
             if not community:
                 logger.warning(f"Сообщество {target_community_id} не найдено, используем ID=1")
                 target_community_id = 1
                 community = session.query(Community).filter(Community.id == target_community_id).first()
 
             if community:
-                # Инициализируем права сообщества
-                try:
-                    import asyncio
-
-                    loop = asyncio.get_event_loop()
-                    loop.run_until_complete(community.initialize_role_permissions())
-                except Exception as e:
-                    logger.warning(f"Не удалось инициализировать права сообщества: {e}")
-
-                # Получаем дефолтные роли
-                try:
-                    default_roles = community.get_default_roles()
-                    if not default_roles:
-                        default_roles = ["reader", "author"]
-                except AttributeError:
-                    default_roles = ["reader", "author"]
+                default_roles = community.get_default_roles() or ["reader", "author"]
 
                 # Создаем CommunityAuthor с ролями
                 community_author = CommunityAuthor(
@@ -197,7 +214,12 @@ class AuthService:
                 follower = CommunityFollower(community=target_community_id, follower=int(user.id))
                 session.add(follower)
 
-                logger.info(f"Пользователь {user.id} создан с ролями {default_roles}")
+                logger.info(
+                    f"Пользователь {user.id} создан с ролями {default_roles} в сообществе {target_community_id}"
+                )
+            else:
+                # Если сообщество не найдено, вызываем исключение
+                raise ValueError("Сообщество не найдено")
 
             session.commit()
             return user
@@ -353,7 +375,7 @@ class AuthService:
                 # Проверяем роли через новую систему CommunityAuthor
                 from orm.community import get_user_roles_in_community
 
-                user_roles = get_user_roles_in_community(author.id, community_id=1)
+                user_roles = get_user_roles_in_community(int(author.id), community_id=1)
                 has_reader_role = "reader" in user_roles
 
                 logger.debug(f"Роли пользователя {email}: {user_roles}")
@@ -676,7 +698,7 @@ class AuthService:
                 stats["checked"] += 1
 
                 try:
-                    had_reader = await self.ensure_user_has_reader_role(author.id)
+                    had_reader = await self.ensure_user_has_reader_role(int(author.id))
                     if not had_reader:
                         stats["fixed"] += 1
 

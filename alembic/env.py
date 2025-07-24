@@ -4,7 +4,7 @@ from sqlalchemy import engine_from_config, pool
 
 # Импорт всех моделей для корректной генерации миграций
 from alembic import context
-from services.db import Base
+from orm.base import BaseModel as Base
 from settings import DB_URL
 
 # this is the Alembic Config object, which provides

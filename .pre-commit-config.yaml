@@ -62,7 +62,6 @@ repos:
   #       additional_dependencies: [
   #         "types-redis",
   #         "types-requests",
-  #         "types-passlib",
   #         "types-Authlib",
   #         "sqlalchemy[mypy]"
   #       ]

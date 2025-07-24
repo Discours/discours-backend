@@ -3,7 +3,7 @@ import time
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from services.db import BaseModel as Base
+from orm.base import BaseModel as Base
 
 
 class ShoutCollection(Base):

@@ -2,7 +2,7 @@ import time
 
 from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
 
-from services.db import BaseModel as Base
+from orm.base import BaseModel as Base
 
 
 class TopicFollower(Base):
@@ -18,7 +18,7 @@ class TopicFollower(Base):
 
     __tablename__ = "topic_followers"
 
-    id = None  # type: ignore
+    id = None  # type: ignore[misc]
     follower = Column(Integer, ForeignKey("author.id"), primary_key=True)
     topic = Column(Integer, ForeignKey("topic.id"), primary_key=True)
     created_at = Column(Integer, nullable=False, default=int(time.time()))

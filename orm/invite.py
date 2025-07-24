@@ -3,7 +3,7 @@ import enum
 from sqlalchemy import Column, ForeignKey, String
 from sqlalchemy.orm import relationship
 
-from services.db import BaseModel as Base
+from orm.base import BaseModel as Base
 
 
 class InviteStatus(enum.Enum):
@@ -12,7 +12,7 @@ class InviteStatus(enum.Enum):
     REJECTED = "REJECTED"
 
     @classmethod
-    def from_string(cls, value):
+    def from_string(cls, value: str) -> "Invite":
         return cls(value)
 
 

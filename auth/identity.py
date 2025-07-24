@@ -2,7 +2,7 @@ from binascii import hexlify
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from passlib.hash import bcrypt
+import bcrypt
 
 from auth.exceptions import ExpiredToken, InvalidPassword, InvalidToken
 from auth.jwtcodec import JWTCodec
@@ -39,7 +39,8 @@ class Password:
             str: Закодированный пароль
         """
         password_sha256 = Password._get_sha256(password)
-        return bcrypt.using(rounds=10).hash(password_sha256)
+        salt = bcrypt.gensalt(rounds=10)
+        return bcrypt.hashpw(password_sha256, salt).decode("utf-8")
 
     @staticmethod
     def verify(password: str, hashed: str) -> bool:
@@ -61,7 +62,7 @@ class Password:
         hashed_bytes = Password._to_bytes(hashed)
         password_sha256 = Password._get_sha256(password)
 
-        return bcrypt.verify(password_sha256, hashed_bytes)
+        return bcrypt.checkpw(password_sha256, hashed_bytes)  # Изменил verify на checkpw
 
 
 class Identity:

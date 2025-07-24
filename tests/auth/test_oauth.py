@@ -227,3 +227,51 @@ with (
             assert created_user is not None
             assert created_user.name == "Test User"
             assert created_user.email_verified is True
+
+# Импортируем необходимые модели
+from orm.community import Community, CommunityAuthor
+
+@pytest.fixture
+def test_community(oauth_db_session, simple_user):
+    """
+    Создает тестовое сообщество с ожидаемыми ролями по умолчанию
+
+    Args:
+        oauth_db_session: Сессия базы данных для теста
+        simple_user: Пользователь для создания сообщества
+
+    Returns:
+        Community: Созданное тестовое сообщество
+    """
+    # Очищаем существующие записи
+    oauth_db_session.query(Community).filter(
+        (Community.id == 300) | (Community.slug == "test-oauth-community")
+    ).delete()
+    oauth_db_session.commit()
+
+    # Создаем тестовое сообщество
+    community = Community(
+        id=300,
+        name="Test OAuth Community",
+        slug="test-oauth-community",
+        desc="Community for OAuth tests",
+        created_by=simple_user.id,
+        settings={
+            "default_roles": ["reader", "author"],
+            "available_roles": ["reader", "author", "editor"]
+        }
+    )
+    oauth_db_session.add(community)
+    oauth_db_session.commit()
+
+    yield community
+
+    # Очистка после теста
+    try:
+        oauth_db_session.query(CommunityAuthor).filter(
+            CommunityAuthor.community_id == community.id
+        ).delete()
+        oauth_db_session.query(Community).filter(Community.id == community.id).delete()
+        oauth_db_session.commit()
+    except Exception:
+        oauth_db_session.rollback()

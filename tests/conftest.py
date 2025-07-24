@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from services.db import Base
+from orm.base import BaseModel as Base
 from services.redis import redis
 from tests.test_config import get_test_client
 

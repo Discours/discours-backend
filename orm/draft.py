@@ -4,14 +4,14 @@ from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from auth.orm import Author
+from orm.base import BaseModel as Base
 from orm.topic import Topic
-from services.db import BaseModel as Base
 
 
 class DraftTopic(Base):
     __tablename__ = "draft_topic"
 
-    id = None  # type: ignore
+    id = None  # type: ignore[misc]
     shout = Column(ForeignKey("draft.id"), primary_key=True, index=True)
     topic = Column(ForeignKey("topic.id"), primary_key=True, index=True)
     main = Column(Boolean, nullable=True)
@@ -20,7 +20,7 @@ class DraftTopic(Base):
 class DraftAuthor(Base):
     __tablename__ = "draft_author"
 
-    id = None  # type: ignore
+    id = None  # type: ignore[misc]
     shout = Column(ForeignKey("draft.id"), primary_key=True, index=True)
     author = Column(ForeignKey("author.id"), primary_key=True, index=True)
     caption = Column(String, nullable=True, default="")

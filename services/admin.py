@@ -72,20 +72,31 @@ class AdminService:
     @staticmethod
     def get_user_roles(user: Author, community_id: int = 1) -> list[str]:
         """Получает роли пользователя в сообществе"""
+        from orm.community import CommunityAuthor  # Явный импорт
         from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 
         admin_emails = ADMIN_EMAILS_LIST.split(",") if ADMIN_EMAILS_LIST else []
         user_roles = []
 
         with local_session() as session:
+            # Получаем все CommunityAuthor для пользователя
+            all_community_authors = session.query(CommunityAuthor).filter(CommunityAuthor.author_id == user.id).all()
+
+            # Сначала ищем точное совпадение по community_id
             community_author = (
                 session.query(CommunityAuthor)
                 .filter(CommunityAuthor.author_id == user.id, CommunityAuthor.community_id == community_id)
                 .first()
             )
 
+            # Если точного совпадения нет, используем первый найденный CommunityAuthor
+            if not community_author and all_community_authors:
+                community_author = all_community_authors[0]
+
             if community_author:
-                user_roles = community_author.role_list
+                # Проверяем, что roles не None и не пустая строка
+                if community_author.roles is not None and community_author.roles.strip():
+                    user_roles = community_author.role_list
 
         # Добавляем синтетическую роль для системных админов
         if user.email and user.email.lower() in [email.lower() for email in admin_emails]:
@@ -188,7 +199,15 @@ class AdminService:
                 community_author.set_roles(valid_roles)
             session.commit()
             logger.info(f"Пользователь {author.email or author.id} обновлен")
-            return {"success": True}
+
+            # Возвращаем обновленного пользователя
+            return {
+                "success": True,
+                "name": author.name,
+                "email": author.email,
+                "slug": author.slug,
+                "roles": self.get_user_roles(author),
+            }
 
     # === ПУБЛИКАЦИИ ===
 

@@ -1,12 +1,12 @@
 import time
 from typing import Any, Dict
 
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint, distinct, func
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String, UniqueConstraint, distinct, func
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from auth.orm import Author
-from services.db import BaseModel
+from orm.base import BaseModel
 from services.rbac import get_permissions_for_role
 
 # Словарь названий ролей
@@ -372,7 +372,7 @@ class CommunityAuthor(BaseModel):
     id = Column(Integer, primary_key=True)
     community_id = Column(Integer, ForeignKey("community.id"), nullable=False)
     author_id = Column(Integer, ForeignKey("author.id"), nullable=False)
-    roles = Column(Text, nullable=True, comment="Roles (comma-separated)")
+    roles = Column(String, nullable=True, comment="Roles (comma-separated)")
     joined_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
 
     # Связи
@@ -435,12 +435,16 @@ class CommunityAuthor(BaseModel):
 
     def set_roles(self, roles: list[str]) -> None:
         """
-        Устанавливает полный список ролей (заменяет текущие)
+        Устанавливает роли для CommunityAuthor.
 
         Args:
             roles: Список ролей для установки
         """
-        self.role_list = roles
+        # Фильтруем и очищаем роли
+        valid_roles = [role.strip() for role in roles if role and role.strip()]
+
+        # Если список пустой, устанавливаем None
+        self.roles = ",".join(valid_roles) if valid_roles else ""
 
     async def get_permissions(self) -> list[str]:
         """

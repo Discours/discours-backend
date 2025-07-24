@@ -731,8 +731,8 @@ async def admin_get_reactions(
                             "deleted_at": shout.deleted_at,
                         },
                         "stat": {
-                            "comments_count": stats.comments_count or 0,
-                            "rating": stats.rating or 0,
+                            "comments_count": stats.comments_count if stats else 0,
+                            "rating": stats.rating if stats else 0,
                         },
                     }
                 )
