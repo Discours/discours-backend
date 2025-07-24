@@ -1,0 +1,40 @@
+name: Notification Module Tests
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements.dev.txt
+
+    - name: Run mypy type checking
+      run: mypy orm/notification.py
+
+    - name: Run pytest for notification module
+      run: |
+        pytest tests/test_notification.py -v
+
+    - name: Lint with ruff
+      run: |
+        ruff check orm/notification.py
+        ruff format --check orm/notification.py

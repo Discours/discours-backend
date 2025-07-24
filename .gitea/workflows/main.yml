@@ -24,13 +24,13 @@ jobs:
         with:
           branch: 'main'
           git_remote_url: 'ssh://dokku@v2.discours.io:22/discoursio-api'
-          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh_private_key: ${{ secrets.PROD_PRIVATE_KEY }}
 
       - name: Push to v3.dscrs.site branch
         if: github.ref == 'refs/heads/dev'
         uses: dokku/github-action@master
         with:
           branch: 'dev'
-          git_remote_url: 'ssh://dokku@v3.dscrs.site:22/core'
+          git_remote_url: 'ssh://dokku@staging.discours.io:22/core'
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
           git_push_flags: '--force'

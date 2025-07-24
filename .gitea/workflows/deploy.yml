@@ -1,0 +1,56 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up SSH
+      uses: webfactory/ssh-agent@v0.5.0
+      with:
+        ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+    - name: Add server to known hosts
+      run: |
+        ssh-keyscan -H v3.dscrs.site >> ~/.ssh/known_hosts
+
+    - name: Configure Git
+      run: |
+        git config --global user.email "gitea-actions@dscrs.site"
+        git config --global user.name "Gitea Actions"
+
+    - name: Prepare deployment
+      run: |
+        git init
+        git add .
+        git commit -m "Prepare for deployment: $(date +'%Y-%m-%d %H:%M:%S')"
+
+    - name: Deploy to Server
+      env:
+        SERVER_HOST: v3.dscrs.site
+        SERVER_USER: dokku
+        APP_NAME: core
+      run: |
+        git remote add dokku dokku@$SERVER_HOST:$APP_NAME
+        git push dokku HEAD:main -f
+
+    - name: Notify Deployment
+      if: success()
+      run: |
+        echo "Deployment to $APP_NAME successful"
+
+    - name: Handle Deployment Failure
+      if: failure()
+      run: |
+        echo "Deployment failed"
+        exit 1
