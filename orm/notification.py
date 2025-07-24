@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 
 from auth.orm import Author
 from orm.base import BaseModel as Base
-from services.logger import root_logger as logger
+from utils.logger import root_logger as logger
 
 
 class NotificationStatus(Enum):
