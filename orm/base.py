@@ -41,8 +41,8 @@ class SafeColumnMixin:
         """
         Переопределяем __setattr__ для использования безопасного присваивания
         """
-        safe_method = getattr(self, "__safe_setattr__", object.__setattr__)
-        safe_method(self, key, value)
+        # Используем object.__setattr__ для избежания рекурсии
+        object.__setattr__(self, key, value)
 
 
 class BaseModel(_Base, SafeColumnMixin):  # type: ignore[valid-type,misc]
