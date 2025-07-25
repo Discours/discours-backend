@@ -19,7 +19,6 @@ export const ADMIN_LOGOUT_MUTATION = `
   mutation AdminLogout {
     logout {
       success
-      message
     }
   }
 `

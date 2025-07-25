@@ -148,7 +148,7 @@ async def logout(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> dict[str, 
         return result
     except Exception as e:
         logger.error(f"Ошибка выхода: {e}")
-        return {"success": False, "message": str(e)}
+        return {"success": False}
 
 
 @mutation.field("refreshToken")

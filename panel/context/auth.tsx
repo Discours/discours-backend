@@ -10,6 +10,7 @@ import {
   getCsrfTokenFromCookie,
   saveAuthToken
 } from '../utils/auth'
+import { AuthSuccess } from '~/graphql/generated/graphql'
 /**
  * Модуль авторизации
  * @module auth
@@ -159,7 +160,7 @@ export const AuthProvider: Component<AuthProviderProps> = (props) => {
 export const logout = async () => {
   console.log('[Auth] Executing standalone logout...')
   try {
-    const result = await query<{ logout: { success: boolean } }>(
+    const result = await query<{ logout: AuthSuccess }>(
       `${location.origin}/graphql`,
       ADMIN_LOGOUT_MUTATION
     )
