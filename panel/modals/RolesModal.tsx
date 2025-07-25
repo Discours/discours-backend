@@ -1,4 +1,4 @@
-import { Component, createEffect, createSignal, For } from 'solid-js'
+import { Component, createEffect, createSignal, For, Show } from 'solid-js'
 import type { AdminUserInfo } from '../graphql/generated/schema'
 import formStyles from '../styles/Form.module.css'
 import Button from '../ui/Button'
@@ -290,16 +290,35 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
                     }}
                     onClick={() => !isDisabled && handleRoleToggle(role.id)} // Добавляем обработчик клика
                   >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleRoleToggle(role.id)}
-                      disabled={loading() || isDisabled}
+                    <div
                       style={{
-                        cursor: isDisabled ? 'not-allowed' : 'pointer',
-                        margin: '0 0.5rem 0 0'
+                        width: '20px',
+                        height: '20px',
+                        'border-radius': '50%',
+                        border: `2px solid ${isSelected ? '#3b82f6' : '#a1a1aa'}`,
+                        'background-color': isSelected ? '#3b82f6' : 'transparent',
+                        display: 'flex',
+                        'align-items': 'center',
+                        'justify-content': 'center',
+                        cursor: isDisabled ? 'not-allowed' : 'pointer'
                       }}
-                    />
+                    >
+                      <Show when={isSelected}>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="white"
+                          stroke-width="3"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </Show>
+                    </div>
                     <div class={formStyles.roleHeader}>
                       <span class={formStyles.roleName}>
                         <span style={{ 'margin-right': '0.5rem', 'font-size': '1.1rem' }}>
@@ -319,7 +338,36 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
                           </span>
                         )}
                       </span>
-                      <span class={formStyles.roleCheckmark}>{isSelected ? '✓' : ''}</span>
+                      <div
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          'border-radius': '50%',
+                          border: `2px solid ${isSelected ? '#3b82f6' : '#a1a1aa'}`,
+                          'background-color': isSelected ? '#3b82f6' : 'transparent',
+                          display: 'flex',
+                          'align-items': 'center',
+                          'justify-content': 'center',
+                          cursor: isDisabled ? 'not-allowed' : 'pointer'
+                        }}
+                        onClick={() => !isDisabled && handleRoleToggle(role.id)}
+                      >
+                        {isSelected && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="white"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        )}
+                      </div>
                     </div>
                     <div class={formStyles.roleDescription}>{role.description}</div>
                   </label>
