@@ -22,7 +22,7 @@ jobs:
 
     - name: Add server to known hosts
       run: |
-        ssh-keyscan -H v3.dscrs.site >> ~/.ssh/known_hosts
+        ssh-keyscan -H staging.discours.io >> ~/.ssh/known_hosts
 
     - name: Configure Git
       run: |
@@ -37,7 +37,7 @@ jobs:
 
     - name: Deploy to Server
       env:
-        SERVER_HOST: v3.dscrs.site
+        SERVER_HOST: staging.discours.io
         SERVER_USER: dokku
         APP_NAME: core
       run: |

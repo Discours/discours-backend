@@ -20,31 +20,31 @@ export interface UserEditModalProps {
 // Доступные роли в системе
 const AVAILABLE_ROLES = [
   {
-    id: 'Администратор',
+    id: 'admin',
     name: 'Системный администратор',
     description: 'Администраторы определяются автоматически по настройкам сервера',
     emoji: '🪄'
   },
   {
-    id: 'Редактор',
+    id: 'editor',
     name: 'Редактор',
     description: 'Редактирование публикаций и управление сообществом',
     emoji: '✒️'
   },
   {
-    id: 'Эксперт',
+    id: 'expert',
     name: 'Эксперт',
     description: 'Добавление доказательств и опровержений, управление темами',
     emoji: '🔬'
   },
   {
-    id: 'Автор',
+    id: 'author',
     name: 'Автор',
     description: 'Создание и редактирование своих публикаций',
     emoji: '📝'
   },
   {
-    id: 'Читатель',
+    id: 'reader',
     name: 'Читатель',
     description: 'Чтение и комментирование',
     emoji: '📖'
@@ -57,7 +57,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     email: props.user.email || '',
     name: props.user.name || '',
     slug: props.user.slug || '',
-    roles: props.user.roles || [] // Включаем все роли, включая администратора
+    roles: props.user.roles || []
   })
 
   const [errors, setErrors] = createSignal<Record<string, string>>({})
@@ -65,7 +65,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
   // Проверяем, является ли пользователь администратором по ролям, которые приходят с сервера
   const isAdmin = () => {
-    return (props.user.roles || []).includes('Администратор')
+    return (props.user.roles || []).includes('admin')
   }
 
   // Получаем информацию о роли по ID
@@ -100,7 +100,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
         email: props.user.email || '',
         name: props.user.name || '',
         slug: props.user.slug || '',
-        roles: props.user.roles || [] // Включаем все роли, включая администратора
+        roles: props.user.roles || []
       })
       setErrors({})
     }
@@ -116,7 +116,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
   const handleRoleToggle = (roleId: string) => {
     // Роль администратора нельзя изменить вручную
-    if (roleId === 'Администратор') {
+    if (roleId === 'admin') {
       return
     }
 
@@ -139,29 +139,23 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     const data = formData()
 
     // Email
-    if (!data.email.trim()) {
-      newErrors.email = 'Email обязателен'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
+    if (!data.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) {
       newErrors.email = 'Неверный формат email'
     }
 
     // Имя
-    if (!data.name.trim()) {
-      newErrors.name = 'Имя обязательно'
-    } else if (data.name.trim().length < 2) {
+    if (!data.name.trim() || data.name.trim().length < 2) {
       newErrors.name = 'Имя должно содержать минимум 2 символа'
     }
 
     // Slug
-    if (!data.slug.trim()) {
-      newErrors.slug = 'Slug обязателен'
-    } else if (!/^[a-z0-9_-]+$/.test(data.slug.trim())) {
+    if (!data.slug.trim() || !/^[a-z0-9_-]+$/.test(data.slug.trim())) {
       newErrors.slug = 'Slug может содержать только латинские буквы, цифры, дефисы и подчеркивания'
     }
 
     // Роли (админы освобождаются от этого требования)
-    if (!isAdmin() && data.roles.filter((role) => role !== 'Администратор').length === 0) {
-      newErrors.roles = 'Выберите хотя бы одну роль (или назначьте админский email)'
+    if (!isAdmin() && data.roles.filter((role) => role !== 'admin').length === 0) {
+      newErrors.roles = 'Выберите хотя бы одну роль'
     }
 
     setErrors(newErrors)
@@ -351,13 +345,13 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
           <div class={formStyles.rolesGrid}>
             <For each={AVAILABLE_ROLES}>
               {(role) => {
-                const isAdminRole = role.id === 'Администратор'
+                const isAdminRole = role.id === 'admin'
                 const isSelected = formData().roles.includes(role.id)
-                const isDisabled = isAdminRole // Роль администратора всегда заблокирована
+                const isDisabled = isAdminRole
 
                 return (
                   <label
-                    class={`${formStyles.roleCard} ${isSelected ? formStyles.roleCardSelected : ''} ${isDisabled ? formStyles.roleCardDisabled || '' : ''}`}
+                    class={`${formStyles.roleCard} ${isSelected ? formStyles.roleCardSelected : ''} ${isDisabled ? formStyles.roleCardDisabled : ''}`}
                     style={{
                       opacity: isDisabled ? 0.7 : 1,
                       cursor: isDisabled ? 'not-allowed' : 'pointer',
