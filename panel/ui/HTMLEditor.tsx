@@ -191,8 +191,11 @@ const HTMLEditor = (props: HTMLEditorProps) => {
     const value = props.value || ''
 
     if (value.trim()) {
+      // Форматируем HTML перед экранированием
+      const formattedValue = formatHTML(value)
+
       // Экранируем HTML для безопасности
-      const escapedValue = value
+      const escapedValue = formattedValue
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -334,16 +337,47 @@ const HTMLEditor = (props: HTMLEditorProps) => {
 
   const formatHTML = (html: string): string => {
     try {
-      // Простое форматирование с отступами
-      const lines = html.split(/\n/)
-      const formattedLines = lines.map((line, index) => {
-        const trimmedLine = line.trim()
-        if (trimmedLine.startsWith('<') && !trimmedLine.startsWith('</')) {
-          return '  '.repeat(index > 0 ? 1 : 0) + trimmedLine
+      if (!html.trim()) return html
+
+      // Функция для форматирования HTML с правильными отступами
+      const formatHTMLString = (str: string): string => {
+        let formatted = ''
+        let indent = 0
+        const indentStr = '  ' // 2 пробела для отступа
+
+        // Разбиваем на токены (теги и текст)
+        const tokens = str.match(/<\/?[^>]*>|[^<]+/g) || []
+
+        for (let i = 0; i < tokens.length; i++) {
+          const token = tokens[i].trim()
+          if (!token) continue
+
+          if (token.startsWith('</')) {
+            // Закрывающий тег - уменьшаем отступ
+            indent--
+            formatted += indentStr.repeat(Math.max(0, indent)) + token + '\n'
+          } else if (token.startsWith('<') && token.endsWith('>')) {
+            // Открывающий тег
+            const isSelfClosing = token.endsWith('/>') ||
+              /^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(\s|>)/i.test(token)
+
+            formatted += indentStr.repeat(indent) + token + '\n'
+
+            if (!isSelfClosing) {
+              indent++
+            }
+          } else {
+            // Текстовое содержимое
+            if (token.length > 0) {
+              formatted += indentStr.repeat(indent) + token + '\n'
+            }
+          }
         }
-        return trimmedLine
-      })
-      return formattedLines.join('\n')
+
+        return formatted.trim()
+      }
+
+      return formatHTMLString(html)
     } catch (error) {
       console.warn('HTML formatting error:', error)
       return html

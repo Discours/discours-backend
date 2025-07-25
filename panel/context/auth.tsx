@@ -76,12 +76,16 @@ export const AuthProvider: Component<AuthProviderProps> = (props) => {
   // Инициализация авторизации при монтировании
   onMount(async () => {
     console.log('[AuthProvider] Performing auth initialization...')
+    console.log('[AuthProvider] Checking localStorage token:', !!localStorage.getItem(AUTH_TOKEN_KEY))
+    console.log('[AuthProvider] Checking cookie token:', !!getAuthTokenFromCookie())
+    console.log('[AuthProvider] Checking CSRF token:', !!getCsrfTokenFromCookie())
 
     // Небольшая задержка для завершения других инициализаций
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     // Проверяем текущее состояние авторизации
     const authStatus = checkAuthStatus()
+    console.log('[AuthProvider] Final auth status after check:', authStatus)
     setIsAuthenticated(authStatus)
 
     console.log('[AuthProvider] Auth initialization complete, ready for requests')
