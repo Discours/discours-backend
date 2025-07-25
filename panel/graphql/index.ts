@@ -3,26 +3,17 @@
  * @module api
  */
 
-import { AUTH_TOKEN_KEY, clearAuthTokens, getAuthTokenFromCookie } from '../utils/auth'
+import {
+  AUTH_TOKEN_KEY,
+  clearAuthTokens,
+  getAuthTokenFromCookie,
+  getCsrfTokenFromCookie
+} from '../utils/auth'
 
 /**
  * Тип для произвольных данных GraphQL
  */
 type GraphQLData = Record<string, unknown>
-
-const CSRF_TOKEN_KEY = 'csrf_token'
-const CSRF_HEADER_NAME = 'X-CSRF-Token'
-
-function getCsrfTokenFromCookie(): string {
-  const cookieItems = document.cookie.split(';')
-  for (const item of cookieItems) {
-    const [name, value] = item.trim().split('=')
-    if (name === CSRF_TOKEN_KEY) {
-      return value
-    }
-  }
-  return ''
-}
 
 /**
  * Возвращает заголовки для GraphQL запроса с учетом авторизации и CSRF
@@ -52,21 +43,15 @@ function getRequestHeaders(): Record<string, string> {
   // Добавляем CSRF-токен, если он есть
   const csrfToken = getCsrfTokenFromCookie()
   if (csrfToken) {
-    headers[CSRF_HEADER_NAME] = csrfToken
+    headers['X-CSRF-Token'] = csrfToken
     console.debug('Добавлен CSRF-токен в запрос')
   }
 
   return headers
 }
 
-interface GraphQLError extends Error {
-  extensions?: {
-    code?: string
-  }
-}
-
 /**
- * Выполняет GraphQL запрос
+ * Выполняет GraphQL запрос с retry логикой для 503 ошибок
  * @param endpoint - URL эндпоинта GraphQL
  * @param query - GraphQL запрос
  * @param variables - Переменные запроса
@@ -77,83 +62,93 @@ export async function query<T = unknown>(
   query: string,
   variables?: Record<string, unknown>
 ): Promise<T> {
-  try {
-    console.log(`[GraphQL] Making request to ${endpoint}`)
-    console.log(`[GraphQL] Query: ${query.substring(0, 100)}...`)
+  const maxRetries = 3
+  const retryDelay = 500 // 500ms базовая задержка
 
-    // Используем существующую функцию для получения всех необходимых заголовков
-    const headers = getRequestHeaders()
-    console.log(
-      `[GraphQL] Заголовки установлены, Authorization: ${headers['Authorization'] ? 'присутствует' : 'отсутствует'}`
-    )
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[GraphQL] Making request to ${endpoint} (attempt ${attempt}/${maxRetries})`)
+      console.log(`[GraphQL] Query: ${query.substring(0, 100)}...`)
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      body: JSON.stringify({
-        query,
-        variables
+      // Используем существующую функцию для получения всех необходимых заголовков
+      const headers = getRequestHeaders()
+      console.log(
+        `[GraphQL] Заголовки установлены, Authorization: ${headers['Authorization'] ? 'присутствует' : 'отсутствует'}`
+      )
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          query,
+          variables
+        })
       })
-    })
 
-    console.log(`[GraphQL] Response status: ${response.status}`)
+      console.log(`[GraphQL] Response status: ${response.status}`)
 
-    // Обработка HTTP-ошибок авторизации
-    if (response.status === 401) {
-      console.log('[GraphQL] Unauthorized response, clearing auth tokens')
-      clearAuthTokens()
-      // Перенаправляем на страницу входа только если мы не на ней
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
-      }
-      throw new Error('Unauthorized')
-    }
-
-    const result = await response.json()
-    console.log('[GraphQL] Response received:', result)
-
-    // Обработка CSRF-ошибок
-    if (result.errors) {
-      const csrfError = result.errors.find((error: GraphQLError) =>
-        ['CSRF_TOKEN_MISSING', 'CSRF_TOKEN_INVALID'].includes(error.extensions?.code ?? '')
-      )
-
-      if (csrfError) {
-        console.error('[GraphQL] CSRF Error:', csrfError)
-
-        // Принудительное обновление страницы для получения нового токена
-        window.location.reload()
-
-        throw new Error(`CSRF Error: ${csrfError.message}`)
+      // Если получили 503 и это не последняя попытка, повторяем запрос
+      if (response.status === 503 && attempt < maxRetries) {
+        const delay = retryDelay * attempt // Экспоненциальная задержка
+        console.log(`[GraphQL] Got 503 error, retrying after ${delay}ms...`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        continue
       }
 
-      // Обработка других GraphQL-ошибок
-      const unauthorizedError = result.errors.find(
-        (error: GraphQLError) =>
-          error.message.toLowerCase().includes('unauthorized') ||
-          error.message.toLowerCase().includes('please login')
-      )
-
-      if (unauthorizedError) {
-        console.log('[GraphQL] Unauthorized response, clearing auth tokens')
-        clearAuthTokens()
-
-        // Перенаправляем на страницу входа только если мы не на ней
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login'
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.log('[GraphQL] Unauthorized response, clearing auth tokens')
+          clearAuthTokens()
+          // Перенаправляем на страницу входа только если мы не на ней
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login'
+          }
         }
-        throw new Error('Unauthorized')
+        const errorText = await response.text()
+        throw new Error(`HTTP error: ${response.status} ${errorText}`)
       }
 
-      throw new Error(result.errors.map((e: GraphQLError) => e.message).join('; '))
-    }
+      const result = await response.json()
+      console.log('[GraphQL] Response received:', result)
 
-    return result.data as T
-  } catch (error) {
-    console.error('[GraphQL] Query error:', error)
-    throw error
+      if (result.errors) {
+        // Проверяем ошибки авторизации
+        const hasUnauthorized = result.errors.some(
+          (error: { message?: string }) =>
+            error.message?.toLowerCase().includes('unauthorized') ||
+            error.message?.toLowerCase().includes('please login')
+        )
+
+        if (hasUnauthorized) {
+          console.log('[GraphQL] Unauthorized error in response, clearing auth tokens')
+          clearAuthTokens()
+          // Перенаправляем на страницу входа только если мы не на ней
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login'
+          }
+        }
+
+        // Handle GraphQL errors
+        const errorMessage = result.errors.map((e: { message?: string }) => e.message).join(', ')
+        throw new Error(`GraphQL error: ${errorMessage}`)
+      }
+
+      return result.data
+    } catch (error) {
+      // Если это последняя попытка или ошибка не 503, пробрасываем ошибку
+      if (attempt === maxRetries || !(error instanceof Error) || !error.message.includes('503')) {
+        console.error('[GraphQL] Query error:', error)
+        throw error
+      }
+
+      // Для других ошибок на промежуточных попытках просто логируем
+      console.warn(`[GraphQL] Attempt ${attempt} failed, retrying...`, error.message)
+    }
   }
+
+  // Этот код никогда не должен выполниться, но добавляем для TypeScript
+  throw new Error('Max retries exceeded')
 }
 
 /**

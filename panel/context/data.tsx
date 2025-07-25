@@ -6,6 +6,7 @@ import {
   GET_COMMUNITIES_QUERY,
   GET_TOPICS_QUERY
 } from '../graphql/queries'
+import { useAuth } from './auth'
 
 export interface Community {
   id: number
@@ -92,6 +93,7 @@ const DataContext = createContext<DataContextType>({
 const COMMUNITY_STORAGE_KEY = 'admin-selected-community'
 
 export function DataProvider(props: { children: JSX.Element }) {
+  const auth = useAuth()
   const [communities, setCommunities] = createSignal<Community[]>([])
   const [topics, setTopics] = createSignal<Topic[]>([])
   const [allTopics, setAllTopics] = createSignal<Topic[]>([])
@@ -140,11 +142,16 @@ export function DataProvider(props: { children: JSX.Element }) {
   // Эффект для загрузки ролей при изменении сообщества
   createEffect(() => {
     const community = selectedCommunity()
-    if (community !== null) {
-      console.log('[DataProvider] Загрузка ролей для сообщества:', community)
+    const isReady = auth.isReady()
+    const isAuthenticated = auth.isAuthenticated()
+
+    if (community !== null && isReady && isAuthenticated) {
+      console.log('[DataProvider] Auth ready, загрузка ролей для сообщества:', community)
       loadRoles(community).catch((err) => {
         console.warn('Не удалось загрузить роли для сообщества:', err)
       })
+    } else if (!isReady) {
+      console.log('[DataProvider] Ожидание готовности авторизации перед загрузкой ролей')
     }
   })
 
@@ -324,6 +331,26 @@ export function DataProvider(props: { children: JSX.Element }) {
     // biome-ignore lint/suspicious/noExplicitAny: grahphql
     queryGraphQL: async (queryStr: string, variables?: Record<string, any>) => {
       try {
+        // Ждем готовности авторизации перед выполнением запроса
+        const maxWaitTime = 5000 // 5 секунд максимум
+        const startTime = Date.now()
+
+        while (!auth.isReady() && Date.now() - startTime < maxWaitTime) {
+          console.log('[DataProvider] Ожидание готовности авторизации для GraphQL запроса...')
+          await new Promise((resolve) => setTimeout(resolve, 50))
+        }
+
+        if (!auth.isReady()) {
+          console.warn('[DataProvider] Таймаут ожидания готовности авторизации')
+          throw new Error('Auth not ready')
+        }
+
+        if (!auth.isAuthenticated()) {
+          console.warn('[DataProvider] Пользователь не авторизован')
+          throw new Error('User not authenticated')
+        }
+
+        console.log('[DataProvider] Выполнение GraphQL запроса после готовности авторизации')
         return await query(`${location.origin}/graphql`, queryStr, variables)
       } catch (error) {
         console.error('Ошибка выполнения GraphQL запроса:', error)

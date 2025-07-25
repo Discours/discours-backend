@@ -2,9 +2,6 @@
 Единый middleware для обработки авторизации в GraphQL запросах
 """
 
-import hashlib
-import os
-import secrets
 import time
 from collections.abc import Awaitable, MutableMapping
 from typing import Any, Callable, Optional
@@ -36,10 +33,6 @@ from settings import (
 from utils.logger import root_logger as logger
 
 ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
-
-# Добавляем константу для CSRF токена
-CSRF_TOKEN_KEY = os.environ.get("CSRF_TOKEN_KEY", "csrf_token")
-CSRF_HEADER_NAME = os.environ.get("CSRF_HEADER_NAME", "X-CSRF-Token")
 
 
 class AuthenticatedUser:
@@ -355,54 +348,6 @@ class AuthMiddleware:
             logger.error(f"[AuthMiddleware] Ошибка в GraphQL resolve: {e!s}")
             raise
 
-    def generate_csrf_token(self, user_id: Optional[str] = None) -> str:
-        """
-        Генерирует криптографически стойкий CSRF токен
-
-        Args:
-            user_id: Необязательный идентификатор пользователя для привязки токена
-
-        Returns:
-            str: CSRF токен
-        """
-        # Используем secrets для генерации случайных байт
-        random_bytes = secrets.token_bytes(32)
-
-        # Добавляем user_id для привязки токена к сессии, если передан
-        salt = user_id.encode() if user_id else b""
-
-        # Создаем хеш с солью
-        csrf_token = hashlib.sha256(random_bytes + salt).hexdigest()
-
-        return csrf_token
-
-    async def validate_csrf_token(self, request: Request) -> bool:
-        """
-        Проверяет CSRF токен в запросе
-
-        Args:
-            request: Объект запроса
-
-        Returns:
-            bool: Результат проверки CSRF токена
-        """
-        # Получаем токен из заголовка
-        request_csrf_token = request.headers.get(CSRF_HEADER_NAME)
-
-        # Получаем токен из куки
-        cookie_csrf_token = request.cookies.get(CSRF_TOKEN_KEY)
-
-        # Проверяем наличие и совпадение токенов
-        if not request_csrf_token or not cookie_csrf_token:
-            logger.warning("[CSRF] Токен отсутствует")
-            return False
-
-        if request_csrf_token != cookie_csrf_token:
-            logger.warning("[CSRF] Токены не совпадают")
-            return False
-
-        return True
-
     async def process_result(self, request: Request, result: Any) -> Response:
         """
         Обрабатывает результат GraphQL запроса, поддерживая установку cookie
@@ -476,23 +421,6 @@ class AuthMiddleware:
                         samesite=SESSION_COOKIE_SAMESITE,
                     )
                     logger.debug(f"[graphql_handler] Удалена cookie {SESSION_COOKIE_NAME} для операции {op_name}")
-
-                # Если это аутентификация, генерируем и устанавливаем CSRF токен
-                if op_name in ["login", "refreshtoken"]:
-                    # Генерируем CSRF токен
-                    csrf_token = self.generate_csrf_token()
-
-                    # Устанавливаем токен в куки
-                    response.set_cookie(
-                        key=CSRF_TOKEN_KEY,
-                        value=csrf_token,
-                        httponly=False,  # Должен быть доступен JavaScript
-                        secure=SESSION_COOKIE_SECURE,
-                        samesite=SESSION_COOKIE_SAMESITE,
-                        max_age=SESSION_COOKIE_MAX_AGE,
-                    )
-                    logger.debug("[CSRF] Установлен новый CSRF токен")
-
             except Exception as e:
                 logger.error(f"[process_result] Ошибка при обработке POST запроса: {e!s}")
 

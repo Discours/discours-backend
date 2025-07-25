@@ -1,4 +1,4 @@
-import { Component, createContext, createSignal, JSX, useContext } from 'solid-js'
+import { Component, createContext, createSignal, JSX, onMount, useContext } from 'solid-js'
 import { query } from '../graphql'
 import { ADMIN_LOGIN_MUTATION, ADMIN_LOGOUT_MUTATION } from '../graphql/mutations'
 import {
@@ -45,12 +45,14 @@ export {
 
 interface AuthContextType {
   isAuthenticated: () => boolean
+  isReady: () => boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: () => false,
+  isReady: () => false,
   login: async () => {},
   logout: async () => {}
 })
@@ -64,9 +66,26 @@ interface AuthProviderProps {
 export const AuthProvider: Component<AuthProviderProps> = (props) => {
   console.log('[AuthProvider] Initializing...')
   const [isAuthenticated, setIsAuthenticated] = createSignal(checkAuthStatus())
+  const [isReady, setIsReady] = createSignal(false)
+
   console.log(
     `[AuthProvider] Initial auth state: ${isAuthenticated() ? 'authenticated' : 'not authenticated'}`
   )
+
+  // Инициализация авторизации при монтировании
+  onMount(async () => {
+    console.log('[AuthProvider] Performing auth initialization...')
+
+    // Небольшая задержка для завершения других инициализаций
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Проверяем текущее состояние авторизации
+    const authStatus = checkAuthStatus()
+    setIsAuthenticated(authStatus)
+
+    console.log('[AuthProvider] Auth initialization complete, ready for requests')
+    setIsReady(true)
+  })
 
   const login = async (username: string, password: string) => {
     console.log('[AuthProvider] Attempting login...')
@@ -127,6 +146,7 @@ export const AuthProvider: Component<AuthProviderProps> = (props) => {
 
   const value: AuthContextType = {
     isAuthenticated,
+    isReady,
     login,
     logout
   }
