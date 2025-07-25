@@ -3,17 +3,26 @@
  * @module api
  */
 
-import {
-  AUTH_TOKEN_KEY,
-  clearAuthTokens,
-  getAuthTokenFromCookie,
-  getCsrfTokenFromCookie
-} from '../utils/auth'
+import { AUTH_TOKEN_KEY, clearAuthTokens, getAuthTokenFromCookie } from '../utils/auth'
 
 /**
  * Тип для произвольных данных GraphQL
  */
 type GraphQLData = Record<string, unknown>
+
+const CSRF_TOKEN_KEY = 'csrf_token'
+const CSRF_HEADER_NAME = 'X-CSRF-Token'
+
+function getCsrfTokenFromCookie(): string {
+  const cookieItems = document.cookie.split(';')
+  for (const item of cookieItems) {
+    const [name, value] = item.trim().split('=')
+    if (name === CSRF_TOKEN_KEY) {
+      return value
+    }
+  }
+  return ''
+}
 
 /**
  * Возвращает заголовки для GraphQL запроса с учетом авторизации и CSRF
@@ -43,11 +52,17 @@ function getRequestHeaders(): Record<string, string> {
   // Добавляем CSRF-токен, если он есть
   const csrfToken = getCsrfTokenFromCookie()
   if (csrfToken) {
-    headers['X-CSRF-Token'] = csrfToken
+    headers[CSRF_HEADER_NAME] = csrfToken
     console.debug('Добавлен CSRF-токен в запрос')
   }
 
   return headers
+}
+
+interface GraphQLError extends Error {
+  extensions?: {
+    code?: string
+  }
 }
 
 /**
@@ -84,45 +99,57 @@ export async function query<T = unknown>(
 
     console.log(`[GraphQL] Response status: ${response.status}`)
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        console.log('[GraphQL] Unauthorized response, clearing auth tokens')
-        clearAuthTokens()
-        // Перенаправляем на страницу входа только если мы не на ней
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login'
-        }
+    // Обработка HTTP-ошибок авторизации
+    if (response.status === 401) {
+      console.log('[GraphQL] Unauthorized response, clearing auth tokens')
+      clearAuthTokens()
+      // Перенаправляем на страницу входа только если мы не на ней
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
       }
-      const errorText = await response.text()
-      throw new Error(`HTTP error: ${response.status} ${errorText}`)
+      throw new Error('Unauthorized')
     }
 
     const result = await response.json()
     console.log('[GraphQL] Response received:', result)
 
+    // Обработка CSRF-ошибок
     if (result.errors) {
-      // Проверяем ошибки авторизации
-      const hasUnauthorized = result.errors.some(
-        (error: { message?: string }) =>
-          error.message?.toLowerCase().includes('unauthorized') ||
-          error.message?.toLowerCase().includes('please login')
+      const csrfError = result.errors.find((error: GraphQLError) =>
+        ['CSRF_TOKEN_MISSING', 'CSRF_TOKEN_INVALID'].includes(error.extensions?.code ?? '')
       )
 
-      if (hasUnauthorized) {
-        console.log('[GraphQL] Unauthorized error in response, clearing auth tokens')
+      if (csrfError) {
+        console.error('[GraphQL] CSRF Error:', csrfError)
+
+        // Принудительное обновление страницы для получения нового токена
+        window.location.reload()
+
+        throw new Error(`CSRF Error: ${csrfError.message}`)
+      }
+
+      // Обработка других GraphQL-ошибок
+      const unauthorizedError = result.errors.find(
+        (error: GraphQLError) =>
+          error.message.toLowerCase().includes('unauthorized') ||
+          error.message.toLowerCase().includes('please login')
+      )
+
+      if (unauthorizedError) {
+        console.log('[GraphQL] Unauthorized response, clearing auth tokens')
         clearAuthTokens()
+
         // Перенаправляем на страницу входа только если мы не на ней
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login'
         }
+        throw new Error('Unauthorized')
       }
 
-      // Handle GraphQL errors
-      const errorMessage = result.errors.map((e: { message?: string }) => e.message).join(', ')
-      throw new Error(`GraphQL error: ${errorMessage}`)
+      throw new Error(result.errors.map((e: GraphQLError) => e.message).join('; '))
     }
 
-    return result.data
+    return result.data as T
   } catch (error) {
     console.error('[GraphQL] Query error:', error)
     throw error

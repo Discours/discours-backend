@@ -6,9 +6,14 @@ from ariadne import (
     ObjectType,
     QueryType,
     SchemaBindable,
+    graphql,
     load_schema_from_path,
+    make_executable_schema,
 )
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
+from auth.middleware import CSRF_HEADER_NAME, CSRF_TOKEN_KEY
 from services.db import create_table_if_not_exists, local_session
 
 # Создаем основные типы
@@ -78,3 +83,79 @@ def create_all_tables() -> None:
                 table_name = getattr(model, "__tablename__", str(model))
                 logger.error(f"Error creating table {table_name}: {e}")
                 raise
+
+
+async def graphql_handler(request: Request) -> Response:
+    """
+    Обработчик GraphQL запросов с проверкой CSRF токена
+    """
+    try:
+        # Проверяем CSRF токен для всех мутаций
+        data = await request.json()
+        op_name = data.get("operationName", "").lower()
+
+        # Проверяем CSRF только для мутаций
+        if op_name and (op_name.endswith("mutation") or op_name in ["login", "refreshtoken"]):
+            # Получаем токен из заголовка
+            request_csrf_token = request.headers.get(CSRF_HEADER_NAME)
+
+            # Получаем токен из куки
+            cookie_csrf_token = request.cookies.get(CSRF_TOKEN_KEY)
+
+            # Строгая проверка токена
+            if not request_csrf_token or not cookie_csrf_token:
+                # Возвращаем ошибку как часть GraphQL-ответа
+                return JSONResponse(
+                    {
+                        "data": None,
+                        "errors": [{"message": "CSRF токен отсутствует", "extensions": {"code": "CSRF_TOKEN_MISSING"}}],
+                    }
+                )
+
+            if request_csrf_token != cookie_csrf_token:
+                # Возвращаем ошибку как часть GraphQL-ответа
+                return JSONResponse(
+                    {
+                        "data": None,
+                        "errors": [
+                            {"message": "Недопустимый CSRF токен", "extensions": {"code": "CSRF_TOKEN_INVALID"}}
+                        ],
+                    }
+                )
+
+        # Существующая логика обработки GraphQL запроса
+        schema = get_schema()
+        result = await graphql(
+            schema,
+            data.get("query"),
+            variable_values=data.get("variables"),
+            operation_name=data.get("operationName"),
+            context_value={"request": request},
+        )
+
+        # Обработка ошибок GraphQL
+        if result.errors:
+            return JSONResponse(
+                {
+                    "data": result.data,
+                    "errors": [{"message": str(error), "locations": error.locations} for error in result.errors],
+                }
+            )
+
+        return JSONResponse({"data": result.data})
+
+    except Exception as e:
+        logger.error(f"GraphQL handler error: {e}")
+        return JSONResponse(
+            {
+                "data": None,
+                "errors": [{"message": "Внутренняя ошибка сервера", "extensions": {"code": "INTERNAL_SERVER_ERROR"}}],
+            }
+        )
+
+
+def get_schema():
+    """
+    Создает и возвращает GraphQL схему
+    """
+    return make_executable_schema(type_defs, resolvers)
