@@ -288,13 +288,17 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
                       background: isAdminRole && isSelected ? 'rgba(245, 158, 11, 0.1)' : undefined,
                       border: isAdminRole && isSelected ? '1px solid rgba(245, 158, 11, 0.3)' : undefined
                     }}
+                    onClick={() => !isDisabled && handleRoleToggle(role.id)} // Добавляем обработчик клика
                   >
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => handleRoleToggle(role.id)}
                       disabled={loading() || isDisabled}
-                      style={{ display: 'none' }}
+                      style={{
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        margin: '0 0.5rem 0 0'
+                      }}
                     />
                     <div class={formStyles.roleHeader}>
                       <span class={formStyles.roleName}>

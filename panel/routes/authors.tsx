@@ -138,11 +138,7 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
       }
     }
 
-    return (
-      <span title={props.role}>
-        {getRoleIcon(props.role)} {props.role}
-      </span>
-    )
+    return <span title={props.role}>{getRoleIcon(props.role)}</span>
   }
 
   return (
