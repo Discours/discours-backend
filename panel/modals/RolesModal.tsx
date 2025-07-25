@@ -105,17 +105,21 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
   const handleRoleToggle = (roleId: string) => {
     if (roleId === 'admin') {
-      return
+      return // Системная роль не может быть изменена
     }
 
     setFormData((prev) => {
       const currentRoles = prev.roles || []
-      const newRoles = currentRoles.includes(roleId)
-        ? currentRoles.filter((r: string) => r !== roleId)
-        : [...currentRoles, roleId]
+      const isCurrentlySelected = currentRoles.includes(roleId)
+
+      const newRoles = isCurrentlySelected
+        ? currentRoles.filter((r: string) => r !== roleId) // Убираем роль
+        : [...currentRoles, roleId] // Добавляем роль
+
       return { ...prev, roles: newRoles }
     })
 
+    // Очищаем ошибки, связанные с ролями
     if (errors().roles) {
       setErrors((prev) => {
         const newErrors = { ...prev }
@@ -288,7 +292,11 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
                       background: isAdminRole && isSelected ? 'rgba(245, 158, 11, 0.1)' : undefined,
                       border: isAdminRole && isSelected ? '1px solid rgba(245, 158, 11, 0.3)' : undefined
                     }}
-                    onClick={() => !isDisabled && handleRoleToggle(role.id)}
+                    onClick={() => {
+                      if (!isDisabled && role.id !== 'admin') {
+                        handleRoleToggle(role.id)
+                      }
+                    }}
                   >
                     <div class={formStyles.roleHeader}>
                       <span class={formStyles.roleName}>
@@ -334,7 +342,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
                             stroke-linecap="round"
                             stroke-linejoin="round"
                           >
-                            <polyline points="20 6 9 17 4 12"></polyline>
+                            <polyline points="20 6 9 17 4 12" />
                           </svg>
                         </Show>
                       </div>
