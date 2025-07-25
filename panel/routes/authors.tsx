@@ -3,8 +3,7 @@ import type { AuthorsSortField } from '../context/sort'
 import { AUTHORS_SORT_CONFIG } from '../context/sortConfig'
 import { query } from '../graphql'
 import type { Query, AdminUserInfo as User } from '../graphql/generated/schema'
-import { ADMIN_UPDATE_USER_MUTATION } from '../graphql/mutations'
-import { ADMIN_GET_USERS_QUERY } from '../graphql/queries'
+import { ADMIN_GET_USERS_QUERY, ADMIN_UPDATE_USER_MUTATION } from '../graphql/queries'
 import UserEditModal from '../modals/RolesModal'
 import styles from '../styles/Admin.module.css'
 import Pagination from '../ui/Pagination'
@@ -18,19 +17,13 @@ export interface AuthorsRouteProps {
 }
 
 const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
-  console.log('[AuthorsRoute] Initializing...')
-  const [authors, setUsers] = createSignal<User[]>([])
+  const [users, setUsers] = createSignal<User[]>([])
   const [loading, setLoading] = createSignal(true)
   const [selectedUser, setSelectedUser] = createSignal<User | null>(null)
   const [showEditModal, setShowEditModal] = createSignal(false)
 
   // Pagination state
-  const [pagination, setPagination] = createSignal<{
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }>({
+  const [pagination, setPagination] = createSignal({
     page: 1,
     limit: 20,
     total: 0,
@@ -44,7 +37,6 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
    * Загрузка списка пользователей с учетом пагинации и поиска
    */
   async function loadUsers() {
-    console.log('[AuthorsRoute] Loading authors...')
     try {
       setLoading(true)
       const data = await query<{ adminGetUsers: Query['adminGetUsers'] }>(
@@ -57,7 +49,6 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
         }
       )
       if (data?.adminGetUsers?.authors) {
-        console.log('[AuthorsRoute] Users loaded:', data.adminGetUsers.authors.length)
         setUsers(data.adminGetUsers.authors)
         setPagination((prev) => ({
           ...prev,
@@ -76,51 +67,33 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
   /**
    * Обновляет данные пользователя (профиль и роли)
    */
-  async function updateUser(userData: {
+  const updateUser = async (userData: {
     id: number
     email?: string
     name?: string
     slug?: string
-    roles: string[]
-  }) {
+    roles: string
+  }) => {
     try {
-      await query(`${location.origin}/graphql`, ADMIN_UPDATE_USER_MUTATION, {
-        user: userData
+      const result = await query<{
+        updateUser: User
+      }>(`${location.origin}/graphql`, ADMIN_UPDATE_USER_MUTATION, {
+        ...userData,
+        roles: userData.roles
       })
 
-      setUsers((prev) =>
-        prev.map((user) => {
-          if (user.id === userData.id) {
-            return {
-              ...user,
-              email: userData.email || user.email,
-              name: userData.name || user.name,
-              slug: userData.slug || user.slug,
-              roles: userData.roles
-            }
-          }
-          return user
-        })
-      )
-
-      closeEditModal()
-      props.onSuccess?.('Данные пользователя успешно обновлены')
-      void loadUsers()
-    } catch (err) {
-      console.error('Ошибка обновления пользователя:', err)
-      let errorMessage = err instanceof Error ? err.message : 'Ошибка обновления данных пользователя'
-
-      if (errorMessage.includes('author_role.community')) {
-        errorMessage = 'Ошибка: для роли author требуется указать community. Обратитесь к администратору.'
+      if (result.updateUser) {
+        // Обновляем локальный список пользователей
+        setUsers((prevUsers) =>
+          prevUsers.map((user) => (user.id === result.updateUser.id ? result.updateUser : user))
+        )
+        // Закрываем модальное окно
+        setShowEditModal(false)
       }
-
-      props.onError?.(errorMessage)
+    } catch (error) {
+      console.error('Ошибка при обновлении пользователя:', error)
+      props.onError?.(error instanceof Error ? error.message : 'Не удалось обновить пользователя')
     }
-  }
-
-  function closeEditModal() {
-    setShowEditModal(false)
-    setSelectedUser(null)
   }
 
   // Pagination handlers
@@ -134,11 +107,6 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
     void loadUsers()
   }
 
-  // Search handlers
-  function handleSearchChange(value: string) {
-    setSearchQuery(value)
-  }
-
   function handleSearch() {
     setPagination((prev) => ({ ...prev, page: 1 }))
     void loadUsers()
@@ -146,7 +114,6 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
 
   // Load authors on mount
   onMount(() => {
-    console.log('[AuthorsRoute] Component mounted, loading authors...')
     void loadUsers()
   })
 
@@ -156,35 +123,24 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
   const RoleBadge: Component<{ role: string }> = (props) => {
     const getRoleIcon = (role: string): string => {
       switch (role.toLowerCase().trim()) {
-        case 'администратор':
         case 'admin':
-          return '🪄'
-        case 'редактор':
+          return '🔧'
         case 'editor':
           return '✒️'
-        case 'эксперт':
         case 'expert':
           return '🔬'
-        case 'автор':
         case 'author':
           return '📝'
-        case 'читатель':
         case 'reader':
           return '📖'
-        case 'banned':
-        case 'заблокирован':
-          return '🚫'
-        case 'verified':
-        case 'проверен':
-          return '✓'
         default:
           return '👤'
       }
     }
 
     return (
-      <span title={props.role} style={{ 'margin-right': '0.25rem' }}>
-        {getRoleIcon(props.role)}
+      <span title={props.role}>
+        {getRoleIcon(props.role)} {props.role}
       </span>
     )
   }
@@ -195,80 +151,74 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
         <div class={styles['loading']}>Загрузка данных...</div>
       </Show>
 
-      <Show when={!loading() && authors().length === 0}>
+      <Show when={!loading() && users().length === 0}>
         <div class={styles['empty-state']}>Нет данных для отображения</div>
       </Show>
 
-      <Show when={!loading() && authors().length > 0}>
+      <Show when={!loading() && users().length > 0}>
         <TableControls
           searchValue={searchQuery()}
-          onSearchChange={handleSearchChange}
+          onSearchChange={setSearchQuery}
           onSearch={handleSearch}
           searchPlaceholder="Поиск по email, имени или ID..."
-          isLoading={loading()}
         />
 
-        <div class={styles['authors-list']}>
-          <table>
-            <thead>
-              <tr>
-                <SortableHeader
-                  field={'id' as AuthorsSortField}
-                  allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+        <table>
+          <thead>
+            <tr>
+              <SortableHeader
+                field={'id' as AuthorsSortField}
+                allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+              >
+                ID
+              </SortableHeader>
+              <SortableHeader
+                field={'email' as AuthorsSortField}
+                allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+              >
+                Email
+              </SortableHeader>
+              <SortableHeader
+                field={'name' as AuthorsSortField}
+                allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+              >
+                Имя
+              </SortableHeader>
+              <SortableHeader
+                field={'created_at' as AuthorsSortField}
+                allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
+              >
+                Создан
+              </SortableHeader>
+              <th>Роли</th>
+            </tr>
+          </thead>
+          <tbody>
+            <For each={users()}>
+              {(user) => (
+                <tr
+                  onClick={() => {
+                    setSelectedUser(user)
+                    setShowEditModal(true)
+                  }}
                 >
-                  ID
-                </SortableHeader>
-                <SortableHeader
-                  field={'email' as AuthorsSortField}
-                  allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
-                >
-                  Email
-                </SortableHeader>
-                <SortableHeader
-                  field={'name' as AuthorsSortField}
-                  allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
-                >
-                  Имя
-                </SortableHeader>
-                <SortableHeader
-                  field={'created_at' as AuthorsSortField}
-                  allowedFields={AUTHORS_SORT_CONFIG.allowedFields}
-                >
-                  Создан
-                </SortableHeader>
-                <th>Роли</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={authors()}>
-                {(user) => (
-                  <tr
-                    onClick={() => {
-                      setSelectedUser(user)
-                      setShowEditModal(true)
-                    }}
-                  >
-                    <td>{user.id}</td>
-                    <td>{user.email}</td>
-                    <td>{user.name || '-'}</td>
-                    <td>{formatDateRelative(user.created_at || Date.now())()}</td>
-                    <td class={styles['roles-cell']}>
-                      <div class={styles['roles-container']}>
-                        <For each={Array.from(user.roles || []).filter(Boolean)}>
-                          {(role) => <RoleBadge role={role} />}
-                        </For>
-                        {/* Показываем сообщение если ролей нет */}
-                        {(!user.roles || user.roles.length === 0) && (
-                          <span style="color: #999; font-size: 0.875rem;">Нет ролей</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </For>
-            </tbody>
-          </table>
-        </div>
+                  <td>{user.id}</td>
+                  <td>{user.email}</td>
+                  <td>{user.name || '-'}</td>
+                  <td>{formatDateRelative(user.created_at || Date.now())()}</td>
+                  <td class={styles['roles-cell']}>
+                    <div class={styles['roles-container']}>
+                      <For each={user.roles || []}>{(role) => <RoleBadge role={role.trim()} />}</For>
+                      {(!user.roles || user.roles.length === 0) && (
+                        <span style="color: #999; font-size: 0.875rem;">Нет ролей</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </For>
+          </tbody>
+        </table>
 
         <Pagination
           currentPage={pagination().page}
@@ -284,7 +234,7 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
         <UserEditModal
           user={selectedUser()!}
           isOpen={showEditModal()}
-          onClose={closeEditModal}
+          onClose={() => setShowEditModal(false)}
           onSave={updateUser}
         />
       </Show>
