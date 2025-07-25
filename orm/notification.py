@@ -1,6 +1,5 @@
-import enum
 from datetime import datetime
-from enum import Enum, auto
+from enum import Enum
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy import Enum as SQLAlchemyEnum
@@ -11,60 +10,11 @@ from orm.base import BaseModel as Base
 from utils.logger import root_logger as logger
 
 
-class NotificationStatus(Enum):
-    """Статусы уведомлений."""
-
-    UNREAD = auto()
-    READ = auto()
-    ARCHIVED = auto()
-
-    @classmethod
-    def from_string(cls, value: str) -> "NotificationStatus":
-        """
-        Создает экземпляр статуса уведомления из строки.
-
-        Args:
-            value (str): Строковое представление статуса.
-
-        Returns:
-            NotificationStatus: Экземпляр статуса уведомления.
-        """
-        try:
-            return cls[value.upper()]
-        except KeyError:
-            logger.error(f"Неверный статус уведомления: {value}")
-            raise ValueError("Неверный статус уведомления")  # noqa: B904
-
-
-class NotificationKind(Enum):
-    """Типы уведомлений."""
-
-    COMMENT = auto()
-    MENTION = auto()
-    REACTION = auto()
-    FOLLOW = auto()
-    INVITE = auto()
-
-    @classmethod
-    def from_string(cls, value: str) -> "NotificationKind":
-        """
-        Создает экземпляр типа уведомления из строки.
-
-        Args:
-            value (str): Строковое представление типа.
-
-        Returns:
-            NotificationKind: Экземпляр типа уведомления.
-        """
-        try:
-            return cls[value.upper()]
-        except KeyError:
-            logger.error(f"Неверный тип уведомления: {value}")
-            raise ValueError("Неверный тип уведомления")  # noqa: B904
-
-
-class NotificationEntity(enum.Enum):
-    """Сущности, связанные с уведомлениями."""
+class NotificationEntity(Enum):
+    """
+    Перечисление сущностей для уведомлений.
+    Определяет типы объектов, к которым относятся уведомления.
+    """
 
     TOPIC = "topic"
     COMMENT = "comment"
@@ -90,14 +40,19 @@ class NotificationEntity(enum.Enum):
             raise ValueError("Неверная сущность уведомления")  # noqa: B904
 
 
-class NotificationAction(enum.Enum):
-    """Действия в уведомлениях."""
+class NotificationAction(Enum):
+    """
+    Перечисление действий для уведомлений.
+    Определяет типы событий, которые могут происходить с сущностями.
+    """
 
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
     MENTION = "mention"
     REACT = "react"
+    FOLLOW = "follow"
+    INVITE = "invite"
 
     @classmethod
     def from_string(cls, value: str) -> "NotificationAction":
@@ -115,6 +70,11 @@ class NotificationAction(enum.Enum):
         except ValueError:
             logger.error(f"Неверное действие уведомления: {value}")
             raise ValueError("Неверное действие уведомления")  # noqa: B904
+
+
+# Оставляем для обратной совместимости
+NotificationStatus = Enum("NotificationStatus", ["UNREAD", "READ", "ARCHIVED"])
+NotificationKind = NotificationAction  # Для совместимости со старым кодом
 
 
 class NotificationSeen(Base):
