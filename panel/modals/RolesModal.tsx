@@ -17,8 +17,14 @@ export interface UserEditModalProps {
   }) => Promise<void>
 }
 
-// Доступные роли в системе (без роли Администратор - она определяется автоматически)
+// Доступные роли в системе
 const AVAILABLE_ROLES = [
+  {
+    id: 'Администратор',
+    name: 'Системный администратор',
+    description: 'Администраторы определяются автоматически по настройкам сервера',
+    emoji: '🪄'
+  },
   {
     id: 'Редактор',
     name: 'Редактор',
@@ -51,7 +57,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     email: props.user.email || '',
     name: props.user.name || '',
     slug: props.user.slug || '',
-    roles: props.user.roles?.filter((role) => role !== 'Администратор') || [] // Исключаем админскую роль из ручного управления
+    roles: props.user.roles || [] // Включаем все роли, включая администратора
   })
 
   const [errors, setErrors] = createSignal<Record<string, string>>({})
@@ -94,7 +100,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
         email: props.user.email || '',
         name: props.user.name || '',
         slug: props.user.slug || '',
-        roles: props.user.roles?.filter((role) => role !== 'Администратор') || [] // Исключаем админскую роль
+        roles: props.user.roles || [] // Включаем все роли, включая администратора
       })
       setErrors({})
     }
@@ -109,6 +115,11 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
   }
 
   const handleRoleToggle = (roleId: string) => {
+    // Роль администратора нельзя изменить вручную
+    if (roleId === 'Администратор') {
+      return
+    }
+
     setFormData((prev) => {
       const currentRoles = prev.roles
       const newRoles = currentRoles.includes(roleId)
@@ -149,7 +160,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     }
 
     // Роли (админы освобождаются от этого требования)
-    if (!isAdmin() && data.roles.length === 0) {
+    if (!isAdmin() && data.roles.filter((role) => role !== 'Администратор').length === 0) {
       newErrors.roles = 'Выберите хотя бы одну роль (или назначьте админский email)'
     }
 
@@ -215,7 +226,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
         </div>
 
         {/* Текущие роли в строку */}
-        <div class={formStyles.fieldGroup}>
+        <div class={formStyles.fieldGroup} style={{ display: 'none' }}>
           <label class={formStyles.label}>
             <span class={formStyles.labelText}>
               <span class={formStyles.labelIcon}>👤</span>
@@ -339,29 +350,53 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
           <div class={formStyles.rolesGrid}>
             <For each={AVAILABLE_ROLES}>
-              {(role) => (
-                <label
-                  class={`${formStyles.roleCard} ${formData().roles.includes(role.id) ? formStyles.roleCardSelected : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData().roles.includes(role.id)}
-                    onChange={() => handleRoleToggle(role.id)}
-                    disabled={loading()}
-                    style={{ display: 'none' }}
-                  />
-                  <div class={formStyles.roleHeader}>
-                    <span class={formStyles.roleName}>
-                      <span style={{ 'margin-right': '0.5rem', 'font-size': '1.1rem' }}>{role.emoji}</span>
-                      {role.name}
-                    </span>
-                    <span class={formStyles.roleCheckmark}>
-                      {formData().roles.includes(role.id) ? '✓' : ''}
-                    </span>
-                  </div>
-                  <div class={formStyles.roleDescription}>{role.description}</div>
-                </label>
-              )}
+              {(role) => {
+                const isAdminRole = role.id === 'Администратор'
+                const isSelected = formData().roles.includes(role.id)
+                const isDisabled = isAdminRole // Роль администратора всегда заблокирована
+
+                return (
+                  <label
+                    class={`${formStyles.roleCard} ${isSelected ? formStyles.roleCardSelected : ''} ${isDisabled ? formStyles.roleCardDisabled || '' : ''}`}
+                    style={{
+                      opacity: isDisabled ? 0.7 : 1,
+                      cursor: isDisabled ? 'not-allowed' : 'pointer',
+                      background: isAdminRole && isSelected ? 'rgba(245, 158, 11, 0.1)' : undefined,
+                      border: isAdminRole && isSelected ? '1px solid rgba(245, 158, 11, 0.3)' : undefined
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleRoleToggle(role.id)}
+                      disabled={loading() || isDisabled}
+                      style={{ display: 'none' }}
+                    />
+                    <div class={formStyles.roleHeader}>
+                      <span class={formStyles.roleName}>
+                        <span style={{ 'margin-right': '0.5rem', 'font-size': '1.1rem' }}>
+                          {role.emoji}
+                        </span>
+                        {role.name}
+                        {isAdminRole && (
+                          <span
+                            style={{
+                              'margin-left': '0.5rem',
+                              'font-size': '0.75rem',
+                              color: '#d97706',
+                              'font-weight': 'normal'
+                            }}
+                          >
+                            (системная)
+                          </span>
+                        )}
+                      </span>
+                      <span class={formStyles.roleCheckmark}>{isSelected ? '✓' : ''}</span>
+                    </div>
+                    <div class={formStyles.roleDescription}>{role.description}</div>
+                  </label>
+                )
+              }}
             </For>
           </div>
 
@@ -374,9 +409,9 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
           <div class={formStyles.hint}>
             <span class={formStyles.hintIcon}>💡</span>
-            {isAdmin()
-              ? 'Администраторы имеют все права автоматически. Дополнительные роли опциональны.'
-              : 'Выберите роли для пользователя. Минимум одна роль обязательна.'}
+            Системные роли (администратор) назначаются автоматически и не могут быть изменены вручную.
+            {!isAdmin() &&
+              ' Выберите дополнительные роли для пользователя - минимум одна роль обязательна.'}
           </div>
         </div>
 

@@ -355,13 +355,14 @@ const HTMLEditor = (props: HTMLEditorProps) => {
           if (token.startsWith('</')) {
             // Закрывающий тег - уменьшаем отступ
             indent--
-            formatted += indentStr.repeat(Math.max(0, indent)) + token + '\n'
+            formatted += `${indentStr.repeat(Math.max(0, indent))}${token}\n`
           } else if (token.startsWith('<') && token.endsWith('>')) {
             // Открывающий тег
-            const isSelfClosing = token.endsWith('/>') ||
+            const isSelfClosing =
+              token.endsWith('/>') ||
               /^<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(\s|>)/i.test(token)
 
-            formatted += indentStr.repeat(indent) + token + '\n'
+            formatted += `${indentStr.repeat(indent)}${token}\n`
 
             if (!isSelfClosing) {
               indent++
@@ -369,7 +370,7 @@ const HTMLEditor = (props: HTMLEditorProps) => {
           } else {
             // Текстовое содержимое
             if (token.length > 0) {
-              formatted += indentStr.repeat(indent) + token + '\n'
+              formatted += `${indentStr.repeat(indent)}${token}\n`
             }
           }
         }

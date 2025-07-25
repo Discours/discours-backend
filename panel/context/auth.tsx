@@ -1,4 +1,5 @@
 import { Component, createContext, createSignal, JSX, onMount, useContext } from 'solid-js'
+import { AuthSuccess } from '~/graphql/generated/graphql'
 import { query } from '../graphql'
 import { ADMIN_LOGIN_MUTATION, ADMIN_LOGOUT_MUTATION } from '../graphql/mutations'
 import {
@@ -10,7 +11,6 @@ import {
   getCsrfTokenFromCookie,
   saveAuthToken
 } from '../utils/auth'
-import { AuthSuccess } from '~/graphql/generated/graphql'
 /**
  * Модуль авторизации
  * @module auth
@@ -164,10 +164,7 @@ export const AuthProvider: Component<AuthProviderProps> = (props) => {
 export const logout = async () => {
   console.log('[Auth] Executing standalone logout...')
   try {
-    const result = await query<{ logout: AuthSuccess }>(
-      `${location.origin}/graphql`,
-      ADMIN_LOGOUT_MUTATION
-    )
+    const result = await query<{ logout: AuthSuccess }>(`${location.origin}/graphql`, ADMIN_LOGOUT_MUTATION)
     console.log('[Auth] Standalone logout result:', result)
     if (result?.logout?.success) {
       clearAuthTokens()
