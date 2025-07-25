@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
-from ariadne.graphql_core.error import GraphQLError
+from graphql import GraphQLError
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
