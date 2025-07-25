@@ -180,14 +180,24 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
     # Если авторизации нет ни в auth, ни в scope, пробуем получить и проверить токен
     token = get_auth_token(request)
     if not token:
-        # Если токен не найден, бросаем ошибку авторизации
+        # Если токен не найден, логируем как предупреждение, но не бросаем GraphQLError
         client_info = {
             "ip": getattr(request.client, "host", "unknown") if hasattr(request, "client") else "unknown",
             "headers": {k: v for k, v in get_safe_headers(request).items() if k not in ["authorization", "cookie"]},
         }
-        logger.warning(f"[validate_graphql_context] Токен авторизации не найден: {client_info}")
-        msg = "Unauthorized - please login"
-        raise GraphQLError(msg)
+        logger.info(f"[validate_graphql_context] Токен авторизации не найден: {client_info}")
+
+        # Устанавливаем пустые учетные данные вместо выброса исключения
+        if hasattr(request, "scope") and isinstance(request.scope, dict):
+            request.scope["auth"] = AuthCredentials(
+                author_id=None,
+                scopes={},
+                logged_in=False,
+                error_message="No authentication token",
+                email=None,
+                token=None,
+            )
+        return
 
     # Логируем информацию о найденном токене
     logger.debug(f"[validate_graphql_context] Токен найден, длина: {len(token)}")

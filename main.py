@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ariadne import load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
+from ariadne.graphql_core.error import GraphQLError
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
@@ -96,13 +97,17 @@ async def graphql_handler(request: Request) -> Response:
         return await auth_middleware.process_result(request, result)
     except asyncio.CancelledError:
         return JSONResponse({"error": "Request cancelled"}, status_code=499)
+    except GraphQLError as e:
+        # Для GraphQL ошибок (например, неавторизованный доступ) не логируем полный трейс
+        logger.warning(f"GraphQL error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=403)
     except Exception as e:
-        logger.error(f"GraphQL error: {e!s}")
-        # Логируем более подробную информацию для отладки
+        logger.error(f"Unexpected GraphQL error: {e!s}")
+        # Логируем более подробную информацию для отладки только для неожиданных ошибок
         import traceback
 
-        logger.debug(f"GraphQL error traceback: {traceback.format_exc()}")
-        return JSONResponse({"error": str(e)}, status_code=500)
+        logger.debug(f"Unexpected GraphQL error traceback: {traceback.format_exc()}")
+        return JSONResponse({"error": "Internal server error"}, status_code=500)
 
 
 async def spa_handler(request: Request) -> Response:

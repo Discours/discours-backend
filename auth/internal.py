@@ -119,8 +119,8 @@ async def authenticate(request) -> AuthState:
     # Получаем токен из запроса
     token = get_auth_token(request)
     if not token:
-        logger.warning("[authenticate] Токен не найден в запросе")
-        auth_state.error = "No authentication token provided"
+        logger.info("[authenticate] Токен не найден в запросе")
+        auth_state.error = "No authentication token"
         return auth_state
 
     logger.debug(f"[authenticate] Токен найден, длина: {len(token)}")
