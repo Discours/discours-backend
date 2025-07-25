@@ -429,7 +429,6 @@ const ShoutsRoute = (props: ShoutsRouteProps) => {
       >
         <div style="padding: 1rem;">
           <HTMLEditor value={selectedMediaBody()} onInput={(value) => setSelectedMediaBody(value)} />
-          gjl
         </div>
       </Modal>
     </div>

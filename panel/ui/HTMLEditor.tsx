@@ -127,8 +127,11 @@ const HTMLEditor = (props: HTMLEditorProps) => {
     }
 
     if (value.trim()) {
+      // Форматируем HTML перед экранированием
+      const formattedValue = formatHTML(value)
+
       // Экранируем HTML для безопасности
-      const escapedValue = value
+      const escapedValue = formattedValue
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -327,6 +330,24 @@ const HTMLEditor = (props: HTMLEditorProps) => {
         props.onInput(newText)
       })
     }, 10)
+  }
+
+  const formatHTML = (html: string): string => {
+    try {
+      // Простое форматирование с отступами
+      const lines = html.split(/\n/)
+      const formattedLines = lines.map((line, index) => {
+        const trimmedLine = line.trim()
+        if (trimmedLine.startsWith('<') && !trimmedLine.startsWith('</')) {
+          return '  '.repeat(index > 0 ? 1 : 0) + trimmedLine
+        }
+        return trimmedLine
+      })
+      return formattedLines.join('\n')
+    } catch (error) {
+      console.warn('HTML formatting error:', error)
+      return html
+    }
   }
 
   return (
