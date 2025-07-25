@@ -1,8 +1,8 @@
+import { createEffect, Show } from 'solid-js'
 import { useAuth } from '../context/auth'
 import { DataProvider } from '../context/data'
 import { TableSortProvider } from '../context/sort'
 import AdminPage from '../routes/admin'
-import { Show, createEffect } from 'solid-js'
 
 /**
  * Компонент защищенного маршрута

@@ -55,13 +55,9 @@ const AVAILABLE_ROLES = [
 ]
 
 // Создаем маппинги для конвертации между ID и названиями
-const ROLE_ID_TO_NAME = Object.fromEntries(
-  AVAILABLE_ROLES.map(role => [role.id, role.name])
-)
+const ROLE_ID_TO_NAME = Object.fromEntries(AVAILABLE_ROLES.map((role) => [role.id, role.name]))
 
-const ROLE_NAME_TO_ID = Object.fromEntries(
-  AVAILABLE_ROLES.map(role => [role.name, role.id])
-)
+const ROLE_NAME_TO_ID = Object.fromEntries(AVAILABLE_ROLES.map((role) => [role.name, role.id]))
 
 const UserEditModal: Component<UserEditModalProps> = (props) => {
   // Инициализируем форму с использованием ID ролей
@@ -70,7 +66,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     email: props.user.email || '',
     name: props.user.name || '',
     slug: props.user.slug || '',
-    roles: (props.user.roles || []).map(roleName => ROLE_NAME_TO_ID[roleName] || roleName)
+    roles: (props.user.roles || []).map((roleName) => ROLE_NAME_TO_ID[roleName] || roleName)
   })
 
   const [errors, setErrors] = createSignal<Record<string, string>>({})
@@ -80,11 +76,6 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
   const isAdmin = () => {
     const roles = formData().roles
     return roles.includes('admin') || (props.user.email ? ADMIN_EMAILS.includes(props.user.email) : false)
-  }
-
-  // Получаем информацию о роли по ID
-  const getRoleInfo = (roleId: string) => {
-    return AVAILABLE_ROLES.find((role) => role.id === roleId) || { name: roleId, emoji: '👤' }
   }
 
   // Обновляем поле формы
@@ -107,7 +98,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
         email: props.user.email || '',
         name: props.user.name || '',
         slug: props.user.slug || '',
-        roles: (props.user.roles || []).map(roleName => ROLE_NAME_TO_ID[roleName] || roleName)
+        roles: (props.user.roles || []).map((roleName) => ROLE_NAME_TO_ID[roleName] || roleName)
       })
       setErrors({})
     }
@@ -133,12 +124,12 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     }
 
     // Создаем новый массив ролей с учетом текущего состояния
-    setFormData(prev => {
+    setFormData((prev) => {
       const currentRoles = prev.roles || []
       const isCurrentlySelected = currentRoles.includes(roleId)
 
       const newRoles = isCurrentlySelected
-        ? currentRoles.filter(r => r !== roleId) // Убираем роль
+        ? currentRoles.filter((r) => r !== roleId) // Убираем роль
         : [...currentRoles, roleId] // Добавляем роль
 
       console.log('Current roles before:', currentRoles)
@@ -150,7 +141,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
     // Очищаем ошибки, связанные с ролями
     if (errors().roles) {
-      setErrors(prev => {
+      setErrors((prev) => {
         const newErrors = { ...prev }
         delete newErrors.roles
         return newErrors
@@ -192,7 +183,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
       await props.onSave({
         ...formData(),
         // Конвертируем ID ролей обратно в названия для сервера
-        roles: (formData().roles || []).map(roleId => ROLE_ID_TO_NAME[roleId]).join(',')
+        roles: (formData().roles || []).map((roleId) => ROLE_ID_TO_NAME[roleId]).join(',')
       })
       props.onClose()
     } catch (error) {
@@ -205,9 +196,9 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
   // Обновляем компонент выбора роли
   const RoleSelector = (props: {
-    role: typeof AVAILABLE_ROLES[0],
-    isSelected: boolean,
-    onToggle: () => void,
+    role: (typeof AVAILABLE_ROLES)[0]
+    isSelected: boolean
+    onToggle: () => void
     isDisabled?: boolean
   }) => {
     return (
@@ -217,7 +208,8 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
           opacity: props.isDisabled ? 0.7 : 1,
           cursor: props.isDisabled ? 'not-allowed' : 'pointer',
           background: props.role.id === 'admin' && props.isSelected ? 'rgba(245, 158, 11, 0.1)' : undefined,
-          border: props.role.id === 'admin' && props.isSelected ? '1px solid rgba(245, 158, 11, 0.3)' : undefined
+          border:
+            props.role.id === 'admin' && props.isSelected ? '1px solid rgba(245, 158, 11, 0.3)' : undefined
         }}
         onClick={(e) => {
           e.preventDefault()
@@ -228,9 +220,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
       >
         <div class={formStyles.roleHeader}>
           <span class={formStyles.roleName}>
-            <span style={{ 'margin-right': '0.5rem', 'font-size': '1.1rem' }}>
-              {props.role.emoji}
-            </span>
+            <span style={{ 'margin-right': '0.5rem', 'font-size': '1.1rem' }}>{props.role.emoji}</span>
             {props.role.name}
             <Show when={props.role.id === 'admin'}>
               <span
