@@ -4,7 +4,8 @@ import { defineConfig } from 'vite'
 import solidPlugin from 'vite-plugin-solid'
 
 // Читаем версию из package.json
-const packageJsonPath = resolve(__dirname, 'package.json')
+const currentDir = process.cwd()
+const packageJsonPath = resolve(currentDir, 'package.json')
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
 const version = packageJson.version
 

@@ -20,7 +20,7 @@ export interface UserEditModalProps {
   }) => Promise<void>
 }
 
-// Доступные роли в системе
+// Список доступных ролей с сохранением идентификаторов
 const AVAILABLE_ROLES = [
   {
     id: 'admin',
@@ -54,13 +54,23 @@ const AVAILABLE_ROLES = [
   }
 ]
 
+// Создаем маппинги для конвертации между ID и названиями
+const ROLE_ID_TO_NAME = Object.fromEntries(
+  AVAILABLE_ROLES.map(role => [role.id, role.name])
+)
+
+const ROLE_NAME_TO_ID = Object.fromEntries(
+  AVAILABLE_ROLES.map(role => [role.name, role.id])
+)
+
 const UserEditModal: Component<UserEditModalProps> = (props) => {
+  // Инициализируем форму с использованием ID ролей
   const [formData, setFormData] = createSignal({
     id: props.user.id,
     email: props.user.email || '',
     name: props.user.name || '',
     slug: props.user.slug || '',
-    roles: props.user.roles || []
+    roles: (props.user.roles || []).map(roleName => ROLE_NAME_TO_ID[roleName] || roleName)
   })
 
   const [errors, setErrors] = createSignal<Record<string, string>>({})
@@ -89,7 +99,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     }
   }
 
-  // Обновляем форму при изменении пользователя
+  // Обновляем эффект для инициализации формы
   createEffect(() => {
     if (props.user) {
       setFormData({
@@ -97,31 +107,50 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
         email: props.user.email || '',
         name: props.user.name || '',
         slug: props.user.slug || '',
-        roles: props.user.roles || []
+        roles: (props.user.roles || []).map(roleName => ROLE_NAME_TO_ID[roleName] || roleName)
       })
       setErrors({})
     }
   })
 
+  // Обновим логику проверки выбранности роли
+  const isRoleSelected = (roleId: string) => {
+    const roles = formData().roles || []
+    const isSelected = roles.includes(roleId)
+    console.log(`Checking role ${roleId}:`, isSelected)
+    return isSelected
+  }
+
   const handleRoleToggle = (roleId: string) => {
+    console.log('Attempting to toggle role:', roleId)
+    console.log('Current roles:', formData().roles)
+    console.log('Is admin:', isAdmin())
+    console.log('Role is admin:', roleId === 'admin')
+
     if (roleId === 'admin') {
+      console.log('Admin role cannot be changed')
       return // Системная роль не может быть изменена
     }
 
-    setFormData((prev) => {
+    // Создаем новый массив ролей с учетом текущего состояния
+    setFormData(prev => {
       const currentRoles = prev.roles || []
       const isCurrentlySelected = currentRoles.includes(roleId)
 
       const newRoles = isCurrentlySelected
-        ? currentRoles.filter((r: string) => r !== roleId) // Убираем роль
+        ? currentRoles.filter(r => r !== roleId) // Убираем роль
         : [...currentRoles, roleId] // Добавляем роль
+
+      console.log('Current roles before:', currentRoles)
+      console.log('Is currently selected:', isCurrentlySelected)
+      console.log('New roles:', newRoles)
 
       return { ...prev, roles: newRoles }
     })
 
     // Очищаем ошибки, связанные с ролями
     if (errors().roles) {
-      setErrors((prev) => {
+      setErrors(prev => {
         const newErrors = { ...prev }
         delete newErrors.roles
         return newErrors
@@ -162,7 +191,8 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     try {
       await props.onSave({
         ...formData(),
-        roles: (formData().roles || []).join(',')
+        // Конвертируем ID ролей обратно в названия для сервера
+        roles: (formData().roles || []).map(roleId => ROLE_ID_TO_NAME[roleId]).join(',')
       })
       props.onClose()
     } catch (error) {
@@ -173,6 +203,84 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     }
   }
 
+  // Обновляем компонент выбора роли
+  const RoleSelector = (props: {
+    role: typeof AVAILABLE_ROLES[0],
+    isSelected: boolean,
+    onToggle: () => void,
+    isDisabled?: boolean
+  }) => {
+    return (
+      <label
+        class={`${formStyles.roleCard} ${props.isSelected ? formStyles.roleCardSelected : ''} ${props.isDisabled ? formStyles.roleCardDisabled : ''}`}
+        style={{
+          opacity: props.isDisabled ? 0.7 : 1,
+          cursor: props.isDisabled ? 'not-allowed' : 'pointer',
+          background: props.role.id === 'admin' && props.isSelected ? 'rgba(245, 158, 11, 0.1)' : undefined,
+          border: props.role.id === 'admin' && props.isSelected ? '1px solid rgba(245, 158, 11, 0.3)' : undefined
+        }}
+        onClick={(e) => {
+          e.preventDefault()
+          if (!props.isDisabled) {
+            props.onToggle()
+          }
+        }}
+      >
+        <div class={formStyles.roleHeader}>
+          <span class={formStyles.roleName}>
+            <span style={{ 'margin-right': '0.5rem', 'font-size': '1.1rem' }}>
+              {props.role.emoji}
+            </span>
+            {props.role.name}
+            <Show when={props.role.id === 'admin'}>
+              <span
+                style={{
+                  'margin-left': '0.5rem',
+                  'font-size': '0.75rem',
+                  color: '#d97706',
+                  'font-weight': 'normal'
+                }}
+              >
+                (системная)
+              </span>
+            </Show>
+          </span>
+          <div
+            style={{
+              width: '20px',
+              height: '20px',
+              'border-radius': '50%',
+              border: `2px solid ${props.isSelected ? '#3b82f6' : '#a1a1aa'}`,
+              'background-color': props.isSelected ? '#3b82f6' : 'transparent',
+              display: 'flex',
+              'align-items': 'center',
+              'justify-content': 'center',
+              cursor: props.isDisabled ? 'not-allowed' : 'pointer'
+            }}
+          >
+            <Show when={props.isSelected}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </Show>
+          </div>
+        </div>
+        <div class={formStyles.roleDescription}>{props.role.description}</div>
+      </label>
+    )
+  }
+
+  // В основном компоненте модального окна обновляем рендеринг ролей
   return (
     <Modal
       isOpen={props.isOpen}
@@ -277,80 +385,14 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
 
           <div class={formStyles.rolesGrid}>
             <For each={AVAILABLE_ROLES}>
-              {(role) => {
-                const isAdminRole = role.id === 'admin'
-                const isSelected = (formData().roles || []).includes(role.id)
-                const isDisabled = isAdminRole
-                const roleInfo = getRoleInfo(role.id)
-
-                return (
-                  <label
-                    class={`${formStyles.roleCard} ${isSelected ? formStyles.roleCardSelected : ''} ${isDisabled ? formStyles.roleCardDisabled : ''}`}
-                    style={{
-                      opacity: isDisabled ? 0.7 : 1,
-                      cursor: isDisabled ? 'not-allowed' : 'pointer',
-                      background: isAdminRole && isSelected ? 'rgba(245, 158, 11, 0.1)' : undefined,
-                      border: isAdminRole && isSelected ? '1px solid rgba(245, 158, 11, 0.3)' : undefined
-                    }}
-                    onClick={() => {
-                      if (!isDisabled && role.id !== 'admin') {
-                        handleRoleToggle(role.id)
-                      }
-                    }}
-                  >
-                    <div class={formStyles.roleHeader}>
-                      <span class={formStyles.roleName}>
-                        <span style={{ 'margin-right': '0.5rem', 'font-size': '1.1rem' }}>
-                          {roleInfo.emoji}
-                        </span>
-                        {role.name}
-                        {isAdminRole && (
-                          <span
-                            style={{
-                              'margin-left': '0.5rem',
-                              'font-size': '0.75rem',
-                              color: '#d97706',
-                              'font-weight': 'normal'
-                            }}
-                          >
-                            (системная)
-                          </span>
-                        )}
-                      </span>
-                      <div
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          'border-radius': '50%',
-                          border: `2px solid ${isSelected ? '#3b82f6' : '#a1a1aa'}`,
-                          'background-color': isSelected ? '#3b82f6' : 'transparent',
-                          display: 'flex',
-                          'align-items': 'center',
-                          'justify-content': 'center',
-                          cursor: isDisabled ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        <Show when={isSelected}>
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="white"
-                            stroke-width="3"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </Show>
-                      </div>
-                    </div>
-                    <div class={formStyles.roleDescription}>{role.description}</div>
-                  </label>
-                )
-              }}
+              {(role) => (
+                <RoleSelector
+                  role={role}
+                  isSelected={isRoleSelected(role.id)}
+                  onToggle={() => handleRoleToggle(role.id)}
+                  isDisabled={role.id === 'admin'}
+                />
+              )}
             </For>
           </div>
 
