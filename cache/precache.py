@@ -128,11 +128,8 @@ async def precache_data() -> None:
                 try:
                     if isinstance(data, dict) and data:
                         # Hash
-                        flattened = []
                         for field, val in data.items():
-                            flattened.extend([field, val])
-                        if flattened:
-                            await redis.execute("HSET", key, *flattened)
+                            await redis.execute("HSET", key, field, val)
                     elif isinstance(data, str) and data:
                         # String
                         await redis.execute("SET", key, data)
