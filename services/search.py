@@ -188,6 +188,11 @@ class SearchCache:
 
 class SearchService:
     def __init__(self) -> None:
+        self.client: AsyncClient | None = None
+        self.index_client: AsyncClient | None = None
+        self.available: bool = False
+        self.cache: SearchCache | None = None
+
         logger.info(f"Initializing search service with URL: {TXTAI_SERVICE_URL}")
 
         # Проверяем валидность URL
@@ -235,7 +240,7 @@ class SearchService:
 
     async def verify_docs(self, doc_ids: list) -> dict:
         """Verify which documents exist in the search index across all content types"""
-        if not self.available:
+        if not self.available or not self.client:
             return {"status": "disabled"}
 
         try:
@@ -282,7 +287,7 @@ class SearchService:
 
     def index(self, shout: Any) -> None:
         """Index a single document"""
-        if not self.available:
+        if not self.available or not self.index_client:
             return
         logger.info(f"Indexing post {shout.id}")
         # Start in background to not block - store reference in a background collection
@@ -291,7 +296,7 @@ class SearchService:
 
     async def perform_index(self, shout: Any) -> None:
         """Index a single document across multiple endpoints"""
-        if not self.available:
+        if not self.available or not self.index_client:
             return
 
         try:
@@ -397,7 +402,7 @@ class SearchService:
 
     async def bulk_index(self, shouts: list) -> None:
         """Index multiple documents across three separate endpoints"""
-        if not self.available or not shouts:
+        if not self.available or not self.index_client or not shouts:
             logger.warning(
                 f"Bulk indexing skipped: available={self.available}, shouts_count={len(shouts) if shouts else 0}"
             )
@@ -579,6 +584,10 @@ class SearchService:
             max_retries = 3
             success = False
 
+            if not self.index_client:
+                logger.error(f"Index client not available for batch {batch_id}")
+                return
+
             while not success and retry_count < max_retries:
                 try:
                     response: Response = await self.index_client.post(endpoint, json=batch, timeout=90.0)
@@ -655,7 +664,7 @@ class SearchService:
 
     async def search(self, text: str, limit: int, offset: int) -> list:
         """Search documents"""
-        if not self.available:
+        if not self.available or not self.client:
             return []
 
         # Check if we can serve from cache
@@ -701,7 +710,7 @@ class SearchService:
 
     async def search_authors(self, text: str, limit: int = 10, offset: int = 0) -> list:
         """Search only for authors using the specialized endpoint"""
-        if not self.available or not text.strip():
+        if not self.available or not self.client or not text.strip():
             return []
 
         cache_key = f"author:{text}"
@@ -745,7 +754,7 @@ class SearchService:
 
     async def check_index_status(self) -> dict:
         """Get detailed statistics about the search index health"""
-        if not self.available:
+        if not self.available or not self.client:
             return {"status": "disabled"}
 
         try:

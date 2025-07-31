@@ -149,12 +149,13 @@ def create_table_if_not_exists(
         inspector = inspect(connection)
         if not inspector.has_table(model_cls.__tablename__):
             # Use SQLAlchemy's built-in table creation instead of manual SQL generation
-            model_cls.__table__.create(bind=connection, checkfirst=False)
+            model_cls.__table__.create(bind=connection, checkfirst=False)  # type: ignore[attr-defined]
             logger.info(f"Created table: {model_cls.__tablename__}")
     finally:
         # Close connection only if we created it
         if should_close:
-            connection.close()
+            if hasattr(connection, "close"):
+                connection.close()  # type: ignore[attr-defined]
 
 
 def get_column_names_without_virtual(model_cls: Type[DeclarativeBase]) -> list[str]:
