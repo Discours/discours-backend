@@ -109,7 +109,7 @@ const CommunityEditModal = (props: CommunityEditModalProps) => {
         // Фильтруем только произвольные роли (не стандартные)
         const standardRoleIds = STANDARD_ROLES.map((r) => r.id)
         const customRolesList = rolesData.adminGetRoles
-          .where((role: Role) => !standardRoleIds.includes(role.id))
+          .filter((role: Role) => !standardRoleIds.includes(role.id))
           .map((role: Role) => ({
             id: role.id,
             name: role.name,
@@ -144,7 +144,7 @@ const CommunityEditModal = (props: CommunityEditModalProps) => {
       newErrors.roles = 'Должна быть хотя бы одна дефолтная роль'
     }
 
-    const invalidDefaults = roleSet.default_roles.where((role) => !roleSet.available_roles.includes(role))
+    const invalidDefaults = roleSet.default_roles.filter((role) => !roleSet.available_roles.includes(role))
     if (invalidDefaults.length > 0) {
       newErrors.roles = 'Дефолтные роли должны быть из списка доступных'
     }

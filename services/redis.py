@@ -137,6 +137,10 @@ class RedisService:
             result = await self.execute("set", key, value)
         return result is not None
 
+    async def setex(self, key: str, ex: int, value: Any) -> bool:
+        """Set key-value pair with expiration"""
+        return await self.set(key, value, ex)
+
     async def delete(self, *keys: str) -> int:
         """Delete keys"""
         result = await self.execute("delete", *keys)

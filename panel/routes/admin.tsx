@@ -17,6 +17,7 @@ import CollectionsRoute from './collections'
 import CommunitiesRoute from './communities'
 import EnvRoute from './env'
 import InvitesRoute from './invites'
+import PermissionsRoute from './permissions'
 import ReactionsRoute from './reactions'
 import ShoutsRoute from './shouts'
 import { Topics as TopicsRoute } from './topics'
@@ -158,6 +159,12 @@ const AdminPage: Component<AdminPageProps> = (props) => {
           >
             Переменные среды
           </Button>
+          <Button
+            variant={currentTab() === 'permissions' ? 'primary' : 'secondary'}
+            onClick={() => navigate('/admin/permissions')}
+          >
+            Права
+          </Button>
         </nav>
       </header>
 
@@ -201,6 +208,10 @@ const AdminPage: Component<AdminPageProps> = (props) => {
 
         <Show when={currentTab() === 'env'}>
           <EnvRoute onError={handleError} onSuccess={handleSuccess} />
+        </Show>
+
+        <Show when={currentTab() === 'permissions'}>
+          <PermissionsRoute onError={handleError} onSuccess={handleSuccess} />
         </Show>
       </main>
     </div>

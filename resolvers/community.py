@@ -1,14 +1,20 @@
+import traceback
 from typing import Any
 
 from graphql import GraphQLResolveInfo
 from sqlalchemy import distinct, func
 
 from auth.orm import Author
-from auth.permissions import ContextualPermissionCheck
 from orm.community import Community, CommunityAuthor, CommunityFollower
 from orm.shout import Shout, ShoutAuthor
 from services.db import local_session
-from services.rbac import require_any_permission, require_permission
+from services.rbac import (
+    RBACError,
+    get_user_roles_from_context,
+    require_any_permission,
+    require_permission,
+    roles_have_permission,
+)
 from services.schema import mutation, query, type_community
 from utils.logger import root_logger as logger
 
@@ -93,71 +99,36 @@ async def create_community(_: None, info: GraphQLResolveInfo, community_input: d
             author_id = auth_info.author_id
 
     if not author_id:
-        return {"error": "Не удалось определить автора"}
+        return {"error": "Не удалось определить автора", "success": False}
 
     try:
         with local_session() as session:
             # Исключаем created_by из входных данных - он всегда из токена
             filtered_input = {k: v for k, v in community_input.items() if k != "created_by"}
 
-            # Создаем новое сообщество с обязательным created_by из токена
-            new_community = Community(created_by=author_id, **filtered_input)
+            # Создаем новое сообщество
+            new_community = Community(**filtered_input, created_by=author_id)
             session.add(new_community)
-            session.flush()  # Получаем ID сообщества
-
-            # Инициализируем права ролей для нового сообщества
-            await new_community.initialize_role_permissions()
-
             session.commit()
-            return {"error": None}
+
+            return {"error": None, "success": True}
     except Exception as e:
-        return {"error": f"Ошибка создания сообщества: {e!s}"}
+        return {"error": f"Ошибка создания сообщества: {e!s}", "success": False}
 
 
 @mutation.field("update_community")
-@require_any_permission(["community:update_own", "community:update_any"])
+@require_any_permission(["community:update", "community:update_any"])
 async def update_community(_: None, info: GraphQLResolveInfo, community_input: dict[str, Any]) -> dict[str, Any]:
-    # Получаем author_id из контекста через декоратор авторизации
-    request = info.context.get("request")
-    author_id = None
-
-    if hasattr(request, "auth") and request.auth and hasattr(request.auth, "author_id"):
-        author_id = request.auth.author_id
-    elif hasattr(request, "scope") and "auth" in request.scope:
-        auth_info = request.scope.get("auth", {})
-        if isinstance(auth_info, dict):
-            author_id = auth_info.get("author_id")
-        elif hasattr(auth_info, "author_id"):
-            author_id = auth_info.author_id
-
-    if not author_id:
-        return {"error": "Не удалось определить автора"}
-
-    slug = community_input.get("slug")
-    if not slug:
-        return {"error": "Не указан slug сообщества"}
+    if not community_input.get("slug"):
+        return {"error": "Не указан slug сообщества", "success": False}
 
     try:
         with local_session() as session:
-            # Находим сообщество для обновления
-            community = session.query(Community).where(Community.slug == slug).first()
+            # Находим сообщество по slug
+            community = session.query(Community).where(Community.slug == community_input["slug"]).first()
+
             if not community:
-                return {"error": "Сообщество не найдено"}
-
-            # Проверяем права на редактирование (создатель или админ/редактор)
-            with local_session() as auth_session:
-                # Получаем роли пользователя в сообществе
-                community_author = (
-                    auth_session.query(CommunityAuthor)
-                    .where(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community.id)
-                    .first()
-                )
-
-                user_roles = community_author.role_list if community_author else []
-
-                # Разрешаем редактирование если пользователь - создатель или имеет роль admin/editor
-                if community.created_by != author_id and "admin" not in user_roles and "editor" not in user_roles:
-                    return {"error": "Недостаточно прав для редактирования этого сообщества"}
+                return {"error": "Сообщество не найдено", "success": False}
 
             # Обновляем поля сообщества
             for key, value in community_input.items():
@@ -166,40 +137,89 @@ async def update_community(_: None, info: GraphQLResolveInfo, community_input: d
                     setattr(community, key, value)
 
             session.commit()
-            return {"error": None}
+            return {"error": None, "success": True}
     except Exception as e:
-        return {"error": f"Ошибка обновления сообщества: {e!s}"}
+        return {"error": f"Ошибка обновления сообщества: {e!s}", "success": False}
 
 
 @mutation.field("delete_community")
-@require_any_permission(["community:delete_own", "community:delete_any"])
 async def delete_community(root, info, slug: str) -> dict[str, Any]:
     try:
+        logger.info(f"[delete_community] Начинаем удаление сообщества с slug: {slug}")
+
+        # Находим community_id и устанавливаем в контекст для RBAC ПЕРЕД проверкой прав
+        with local_session() as session:
+            community = session.query(Community).where(Community.slug == slug).first()
+            if community:
+                logger.debug(f"[delete_community] Тип info.context: {type(info.context)}, содержимое: {info.context!r}")
+                if isinstance(info.context, dict):
+                    info.context["community_id"] = community.id
+                else:
+                    logger.error(
+                        f"[delete_community] Неожиданный тип контекста: {type(info.context)}. Попытка присвоить community_id через setattr."
+                    )
+                    info.context.community_id = community.id
+                logger.debug(f"[delete_community] Установлен community_id в контекст: {community.id}")
+            else:
+                logger.warning(f"[delete_community] Сообщество с slug '{slug}' не найдено")
+                return {"error": "Сообщество не найдено", "success": False}
+
+        # Теперь проверяем права с правильным community_id
+        user_roles, community_id = get_user_roles_from_context(info)
+        logger.debug(f"[delete_community] user_roles: {user_roles}, community_id: {community_id}")
+
+        has_permission = False
+        for permission in ["community:delete", "community:delete_any"]:
+            if await roles_have_permission(user_roles, permission, community_id):
+                has_permission = True
+                break
+
+        if not has_permission:
+            raise RBACError("Недостаточно прав. Требуется любое из: ", ["community:delete", "community:delete_any"])
+
         # Используем local_session как контекстный менеджер
         with local_session() as session:
             # Находим сообщество по slug
             community = session.query(Community).where(Community.slug == slug).first()
 
             if not community:
+                logger.warning(f"[delete_community] Сообщество с slug '{slug}' не найдено")
                 return {"error": "Сообщество не найдено", "success": False}
 
-            # Проверяем права на удаление
-            user_id = info.context.get("user_id", 0)
-            permission_check = ContextualPermissionCheck()
+            logger.info(f"[delete_community] Найдено сообщество: id={community.id}, name={community.name}")
 
-            # Проверяем права на удаление сообщества
-            if not await permission_check.can_delete_community(user_id, community, session):
-                return {"error": "Недостаточно прав", "success": False}
+            # Проверяем связанные записи
+            followers_count = (
+                session.query(CommunityFollower).where(CommunityFollower.community == community.id).count()
+            )
+            authors_count = session.query(CommunityAuthor).where(CommunityAuthor.community_id == community.id).count()
+            shouts_count = session.query(Shout).where(Shout.community == community.id).count()
+
+            logger.info(
+                f"[delete_community] Связанные записи: followers={followers_count}, authors={authors_count}, shouts={shouts_count}"
+            )
+
+            # Удаляем связанные записи
+            if followers_count > 0:
+                logger.info(f"[delete_community] Удаляем {followers_count} подписчиков")
+                session.query(CommunityFollower).where(CommunityFollower.community == community.id).delete()
+
+            if authors_count > 0:
+                logger.info(f"[delete_community] Удаляем {authors_count} авторов")
+                session.query(CommunityAuthor).where(CommunityAuthor.community_id == community.id).delete()
 
             # Удаляем сообщество
+            logger.info(f"[delete_community] Удаляем сообщество {community.id}")
             session.delete(community)
             session.commit()
 
+            logger.info(f"[delete_community] Сообщество {community.id} успешно удалено")
             return {"success": True, "error": None}
 
     except Exception as e:
         # Логируем ошибку
-        logger.error(f"Ошибка удаления сообщества: {e}")
+        logger.error(f"[delete_community] Ошибка удаления сообщества: {e}")
+        logger.error(f"[delete_community] Traceback: {traceback.format_exc()}")
         return {"error": str(e), "success": False}
 
 
@@ -245,3 +265,23 @@ def resolve_community_stat(community: Community | dict[str, Any], *_: Any) -> di
         logger.error(f"Ошибка при получении статистики сообщества {community_id}: {e}")
         # Возвращаем нулевую статистику при ошибке
         return {"shouts": 0, "followers": 0, "authors": 0}
+
+
+@type_community.field("created_by")
+def resolve_community_created_by(community: Community, *_: Any) -> Author | None:
+    """
+    Резолвер для поля created_by сообщества.
+    Возвращает автора-создателя сообщества или None, если создатель не найден.
+    """
+    with local_session() as session:
+        # Если у сообщества нет created_by, возвращаем None
+        if not community.created_by:
+            return None
+
+        # Ищем автора в базе данных
+        author = session.query(Author).where(Author.id == community.created_by).first()
+        if not author:
+            logger.warning(f"Автор с ID {community.created_by} не найден для сообщества {community.id}")
+            return None
+
+        return author

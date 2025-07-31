@@ -55,11 +55,17 @@ class BatchTokenOperations(BaseTokenManager):
         valid_tokens = []
 
         for token, payload in zip(token_batch, decoded_payloads):
-            if isinstance(payload, Exception) or not payload or not hasattr(payload, "user_id"):
+            if isinstance(payload, Exception) or not payload:
                 results[token] = False
                 continue
 
-            token_key = self._make_token_key("session", payload.user_id, token)
+            # payload может быть словарем или объектом, обрабатываем оба случая
+            user_id = payload.user_id if hasattr(payload, "user_id") else payload.get("user_id")
+            if not user_id:
+                results[token] = False
+                continue
+
+            token_key = self._make_token_key("session", user_id, token)
             token_keys.append(token_key)
             valid_tokens.append(token)
 
@@ -114,8 +120,12 @@ class BatchTokenOperations(BaseTokenManager):
         for token in token_batch:
             payload = await self._safe_decode_token(token)
             if payload:
-                user_id = payload.user_id
-                username = payload.username
+                # payload может быть словарем или объектом, обрабатываем оба случая
+                user_id = payload.user_id if hasattr(payload, "user_id") else payload.get("user_id")
+                username = payload.username if hasattr(payload, "username") else payload.get("username")
+
+                if not user_id:
+                    continue
 
                 # Ключи для удаления
                 new_key = self._make_token_key("session", user_id, token)

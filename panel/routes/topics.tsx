@@ -70,7 +70,7 @@ export const Topics = (props: TopicsProps) => {
 
     if (!query) return topics
 
-    return topics.where(
+    return topics.filter(
       (topic) =>
         topic.title?.toLowerCase().includes(query) ||
         topic.slug?.toLowerCase().includes(query) ||

@@ -131,6 +131,26 @@ async def set_role_permissions_for_community(community_id: int, role_permissions
     logger.info(f"Обновлены права ролей для сообщества {community_id}")
 
 
+async def update_all_communities_permissions() -> None:
+    """
+    Обновляет права для всех существующих сообществ с новыми дефолтными настройками.
+    """
+    from orm.community import Community
+
+    with local_session() as session:
+        communities = session.query(Community).all()
+
+    for community in communities:
+        # Удаляем старые права
+        key = f"community:roles:{community.id}"
+        await redis.execute("DEL", key)
+
+        # Инициализируем новые права
+        await initialize_community_permissions(community.id)
+
+    logger.info(f"Обновлены права для {len(communities)} сообществ")
+
+
 async def get_permissions_for_role(role: str, community_id: int) -> list[str]:
     """
     Получает список разрешений для конкретной роли в сообществе.
@@ -173,7 +193,8 @@ def get_user_roles_in_community(author_id: int, community_id: int = 1, session=N
                 .first()
             )
             return ca.role_list if ca else []
-    except Exception:
+    except Exception as e:
+        logger.error(f"[get_user_roles_in_community] Ошибка при получении ролей: {e}")
         return []
 
 
@@ -224,31 +245,65 @@ def get_user_roles_from_context(info) -> tuple[list[str], int]:
         Кортеж (роли_пользователя, community_id)
     """
     # Получаем ID автора из контекста
-    author_data = getattr(info.context, "author", {})
+    if isinstance(info.context, dict):
+        author_data = info.context.get("author", {})
+    else:
+        author_data = getattr(info.context, "author", {})
     author_id = author_data.get("id") if isinstance(author_data, dict) else None
+    logger.debug(f"[get_user_roles_from_context] author_data: {author_data}, author_id: {author_id}")
+
+    # Если author_id не найден в context.author, пробуем получить из scope.auth
+    if not author_id and hasattr(info.context, "request"):
+        request = info.context.request
+        logger.debug(f"[get_user_roles_from_context] Проверяем request.scope: {hasattr(request, 'scope')}")
+        if hasattr(request, "scope") and "auth" in request.scope:
+            auth_credentials = request.scope["auth"]
+            logger.debug(f"[get_user_roles_from_context] Найден auth в scope: {type(auth_credentials)}")
+            if hasattr(auth_credentials, "author_id") and auth_credentials.author_id:
+                author_id = auth_credentials.author_id
+                logger.debug(f"[get_user_roles_from_context] Получен author_id из scope.auth: {author_id}")
+            elif isinstance(auth_credentials, dict) and "author_id" in auth_credentials:
+                author_id = auth_credentials["author_id"]
+                logger.debug(f"[get_user_roles_from_context] Получен author_id из scope.auth (dict): {author_id}")
+        else:
+            logger.debug("[get_user_roles_from_context] scope.auth не найден или пуст")
+            if hasattr(request, "scope"):
+                logger.debug(f"[get_user_roles_from_context] Ключи в scope: {list(request.scope.keys())}")
 
     if not author_id:
-        return [], 1
+        logger.debug("[get_user_roles_from_context] author_id не найден ни в context.author, ни в scope.auth")
+        return [], 0
 
-    # Получаем community_id
+    # Получаем community_id из аргументов мутации
     community_id = get_community_id_from_context(info)
+    logger.debug(f"[get_user_roles_from_context] Получен community_id: {community_id}")
 
-    # Получаем роли пользователя в этом сообществе
-    user_roles = get_user_roles_in_community(author_id, community_id)
-
-    # Проверяем, является ли пользователь системным администратором
+    # Получаем роли пользователя в сообществе
     try:
-        admin_emails = ADMIN_EMAILS.split(",") if ADMIN_EMAILS else []
+        user_roles = get_user_roles_in_community(author_id, community_id)
+        logger.debug(
+            f"[get_user_roles_from_context] Роли пользователя {author_id} в сообществе {community_id}: {user_roles}"
+        )
 
-        with local_session() as session:
-            author = session.query(Author).where(Author.id == author_id).first()
-            if author and author.email and author.email in admin_emails and "admin" not in user_roles:
-                # Системный администратор автоматически получает роль admin в любом сообществе
-                user_roles = [*user_roles, "admin"]
+        # Проверяем, является ли пользователь системным администратором
+        try:
+            admin_emails = ADMIN_EMAILS.split(",") if ADMIN_EMAILS else []
+
+            with local_session() as session:
+                author = session.query(Author).where(Author.id == author_id).first()
+                if author and author.email and author.email in admin_emails and "admin" not in user_roles:
+                    # Системный администратор автоматически получает роль admin в любом сообществе
+                    user_roles = [*user_roles, "admin"]
+                    logger.debug(
+                        f"[get_user_roles_from_context] Добавлена роль admin для системного администратора {author.email}"
+                    )
+        except Exception as e:
+            logger.error(f"[get_user_roles_from_context] Ошибка при проверке системного администратора: {e}")
+
+        return user_roles, community_id
     except Exception as e:
-        logger.error(f"Error getting user roles from context: {e}")
-
-    return user_roles, community_id
+        logger.error(f"[get_user_roles_from_context] Ошибка при получении ролей: {e}")
+        return [], community_id
 
 
 def get_community_id_from_context(info) -> int:
@@ -256,16 +311,58 @@ def get_community_id_from_context(info) -> int:
     Получение community_id из GraphQL контекста или аргументов.
     """
     # Пробуем из контекста
-    community_id = getattr(info.context, "community_id", None)
+    if isinstance(info.context, dict):
+        community_id = info.context.get("community_id")
+    else:
+        community_id = getattr(info.context, "community_id", None)
     if community_id:
         return int(community_id)
 
     # Пробуем из аргументов resolver'а
+    logger.debug(
+        f"[get_community_id_from_context] Проверяем info.variable_values: {getattr(info, 'variable_values', None)}"
+    )
+
+    # Пробуем получить переменные из разных источников
+    variables = {}
+
+    # Способ 1: info.variable_values
     if hasattr(info, "variable_values") and info.variable_values:
-        if "community_id" in info.variable_values:
-            return int(info.variable_values["community_id"])
-        if "communityId" in info.variable_values:
-            return int(info.variable_values["communityId"])
+        variables.update(info.variable_values)
+        logger.debug(f"[get_community_id_from_context] Добавлены переменные из variable_values: {info.variable_values}")
+
+    # Способ 2: info.variable_values (альтернативный способ)
+    if hasattr(info, "variable_values"):
+        logger.debug(f"[get_community_id_from_context] variable_values тип: {type(info.variable_values)}")
+        logger.debug(f"[get_community_id_from_context] variable_values содержимое: {info.variable_values}")
+
+    # Способ 3: из kwargs (аргументы функции)
+    if hasattr(info, "context") and hasattr(info.context, "kwargs"):
+        variables.update(info.context.kwargs)
+        logger.debug(f"[get_community_id_from_context] Добавлены переменные из context.kwargs: {info.context.kwargs}")
+
+    logger.debug(f"[get_community_id_from_context] Итоговые переменные: {variables}")
+
+    if "community_id" in variables:
+        return int(variables["community_id"])
+    if "communityId" in variables:
+        return int(variables["communityId"])
+
+        # Для мутации delete_community получаем slug и находим community_id
+    if "slug" in variables:
+        slug = variables["slug"]
+        try:
+            from orm.community import Community
+            from services.db import local_session
+
+            with local_session() as session:
+                community = session.query(Community).filter_by(slug=slug).first()
+                if community:
+                    logger.debug(f"[get_community_id_from_context] Найден community_id {community.id} для slug {slug}")
+                    return community.id
+                logger.warning(f"[get_community_id_from_context] Сообщество с slug {slug} не найдено")
+        except Exception as e:
+            logger.error(f"[get_community_id_from_context] Ошибка при поиске community_id: {e}")
 
     # Пробуем из прямых аргументов
     if hasattr(info, "field_asts") and info.field_asts:
@@ -276,6 +373,7 @@ def get_community_id_from_context(info) -> int:
                         return int(arg.value.value)
 
     # Fallback: основное сообщество
+    logger.debug("[get_community_id_from_context] Используем дефолтный community_id: 1")
     return 1
 
 
@@ -294,9 +392,18 @@ def require_permission(permission: str) -> Callable:
             if not info or not hasattr(info, "context"):
                 raise RBACError("GraphQL info context не найден")
 
+            logger.debug(f"[require_permission] Проверяем права: {permission}")
+            logger.debug(f"[require_permission] args: {args}")
+            logger.debug(f"[require_permission] kwargs: {kwargs}")
+
             user_roles, community_id = get_user_roles_from_context(info)
-            if not await roles_have_permission(user_roles, permission, community_id):
-                raise RBACError("Недостаточно прав в сообществе")
+            logger.debug(f"[require_permission] user_roles: {user_roles}, community_id: {community_id}")
+
+            has_permission = await roles_have_permission(user_roles, permission, community_id)
+            logger.debug(f"[require_permission] has_permission: {has_permission}")
+
+            if not has_permission:
+                raise RBACError("Недостаточно прав. Требуется: ", permission)
 
             return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
 
@@ -347,7 +454,14 @@ def require_any_permission(permissions: list[str]) -> Callable:
                 raise RBACError("GraphQL info context не найден")
 
             user_roles, community_id = get_user_roles_from_context(info)
-            has_any = any(await roles_have_permission(user_roles, perm, community_id) for perm in permissions)
+
+            # Проверяем каждое разрешение отдельно
+            has_any = False
+            for perm in permissions:
+                if await roles_have_permission(user_roles, perm, community_id):
+                    has_any = True
+                    break
+
             if not has_any:
                 raise RBACError("Недостаточно прав. Требуется любое из: ", permissions)
 
@@ -374,9 +488,12 @@ def require_all_permissions(permissions: list[str]) -> Callable:
                 raise RBACError("GraphQL info context не найден")
 
             user_roles, community_id = get_user_roles_from_context(info)
-            missing_perms = [
-                perm for perm in permissions if not await roles_have_permission(user_roles, perm, community_id)
-            ]
+
+            # Проверяем каждое разрешение отдельно
+            missing_perms = []
+            for perm in permissions:
+                if not await roles_have_permission(user_roles, perm, community_id):
+                    missing_perms.append(perm)
 
             if missing_perms:
                 raise RBACError("Недостаточно прав. Отсутствуют: ", missing_perms)

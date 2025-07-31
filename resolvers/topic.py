@@ -397,68 +397,77 @@ async def get_topic(_: None, _info: GraphQLResolveInfo, slug: str) -> Optional[A
 @mutation.field("create_topic")
 @require_permission("topic:create")
 async def create_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str, Any]) -> dict[str, Any]:
-    with local_session() as session:
-        # TODO: проверить права пользователя на создание темы для конкретного сообщества
-        # и разрешение на создание
-        new_topic = Topic(**topic_input)
-        session.add(new_topic)
-        session.commit()
+    try:
+        with local_session() as session:
+            # TODO: проверить права пользователя на создание темы для конкретного сообщества
+            # и разрешение на создание
+            new_topic = Topic(**topic_input)
+            session.add(new_topic)
+            session.commit()
 
-        # Инвалидируем кеш всех тем
-        await invalidate_topics_cache()
+            # Инвалидируем кеш всех тем
+            await invalidate_topics_cache()
 
-        return {"topic": new_topic}
+            return {"topic": new_topic, "success": True}
+    except Exception as e:
+        return {"error": f"Ошибка создания темы: {e}", "success": False}
 
 
 # Мутация для обновления темы
 @mutation.field("update_topic")
-@require_any_permission(["topic:update_own", "topic:update_any"])
+@require_any_permission(["topic:update", "topic:update_any"])
 async def update_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str, Any]) -> dict[str, Any]:
-    slug = topic_input["slug"]
-    with local_session() as session:
-        topic = session.query(Topic).where(Topic.slug == slug).first()
-        if not topic:
-            return {"error": "topic not found"}
-        old_slug = str(getattr(topic, "slug", ""))
-        Topic.update(topic, topic_input)
-        session.add(topic)
-        session.commit()
+    try:
+        slug = topic_input["slug"]
+        with local_session() as session:
+            topic = session.query(Topic).where(Topic.slug == slug).first()
+            if not topic:
+                return {"error": "topic not found", "success": False}
+            old_slug = str(getattr(topic, "slug", ""))
+            Topic.update(topic, topic_input)
+            session.add(topic)
+            session.commit()
 
-        # Инвалидируем кеш только для этой конкретной темы
-        await invalidate_topics_cache(int(getattr(topic, "id", 0)))
+            # Инвалидируем кеш только для этой конкретной темы
+            await invalidate_topics_cache(int(getattr(topic, "id", 0)))
 
-        # Если slug изменился, удаляем старый ключ
-        if old_slug != str(getattr(topic, "slug", "")):
-            await redis.execute("DEL", f"topic:slug:{old_slug}")
-            logger.debug(f"Удален ключ кеша для старого slug: {old_slug}")
+            # Если slug изменился, удаляем старый ключ
+            if old_slug != str(getattr(topic, "slug", "")):
+                await redis.execute("DEL", f"topic:slug:{old_slug}")
+                logger.debug(f"Удален ключ кеша для старого slug: {old_slug}")
 
-        return {"topic": topic}
+            return {"topic": topic, "success": True}
+    except Exception as e:
+        return {"error": f"Ошибка обновления темы: {e}", "success": False}
 
 
 # Мутация для удаления темы
 @mutation.field("delete_topic")
-@require_any_permission(["topic:delete_own", "topic:delete_any"])
+@require_any_permission(["topic:delete", "topic:delete_any"])
 async def delete_topic(_: None, info: GraphQLResolveInfo, slug: str) -> dict[str, Any]:
-    viewer_id = info.context.get("author", {}).get("id")
-    with local_session() as session:
-        topic = session.query(Topic).where(Topic.slug == slug).first()
-        if not topic:
-            return {"error": "invalid topic slug"}
-        author = session.query(Author).where(Author.id == viewer_id).first()
-        if author:
-            if getattr(topic, "created_by", None) != author.id:
-                return {"error": "access denied"}
+    try:
+        viewer_id = info.context.get("author", {}).get("id")
+        with local_session() as session:
+            topic = session.query(Topic).where(Topic.slug == slug).first()
+            if not topic:
+                return {"error": "invalid topic slug", "success": False}
+            author = session.query(Author).where(Author.id == viewer_id).first()
+            if author:
+                if getattr(topic, "created_by", None) != author.id:
+                    return {"error": "access denied", "success": False}
 
-            session.delete(topic)
-            session.commit()
+                session.delete(topic)
+                session.commit()
 
-            # Инвалидируем кеш всех тем и конкретной темы
-            await invalidate_topics_cache()
-            await redis.execute("DEL", f"topic:slug:{slug}")
-            await redis.execute("DEL", f"topic:id:{getattr(topic, 'id', 0)}")
+                # Инвалидируем кеш всех тем и конкретной темы
+                await invalidate_topics_cache()
+                await redis.execute("DEL", f"topic:slug:{slug}")
+                await redis.execute("DEL", f"topic:id:{getattr(topic, 'id', 0)}")
 
-            return {}
-    return {"error": "access denied"}
+                return {"success": True}
+        return {"error": "access denied", "success": False}
+    except Exception as e:
+        return {"error": f"Ошибка удаления темы: {e}", "success": False}
 
 
 # Запрос на получение подписчиков темы
@@ -481,7 +490,7 @@ async def get_topic_authors(_: None, _info: GraphQLResolveInfo, slug: str) -> li
 
 # Мутация для удаления темы по ID (для админ-панели)
 @mutation.field("delete_topic_by_id")
-@require_any_permission(["topic:delete_own", "topic:delete_any"])
+@require_any_permission(["topic:delete", "topic:delete_any"])
 async def delete_topic_by_id(_: None, info: GraphQLResolveInfo, topic_id: int) -> dict[str, Any]:
     """
     Удаляет тему по ID. Используется в админ-панели.
@@ -492,43 +501,31 @@ async def delete_topic_by_id(_: None, info: GraphQLResolveInfo, topic_id: int) -
     Returns:
         dict: Результат операции
     """
-    viewer_id = info.context.get("author", {}).get("id")
-    with local_session() as session:
-        topic = session.query(Topic).where(Topic.id == topic_id).first()
-        if not topic:
-            return {"success": False, "message": "Топик не найден"}
+    try:
+        viewer_id = info.context.get("author", {}).get("id")
+        with local_session() as session:
+            topic = session.query(Topic).where(Topic.id == topic_id).first()
+            if not topic:
+                return {"success": False, "error": "Топик не найден"}
 
-        author = session.query(Author).where(Author.id == viewer_id).first()
-        if not author:
-            return {"success": False, "message": "Не авторизован"}
+            # Проверяем права на удаление
+            author = session.query(Author).where(Author.id == viewer_id).first()
+            if author:
+                if getattr(topic, "created_by", None) != author.id:
+                    return {"success": False, "error": "access denied"}
 
-        # TODO: проверить права администратора
-        # Для админ-панели допускаем удаление любых топиков администратором
+                session.delete(topic)
+                session.commit()
 
-        try:
-            # Инвалидируем кеши подписчиков ПЕРЕД удалением данных из БД
-            await invalidate_topic_followers_cache(topic_id)
+                # Инвалидируем кеш всех тем и конкретной темы
+                await invalidate_topics_cache()
+                await redis.execute("DEL", f"topic:slug:{getattr(topic, 'slug', '')}")
+                await redis.execute("DEL", f"topic:id:{topic_id}")
 
-            # Удаляем связанные данные (подписчики, связи с публикациями)
-            session.query(TopicFollower).where(TopicFollower.topic == topic_id).delete()
-            session.query(ShoutTopic).where(ShoutTopic.topic == topic_id).delete()
-
-            # Удаляем сам топик
-            session.delete(topic)
-            session.commit()
-
-            # Инвалидируем основные кеши топика
-            await invalidate_topics_cache(topic_id)
-            if topic.slug:
-                await redis.execute("DEL", f"topic:slug:{topic.slug}")
-
-            logger.info(f"Топик {topic_id} успешно удален")
-            return {"success": True, "message": "Топик успешно удален"}
-
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Ошибка при удалении топика {topic_id}: {e}")
-            return {"success": False, "message": f"Ошибка при удалении: {e!s}"}
+                return {"success": True, "error": None}
+            return {"success": False, "error": "access denied"}
+    except Exception as e:
+        return {"success": False, "error": f"Ошибка удаления темы: {e}"}
 
 
 # Мутация для слияния тем
@@ -726,7 +723,7 @@ async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str,
 
 # Мутация для простого назначения родителя темы
 @mutation.field("set_topic_parent")
-@require_any_permission(["topic:update_own", "topic:update_any"])
+@require_any_permission(["topic:update", "topic:update_any"])
 async def set_topic_parent(
     _: None, info: GraphQLResolveInfo, topic_id: int, parent_id: int | None = None
 ) -> dict[str, Any]:

@@ -175,3 +175,4 @@ panel/types.gen.ts
 .autopilot.json
 .cursor
 tmp
+test-results

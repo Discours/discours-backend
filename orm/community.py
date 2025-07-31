@@ -500,12 +500,39 @@ class CommunityAuthor(BaseModel):
         """
         # Если передан полный permission, используем его
         if permission and ":" in permission:
-            return any(permission == role for role in self.role_list)
+            # Проверяем права через синхронную функцию
+            try:
+                import asyncio
+
+                from services.rbac import get_permissions_for_role
+
+                all_permissions = set()
+                for role in self.role_list:
+                    role_perms = asyncio.run(get_permissions_for_role(role, int(self.community_id)))
+                    all_permissions.update(role_perms)
+
+                return permission in all_permissions
+            except Exception:
+                # Fallback: проверяем роли (старый способ)
+                return any(permission == role for role in self.role_list)
 
         # Если переданы resource и operation, формируем permission
         if resource and operation:
             full_permission = f"{resource}:{operation}"
-            return any(full_permission == role for role in self.role_list)
+            try:
+                import asyncio
+
+                from services.rbac import get_permissions_for_role
+
+                all_permissions = set()
+                for role in self.role_list:
+                    role_perms = asyncio.run(get_permissions_for_role(role, int(self.community_id)))
+                    all_permissions.update(role_perms)
+
+                return full_permission in all_permissions
+            except Exception:
+                # Fallback: проверяем роли (старый способ)
+                return any(full_permission == role for role in self.role_list)
 
         return False
 

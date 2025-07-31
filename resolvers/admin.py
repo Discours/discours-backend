@@ -459,7 +459,30 @@ async def update_env_variables(_: None, _info: GraphQLResolveInfo, variables: li
 async def admin_get_roles(_: None, _info: GraphQLResolveInfo, community: int | None = None) -> list[dict[str, Any]]:
     """Получает список ролей"""
     try:
-        return admin_service.get_roles(community)
+        # Получаем все роли (базовые + кастомные)
+        all_roles = admin_service.get_roles(community)
+
+        # Если указано сообщество, добавляем кастомные роли из Redis
+        if community:
+            import json
+
+            custom_roles_data = await redis.execute("HGETALL", f"community:custom_roles:{community}")
+
+            for role_id, role_json in custom_roles_data.items():
+                try:
+                    role_data = json.loads(role_json)
+                    all_roles.append(
+                        {
+                            "id": role_data["id"],
+                            "name": role_data["name"],
+                            "description": role_data.get("description", ""),
+                        }
+                    )
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.warning(f"Ошибка парсинга роли {role_id}: {e}")
+                    continue
+
+        return all_roles
     except Exception as e:
         logger.error(f"Ошибка получения ролей: {e}")
         raise GraphQLError("Не удалось получить роли") from e
@@ -780,4 +803,97 @@ async def admin_restore_reaction(_: None, _info: GraphQLResolveInfo, reaction_id
 
     except Exception as e:
         logger.error(f"Ошибка восстановления реакции: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminCreateCustomRole")
+@admin_auth_required
+async def admin_create_custom_role(_: None, _info: GraphQLResolveInfo, role: dict[str, Any]) -> dict[str, Any]:
+    """Создает новую роль для сообщества"""
+    try:
+        role_id = role.get("id")
+        name = role.get("name")
+        description = role.get("description")
+        icon = role.get("icon")
+        community_id = role.get("community_id")
+
+        if not role_id or not name or not community_id:
+            return {"success": False, "error": "Необходимо указать id, name и community_id роли"}
+
+        with local_session() as session:
+            # Проверяем, существует ли сообщество
+            community = session.query(Community).where(Community.id == community_id).first()
+            if not community:
+                return {"success": False, "error": "Сообщество не найдено"}
+
+            # Проверяем, не существует ли уже роль с таким id
+            existing_role = await redis.execute("HGET", f"community:custom_roles:{community_id}", role_id)
+            if existing_role:
+                return {"success": False, "error": "Роль с таким id уже существует"}
+
+            # Создаем новую роль
+            role_data = {
+                "id": role_id,
+                "name": name,
+                "description": description or "",
+                "icon": icon or "",
+                "permissions": [],  # Пустой список разрешений для новой роли
+            }
+
+            # Сохраняем роль в Redis
+            import json
+
+            await redis.execute("HSET", f"community:custom_roles:{community_id}", role_id, json.dumps(role_data))
+
+            logger.info(f"Создана новая роль {role_id} для сообщества {community_id}")
+            return {"success": True, "role": {"id": role_id, "name": name, "description": description}}
+
+    except Exception as e:
+        logger.error(f"Ошибка создания роли: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminDeleteCustomRole")
+@admin_auth_required
+async def admin_delete_custom_role(
+    _: None, _info: GraphQLResolveInfo, role_id: str, community_id: int
+) -> dict[str, Any]:
+    """Удаляет роль из сообщества"""
+    try:
+        with local_session() as session:
+            # Проверяем, существует ли сообщество
+            community = session.query(Community).where(Community.id == community_id).first()
+            if not community:
+                return {"success": False, "error": "Сообщество не найдено"}
+
+            # Проверяем, существует ли роль
+            existing_role = await redis.execute("HGET", f"community:custom_roles:{community_id}", role_id)
+            if not existing_role:
+                return {"success": False, "error": "Роль не найдена"}
+
+            # Удаляем роль из Redis
+            await redis.execute("HDEL", f"community:custom_roles:{community_id}", role_id)
+
+            logger.info(f"Удалена роль {role_id} из сообщества {community_id}")
+            return {"success": True}
+
+    except Exception as e:
+        logger.error(f"Ошибка удаления роли: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@mutation.field("adminUpdatePermissions")
+@admin_auth_required
+async def admin_update_permissions(_: None, _info: GraphQLResolveInfo) -> dict[str, Any]:
+    """Обновляет права для всех сообществ с новыми дефолтными настройками"""
+    try:
+        from services.rbac import update_all_communities_permissions
+
+        await update_all_communities_permissions()
+
+        logger.info("Права для всех сообществ обновлены")
+        return {"success": True, "message": "Права обновлены для всех сообществ"}
+
+    except Exception as e:
+        logger.error(f"Ошибка обновления прав: {e}")
         return {"success": False, "error": str(e)}

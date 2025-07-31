@@ -27,7 +27,9 @@ GLITCHTIP_DSN = environ.get("GLITCHTIP_DSN")
 
 # auth
 ADMIN_SECRET = environ.get("AUTH_SECRET") or "nothing"
-ADMIN_EMAILS = environ.get("ADMIN_EMAILS") or "services@discours.io,guests@discours.io,welcome@discours.io"
+ADMIN_EMAILS = (
+    environ.get("ADMIN_EMAILS") or "services@discours.io,guests@discours.io,welcome@discours.io,test_admin@discours.io"
+)
 
 # own auth
 ONETIME_TOKEN_LIFE_SPAN = 60 * 15  # 15 минут

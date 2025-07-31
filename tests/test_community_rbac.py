@@ -298,7 +298,7 @@ class TestCommunityRoleInheritance:
             assert has_permission, f"Artist должен наследовать разрешение {perm} от reader через author"
 
         # Проверяем специфичные разрешения artist
-        artist_permissions = ["reaction:create:CREDIT", "reaction:read:CREDIT", "reaction:update_own:CREDIT"]
+        artist_permissions = ["reaction:create:CREDIT", "reaction:read:CREDIT", "reaction:update:CREDIT"]
         for perm in artist_permissions:
             has_permission = await user_has_permission(user.id, perm, community.id)
             assert has_permission, f"Artist должен иметь разрешение {perm}"

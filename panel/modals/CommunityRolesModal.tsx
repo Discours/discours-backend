@@ -96,7 +96,7 @@ const CommunityRolesModal: Component<CommunityRolesModalProps> = (props) => {
   const handleRoleToggle = (roleId: string) => {
     const currentRoles = userRoles()
     if (currentRoles.includes(roleId)) {
-      setUserRoles(currentRoles.where((r) => r !== roleId))
+              setUserRoles(currentRoles.filter((r) => r !== roleId))
     } else {
       setUserRoles([...currentRoles, roleId])
     }

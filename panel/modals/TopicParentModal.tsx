@@ -38,7 +38,7 @@ const TopicParentModal: Component<TopicParentModalProps> = (props) => {
     const currentTopic = props.topic
     if (!currentTopic) return []
 
-    return props.allTopics.where((topic) => {
+    return props.allTopics.filter((topic) => {
       // Исключаем сам топик
       if (topic.id === currentTopic.id) return false
 

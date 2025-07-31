@@ -103,7 +103,21 @@ def get_reactions_with_stat(q: Select, limit: int = 10, offset: int = 0) -> list
 
             # Преобразуем Reaction в словарь для доступа по ключу
             reaction_dict = reaction.dict()
-            reaction_dict["created_by"] = author.dict()
+
+            # Обработка поля created_by
+            if author:
+                reaction_dict["created_by"] = author.dict()
+            else:
+                # Если автор не найден, создаем заглушку
+                logger.warning(f"Автор не найден для реакции {reaction.id}")
+                reaction_dict["created_by"] = {
+                    "id": reaction.created_by or 0,
+                    "name": f"Unknown User {reaction.created_by or 0}",
+                    "slug": f"user-{reaction.created_by or 0}",
+                    "email": "unknown@example.com",
+                    "created_at": 0,
+                }
+
             reaction_dict["shout"] = shout.dict()
             reaction_dict["stat"] = {"rating": rating_stat, "comments_count": comments_count}
             reactions.append(reaction_dict)

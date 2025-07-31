@@ -74,7 +74,7 @@ class TestRBACRoleInheritance:
             assert perm in author_permissions, f"Author должен наследовать разрешение {perm} от reader"
 
         # Проверяем что author имеет дополнительные разрешения
-        author_specific = ["draft:read", "draft:create", "shout:create", "shout:update_own"]
+        author_specific = ["draft:read", "draft:create", "shout:create", "shout:update"]
         for perm in author_specific:
             assert perm in author_permissions, f"Author должен иметь разрешение {perm}"
 
@@ -142,7 +142,7 @@ class TestRBACRoleInheritance:
             assert perm in artist_permissions, f"Artist должен наследовать разрешение {perm} от author"
 
         # Проверяем что artist имеет дополнительные разрешения
-        artist_specific = ["reaction:create:CREDIT", "reaction:read:CREDIT", "reaction:update_own:CREDIT"]
+        artist_specific = ["reaction:create:CREDIT", "reaction:read:CREDIT", "reaction:update:CREDIT"]
         for perm in artist_specific:
             assert perm in artist_permissions, f"Artist должен иметь разрешение {perm}"
 
