@@ -189,10 +189,22 @@ class SearchCache:
 class SearchService:
     def __init__(self) -> None:
         logger.info(f"Initializing search service with URL: {TXTAI_SERVICE_URL}")
-        self.available = SEARCH_ENABLED
+
+        # Проверяем валидность URL
+        if not TXTAI_SERVICE_URL or not TXTAI_SERVICE_URL.startswith(("http://", "https://")):
+            self.available = False
+            logger.info("Search disabled (invalid TXTAI_SERVICE_URL)")
+        else:
+            self.available = SEARCH_ENABLED
+
         # Use different timeout settings for indexing and search requests
-        self.client = AsyncClient(timeout=30.0, base_url=TXTAI_SERVICE_URL)
-        self.index_client = AsyncClient(timeout=120.0, base_url=TXTAI_SERVICE_URL)
+        if self.available:
+            self.client = AsyncClient(timeout=30.0, base_url=TXTAI_SERVICE_URL)
+            self.index_client = AsyncClient(timeout=120.0, base_url=TXTAI_SERVICE_URL)
+        else:
+            self.client = None
+            self.index_client = None
+
         # Initialize search cache
         self.cache = SearchCache() if SEARCH_CACHE_ENABLED else None
 
@@ -205,7 +217,7 @@ class SearchService:
 
     async def info(self) -> dict:
         """Return information about search service"""
-        if not self.available:
+        if not self.available or not self.client:
             return {"status": "disabled"}
         try:
             response: Response = await self.client.get("/info")

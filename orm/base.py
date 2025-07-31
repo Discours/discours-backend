@@ -36,7 +36,7 @@ class BaseModel(DeclarativeBase):
         """
         column_names = filter(lambda x: x not in FILTERED_FIELDS, self.__table__.columns.keys())
         data: builtins.dict[str, Any] = {}
-        logger.debug(f"Converting object to dictionary {'with access' if access else 'without access'}")
+        # logger.debug(f"Converting object to dictionary {'with access' if access else 'without access'}")
         try:
             for column_name in column_names:
                 try:

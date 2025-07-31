@@ -76,7 +76,7 @@ def generate_certificates(domain="localhost", cert_file="localhost.pem", key_fil
         return None, None
 
 
-def run_server(host="localhost", port=8000, use_https=False, workers=1, domain="localhost") -> None:
+def run_server(host="127.0.0.1", port=8000, use_https=False, workers=1, domain="localhost") -> None:
     """
     Запускает сервер Granian с поддержкой HTTPS при необходимости
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("--workers", type=int, default=1, help="Количество рабочих процессов")
     parser.add_argument("--domain", type=str, default="localhost", help="Домен для сертификата")
     parser.add_argument("--port", type=int, default=8000, help="Порт для запуска сервера")
-    parser.add_argument("--host", type=str, default="localhost", help="Хост для запуска сервера")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Хост для запуска сервера")
 
     args = parser.parse_args()
 

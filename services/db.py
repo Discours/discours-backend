@@ -126,23 +126,34 @@ def get_json_builder() -> tuple[Any, Any, Any]:
 json_builder, json_array_builder, json_cast = get_json_builder()
 
 
-def create_table_if_not_exists(connection_or_engine: Connection | Engine, model_cls: Type[DeclarativeBase]) -> None:
+def create_table_if_not_exists(
+    connection_or_engine_or_session: Connection | Engine | Session, model_cls: Type[DeclarativeBase]
+) -> None:
     """Creates table for the given model if it doesn't exist"""
-    # If an Engine is passed, get a connection from it
-    connection = connection_or_engine.connect() if isinstance(connection_or_engine, Engine) else connection_or_engine
+
+    # Handle different input types
+    if isinstance(connection_or_engine_or_session, Session):
+        # Use session's bind
+        connection = connection_or_engine_or_session.get_bind()
+        should_close = False
+    elif isinstance(connection_or_engine_or_session, Engine):
+        # Get a connection from engine
+        connection = connection_or_engine_or_session.connect()
+        should_close = True
+    else:
+        # Already a connection
+        connection = connection_or_engine_or_session
+        should_close = False
 
     try:
         inspector = inspect(connection)
         if not inspector.has_table(model_cls.__tablename__):
             # Use SQLAlchemy's built-in table creation instead of manual SQL generation
-            from sqlalchemy.schema import CreateTable
-
-            create_stmt = CreateTable(model_cls.__table__)  # type: ignore[arg-type]
-            connection.execute(create_stmt)
+            model_cls.__table__.create(bind=connection, checkfirst=False)
             logger.info(f"Created table: {model_cls.__tablename__}")
     finally:
-        # If we created a connection from an Engine, close it
-        if isinstance(connection_or_engine, Engine):
+        # Close connection only if we created it
+        if should_close:
             connection.close()
 
 

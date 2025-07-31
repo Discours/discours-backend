@@ -37,7 +37,6 @@ from sqlalchemy import and_, join, select
 from auth.orm import Author, AuthorFollower
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
-from resolvers.stat import get_with_stat
 from services.db import local_session
 from services.redis import redis
 from utils.encoders import fast_json_dumps
@@ -119,7 +118,7 @@ async def update_follower_stat(follower_id: int, entity_type: str, count: int) -
 
 
 # Get author from cache
-async def get_cached_author(author_id: int, get_with_stat) -> dict | None:
+async def get_cached_author(author_id: int, get_with_stat=None) -> dict | None:
     logger.debug(f"[get_cached_author] Начало выполнения для author_id: {author_id}")
 
     author_key = f"author:id:{author_id}"
@@ -137,6 +136,9 @@ async def get_cached_author(author_id: int, get_with_stat) -> dict | None:
     logger.debug("[get_cached_author] Данные не найдены в кэше, загрузка из БД")
 
     # Load from database if not found in cache
+    if get_with_stat is None:
+        from resolvers.stat import get_with_stat
+
     q = select(Author).where(Author.id == author_id)
     authors = get_with_stat(q)
     logger.debug(f"[get_cached_author] Результат запроса из БД: {len(authors) if authors else 0} записей")
@@ -188,12 +190,15 @@ async def get_cached_topic(topic_id: int) -> dict | None:
 
 
 # Get topic by slug from cache
-async def get_cached_topic_by_slug(slug: str, get_with_stat) -> dict | None:
+async def get_cached_topic_by_slug(slug: str, get_with_stat=None) -> dict | None:
     topic_key = f"topic:slug:{slug}"
     result = await redis.execute("GET", topic_key)
     if result:
         return orjson.loads(result)
     # Load from database if not found in cache
+    if get_with_stat is None:
+        from resolvers.stat import get_with_stat
+
     topic_query = select(Topic).where(Topic.slug == slug)
     topics = get_with_stat(topic_query)
     if topics:
@@ -337,7 +342,7 @@ async def get_cached_follower_topics(author_id: int):
 
 
 # Get author by author_id from cache
-async def get_cached_author_by_id(author_id: int, get_with_stat):
+async def get_cached_author_by_id(author_id: int, get_with_stat=None):
     """
     Retrieve author information by author_id, checking the cache first, then the database.
 
@@ -354,6 +359,9 @@ async def get_cached_author_by_id(author_id: int, get_with_stat):
         return orjson.loads(cached_author_data)
 
     # If data is not found in cache, query the database
+    if get_with_stat is None:
+        from resolvers.stat import get_with_stat
+
     author_query = select(Author).where(Author.id == author_id)
     authors = get_with_stat(author_query)
     if authors:
@@ -521,7 +529,7 @@ async def get_cached_entity(entity_type: str, entity_id: int, get_method, cache_
     return None
 
 
-async def cache_by_id(entity, entity_id: int, cache_method):
+async def cache_by_id(entity, entity_id: int, cache_method, get_with_stat=None):
     """
     Кэширует сущность по ID, используя указанный метод кэширования
 
@@ -530,6 +538,9 @@ async def cache_by_id(entity, entity_id: int, cache_method):
         entity_id: ID сущности
         cache_method: функция кэширования
     """
+
+    if get_with_stat is None:
+        from resolvers.stat import get_with_stat
 
     caching_query = select(entity).where(entity.id == entity_id)
     result = get_with_stat(caching_query)
