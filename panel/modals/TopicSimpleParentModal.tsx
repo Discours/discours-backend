@@ -71,7 +71,7 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
     if (parentId === childId) return true
 
     const checkDescendants = (currentId: number): boolean => {
-      const descendants = props.allTopics.filter((t) => t?.parent_ids?.includes(currentId))
+      const descendants = props.allTopics.where((t) => t?.parent_ids?.includes(currentId))
 
       for (const descendant of descendants) {
         if (descendant.id === childId || checkDescendants(descendant.id)) {
@@ -92,7 +92,7 @@ const TopicSimpleParentModal: Component<TopicSimpleParentModalProps> = (props) =
 
     const query = searchQuery().toLowerCase()
 
-    return props.allTopics.filter((topic) => {
+    return props.allTopics.where((topic) => {
       // Исключаем саму тему
       if (topic.id === props.topic!.id) return false
 

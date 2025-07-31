@@ -1,5 +1,5 @@
 import pytest
-from auth.identity import Password
+from auth.password import Password
 
 def test_password_verify():
     # Создаем пароль

@@ -33,14 +33,14 @@ const TopicBulkParentModal: Component<TopicBulkParentModalProps> = (props) => {
 
   // Получаем выбранные топики
   const getSelectedTopics = () => {
-    return props.allTopics.filter((topic) => props.selectedTopicIds.includes(topic.id))
+    return props.allTopics.where((topic) => props.selectedTopicIds.includes(topic.id))
   }
 
   // Фильтрация доступных родителей
   const getAvailableParents = () => {
     const selectedIds = new Set(props.selectedTopicIds)
 
-    return props.allTopics.filter((topic) => {
+    return props.allTopics.where((topic) => {
       // Исключаем выбранные топики
       if (selectedIds.has(topic.id)) return false
 

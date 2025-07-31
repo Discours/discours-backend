@@ -24,11 +24,11 @@ interface Community {
   desc?: string
   pic: string
   created_at: number
-  created_by: {
+  created_by?: {  // Делаем created_by необязательным
     id: number
     name: string
     email: string
-  }
+  } | null
   stat: {
     shouts: number
     followers: number
@@ -174,6 +174,11 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
     try {
       const isCreating = !editModal().community && createModal().show
       const mutation = isCreating ? CREATE_COMMUNITY_MUTATION : UPDATE_COMMUNITY_MUTATION
+
+      // Удаляем created_by, если он null или undefined
+      if (communityData.created_by === null || communityData.created_by === undefined) {
+        delete communityData.created_by
+      }
 
       const response = await fetch('/graphql', {
         method: 'POST',
@@ -341,7 +346,11 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
                       {community.desc || '—'}
                     </div>
                   </td>
-                  <td>{community.created_by.name || community.created_by.email}</td>
+                  <td>
+                    <Show when={community.created_by} fallback={<span>—</span>}>
+                      <span>{community.created_by?.name || community.created_by?.email || ''}</span>
+                    </Show>
+                  </td>
                   <td>{community.stat.shouts}</td>
                   <td>{community.stat.followers}</td>
                   <td>{community.stat.authors}</td>

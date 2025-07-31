@@ -270,7 +270,7 @@ async def migrate_oauth_tokens():
     """Миграция OAuth токенов из БД в Redis"""
     with local_session() as session:
         # Предполагая, что токены хранились в таблице authors
-        authors = session.query(Author).filter(
+        authors = session.query(Author).where(
             or_(
                 Author.provider_access_token.is_not(None),
                 Author.provider_refresh_token.is_not(None)

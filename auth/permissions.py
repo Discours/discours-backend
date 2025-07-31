@@ -22,9 +22,9 @@ class ContextualPermissionCheck:
     учитывая как глобальные роли пользователя, так и его роли внутри сообщества.
     """
 
-    @staticmethod
+    @classmethod
     async def check_community_permission(
-        session: Session, author_id: int, community_slug: str, resource: str, operation: str
+        cls, session: Session, author_id: int, community_slug: str, resource: str, operation: str
     ) -> bool:
         """
         Проверяет наличие разрешения у пользователя в контексте сообщества.
@@ -40,7 +40,7 @@ class ContextualPermissionCheck:
             bool: True, если пользователь имеет разрешение, иначе False
         """
         # 1. Проверка глобальных разрешений (например, администратор)
-        author = session.query(Author).filter(Author.id == author_id).one_or_none()
+        author = session.query(Author).where(Author.id == author_id).one_or_none()
         if not author:
             return False
         # Если это администратор (по списку email)
@@ -49,7 +49,7 @@ class ContextualPermissionCheck:
 
         # 2. Проверка разрешений в контексте сообщества
         # Получаем информацию о сообществе
-        community = session.query(Community).filter(Community.slug == community_slug).one_or_none()
+        community = session.query(Community).where(Community.slug == community_slug).one_or_none()
         if not community:
             return False
 
@@ -59,11 +59,11 @@ class ContextualPermissionCheck:
 
         # Проверяем наличие разрешения для этих ролей
         permission_id = f"{resource}:{operation}"
-        ca = CommunityAuthor.find_by_user_and_community(author_id, community.id, session)
-        return bool(await ca.has_permission(permission_id))
+        ca = CommunityAuthor.find_author_in_community(author_id, community.id, session)
+        return bool(ca.has_permission(permission_id)) if ca else False
 
-    @staticmethod
-    async def get_user_community_roles(session: Session, author_id: int, community_slug: str) -> list[str]:
+    @classmethod
+    def get_user_community_roles(cls, session: Session, author_id: int, community_slug: str) -> list[str]:
         """
         Получает список ролей пользователя в сообществе.
 
@@ -73,10 +73,10 @@ class ContextualPermissionCheck:
             community_slug: Slug сообщества
 
         Returns:
-            List[CommunityRole]: Список ролей пользователя в сообществе
+            List[str]: Список ролей пользователя в сообществе
         """
         # Получаем информацию о сообществе
-        community = session.query(Community).filter(Community.slug == community_slug).one_or_none()
+        community = session.query(Community).where(Community.slug == community_slug).one_or_none()
         if not community:
             return []
 
@@ -84,63 +84,80 @@ class ContextualPermissionCheck:
         if community.created_by == author_id:
             return ["editor", "author", "expert", "reader"]
 
-        ca = CommunityAuthor.find_by_user_and_community(author_id, community.id, session)
+        # Находим связь автор-сообщество
+        ca = CommunityAuthor.find_author_in_community(author_id, community.id, session)
         return ca.role_list if ca else []
 
-    @staticmethod
-    async def assign_role_to_user(session: Session, author_id: int, community_slug: str, role: str) -> bool:
+    @classmethod
+    def check_permission(
+        cls, session: Session, author_id: int, community_slug: str, resource: str, operation: str
+    ) -> bool:
         """
-        Назначает роль пользователю в сообществе.
+        Проверяет наличие разрешения у пользователя в контексте сообщества.
+        Синхронный метод для обратной совместимости.
 
         Args:
             session: Сессия SQLAlchemy
             author_id: ID автора/пользователя
             community_slug: Slug сообщества
-            role: Роль для назначения (CommunityRole или строковое представление)
+            resource: Ресурс для доступа
+            operation: Операция над ресурсом
 
         Returns:
-            bool: True если роль успешно назначена, иначе False
+            bool: True, если пользователь имеет разрешение, иначе False
         """
+        # Используем тот же алгоритм, что и в асинхронной версии
+        author = session.query(Author).where(Author.id == author_id).one_or_none()
+        if not author:
+            return False
+        # Если это администратор (по списку email)
+        if author.email in ADMIN_EMAILS:
+            return True
 
         # Получаем информацию о сообществе
-        community = session.query(Community).filter(Community.slug == community_slug).one_or_none()
+        community = session.query(Community).where(Community.slug == community_slug).one_or_none()
         if not community:
             return False
 
-        # Проверяем существование связи автор-сообщество
-        ca = CommunityAuthor.find_by_user_and_community(author_id, community.id, session)
-        if not ca:
-            return False
+        # Если автор является создателем сообщества, то у него есть полные права
+        if community.created_by == author_id:
+            return True
 
-        # Назначаем роль
-        ca.add_role(role)
-        return True
+        # Проверяем наличие разрешения для этих ролей
+        permission_id = f"{resource}:{operation}"
+        ca = CommunityAuthor.find_author_in_community(author_id, community.id, session)
 
-    @staticmethod
-    async def revoke_role_from_user(session: Session, author_id: int, community_slug: str, role: str) -> bool:
+        # Возвращаем результат проверки разрешения
+        return bool(ca and ca.has_permission(permission_id))
+
+    async def can_delete_community(self, user_id: int, community: Community, session: Session) -> bool:
         """
-        Отзывает роль у пользователя в сообществе.
+        Проверяет, может ли пользователь удалить сообщество.
 
         Args:
+            user_id: ID пользователя
+            community: Объект сообщества
             session: Сессия SQLAlchemy
-            author_id: ID автора/пользователя
-            community_slug: Slug сообщества
-            role: Роль для отзыва (CommunityRole или строковое представление)
 
         Returns:
-            bool: True если роль успешно отозвана, иначе False
+            bool: True, если пользователь может удалить сообщество, иначе False
         """
+        # Если пользователь - создатель сообщества
+        if community.created_by == user_id:
+            return True
 
-        # Получаем информацию о сообществе
-        community = session.query(Community).filter(Community.slug == community_slug).one_or_none()
-        if not community:
+        # Проверяем, есть ли у пользователя роль администратора или редактора
+        author = session.query(Author).where(Author.id == user_id).first()
+        if not author:
             return False
 
-        # Проверяем существование связи автор-сообщество
-        ca = CommunityAuthor.find_by_user_and_community(author_id, community.id, session)
-        if not ca:
-            return False
+        # Проверка по email (глобальные администраторы)
+        if author.email in ADMIN_EMAILS:
+            return True
 
-        # Отзываем роль
-        ca.remove_role(role)
-        return True
+        # Проверка ролей в сообществе
+        community_author = CommunityAuthor.find_author_in_community(user_id, community.id, session)
+        if community_author:
+            return "admin" in community_author.role_list or "editor" in community_author.role_list
+
+        return False

@@ -135,7 +135,7 @@ export const ADMIN_GET_ENV_VARIABLES_QUERY: string =
 
 export const GET_COMMUNITIES_QUERY: string =
   gql`
-  query GetCommunities {
+  query GetCommunitiesAll {
     get_communities_all {
       id
       slug

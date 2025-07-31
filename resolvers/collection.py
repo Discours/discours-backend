@@ -1,19 +1,20 @@
 from typing import Any, Optional
 
 from graphql import GraphQLResolveInfo
+from sqlalchemy.orm import joinedload
 
 from auth.decorators import editor_or_admin_required
 from auth.orm import Author
 from orm.collection import Collection, ShoutCollection
+from orm.community import CommunityAuthor
 from services.db import local_session
 from services.schema import mutation, query, type_collection
+from utils.logger import root_logger as logger
 
 
 @query.field("get_collections_all")
 async def get_collections_all(_: None, _info: GraphQLResolveInfo) -> list[Collection]:
     """Получает все коллекции"""
-    from sqlalchemy.orm import joinedload
-
     with local_session() as session:
         # Загружаем коллекции с проверкой существования авторов
         collections = (
@@ -23,7 +24,7 @@ async def get_collections_all(_: None, _info: GraphQLResolveInfo) -> list[Collec
                 Author,
                 Collection.created_by == Author.id,  # INNER JOIN - исключает коллекции без авторов
             )
-            .filter(
+            .where(
                 Collection.created_by.isnot(None),  # Дополнительная проверка
                 Author.id.isnot(None),  # Проверяем что автор существует
             )
@@ -41,8 +42,6 @@ async def get_collections_all(_: None, _info: GraphQLResolveInfo) -> list[Collec
             ):
                 valid_collections.append(collection)
             else:
-                from utils.logger import root_logger as logger
-
                 logger.warning(f"Исключена коллекция {collection.id} ({collection.slug}) - проблемы с автором")
 
         return valid_collections
@@ -138,14 +137,23 @@ async def update_collection(_: None, info: GraphQLResolveInfo, collection_input:
     try:
         with local_session() as session:
             # Находим коллекцию для обновления
-            collection = session.query(Collection).filter(Collection.slug == slug).first()
+            collection = session.query(Collection).where(Collection.slug == slug).first()
             if not collection:
                 return {"error": "Коллекция не найдена"}
 
             # Проверяем права на редактирование (создатель или админ/редактор)
             with local_session() as auth_session:
-                author = auth_session.query(Author).filter(Author.id == author_id).first()
-                user_roles = [role.id for role in author.roles] if author and author.roles else []
+                # Получаем роли пользователя в сообществе
+                community_author = (
+                    auth_session.query(CommunityAuthor)
+                    .where(
+                        CommunityAuthor.author_id == author_id,
+                        CommunityAuthor.community_id == 1,  # Используем сообщество по умолчанию
+                    )
+                    .first()
+                )
+
+                user_roles = community_author.role_list if community_author else []
 
                 # Разрешаем редактирование если пользователь - создатель или имеет роль admin/editor
                 if collection.created_by != author_id and "admin" not in user_roles and "editor" not in user_roles:
@@ -186,21 +194,30 @@ async def delete_collection(_: None, info: GraphQLResolveInfo, slug: str) -> dic
     try:
         with local_session() as session:
             # Находим коллекцию для удаления
-            collection = session.query(Collection).filter(Collection.slug == slug).first()
+            collection = session.query(Collection).where(Collection.slug == slug).first()
             if not collection:
                 return {"error": "Коллекция не найдена"}
 
             # Проверяем права на удаление (создатель или админ/редактор)
             with local_session() as auth_session:
-                author = auth_session.query(Author).filter(Author.id == author_id).first()
-                user_roles = [role.id for role in author.roles] if author and author.roles else []
+                # Получаем роли пользователя в сообществе
+                community_author = (
+                    auth_session.query(CommunityAuthor)
+                    .where(
+                        CommunityAuthor.author_id == author_id,
+                        CommunityAuthor.community_id == 1,  # Используем сообщество по умолчанию
+                    )
+                    .first()
+                )
+
+                user_roles = community_author.role_list if community_author else []
 
                 # Разрешаем удаление если пользователь - создатель или имеет роль admin/editor
                 if collection.created_by != author_id and "admin" not in user_roles and "editor" not in user_roles:
                     return {"error": "Недостаточно прав для удаления этой коллекции"}
 
             # Удаляем связи с публикациями
-            session.query(ShoutCollection).filter(ShoutCollection.collection == collection.id).delete()
+            session.query(ShoutCollection).where(ShoutCollection.collection == collection.id).delete()
 
             # Удаляем коллекцию
             session.delete(collection)
@@ -217,10 +234,8 @@ def resolve_collection_created_by(obj: Collection, *_: Any) -> Optional[Author]:
         if hasattr(obj, "created_by_author") and obj.created_by_author:
             return obj.created_by_author
 
-        author = session.query(Author).filter(Author.id == obj.created_by).first()
+        author = session.query(Author).where(Author.id == obj.created_by).first()
         if not author:
-            from utils.logger import root_logger as logger
-
             logger.warning(f"Автор с ID {obj.created_by} не найден для коллекции {obj.id}")
 
         return author
@@ -230,5 +245,4 @@ def resolve_collection_created_by(obj: Collection, *_: Any) -> Optional[Author]:
 def resolve_collection_amount(obj: Collection, *_: Any) -> int:
     """Резолвер для количества публикаций в коллекции"""
     with local_session() as session:
-        count = session.query(ShoutCollection).filter(ShoutCollection.collection == obj.id).count()
-        return count
+        return session.query(ShoutCollection).where(ShoutCollection.collection == obj.id).count()

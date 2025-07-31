@@ -1,10 +1,10 @@
 import builtins
 import logging
-from typing import Any, Callable, ClassVar, Type, Union
+from typing import Any, Type
 
 import orjson
-from sqlalchemy import JSON, Column, Integer
-from sqlalchemy.orm import declarative_base, declared_attr
+from sqlalchemy import JSON
+from sqlalchemy.orm import DeclarativeBase
 
 logger = logging.getLogger(__name__)
 
@@ -14,43 +14,11 @@ REGISTRY: dict[str, Type[Any]] = {}
 # Список полей для фильтрации при сериализации
 FILTERED_FIELDS: list[str] = []
 
-# Создаем базовый класс для декларативных моделей
-_Base = declarative_base()
 
-
-class SafeColumnMixin:
+class BaseModel(DeclarativeBase):
     """
-    Миксин для безопасного присваивания значений столбцам с автоматическим преобразованием типов
+    Базовая модель с методами сериализации и обновления
     """
-
-    @declared_attr
-    def __safe_setattr__(self) -> Callable:
-        def safe_setattr(self, key: str, value: Any) -> None:
-            """
-            Безопасно устанавливает атрибут для экземпляра.
-
-            Args:
-                key (str): Имя атрибута.
-                value (Any): Значение атрибута.
-            """
-            setattr(self, key, value)
-
-        return safe_setattr
-
-    def __setattr__(self, key: str, value: Any) -> None:
-        """
-        Переопределяем __setattr__ для использования безопасного присваивания
-        """
-        # Используем object.__setattr__ для избежания рекурсии
-        object.__setattr__(self, key, value)
-
-
-class BaseModel(_Base, SafeColumnMixin):  # type: ignore[valid-type,misc]
-    __abstract__ = True
-    __allow_unmapped__ = True
-    __table_args__: ClassVar[Union[dict[str, Any], tuple]] = {"extend_existing": True}
-
-    id = Column(Integer, primary_key=True)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         REGISTRY[cls.__name__] = cls
@@ -68,6 +36,7 @@ class BaseModel(_Base, SafeColumnMixin):  # type: ignore[valid-type,misc]
         """
         column_names = filter(lambda x: x not in FILTERED_FIELDS, self.__table__.columns.keys())
         data: builtins.dict[str, Any] = {}
+        logger.debug(f"Converting object to dictionary {'with access' if access else 'without access'}")
         try:
             for column_name in column_names:
                 try:
@@ -81,7 +50,7 @@ class BaseModel(_Base, SafeColumnMixin):  # type: ignore[valid-type,misc]
                             try:
                                 data[column_name] = orjson.loads(value)
                             except (TypeError, orjson.JSONDecodeError) as e:
-                                logger.exception(f"Error decoding JSON for column '{column_name}': {e}")
+                                logger.warning(f"Error decoding JSON for column '{column_name}': {e}")
                                 data[column_name] = value
                         else:
                             data[column_name] = value
@@ -91,10 +60,14 @@ class BaseModel(_Base, SafeColumnMixin):  # type: ignore[valid-type,misc]
                 except AttributeError as e:
                     logger.warning(f"Attribute error for column '{column_name}': {e}")
         except Exception as e:
-            logger.exception(f"Error occurred while converting object to dictionary: {e}")
+            logger.warning(f"Error occurred while converting object to dictionary {e}")
         return data
 
     def update(self, values: builtins.dict[str, Any]) -> None:
         for key, value in values.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+
+
+# Alias for backward compatibility
+Base = BaseModel

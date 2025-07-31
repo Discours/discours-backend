@@ -13,7 +13,8 @@ def get_diff(original: str, modified: str) -> list[str]:
     Returns:
     A list of differences.
     """
-    return list(ndiff(original.split(), modified.split()))
+    diff = list(ndiff(original.split(), modified.split()))
+    return [d for d in diff if d.startswith(("+", "-"))]
 
 
 def apply_diff(original: str, diff: list[str]) -> str:

@@ -6,7 +6,7 @@ from graphql import GraphQLError, GraphQLResolveInfo
 from sqlalchemy import exc
 
 from auth.credentials import AuthCredentials
-from auth.exceptions import OperationNotAllowed
+from auth.exceptions import OperationNotAllowedError
 from auth.internal import authenticate
 from auth.orm import Author
 from orm.community import CommunityAuthor
@@ -211,13 +211,13 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
     if not auth_state.logged_in:
         error_msg = auth_state.error or "Invalid or expired token"
         logger.warning(f"[validate_graphql_context] Недействительный токен: {error_msg}")
-        msg = f"Unauthorized - {error_msg}"
+        msg = f"UnauthorizedError - {error_msg}"
         raise GraphQLError(msg)
 
     # Если все проверки пройдены, создаем AuthCredentials и устанавливаем в request.scope
     with local_session() as session:
         try:
-            author = session.query(Author).filter(Author.id == auth_state.author_id).one()
+            author = session.query(Author).where(Author.id == auth_state.author_id).one()
             logger.debug(f"[validate_graphql_context] Найден автор: id={author.id}, email={author.email}")
 
             # Создаем объект авторизации с пустыми разрешениями
@@ -243,7 +243,7 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
                 raise GraphQLError(msg)
         except exc.NoResultFound:
             logger.error(f"[validate_graphql_context] Пользователь с ID {auth_state.author_id} не найден в базе данных")
-            msg = "Unauthorized - user not found"
+            msg = "UnauthorizedError - user not found"
             raise GraphQLError(msg) from None
 
     return
@@ -314,7 +314,7 @@ def admin_auth_required(resolver: Callable) -> Callable:
 
         if not auth or not getattr(auth, "logged_in", False):
             logger.error("[admin_auth_required] Пользователь не авторизован после validate_graphql_context")
-            msg = "Unauthorized - please login"
+            msg = "UnauthorizedError - please login"
             raise GraphQLError(msg)
 
         # Проверяем, является ли пользователь администратором
@@ -324,10 +324,10 @@ def admin_auth_required(resolver: Callable) -> Callable:
                 author_id = int(auth.author_id) if auth and auth.author_id else None
                 if not author_id:
                     logger.error(f"[admin_auth_required] ID автора не определен: {auth}")
-                    msg = "Unauthorized - invalid user ID"
+                    msg = "UnauthorizedError - invalid user ID"
                     raise GraphQLError(msg)
 
-                author = session.query(Author).filter(Author.id == author_id).one()
+                author = session.query(Author).where(Author.id == author_id).one()
                 logger.debug(f"[admin_auth_required] Найден автор: {author.id}, {author.email}")
 
                 # Проверяем, является ли пользователь системным администратором
@@ -337,12 +337,12 @@ def admin_auth_required(resolver: Callable) -> Callable:
 
                 # Системный администратор определяется ТОЛЬКО по ADMIN_EMAILS
                 logger.warning(f"System admin access denied for {author.email} (ID: {author.id}). Not in ADMIN_EMAILS.")
-                msg = "Unauthorized - system admin access required"
+                msg = "UnauthorizedError - system admin access required"
                 raise GraphQLError(msg)
 
         except exc.NoResultFound:
             logger.error(f"[admin_auth_required] Пользователь с ID {auth.author_id} не найден в базе данных")
-            msg = "Unauthorized - user not found"
+            msg = "UnauthorizedError - user not found"
             raise GraphQLError(msg) from None
         except GraphQLError:
             # Пробрасываем GraphQLError дальше
@@ -379,17 +379,17 @@ def permission_required(resource: str, operation: str, func: Callable) -> Callab
         if not auth or not getattr(auth, "logged_in", False):
             logger.error("[permission_required] Пользователь не авторизован после validate_graphql_context")
             msg = "Требуются права доступа"
-            raise OperationNotAllowed(msg)
+            raise OperationNotAllowedError(msg)
 
         # Проверяем разрешения
         with local_session() as session:
             try:
-                author = session.query(Author).filter(Author.id == auth.author_id).one()
+                author = session.query(Author).where(Author.id == auth.author_id).one()
 
                 # Проверяем базовые условия
                 if author.is_locked():
                     msg = "Account is locked"
-                    raise OperationNotAllowed(msg)
+                    raise OperationNotAllowedError(msg)
 
                 # Проверяем, является ли пользователь администратором (у них есть все разрешения)
                 if author.email in ADMIN_EMAILS:
@@ -399,10 +399,7 @@ def permission_required(resource: str, operation: str, func: Callable) -> Callab
                 # Проверяем роли пользователя
                 admin_roles = ["admin", "super"]
                 ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
-                if ca:
-                    user_roles = ca.role_list
-                else:
-                    user_roles = []
+                user_roles = ca.role_list if ca else []
 
                 if any(role in admin_roles for role in user_roles):
                     logger.debug(
@@ -411,12 +408,20 @@ def permission_required(resource: str, operation: str, func: Callable) -> Callab
                     return await func(parent, info, *args, **kwargs)
 
                 # Проверяем разрешение
-                if not author.has_permission(resource, operation):
+                ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
+                if ca:
+                    user_roles = ca.role_list
+                    if any(role in admin_roles for role in user_roles):
+                        logger.debug(
+                            f"[permission_required] Пользователь с ролью администратора {author.email} имеет все разрешения"
+                        )
+                        return await func(parent, info, *args, **kwargs)
+                if not ca or not ca.has_permission(resource, operation):
                     logger.warning(
                         f"[permission_required] У пользователя {author.email} нет разрешения {operation} на {resource}"
                     )
                     msg = f"No permission for {operation} on {resource}"
-                    raise OperationNotAllowed(msg)
+                    raise OperationNotAllowedError(msg)
 
                 logger.debug(
                     f"[permission_required] Пользователь {author.email} имеет разрешение {operation} на {resource}"
@@ -425,7 +430,7 @@ def permission_required(resource: str, operation: str, func: Callable) -> Callab
             except exc.NoResultFound:
                 logger.error(f"[permission_required] Пользователь с ID {auth.author_id} не найден в базе данных")
                 msg = "User not found"
-                raise OperationNotAllowed(msg) from None
+                raise OperationNotAllowedError(msg) from None
 
     return wrap
 
@@ -494,7 +499,7 @@ def editor_or_admin_required(func: Callable) -> Callable:
 
             # Проверяем роли пользователя
             with local_session() as session:
-                author = session.query(Author).filter(Author.id == author_id).first()
+                author = session.query(Author).where(Author.id == author_id).first()
                 if not author:
                     logger.warning(f"[decorators] Автор с ID {author_id} не найден")
                     raise GraphQLError("Пользователь не найден")
@@ -506,10 +511,7 @@ def editor_or_admin_required(func: Callable) -> Callable:
 
                 # Получаем список ролей пользователя
                 ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
-                if ca:
-                    user_roles = ca.role_list
-                else:
-                    user_roles = []
+                user_roles = ca.role_list if ca else []
                 logger.debug(f"[decorators] Роли пользователя {author_id}: {user_roles}")
 
                 # Проверяем наличие роли admin или editor

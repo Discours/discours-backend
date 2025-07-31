@@ -11,14 +11,14 @@ def handle_proposing(kind: ReactionKind, reply_to: int, shout_id: int) -> None:
     with local_session() as session:
         if is_positive(kind):
             replied_reaction = (
-                session.query(Reaction).filter(Reaction.id == reply_to, Reaction.shout == shout_id).first()
+                session.query(Reaction).where(Reaction.id == reply_to, Reaction.shout == shout_id).first()
             )
 
             if replied_reaction and replied_reaction.kind is ReactionKind.PROPOSE.value and replied_reaction.quote:
                 # patch all the proposals' quotes
                 proposals = (
                     session.query(Reaction)
-                    .filter(
+                    .where(
                         and_(
                             Reaction.shout == shout_id,
                             Reaction.kind == ReactionKind.PROPOSE.value,
@@ -28,7 +28,7 @@ def handle_proposing(kind: ReactionKind, reply_to: int, shout_id: int) -> None:
                 )
 
                 # patch shout's body
-                shout = session.query(Shout).filter(Shout.id == shout_id).first()
+                shout = session.query(Shout).where(Shout.id == shout_id).first()
                 if shout:
                     body = replied_reaction.quote
                     # Use setattr instead of Shout.update for Column assignment

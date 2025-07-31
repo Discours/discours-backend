@@ -8,12 +8,6 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.functions import coalesce
 
 from auth.orm import Author
-from cache.cache import (
-    cache_author,
-    cache_topic,
-    invalidate_shout_related_cache,
-    invalidate_shouts_cache,
-)
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from resolvers.follower import follow
@@ -28,7 +22,7 @@ from utils.extract_text import extract_text
 from utils.logger import root_logger as logger
 
 
-async def cache_by_id(entity, entity_id: int, cache_method):
+async def cache_by_id(entity, entity_id: int, cache_method) -> None:
     """Cache an entity by its ID using the provided cache method.
 
     Args:
@@ -46,20 +40,20 @@ async def cache_by_id(entity, entity_id: int, cache_method):
         ...     assert 'name' in author
         ...     return author
     """
-    caching_query = select(entity).filter(entity.id == entity_id)
+    caching_query = select(entity).where(entity.id == entity_id)
     result = get_with_stat(caching_query)
     if not result or not result[0]:
         logger.warning(f"{entity.__name__} with id {entity_id} not found")
         return None
     x = result[0]
     d = x.dict()  # convert object to dictionary
-    cache_method(d)
+    await cache_method(d)
     return d
 
 
 @query.field("get_my_shout")
 @login_required
-async def get_my_shout(_: None, info, shout_id: int):
+async def get_my_shout(_: None, info, shout_id: int) -> dict[str, Any]:
     """Get a shout by ID if the requesting user has permission to view it.
 
     DEPRECATED: use `load_drafts` instead
@@ -97,9 +91,9 @@ async def get_my_shout(_: None, info, shout_id: int):
     with local_session() as session:
         shout = (
             session.query(Shout)
-            .filter(Shout.id == shout_id)
+            .where(Shout.id == shout_id)
             .options(joinedload(Shout.authors), joinedload(Shout.topics))
-            .filter(Shout.deleted_at.is_(None))
+            .where(Shout.deleted_at.is_(None))
             .first()
         )
         if not shout:
@@ -147,8 +141,8 @@ async def get_shouts_drafts(_: None, info: GraphQLResolveInfo) -> list[dict]:
             q = (
                 select(Shout)
                 .options(joinedload(Shout.authors), joinedload(Shout.topics))
-                .filter(and_(Shout.deleted_at.is_(None), Shout.created_by == int(author_id)))
-                .filter(Shout.published_at.is_(None))
+                .where(and_(Shout.deleted_at.is_(None), Shout.created_by == int(author_id)))
+                .where(Shout.published_at.is_(None))
                 .order_by(desc(coalesce(Shout.updated_at, Shout.created_at)))
                 .group_by(Shout.id)
             )
@@ -197,12 +191,12 @@ async def create_shout(_: None, info: GraphQLResolveInfo, inp: dict) -> dict:
 
                 # Проверяем уникальность slug
                 logger.debug(f"Checking for existing slug: {slug}")
-                same_slug_shout = session.query(Shout).filter(Shout.slug == new_shout.slug).first()
+                same_slug_shout = session.query(Shout).where(Shout.slug == new_shout.slug).first()
                 c = 1
                 while same_slug_shout is not None:
                     logger.debug(f"Found duplicate slug, trying iteration {c}")
                     new_shout.slug = f"{slug}-{c}"  # type: ignore[assignment]
-                    same_slug_shout = session.query(Shout).filter(Shout.slug == new_shout.slug).first()
+                    same_slug_shout = session.query(Shout).where(Shout.slug == new_shout.slug).first()
                     c += 1
 
                 try:
@@ -250,7 +244,7 @@ async def create_shout(_: None, info: GraphQLResolveInfo, inp: dict) -> dict:
                     return {"error": f"Error in final commit: {e!s}"}
 
                 # Получаем созданную публикацию
-                shout = session.query(Shout).filter(Shout.id == new_shout.id).first()
+                shout = session.query(Shout).where(Shout.id == new_shout.id).first()
 
                 if shout:
                     # Подписываем автора
@@ -280,7 +274,7 @@ def patch_main_topic(session: Any, main_topic_slug: str, shout: Any) -> None:
     with session.begin():
         # Получаем текущий главный топик
         old_main = (
-            session.query(ShoutTopic).filter(and_(ShoutTopic.shout == shout.id, ShoutTopic.main.is_(True))).first()
+            session.query(ShoutTopic).where(and_(ShoutTopic.shout == shout.id, ShoutTopic.main.is_(True))).first()
         )
         if old_main:
             logger.info(f"Found current main topic: {old_main.topic.slug}")
@@ -288,7 +282,7 @@ def patch_main_topic(session: Any, main_topic_slug: str, shout: Any) -> None:
             logger.info("No current main topic found")
 
         # Находим новый главный топик
-        main_topic = session.query(Topic).filter(Topic.slug == main_topic_slug).first()
+        main_topic = session.query(Topic).where(Topic.slug == main_topic_slug).first()
         if not main_topic:
             logger.error(f"Main topic with slug '{main_topic_slug}' not found")
             return
@@ -298,7 +292,7 @@ def patch_main_topic(session: Any, main_topic_slug: str, shout: Any) -> None:
         # Находим связь с новым главным топиком
         new_main = (
             session.query(ShoutTopic)
-            .filter(and_(ShoutTopic.shout == shout.id, ShoutTopic.topic == main_topic.id))
+            .where(and_(ShoutTopic.shout == shout.id, ShoutTopic.topic == main_topic.id))
             .first()
         )
         logger.debug(f"Found new main topic relation: {new_main is not None}")
@@ -357,7 +351,7 @@ def patch_topics(session: Any, shout: Any, topics_input: list[Any]) -> None:
         session.flush()
 
     # Получаем текущие связи
-    current_links = session.query(ShoutTopic).filter(ShoutTopic.shout == shout.id).all()
+    current_links = session.query(ShoutTopic).where(ShoutTopic.shout == shout.id).all()
     logger.info(f"Current topic links: {[{t.topic: t.main} for t in current_links]}")
 
     # Удаляем старые связи
@@ -391,13 +385,21 @@ def patch_topics(session: Any, shout: Any, topics_input: list[Any]) -> None:
 async def update_shout(
     _: None, info: GraphQLResolveInfo, shout_id: int, shout_input: dict | None = None, *, publish: bool = False
 ) -> CommonResult:
+    # Поздние импорты для избежания циклических зависимостей
+    from cache.cache import (
+        cache_author,
+        cache_topic,
+        invalidate_shout_related_cache,
+        invalidate_shouts_cache,
+    )
+
     """Update an existing shout with optional publishing"""
     logger.info(f"update_shout called with shout_id={shout_id}, publish={publish}")
 
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
     if not author_id:
-        logger.error("Unauthorized update attempt")
+        logger.error("UnauthorizedError update attempt")
         return CommonResult(error="unauthorized", shout=None)
 
     logger.info(f"Starting update_shout with id={shout_id}, publish={publish}")
@@ -415,7 +417,7 @@ async def update_shout(
                 shout_by_id = (
                     session.query(Shout)
                     .options(joinedload(Shout.topics).joinedload(ShoutTopic.topic), joinedload(Shout.authors))
-                    .filter(Shout.id == shout_id)
+                    .where(Shout.id == shout_id)
                     .first()
                 )
 
@@ -434,12 +436,12 @@ async def update_shout(
                 logger.info(f"Current topics for shout#{shout_id}: {current_topics}")
 
                 if slug != shout_by_id.slug:
-                    same_slug_shout = session.query(Shout).filter(Shout.slug == slug).first()
+                    same_slug_shout = session.query(Shout).where(Shout.slug == slug).first()
                     c = 1
                     while same_slug_shout is not None:
                         c += 1
                         same_slug_shout.slug = f"{slug}-{c}"  # type: ignore[assignment]
-                        same_slug_shout = session.query(Shout).filter(Shout.slug == slug).first()
+                        same_slug_shout = session.query(Shout).where(Shout.slug == slug).first()
                     shout_input["slug"] = slug
                     logger.info(f"shout#{shout_id} slug patched")
 
@@ -481,7 +483,7 @@ async def update_shout(
                         logger.info(f"Checking author link for shout#{shout_id} and author#{author_id}")
                         author_link = (
                             session.query(ShoutAuthor)
-                            .filter(and_(ShoutAuthor.shout == shout_id, ShoutAuthor.author == author_id))
+                            .where(and_(ShoutAuthor.shout == shout_id, ShoutAuthor.author == author_id))
                             .first()
                         )
 
@@ -570,6 +572,11 @@ async def update_shout(
 # @mutation.field("delete_shout")
 # @login_required
 async def delete_shout(_: None, info: GraphQLResolveInfo, shout_id: int) -> CommonResult:
+    # Поздние импорты для избежания циклических зависимостей
+    from cache.cache import (
+        invalidate_shout_related_cache,
+    )
+
     """Delete a shout (mark as deleted)"""
     author_dict = info.context.get("author", {})
     if not author_dict:
@@ -579,27 +586,26 @@ async def delete_shout(_: None, info: GraphQLResolveInfo, shout_id: int) -> Comm
     roles = info.context.get("roles", [])
 
     with local_session() as session:
-        if author_id:
-            if shout_id:
-                shout = session.query(Shout).filter(Shout.id == shout_id).first()
-                if shout:
-                    # Check if user has permission to delete
-                    if any(x.id == author_id for x in shout.authors) or "editor" in roles:
-                        # Use setattr to avoid MyPy complaints about Column assignment
-                        shout.deleted_at = int(time.time())  # type: ignore[assignment]
-                        session.add(shout)
-                        session.commit()
+        if author_id and shout_id:
+            shout = session.query(Shout).where(Shout.id == shout_id).first()
+            if shout:
+                # Check if user has permission to delete
+                if any(x.id == author_id for x in shout.authors) or "editor" in roles:
+                    # Use setattr to avoid MyPy complaints about Column assignment
+                    shout.deleted_at = int(time.time())  # type: ignore[assignment]
+                    session.add(shout)
+                    session.commit()
 
-                        # Get shout data for notification
-                        shout_dict = shout.dict()
+                    # Get shout data for notification
+                    shout_dict = shout.dict()
 
-                        # Invalidate cache
-                        await invalidate_shout_related_cache(shout, author_id)
+                    # Invalidate cache
+                    await invalidate_shout_related_cache(shout, author_id)
 
-                        # Notify about deletion
-                        await notify_shout(shout_dict, "delete")
-                        return CommonResult(error=None, shout=shout)
-                    return CommonResult(error="access denied", shout=None)
+                    # Notify about deletion
+                    await notify_shout(shout_dict, "delete")
+                    return CommonResult(error=None, shout=shout)
+                return CommonResult(error="access denied", shout=None)
         return CommonResult(error="shout not found", shout=None)
 
 
@@ -661,6 +667,12 @@ async def unpublish_shout(_: None, info: GraphQLResolveInfo, shout_id: int) -> C
     """
     Unpublish a shout by setting published_at to NULL
     """
+    # Поздние импорты для избежания циклических зависимостей
+    from cache.cache import (
+        invalidate_shout_related_cache,
+        invalidate_shouts_cache,
+    )
+
     author_dict = info.context.get("author", {})
     author_id = author_dict.get("id")
     roles = info.context.get("roles", [])
@@ -671,7 +683,7 @@ async def unpublish_shout(_: None, info: GraphQLResolveInfo, shout_id: int) -> C
     try:
         with local_session() as session:
             # Получаем шаут с авторами
-            shout = session.query(Shout).options(joinedload(Shout.authors)).filter(Shout.id == shout_id).first()
+            shout = session.query(Shout).options(joinedload(Shout.authors)).where(Shout.id == shout_id).first()
 
             if not shout:
                 return CommonResult(error="Shout not found", shout=None)
@@ -703,7 +715,6 @@ async def unpublish_shout(_: None, info: GraphQLResolveInfo, shout_id: int) -> C
 
                 # Получаем обновленные данные шаута
                 session.refresh(shout)
-                shout_dict = shout.dict()
 
                 logger.info(f"Shout {shout_id} unpublished successfully")
                 return CommonResult(error=None, shout=shout)

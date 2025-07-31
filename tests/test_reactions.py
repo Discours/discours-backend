@@ -12,7 +12,7 @@ from resolvers.reaction import create_reaction
 def ensure_test_user_with_roles(db_session):
     """Создает тестового пользователя с ID 1 и назначает ему роли через CSV"""
     # Создаем пользователя с ID 1 если его нет
-    test_user = db_session.query(Author).filter(Author.id == 1).first()
+    test_user = db_session.query(Author).where(Author.id == 1).first()
     if not test_user:
         test_user = Author(id=1, email="test@example.com", name="Test User", slug="test-user")
         test_user.set_password("password123")
@@ -22,7 +22,7 @@ def ensure_test_user_with_roles(db_session):
     # Создаем связь пользователя с сообществом с ролями через CSV
     community_author = (
         db_session.query(CommunityAuthor)
-        .filter(CommunityAuthor.community_id == 1, CommunityAuthor.author_id == 1)
+        .where(CommunityAuthor.community_id == 1, CommunityAuthor.author_id == 1)
         .first()
     )
 

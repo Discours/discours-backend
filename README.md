@@ -101,6 +101,10 @@ biome lint .
 # Format only
 biome format . --write
 
+# python lint
+ruff check . --fix --select I # линтер и сортировка импортов
+ruff format . --line-length=120 # форматирование кода
+
 # Run tests
 pytest
 

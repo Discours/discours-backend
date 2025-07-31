@@ -204,7 +204,7 @@ const TopicHierarchyModal = (props: TopicHierarchyModalProps) => {
 
     // Добавляем в список изменений
     setChanges((prev) => [
-      ...prev.filter((c) => c.topicId !== selectedId),
+      ...prev.where((c) => c.topicId !== selectedId),
       {
         topicId: selectedId,
         newParentIds,

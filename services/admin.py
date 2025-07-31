@@ -5,16 +5,18 @@
 from math import ceil
 from typing import Any
 
+import orjson
 from sqlalchemy import String, cast, null, or_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import func, select
 
 from auth.orm import Author
-from orm.community import Community, CommunityAuthor
+from orm.community import Community, CommunityAuthor, role_descriptions, role_names
 from orm.invite import Invite, InviteStatus
 from orm.shout import Shout
 from services.db import local_session
-from services.env import EnvManager, EnvVariable
+from services.env import EnvVariable, env_manager
+from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 from utils.logger import root_logger as logger
 
 
@@ -30,10 +32,7 @@ class AdminService:
     def calculate_pagination_info(total_count: int, limit: int, offset: int) -> dict[str, int]:
         """Вычисляет информацию о пагинации"""
         per_page = limit
-        if total_count is None or per_page in (None, 0):
-            total_pages = 1
-        else:
-            total_pages = ceil(total_count / per_page)
+        total_pages = 1 if total_count is None or per_page in (None, 0) else ceil(total_count / per_page)
         current_page = (offset // per_page) + 1 if per_page > 0 else 1
 
         return {
@@ -54,7 +53,7 @@ class AdminService:
                 "slug": "system",
             }
 
-        author = session.query(Author).filter(Author.id == author_id).first()
+        author = session.query(Author).where(Author.id == author_id).first()
         if author:
             return {
                 "id": author.id,
@@ -72,20 +71,18 @@ class AdminService:
     @staticmethod
     def get_user_roles(user: Author, community_id: int = 1) -> list[str]:
         """Получает роли пользователя в сообществе"""
-        from orm.community import CommunityAuthor  # Явный импорт
-        from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 
         admin_emails = ADMIN_EMAILS_LIST.split(",") if ADMIN_EMAILS_LIST else []
         user_roles = []
 
         with local_session() as session:
             # Получаем все CommunityAuthor для пользователя
-            all_community_authors = session.query(CommunityAuthor).filter(CommunityAuthor.author_id == user.id).all()
+            all_community_authors = session.query(CommunityAuthor).where(CommunityAuthor.author_id == user.id).all()
 
             # Сначала ищем точное совпадение по community_id
             community_author = (
                 session.query(CommunityAuthor)
-                .filter(CommunityAuthor.author_id == user.id, CommunityAuthor.community_id == community_id)
+                .where(CommunityAuthor.author_id == user.id, CommunityAuthor.community_id == community_id)
                 .first()
             )
 
@@ -93,15 +90,21 @@ class AdminService:
             if not community_author and all_community_authors:
                 community_author = all_community_authors[0]
 
-            if community_author:
-                # Проверяем, что roles не None и не пустая строка
-                if community_author.roles is not None and community_author.roles.strip():
-                    user_roles = community_author.role_list
+            if (
+                community_author
+                and community_author.roles is not None
+                and community_author.roles.strip()
+                and community_author.role_list
+            ):
+                user_roles = community_author.role_list
 
         # Добавляем синтетическую роль для системных админов
-        if user.email and user.email.lower() in [email.lower() for email in admin_emails]:
-            if "Системный администратор" not in user_roles:
-                user_roles.insert(0, "Системный администратор")
+        if (
+            user.email
+            and user.email.lower() in [email.lower() for email in admin_emails]
+            and "Системный администратор" not in user_roles
+        ):
+            user_roles.insert(0, "Системный администратор")
 
         return user_roles
 
@@ -116,7 +119,7 @@ class AdminService:
 
             if search and search.strip():
                 search_term = f"%{search.strip().lower()}%"
-                query = query.filter(
+                query = query.where(
                     or_(
                         Author.email.ilike(search_term),
                         Author.name.ilike(search_term),
@@ -161,13 +164,13 @@ class AdminService:
         slug = user_data.get("slug")
 
         with local_session() as session:
-            author = session.query(Author).filter(Author.id == user_id).first()
+            author = session.query(Author).where(Author.id == user_id).first()
             if not author:
                 return {"success": False, "error": f"Пользователь с ID {user_id} не найден"}
 
             # Обновляем основные поля
             if email is not None and email != author.email:
-                existing = session.query(Author).filter(Author.email == email, Author.id != user_id).first()
+                existing = session.query(Author).where(Author.email == email, Author.id != user_id).first()
                 if existing:
                     return {"success": False, "error": f"Email {email} уже используется"}
                 author.email = email
@@ -176,7 +179,7 @@ class AdminService:
                 author.name = name
 
             if slug is not None and slug != author.slug:
-                existing = session.query(Author).filter(Author.slug == slug, Author.id != user_id).first()
+                existing = session.query(Author).where(Author.slug == slug, Author.id != user_id).first()
                 if existing:
                     return {"success": False, "error": f"Slug {slug} уже используется"}
                 author.slug = slug
@@ -185,7 +188,7 @@ class AdminService:
             if roles is not None:
                 community_author = (
                     session.query(CommunityAuthor)
-                    .filter(CommunityAuthor.author_id == user_id_int, CommunityAuthor.community_id == 1)
+                    .where(CommunityAuthor.author_id == user_id_int, CommunityAuthor.community_id == 1)
                     .first()
                 )
 
@@ -211,37 +214,37 @@ class AdminService:
 
     # === ПУБЛИКАЦИИ ===
 
-    def get_shouts(
+    async def get_shouts(
         self,
-        limit: int = 20,
-        offset: int = 0,
+        page: int = 1,
+        per_page: int = 20,
         search: str = "",
         status: str = "all",
-        community: int = None,
+        community: int | None = None,
     ) -> dict[str, Any]:
         """Получает список публикаций"""
-        limit = max(1, min(100, limit or 10))
-        offset = max(0, offset or 0)
+        limit = max(1, min(100, per_page or 10))
+        offset = max(0, (page - 1) * limit)
 
         with local_session() as session:
             q = select(Shout).options(joinedload(Shout.authors), joinedload(Shout.topics))
 
             # Фильтр статуса
             if status == "published":
-                q = q.filter(Shout.published_at.isnot(None), Shout.deleted_at.is_(None))
+                q = q.where(Shout.published_at.isnot(None), Shout.deleted_at.is_(None))
             elif status == "draft":
-                q = q.filter(Shout.published_at.is_(None), Shout.deleted_at.is_(None))
+                q = q.where(Shout.published_at.is_(None), Shout.deleted_at.is_(None))
             elif status == "deleted":
-                q = q.filter(Shout.deleted_at.isnot(None))
+                q = q.where(Shout.deleted_at.isnot(None))
 
             # Фильтр по сообществу
             if community is not None:
-                q = q.filter(Shout.community == community)
+                q = q.where(Shout.community == community)
 
             # Поиск
             if search and search.strip():
                 search_term = f"%{search.strip().lower()}%"
-                q = q.filter(
+                q = q.where(
                     or_(
                         Shout.title.ilike(search_term),
                         Shout.slug.ilike(search_term),
@@ -284,8 +287,6 @@ class AdminService:
         if hasattr(shout, "media") and shout.media:
             if isinstance(shout.media, str):
                 try:
-                    import orjson
-
                     media_data = orjson.loads(shout.media)
                 except Exception:
                     media_data = []
@@ -351,7 +352,7 @@ class AdminService:
                 "slug": "discours",
             }
 
-        community = session.query(Community).filter(Community.id == community_id).first()
+        community = session.query(Community).where(Community.id == community_id).first()
         if community:
             return {
                 "id": community.id,
@@ -367,7 +368,7 @@ class AdminService:
     def restore_shout(self, shout_id: int) -> dict[str, Any]:
         """Восстанавливает удаленную публикацию"""
         with local_session() as session:
-            shout = session.query(Shout).filter(Shout.id == shout_id).first()
+            shout = session.query(Shout).where(Shout.id == shout_id).first()
 
             if not shout:
                 return {"success": False, "error": f"Публикация с ID {shout_id} не найдена"}
@@ -398,12 +399,12 @@ class AdminService:
             # Фильтр по статусу
             if status and status != "all":
                 status_enum = InviteStatus[status.upper()]
-                query = query.filter(Invite.status == status_enum.value)
+                query = query.where(Invite.status == status_enum.value)
 
             # Поиск
             if search and search.strip():
                 search_term = f"%{search.strip().lower()}%"
-                query = query.filter(
+                query = query.where(
                     or_(
                         Invite.inviter.has(Author.email.ilike(search_term)),
                         Invite.inviter.has(Author.name.ilike(search_term)),
@@ -471,7 +472,7 @@ class AdminService:
         with local_session() as session:
             invite = (
                 session.query(Invite)
-                .filter(
+                .where(
                     Invite.inviter_id == inviter_id,
                     Invite.author_id == author_id,
                     Invite.shout_id == shout_id,
@@ -494,7 +495,7 @@ class AdminService:
         with local_session() as session:
             invite = (
                 session.query(Invite)
-                .filter(
+                .where(
                     Invite.inviter_id == inviter_id,
                     Invite.author_id == author_id,
                     Invite.shout_id == shout_id,
@@ -515,7 +516,6 @@ class AdminService:
 
     async def get_env_variables(self) -> list[dict[str, Any]]:
         """Получает переменные окружения"""
-        env_manager = EnvManager()
         sections = await env_manager.get_all_variables()
 
         return [
@@ -527,7 +527,7 @@ class AdminService:
                         "key": var.key,
                         "value": var.value,
                         "description": var.description,
-                        "type": var.type,
+                        "type": var.type if hasattr(var, "type") else None,
                         "isSecret": var.is_secret,
                     }
                     for var in section.variables
@@ -539,8 +539,16 @@ class AdminService:
     async def update_env_variable(self, key: str, value: str) -> dict[str, Any]:
         """Обновляет переменную окружения"""
         try:
-            env_manager = EnvManager()
-            result = env_manager.update_variables([EnvVariable(key=key, value=value)])
+            result = await env_manager.update_variables(
+                [
+                    EnvVariable(
+                        key=key,
+                        value=value,
+                        description=env_manager.get_variable_description(key),
+                        is_secret=key in env_manager.SECRET_VARIABLES,
+                    )
+                ]
+            )
 
             if result:
                 logger.info(f"Переменная '{key}' обновлена")
@@ -553,13 +561,17 @@ class AdminService:
     async def update_env_variables(self, variables: list[dict[str, Any]]) -> dict[str, Any]:
         """Массовое обновление переменных окружения"""
         try:
-            env_manager = EnvManager()
             env_variables = [
-                EnvVariable(key=var.get("key", ""), value=var.get("value", ""), type=var.get("type", "string"))
+                EnvVariable(
+                    key=var.get("key", ""),
+                    value=var.get("value", ""),
+                    description=env_manager.get_variable_description(var.get("key", "")),
+                    is_secret=var.get("key", "") in env_manager.SECRET_VARIABLES,
+                )
                 for var in variables
             ]
 
-            result = env_manager.update_variables(env_variables)
+            result = await env_manager.update_variables(env_variables)
 
             if result:
                 logger.info(f"Обновлено {len(variables)} переменных")
@@ -571,15 +583,13 @@ class AdminService:
 
     # === РОЛИ ===
 
-    def get_roles(self, community: int = None) -> list[dict[str, Any]]:
+    def get_roles(self, community: int | None = None) -> list[dict[str, Any]]:
         """Получает список ролей"""
-        from orm.community import role_descriptions, role_names
-
         all_roles = ["reader", "author", "artist", "expert", "editor", "admin"]
 
         if community is not None:
             with local_session() as session:
-                community_obj = session.query(Community).filter(Community.id == community).first()
+                community_obj = session.query(Community).where(Community.id == community).first()
                 available_roles = community_obj.get_available_roles() if community_obj else all_roles
         else:
             available_roles = all_roles

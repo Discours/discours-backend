@@ -2,28 +2,21 @@
 Auth резолверы - тонкие GraphQL обёртки над AuthService
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 from graphql import GraphQLResolveInfo
-from graphql.error import GraphQLError
+from starlette.responses import JSONResponse
 
 from services.auth import auth_service
 from services.schema import mutation, query, type_author
 from settings import SESSION_COOKIE_NAME
 from utils.logger import root_logger as logger
 
-
-def handle_error(operation: str, error: Exception) -> GraphQLError:
-    """Обрабатывает ошибки в резолверах"""
-    logger.error(f"Ошибка при {operation}: {error}")
-    return GraphQLError(f"Не удалось {operation}: {error}")
-
-
 # === РЕЗОЛВЕР ДЛЯ ТИПА AUTHOR ===
 
 
 @type_author.field("roles")
-def resolve_roles(obj: Union[Dict, Any], info: GraphQLResolveInfo) -> List[str]:
+def resolve_roles(obj: Union[dict, Any], info: GraphQLResolveInfo) -> list[str]:
     """Резолвер для поля roles автора"""
     try:
         if hasattr(obj, "get_roles"):
@@ -60,13 +53,13 @@ async def register_user(
 @mutation.field("sendLink")
 async def send_link(
     _: None, _info: GraphQLResolveInfo, email: str, lang: str = "ru", template: str = "confirm"
-) -> dict[str, Any]:
+) -> bool:
     """Отправляет ссылку подтверждения"""
     try:
-        result = await auth_service.send_verification_link(email, lang, template)
-        return result
+        return bool(await auth_service.send_verification_link(email, lang, template))
     except Exception as e:
-        raise handle_error("отправке ссылки подтверждения", e) from e
+        logger.error(f"Ошибка отправки ссылки подтверждения: {e}")
+        return False
 
 
 @mutation.field("confirmEmail")
@@ -93,8 +86,6 @@ async def login(_: None, info: GraphQLResolveInfo, **kwargs: Any) -> dict[str, A
         # Устанавливаем cookie если есть токен
         if result.get("success") and result.get("token") and request:
             try:
-                from starlette.responses import JSONResponse
-
                 if not hasattr(info.context, "response"):
                     response = JSONResponse({})
                     response.set_cookie(

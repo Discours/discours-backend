@@ -2,21 +2,30 @@
 Админ-резолверы - тонкие GraphQL обёртки над AdminService
 """
 
-from typing import Any
+import time
+from typing import Any, Optional
 
-from graphql import GraphQLResolveInfo
-from graphql.error import GraphQLError
+from graphql import GraphQLError, GraphQLResolveInfo
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.orm import aliased
 
 from auth.decorators import admin_auth_required
-from services.admin import admin_service
+from auth.orm import Author
+from orm.community import Community, CommunityAuthor
+from orm.draft import DraftTopic
+from orm.reaction import Reaction
+from orm.shout import Shout, ShoutTopic
+from orm.topic import Topic, TopicFollower
+from resolvers.editor import delete_shout, update_shout
+from resolvers.topic import invalidate_topic_followers_cache, invalidate_topics_cache
+from services.admin import AdminService
+from services.common_result import handle_error
+from services.db import local_session
+from services.redis import redis
 from services.schema import mutation, query
 from utils.logger import root_logger as logger
 
-
-def handle_error(operation: str, error: Exception) -> GraphQLError:
-    """Обрабатывает ошибки в резолверах"""
-    logger.error(f"Ошибка при {operation}: {error}")
-    return GraphQLError(f"Не удалось {operation}: {error}")
+admin_service = AdminService()
 
 
 # === ПОЛЬЗОВАТЕЛИ ===
@@ -53,15 +62,15 @@ async def admin_update_user(_: None, _info: GraphQLResolveInfo, user: dict[str, 
 async def admin_get_shouts(
     _: None,
     _info: GraphQLResolveInfo,
-    limit: int = 20,
+    limit: int = 10,
     offset: int = 0,
     search: str = "",
     status: str = "all",
-    community: int = None,
+    community: Optional[int] = None,
 ) -> dict[str, Any]:
     """Получает список публикаций"""
     try:
-        return admin_service.get_shouts(limit, offset, search, status, community)
+        return await admin_service.get_shouts(limit, offset, search, status, community)
     except Exception as e:
         raise handle_error("получении списка публикаций", e) from e
 
@@ -71,8 +80,6 @@ async def admin_get_shouts(
 async def admin_update_shout(_: None, info: GraphQLResolveInfo, shout: dict[str, Any]) -> dict[str, Any]:
     """Обновляет публикацию через editor.py"""
     try:
-        from resolvers.editor import update_shout
-
         shout_id = shout.get("id")
         if not shout_id:
             return {"success": False, "error": "ID публикации не указан"}
@@ -95,8 +102,6 @@ async def admin_update_shout(_: None, info: GraphQLResolveInfo, shout: dict[str,
 async def admin_delete_shout(_: None, info: GraphQLResolveInfo, shout_id: int) -> dict[str, Any]:
     """Удаляет публикацию через editor.py"""
     try:
-        from resolvers.editor import delete_shout
-
         result = await delete_shout(None, info, shout_id)
         if result.error:
             return {"success": False, "error": result.error}
@@ -163,37 +168,9 @@ async def admin_delete_invite(
 
 @query.field("adminGetTopics")
 @admin_auth_required
-async def admin_get_topics(_: None, _info: GraphQLResolveInfo, community_id: int) -> list[dict[str, Any]]:
-    """Получает все топики сообщества для админ-панели"""
-    try:
-        from orm.topic import Topic
-        from services.db import local_session
-
-        with local_session() as session:
-            # Получаем все топики сообщества без лимитов
-            topics = session.query(Topic).filter(Topic.community == community_id).order_by(Topic.id).all()
-
-            # Сериализуем топики в простой формат для админки
-            result: list[dict[str, Any]] = [
-                {
-                    "id": topic.id,
-                    "title": topic.title or "",
-                    "slug": topic.slug or f"topic-{topic.id}",
-                    "body": topic.body or "",
-                    "community": topic.community,
-                    "parent_ids": topic.parent_ids or [],
-                    "pic": topic.pic,
-                    "oid": getattr(topic, "oid", None),
-                    "is_main": getattr(topic, "is_main", False),
-                }
-                for topic in topics
-            ]
-
-            logger.info(f"Загружено топиков для сообщества: {len(result)}")
-            return result
-
-    except Exception as e:
-        raise handle_error("получении списка топиков", e) from e
+async def admin_get_topics(_: None, _info: GraphQLResolveInfo, community_id: int) -> list[Topic]:
+    with local_session() as session:
+        return session.query(Topic).where(Topic.community == community_id).all()
 
 
 @mutation.field("adminUpdateTopic")
@@ -201,17 +178,12 @@ async def admin_get_topics(_: None, _info: GraphQLResolveInfo, community_id: int
 async def admin_update_topic(_: None, _info: GraphQLResolveInfo, topic: dict[str, Any]) -> dict[str, Any]:
     """Обновляет топик через админ-панель"""
     try:
-        from orm.topic import Topic
-        from resolvers.topic import invalidate_topics_cache
-        from services.db import local_session
-        from services.redis import redis
-
         topic_id = topic.get("id")
         if not topic_id:
             return {"success": False, "error": "ID топика не указан"}
 
         with local_session() as session:
-            existing_topic = session.query(Topic).filter(Topic.id == topic_id).first()
+            existing_topic = session.query(Topic).where(Topic.id == topic_id).first()
             if not existing_topic:
                 return {"success": False, "error": "Топик не найден"}
 
@@ -248,10 +220,6 @@ async def admin_update_topic(_: None, _info: GraphQLResolveInfo, topic: dict[str
 async def admin_create_topic(_: None, _info: GraphQLResolveInfo, topic: dict[str, Any]) -> dict[str, Any]:
     """Создает новый топик через админ-панель"""
     try:
-        from orm.topic import Topic
-        from resolvers.topic import invalidate_topics_cache
-        from services.db import local_session
-
         with local_session() as session:
             # Создаем новый топик
             new_topic = Topic(**topic)
@@ -285,13 +253,6 @@ async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: di
         dict: Результат операции с информацией о слиянии
     """
     try:
-        from orm.draft import DraftTopic
-        from orm.shout import ShoutTopic
-        from orm.topic import Topic, TopicFollower
-        from resolvers.topic import invalidate_topic_followers_cache, invalidate_topics_cache
-        from services.db import local_session
-        from services.redis import redis
-
         target_topic_id = merge_input["target_topic_id"]
         source_topic_ids = merge_input["source_topic_ids"]
         preserve_target = merge_input.get("preserve_target_properties", True)
@@ -302,12 +263,12 @@ async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: di
 
         with local_session() as session:
             # Получаем целевую тему
-            target_topic = session.query(Topic).filter(Topic.id == target_topic_id).first()
+            target_topic = session.query(Topic).where(Topic.id == target_topic_id).first()
             if not target_topic:
                 return {"success": False, "error": f"Целевая тема с ID {target_topic_id} не найдена"}
 
             # Получаем исходные темы
-            source_topics = session.query(Topic).filter(Topic.id.in_(source_topic_ids)).all()
+            source_topics = session.query(Topic).where(Topic.id.in_(source_topic_ids)).all()
             if len(source_topics) != len(source_topic_ids):
                 found_ids = [t.id for t in source_topics]
                 missing_ids = [topic_id for topic_id in source_topic_ids if topic_id not in found_ids]
@@ -325,13 +286,13 @@ async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: di
             # Переносим подписчиков из исходных тем в целевую
             for source_topic in source_topics:
                 # Получаем подписчиков исходной темы
-                source_followers = session.query(TopicFollower).filter(TopicFollower.topic == source_topic.id).all()
+                source_followers = session.query(TopicFollower).where(TopicFollower.topic == source_topic.id).all()
 
                 for follower in source_followers:
                     # Проверяем, не подписан ли уже пользователь на целевую тему
                     existing = (
                         session.query(TopicFollower)
-                        .filter(TopicFollower.topic == target_topic_id, TopicFollower.follower == follower.follower)
+                        .where(TopicFollower.topic == target_topic_id, TopicFollower.follower == follower.follower)
                         .first()
                     )
 
@@ -352,17 +313,18 @@ async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: di
             # Переносим публикации из исходных тем в целевую
             for source_topic in source_topics:
                 # Получаем связи публикаций с исходной темой
-                shout_topics = session.query(ShoutTopic).filter(ShoutTopic.topic == source_topic.id).all()
+                shout_topics = session.query(ShoutTopic).where(ShoutTopic.topic == source_topic.id).all()
 
                 for shout_topic in shout_topics:
                     # Проверяем, не связана ли уже публикация с целевой темой
-                    existing = (
+                    existing_shout_topic: ShoutTopic | None = (
                         session.query(ShoutTopic)
-                        .filter(ShoutTopic.topic == target_topic_id, ShoutTopic.shout == shout_topic.shout)
+                        .where(ShoutTopic.topic == target_topic_id)
+                        .where(ShoutTopic.shout == shout_topic.shout)
                         .first()
                     )
 
-                    if not existing:
+                    if not existing_shout_topic:
                         # Создаем новую связь с целевой темой
                         new_shout_topic = ShoutTopic(
                             topic=target_topic_id, shout=shout_topic.shout, main=shout_topic.main
@@ -376,20 +338,21 @@ async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: di
             # Переносим черновики из исходных тем в целевую
             for source_topic in source_topics:
                 # Получаем связи черновиков с исходной темой
-                draft_topics = session.query(DraftTopic).filter(DraftTopic.topic == source_topic.id).all()
+                draft_topics = session.query(DraftTopic).where(DraftTopic.topic == source_topic.id).all()
 
                 for draft_topic in draft_topics:
                     # Проверяем, не связан ли уже черновик с целевой темой
-                    existing = (
+                    existing_draft_topic: DraftTopic | None = (
                         session.query(DraftTopic)
-                        .filter(DraftTopic.topic == target_topic_id, DraftTopic.shout == draft_topic.shout)
+                        .where(DraftTopic.topic == target_topic_id)
+                        .where(DraftTopic.draft == draft_topic.draft)
                         .first()
                     )
 
-                    if not existing:
+                    if not existing_draft_topic:
                         # Создаем новую связь с целевой темой
                         new_draft_topic = DraftTopic(
-                            topic=target_topic_id, shout=draft_topic.shout, main=draft_topic.main
+                            topic=target_topic_id, draft=draft_topic.draft, main=draft_topic.main
                         )
                         session.add(new_draft_topic)
                         merge_stats["drafts_moved"] += 1
@@ -400,7 +363,7 @@ async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: di
             # Обновляем parent_ids дочерних топиков
             for source_topic in source_topics:
                 # Находим всех детей исходной темы
-                child_topics = session.query(Topic).filter(Topic.parent_ids.contains(int(source_topic.id))).all()  # type: ignore[arg-type]
+                child_topics = session.query(Topic).where(Topic.parent_ids.contains(int(source_topic.id))).all()  # type: ignore[arg-type]
 
                 for child_topic in child_topics:
                     current_parent_ids = list(child_topic.parent_ids or [])
@@ -409,7 +372,7 @@ async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: di
                         target_topic_id if parent_id == source_topic.id else parent_id
                         for parent_id in current_parent_ids
                     ]
-                    child_topic.parent_ids = updated_parent_ids
+                    child_topic.parent_ids = list(updated_parent_ids)
 
             # Объединяем parent_ids если не сохраняем только целевые свойства
             if not preserve_target:
@@ -423,7 +386,7 @@ async def admin_merge_topics(_: None, _info: GraphQLResolveInfo, merge_input: di
                 all_parent_ids.discard(target_topic_id)
                 for source_id in source_topic_ids:
                     all_parent_ids.discard(source_id)
-                target_topic.parent_ids = list(all_parent_ids) if all_parent_ids else []
+                target_topic.parent_ids = list(all_parent_ids) if all_parent_ids else None
 
             # Инвалидируем кеши ПЕРЕД удалением тем
             for source_topic in source_topics:
@@ -493,7 +456,7 @@ async def update_env_variables(_: None, _info: GraphQLResolveInfo, variables: li
 
 @query.field("adminGetRoles")
 @admin_auth_required
-async def admin_get_roles(_: None, _info: GraphQLResolveInfo, community: int = None) -> list[dict[str, Any]]:
+async def admin_get_roles(_: None, _info: GraphQLResolveInfo, community: int | None = None) -> list[dict[str, Any]]:
     """Получает список ролей"""
     try:
         return admin_service.get_roles(community)
@@ -513,14 +476,12 @@ async def admin_get_user_community_roles(
 ) -> dict[str, Any]:
     """Получает роли пользователя в сообществе"""
     # [непроверенное] Временная заглушка - нужно вынести в сервис
-    from orm.community import CommunityAuthor
-    from services.db import local_session
 
     try:
         with local_session() as session:
             community_author = (
                 session.query(CommunityAuthor)
-                .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .where(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
                 .first()
             )
 
@@ -540,25 +501,20 @@ async def admin_get_community_members(
 ) -> dict[str, Any]:
     """Получает участников сообщества"""
     # [непроверенное] Временная заглушка - нужно вынести в сервис
-    from sqlalchemy.sql import func
-
-    from auth.orm import Author
-    from orm.community import CommunityAuthor
-    from services.db import local_session
 
     try:
         with local_session() as session:
             members_query = (
                 session.query(Author, CommunityAuthor)
                 .join(CommunityAuthor, Author.id == CommunityAuthor.author_id)
-                .filter(CommunityAuthor.community_id == community_id)
+                .where(CommunityAuthor.community_id == community_id)
                 .offset(offset)
                 .limit(limit)
             )
 
-            members = []
+            members: list[dict[str, Any]] = []
             for author, community_author in members_query:
-                roles = []
+                roles: list[str] = []
                 if community_author.roles:
                     roles = [role.strip() for role in community_author.roles.split(",") if role.strip()]
 
@@ -574,7 +530,7 @@ async def admin_get_community_members(
 
             total = (
                 session.query(func.count(CommunityAuthor.author_id))
-                .filter(CommunityAuthor.community_id == community_id)
+                .where(CommunityAuthor.community_id == community_id)
                 .scalar()
             )
 
@@ -589,12 +545,10 @@ async def admin_get_community_members(
 async def admin_get_community_role_settings(_: None, _info: GraphQLResolveInfo, community_id: int) -> dict[str, Any]:
     """Получает настройки ролей сообщества"""
     # [непроверенное] Временная заглушка - нужно вынести в сервис
-    from orm.community import Community
-    from services.db import local_session
 
     try:
         with local_session() as session:
-            community = session.query(Community).filter(Community.id == community_id).first()
+            community = session.query(Community).where(Community.id == community_id).first()
             if not community:
                 return {
                     "community_id": community_id,
@@ -630,20 +584,12 @@ async def admin_get_reactions(
     limit: int = 20,
     offset: int = 0,
     search: str = "",
-    kind: str = None,
-    shout_id: int = None,
+    kind: str | None = None,
+    shout_id: int | None = None,
     status: str = "all",
 ) -> dict[str, Any]:
     """Получает список реакций для админ-панели"""
     try:
-        from sqlalchemy import and_, case, func, or_
-        from sqlalchemy.orm import aliased
-
-        from auth.orm import Author
-        from orm.reaction import Reaction
-        from orm.shout import Shout
-        from services.db import local_session
-
         with local_session() as session:
             # Базовый запрос с джойнами
             query = (
@@ -653,7 +599,7 @@ async def admin_get_reactions(
             )
 
             # Фильтрация
-            filters = []
+            filters: list[Any] = []
 
             # Фильтр по статусу (как в публикациях)
             if status == "active":
@@ -677,7 +623,7 @@ async def admin_get_reactions(
                 filters.append(Reaction.shout == shout_id)
 
             if filters:
-                query = query.filter(and_(*filters))
+                query = query.where(and_(*filters))
 
             # Общее количество
             total = query.count()
@@ -686,7 +632,7 @@ async def admin_get_reactions(
             reactions_data = query.order_by(Reaction.created_at.desc()).offset(offset).limit(limit).all()
 
             # Формируем результат
-            reactions = []
+            reactions: list[dict[str, Any]] = []
             for reaction, author, shout in reactions_data:
                 # Получаем статистику для каждой реакции
                 aliased_reaction = aliased(Reaction)
@@ -699,7 +645,7 @@ async def admin_get_reactions(
                             )
                         ).label("rating"),
                     )
-                    .filter(
+                    .where(
                         aliased_reaction.reply_to == reaction.id,
                         # Убираем фильтр deleted_at чтобы включить все реакции в статистику
                     )
@@ -760,18 +706,13 @@ async def admin_get_reactions(
 async def admin_update_reaction(_: None, _info: GraphQLResolveInfo, reaction: dict[str, Any]) -> dict[str, Any]:
     """Обновляет реакцию"""
     try:
-        import time
-
-        from orm.reaction import Reaction
-        from services.db import local_session
-
         reaction_id = reaction.get("id")
         if not reaction_id:
             return {"success": False, "error": "ID реакции не указан"}
 
         with local_session() as session:
             # Находим реакцию
-            db_reaction = session.query(Reaction).filter(Reaction.id == reaction_id).first()
+            db_reaction = session.query(Reaction).where(Reaction.id == reaction_id).first()
             if not db_reaction:
                 return {"success": False, "error": "Реакция не найдена"}
 
@@ -779,10 +720,10 @@ async def admin_update_reaction(_: None, _info: GraphQLResolveInfo, reaction: di
             if "body" in reaction:
                 db_reaction.body = reaction["body"]
             if "deleted_at" in reaction:
-                db_reaction.deleted_at = reaction["deleted_at"]
+                db_reaction.deleted_at = int(time.time())  # type: ignore[assignment]
 
             # Обновляем время изменения
-            db_reaction.updated_at = int(time.time())
+            db_reaction.updated_at = int(time.time())  # type: ignore[assignment]
 
             session.commit()
 
@@ -799,19 +740,14 @@ async def admin_update_reaction(_: None, _info: GraphQLResolveInfo, reaction: di
 async def admin_delete_reaction(_: None, _info: GraphQLResolveInfo, reaction_id: int) -> dict[str, Any]:
     """Удаляет реакцию (мягкое удаление)"""
     try:
-        import time
-
-        from orm.reaction import Reaction
-        from services.db import local_session
-
         with local_session() as session:
             # Находим реакцию
-            db_reaction = session.query(Reaction).filter(Reaction.id == reaction_id).first()
+            db_reaction = session.query(Reaction).where(Reaction.id == reaction_id).first()
             if not db_reaction:
                 return {"success": False, "error": "Реакция не найдена"}
 
             # Устанавливаем время удаления
-            db_reaction.deleted_at = int(time.time())
+            db_reaction.deleted_at = int(time.time())  # type: ignore[assignment]
 
             session.commit()
 
@@ -828,12 +764,9 @@ async def admin_delete_reaction(_: None, _info: GraphQLResolveInfo, reaction_id:
 async def admin_restore_reaction(_: None, _info: GraphQLResolveInfo, reaction_id: int) -> dict[str, Any]:
     """Восстанавливает удаленную реакцию"""
     try:
-        from orm.reaction import Reaction
-        from services.db import local_session
-
         with local_session() as session:
             # Находим реакцию
-            db_reaction = session.query(Reaction).filter(Reaction.id == reaction_id).first()
+            db_reaction = session.query(Reaction).where(Reaction.id == reaction_id).first()
             if not db_reaction:
                 return {"success": False, "error": "Реакция не найдена"}
 

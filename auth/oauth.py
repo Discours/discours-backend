@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 
 from auth.orm import Author
 from auth.tokens.storage import TokenStorage
+from orm.community import Community, CommunityAuthor, CommunityFollower
 from services.db import local_session
 from services.redis import redis
 from settings import (
@@ -531,7 +532,7 @@ async def _create_or_update_user(provider: str, profile: dict) -> Author:
             # Ищем пользователя по email если есть настоящий email
             author = None
             if email and not email.endswith(TEMP_EMAIL_SUFFIX):
-                author = session.query(Author).filter(Author.email == email).first()
+                author = session.query(Author).where(Author.email == email).first()
 
             if author:
                 # Пользователь найден по email - добавляем OAuth данные
@@ -559,9 +560,6 @@ def _update_author_profile(author: Author, profile: dict) -> None:
 
 def _create_new_oauth_user(provider: str, profile: dict, email: str, session: Any) -> Author:
     """Создает нового пользователя из OAuth профиля"""
-    from orm.community import Community, CommunityAuthor, CommunityFollower
-    from utils.logger import root_logger as logger
-
     slug = generate_unique_slug(profile["name"] or f"{provider}_{profile.get('id', 'user')}")
 
     author = Author(
@@ -584,20 +582,32 @@ def _create_new_oauth_user(provider: str, profile: dict, email: str, session: An
     target_community_id = 1  # Основное сообщество
 
     # Получаем сообщество для назначения дефолтных ролей
-    community = session.query(Community).filter(Community.id == target_community_id).first()
+    community = session.query(Community).where(Community.id == target_community_id).first()
     if community:
         default_roles = community.get_default_roles()
 
-        # Создаем CommunityAuthor с дефолтными ролями
-        community_author = CommunityAuthor(
-            community_id=target_community_id, author_id=author.id, roles=",".join(default_roles)
+        # Проверяем, не существует ли уже запись CommunityAuthor
+        existing_ca = (
+            session.query(CommunityAuthor).filter_by(community_id=target_community_id, author_id=author.id).first()
         )
-        session.add(community_author)
-        logger.info(f"Создана запись CommunityAuthor для OAuth пользователя {author.id} с ролями: {default_roles}")
 
-        # Добавляем пользователя в подписчики сообщества
-        follower = CommunityFollower(community=target_community_id, follower=int(author.id))
-        session.add(follower)
-        logger.info(f"OAuth пользователь {author.id} добавлен в подписчики сообщества {target_community_id}")
+        if not existing_ca:
+            # Создаем CommunityAuthor с дефолтными ролями
+            community_author = CommunityAuthor(
+                community_id=target_community_id, author_id=author.id, roles=",".join(default_roles)
+            )
+            session.add(community_author)
+            logger.info(f"Создана запись CommunityAuthor для OAuth пользователя {author.id} с ролями: {default_roles}")
+
+        # Проверяем, не существует ли уже запись подписчика
+        existing_follower = (
+            session.query(CommunityFollower).filter_by(community=target_community_id, follower=int(author.id)).first()
+        )
+
+        if not existing_follower:
+            # Добавляем пользователя в подписчики сообщества
+            follower = CommunityFollower(community=target_community_id, follower=int(author.id))
+            session.add(follower)
+            logger.info(f"OAuth пользователь {author.id} добавлен в подписчики сообщества {target_community_id}")
 
     return author

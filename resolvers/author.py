@@ -1,11 +1,13 @@
 import asyncio
 import time
+import traceback
 from typing import Any, Optional, TypedDict
 
 from graphql import GraphQLResolveInfo
-from sqlalchemy import select, text
+from sqlalchemy import and_, asc, func, select, text
+from sqlalchemy.sql import desc as sql_desc
 
-from auth.orm import Author
+from auth.orm import Author, AuthorFollower
 from cache.cache import (
     cache_author,
     cached_query,
@@ -15,6 +17,8 @@ from cache.cache import (
     get_cached_follower_topics,
     invalidate_cache_by_prefix,
 )
+from orm.community import Community, CommunityAuthor, CommunityFollower
+from orm.shout import Shout, ShoutAuthor
 from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.common_result import CommonResult
@@ -80,7 +84,7 @@ async def get_all_authors(current_user_id: Optional[int] = None) -> list[Any]:
             authors = session.execute(authors_query).scalars().unique().all()
 
             # Преобразуем авторов в словари с учетом прав доступа
-            return [author.dict(False) for author in authors]
+            return [author.dict() for author in authors]
 
     # Используем универсальную функцию для кеширования запросов
     return await cached_query(cache_key, fetch_all_authors)
@@ -89,7 +93,7 @@ async def get_all_authors(current_user_id: Optional[int] = None) -> list[Any]:
 # Вспомогательная функция для получения авторов со статистикой с пагинацией
 async def get_authors_with_stats(
     limit: int = 10, offset: int = 0, by: Optional[AuthorsBy] = None, current_user_id: Optional[int] = None
-):
+) -> list[dict[str, Any]]:
     """
     Получает авторов со статистикой с пагинацией.
 
@@ -111,13 +115,6 @@ async def get_authors_with_stats(
         Выполняет запрос к базе данных для получения авторов со статистикой.
         """
         logger.debug(f"Выполняем запрос на получение авторов со статистикой: limit={limit}, offset={offset}, by={by}")
-
-        # Импорты SQLAlchemy для избежания конфликтов имен
-        from sqlalchemy import and_, asc, func
-        from sqlalchemy import desc as sql_desc
-
-        from auth.orm import AuthorFollower
-        from orm.shout import Shout, ShoutAuthor
 
         with local_session() as session:
             # Базовый запрос для получения авторов
@@ -303,7 +300,7 @@ async def invalidate_authors_cache(author_id=None) -> None:
 
         # Получаем author_id автора, если есть
         with local_session() as session:
-            author = session.query(Author).filter(Author.id == author_id).first()
+            author = session.query(Author).where(Author.id == author_id).first()
             if author and Author.id:
                 specific_keys.append(f"author:id:{Author.id}")
 
@@ -355,8 +352,6 @@ async def update_author(_: None, info: GraphQLResolveInfo, profile: dict[str, An
         # Если мы дошли до сюда, значит автор не найден
         return CommonResult(error="Author not found", author=None)
     except Exception as exc:
-        import traceback
-
         logger.error(traceback.format_exc())
         return CommonResult(error=str(exc), author=None)
 
@@ -403,13 +398,13 @@ async def get_author(
 
         if not author_dict or not author_dict.get("stat"):
             # update stat from db
-            author_query = select(Author).filter(Author.id == author_id)
+            author_query = select(Author).where(Author.id == author_id)
             result = get_with_stat(author_query)
             if result:
                 author_with_stat = result[0]
                 if isinstance(author_with_stat, Author):
                     # Кэшируем полные данные для админов
-                    original_dict = author_with_stat.dict(True)
+                    original_dict = author_with_stat.dict()
                     _t = asyncio.create_task(cache_author(original_dict))
 
                     # Возвращаем отфильтрованную версию
@@ -420,8 +415,6 @@ async def get_author(
     except ValueError:
         pass
     except Exception as exc:
-        import traceback
-
         logger.error(f"{exc}:\n{traceback.format_exc()}")
     return author_dict
 
@@ -446,8 +439,6 @@ async def load_authors_by(
         # Используем оптимизированную функцию для получения авторов
         return await get_authors_with_stats(limit, offset, by, viewer_id)
     except Exception as exc:
-        import traceback
-
         logger.error(f"{exc}:\n{traceback.format_exc()}")
         return []
 
@@ -469,11 +460,11 @@ def get_author_id_from(
         with local_session() as session:
             author = None
             if slug:
-                author = session.query(Author).filter(Author.slug == slug).first()
+                author = session.query(Author).where(Author.slug == slug).first()
                 if author:
                     return int(author.id)
             if user:
-                author = session.query(Author).filter(Author.id == user).first()
+                author = session.query(Author).where(Author.id == user).first()
                 if author:
                     return int(author.id)
     except Exception as exc:
@@ -598,8 +589,6 @@ def create_author(**kwargs) -> Author:
     author.name = kwargs.get("name") or kwargs.get("slug")  # type: ignore[assignment] # если не указано  # type: ignore[assignment]
 
     with local_session() as session:
-        from orm.community import Community, CommunityAuthor, CommunityFollower
-
         session.add(author)
         session.flush()  # Получаем ID автора
 
@@ -607,7 +596,7 @@ def create_author(**kwargs) -> Author:
         target_community_id = kwargs.get("community_id", 1)  # По умолчанию основное сообщество
 
         # Получаем сообщество для назначения дефолтных ролей
-        community = session.query(Community).filter(Community.id == target_community_id).first()
+        community = session.query(Community).where(Community.id == target_community_id).first()
         if community:
             default_roles = community.get_default_roles()
 

@@ -2,8 +2,8 @@ from typing import Any, Optional
 
 import orjson
 from graphql import GraphQLResolveInfo
-from sqlalchemy import and_, nulls_last, text
-from sqlalchemy.orm import aliased
+from sqlalchemy import Select, and_, nulls_last, text
+from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.expression import asc, case, desc, func, select
 
 from auth.orm import Author
@@ -12,12 +12,12 @@ from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic
 from services.db import json_array_builder, json_builder, local_session
 from services.schema import query
-from services.search import search_text
+from services.search import SearchService, search_text
 from services.viewed import ViewedStorage
 from utils.logger import root_logger as logger
 
 
-def apply_options(q: select, options: dict[str, Any], reactions_created_by: int = 0) -> tuple[select, int, int]:
+def apply_options(q: Select, options: dict[str, Any], reactions_created_by: int = 0) -> tuple[Select, int, int]:
     """
     Применяет опции фильтрации и сортировки
     [опционально] выбирая те публикации, на которые есть реакции/комментарии от указанного автора
@@ -32,9 +32,9 @@ def apply_options(q: select, options: dict[str, Any], reactions_created_by: int 
         q = apply_filters(q, filters)
         if reactions_created_by:
             q = q.join(Reaction, Reaction.shout == Shout.id)
-            q = q.filter(Reaction.created_by == reactions_created_by)
+            q = q.where(Reaction.created_by == reactions_created_by)
             if "commented" in filters:
-                q = q.filter(Reaction.body.is_not(None))
+                q = q.where(Reaction.body.is_not(None))
     q = apply_sorting(q, options)
     limit = options.get("limit", 10)
     offset = options.get("offset", 0)
@@ -58,14 +58,14 @@ def has_field(info: GraphQLResolveInfo, fieldname: str) -> bool:
     return False
 
 
-def query_with_stat(info: GraphQLResolveInfo) -> select:
+def query_with_stat(info: GraphQLResolveInfo) -> Select:
     """
     :param info: Информация о контексте GraphQL - для получения id авторизованного пользователя
     :return: Запрос с подзапросами статистики.
 
     Добавляет подзапрос статистики
     """
-    q = select(Shout).filter(
+    q = select(Shout).where(
         and_(
             Shout.published_at.is_not(None),  # type: ignore[union-attr]
             Shout.deleted_at.is_(None),  # type: ignore[union-attr]
@@ -158,7 +158,7 @@ def query_with_stat(info: GraphQLResolveInfo) -> select:
             select(
                 Reaction.shout,
                 func.count(func.distinct(Reaction.id))
-                .filter(Reaction.kind == ReactionKind.COMMENT.value)
+                .where(Reaction.kind == ReactionKind.COMMENT.value)
                 .label("comments_count"),
                 func.sum(
                     case(
@@ -167,10 +167,10 @@ def query_with_stat(info: GraphQLResolveInfo) -> select:
                         else_=0,
                     )
                 )
-                .filter(Reaction.reply_to.is_(None))
+                .where(Reaction.reply_to.is_(None))
                 .label("rating"),
                 func.max(Reaction.created_at)
-                .filter(Reaction.kind == ReactionKind.COMMENT.value)
+                .where(Reaction.kind == ReactionKind.COMMENT.value)
                 .label("last_commented_at"),
             )
             .where(Reaction.deleted_at.is_(None))
@@ -192,7 +192,7 @@ def query_with_stat(info: GraphQLResolveInfo) -> select:
     return q
 
 
-def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, offset: int = 0) -> list[Shout]:
+def get_shouts_with_links(info: GraphQLResolveInfo, q: Select, limit: int = 20, offset: int = 0) -> list[Shout]:
     """
     получение публикаций с применением пагинации
     """
@@ -222,7 +222,7 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
                         # Обработка поля created_by
                         if has_field(info, "created_by") and shout_dict.get("created_by"):
                             main_author_id = shout_dict.get("created_by")
-                            a = session.query(Author).filter(Author.id == main_author_id).first()
+                            a = session.query(Author).where(Author.id == main_author_id).first()
                             if a:
                                 shout_dict["created_by"] = {
                                     "id": main_author_id,
@@ -235,7 +235,7 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
                         if has_field(info, "updated_by"):
                             if shout_dict.get("updated_by"):
                                 updated_by_id = shout_dict.get("updated_by")
-                                updated_author = session.query(Author).filter(Author.id == updated_by_id).first()
+                                updated_author = session.query(Author).where(Author.id == updated_by_id).first()
                                 if updated_author:
                                     shout_dict["updated_by"] = {
                                         "id": updated_author.id,
@@ -254,7 +254,7 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
                         if has_field(info, "deleted_by"):
                             if shout_dict.get("deleted_by"):
                                 deleted_by_id = shout_dict.get("deleted_by")
-                                deleted_author = session.query(Author).filter(Author.id == deleted_by_id).first()
+                                deleted_author = session.query(Author).where(Author.id == deleted_by_id).first()
                                 if deleted_author:
                                     shout_dict["deleted_by"] = {
                                         "id": deleted_author.id,
@@ -347,7 +347,7 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: select, limit: int = 20, 
     return shouts
 
 
-def apply_filters(q: select, filters: dict[str, Any]) -> select:
+def apply_filters(q: Select, filters: dict[str, Any]) -> Select:
     """
     Применение общих фильтров к запросу.
 
@@ -360,23 +360,23 @@ def apply_filters(q: select, filters: dict[str, Any]) -> select:
             featured_filter = filters.get("featured")
             featured_at_col = getattr(Shout, "featured_at", None)
             if featured_at_col is not None:
-                q = q.filter(featured_at_col.is_not(None)) if featured_filter else q.filter(featured_at_col.is_(None))
+                q = q.where(featured_at_col.is_not(None)) if featured_filter else q.where(featured_at_col.is_(None))
         by_layouts = filters.get("layouts")
         if by_layouts and isinstance(by_layouts, list):
-            q = q.filter(Shout.layout.in_(by_layouts))
+            q = q.where(Shout.layout.in_(by_layouts))
         by_author = filters.get("author")
         if by_author:
-            q = q.filter(Shout.authors.any(slug=by_author))
+            q = q.where(Shout.authors.any(slug=by_author))
         by_topic = filters.get("topic")
         if by_topic:
-            q = q.filter(Shout.topics.any(slug=by_topic))
+            q = q.where(Shout.topics.any(slug=by_topic))
         by_after = filters.get("after")
         if by_after:
             ts = int(by_after)
-            q = q.filter(Shout.created_at > ts)
+            q = q.where(Shout.created_at > ts)
         by_community = filters.get("community")
         if by_community:
-            q = q.filter(Shout.community == by_community)
+            q = q.where(Shout.community == by_community)
 
     return q
 
@@ -417,7 +417,7 @@ async def get_shout(_: None, info: GraphQLResolveInfo, slug: str = "", shout_id:
         return None
 
 
-def apply_sorting(q: select, options: dict[str, Any]) -> select:
+def apply_sorting(q: Select, options: dict[str, Any]) -> Select:
     """
     Применение сортировки с сохранением порядка
     """
@@ -455,7 +455,9 @@ async def load_shouts_by(_: None, info: GraphQLResolveInfo, options: dict[str, A
 
 
 @query.field("load_shouts_search")
-async def load_shouts_search(_: None, info: GraphQLResolveInfo, text: str, options: dict[str, Any]) -> list[Shout]:
+async def load_shouts_search(
+    _: None, info: GraphQLResolveInfo, text: str, options: dict[str, Any]
+) -> list[dict[str, Any]]:
     """
     Поиск публикаций по тексту.
 
@@ -497,20 +499,22 @@ async def load_shouts_search(_: None, info: GraphQLResolveInfo, text: str, optio
         q = (
             query_with_stat(info)
             if has_field(info, "stat")
-            else select(Shout).filter(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
+            else select(Shout).where(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
         )
-        q = q.filter(Shout.id.in_(hits_ids))
+        q = q.where(Shout.id.in_(hits_ids))
         q = apply_filters(q, options)
         q = apply_sorting(q, options)
 
         logger.debug(f"[load_shouts_search] Executing database query for {len(hits_ids)} shout IDs")
-        shouts_dicts = get_shouts_with_links(info, q, limit, offset)
-
-        logger.debug(f"[load_shouts_search] Database returned {len(shouts_dicts)} shouts")
-
-        for shout_dict in shouts_dicts:
-            shout_id_str = f"{shout_dict['id']}"
-            shout_dict["score"] = scores.get(shout_id_str, 0.0)
+        shouts = get_shouts_with_links(info, q, limit, offset)
+        logger.debug(f"[load_shouts_search] Database returned {len(shouts)} shouts")
+        shouts_dicts: list[dict[str, Any]] = []
+        for shout in shouts:
+            shout_dict = shout.dict()
+            shout_id_str = shout_dict.get("id")
+            if shout_id_str:
+                shout_dict["score"] = scores.get(shout_id_str, 0.0)
+            shouts_dicts.append(shout_dict)
 
         shouts_dicts.sort(key=lambda x: x.get("score", 0.0), reverse=True)
 
@@ -540,7 +544,7 @@ async def load_shouts_unrated(_: None, info: GraphQLResolveInfo, options: dict[s
             )
         )
         .group_by(Reaction.shout)
-        .having(func.count("*") >= 3)
+        .having(func.count(Reaction.id) >= 3)
         .scalar_subquery()
     )
 
@@ -594,7 +598,51 @@ async def load_shouts_random_top(_: None, info: GraphQLResolveInfo, options: dic
     random_limit = options.get("random_limit", 100)
     subquery = subquery.limit(random_limit)
     q = query_with_stat(info)
-    q = q.filter(Shout.id.in_(subquery))
+    q = q.where(Shout.id.in_(subquery))
     q = q.order_by(func.random())
     limit = options.get("limit", 10)
     return get_shouts_with_links(info, q, limit)
+
+
+async def fetch_all_shouts(
+    session: Session,
+    search_service: SearchService,
+    limit: int = 100,
+    offset: int = 0,
+    search_query: str = "",
+) -> list[Shout]:
+    """
+    Получает все shout'ы с возможностью поиска и пагинации.
+
+    :param session: Сессия базы данных
+    :param search_service: Сервис поиска
+    :param limit: Максимальное количество возвращаемых shout'ов
+    :param offset: Смещение для пагинации
+    :param search_query: Строка поиска
+    :return: Список shout'ов
+    """
+    try:
+        # Базовый запрос для получения shout'ов
+        q = select(Shout).where(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
+
+        # Применяем поиск, если есть строка поиска
+        if search_query:
+            search_results = await search_service.search(search_query, limit=100, offset=0)
+            if search_results:
+                # Извлекаем ID из результатов поиска
+                shout_ids = [result.get("id") for result in search_results if result.get("id")]
+                if shout_ids:
+                    q = q.where(Shout.id.in_(shout_ids))
+
+        # Применяем лимит и смещение
+        q = q.limit(limit).offset(offset)
+
+        # Выполняем запрос
+        result = session.execute(q).scalars().all()
+
+        return list(result)
+    except Exception as e:
+        logger.error(f"Error fetching shouts: {e}")
+        return []
+    finally:
+        session.close()

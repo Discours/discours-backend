@@ -1,7 +1,17 @@
 import time
 
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    ForeignKey,
+    Index,
+    Integer,
+    PrimaryKeyConstraint,
+    String,
+)
+from sqlalchemy.orm import Mapped, mapped_column
 
+from auth.orm import Author
 from orm.base import BaseModel as Base
 
 
@@ -18,14 +28,14 @@ class TopicFollower(Base):
 
     __tablename__ = "topic_followers"
 
-    id = None  # type: ignore[misc]
-    follower = Column(Integer, ForeignKey("author.id"), primary_key=True)
-    topic = Column(Integer, ForeignKey("topic.id"), primary_key=True)
-    created_at = Column(Integer, nullable=False, default=int(time.time()))
-    auto = Column(Boolean, nullable=False, default=False)
+    follower: Mapped[int] = mapped_column(ForeignKey(Author.id))
+    topic: Mapped[int] = mapped_column(ForeignKey("topic.id"))
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    auto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Определяем индексы
     __table_args__ = (
+        PrimaryKeyConstraint(topic, follower),
         # Индекс для быстрого поиска всех подписчиков топика
         Index("idx_topic_followers_topic", "topic"),
         # Индекс для быстрого поиска всех топиков, на которые подписан автор
@@ -49,13 +59,14 @@ class Topic(Base):
 
     __tablename__ = "topic"
 
-    slug = Column(String, unique=True)
-    title = Column(String, nullable=False, comment="Title")
-    body = Column(String, nullable=True, comment="Body")
-    pic = Column(String, nullable=True, comment="Picture")
-    community = Column(ForeignKey("community.id"), default=1)
-    oid = Column(String, nullable=True, comment="Old ID")
-    parent_ids = Column(JSON, nullable=True, comment="Parent Topic IDs")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String, unique=True)
+    title: Mapped[str] = mapped_column(String, nullable=False, comment="Title")
+    body: Mapped[str | None] = mapped_column(String, nullable=True, comment="Body")
+    pic: Mapped[str | None] = mapped_column(String, nullable=True, comment="Picture")
+    community: Mapped[int] = mapped_column(ForeignKey("community.id"), default=1)
+    oid: Mapped[str | None] = mapped_column(String, nullable=True, comment="Old ID")
+    parent_ids: Mapped[list[int] | None] = mapped_column(JSON, nullable=True, comment="Parent Topic IDs")
 
     # Определяем индексы
     __table_args__ = (

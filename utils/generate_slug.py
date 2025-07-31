@@ -5,11 +5,21 @@ from auth.orm import Author
 from services.db import local_session
 
 
-def replace_translit(src: str) -> str:
-    ruchars = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя."
-    enchars = "abvgdeyozhziyklmnoprstufhcchshsch'yye'yuyaa-"
+def replace_translit(src: str | None) -> str:
+    """
+    Транслитерация строки с русского на английский.
 
-    # Создаем словарь для замены, так как некоторые русские символы соответствуют нескольким латинским
+    Args:
+        src (str | None): Исходная строка или None
+
+    Returns:
+        str: Транслитерированная строка или пустая строка, если src None
+    """
+    if src is None:
+        return ""
+
+    # Создаем словарь для замены, так как некоторые русские символы
+    # соответствуют нескольким латинским
     translit_dict = {
         "а": "a",
         "б": "b",
@@ -48,7 +58,7 @@ def replace_translit(src: str) -> str:
     }
 
     result = ""
-    for char in src:
+    for char in src.lower():
         result += translit_dict.get(char, char)
     return result
 

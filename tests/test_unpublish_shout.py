@@ -55,7 +55,7 @@ async def setup_test_data() -> tuple[Author, Shout, Author]:
 
     with local_session() as session:
         # Создаем первого автора (владельца публикации)
-        test_author = session.query(Author).filter(Author.email == "test_author@example.com").first()
+        test_author = session.query(Author).where(Author.email == "test_author@example.com").first()
         if not test_author:
             test_author = Author(email="test_author@example.com", name="Test Author", slug="test-author")
             test_author.set_password("password123")
@@ -63,7 +63,7 @@ async def setup_test_data() -> tuple[Author, Shout, Author]:
             session.flush()  # Получаем ID
 
         # Создаем второго автора (не владельца)
-        other_author = session.query(Author).filter(Author.email == "other_author@example.com").first()
+        other_author = session.query(Author).where(Author.email == "other_author@example.com").first()
         if not other_author:
             other_author = Author(email="other_author@example.com", name="Other Author", slug="other-author")
             other_author.set_password("password456")
@@ -71,7 +71,7 @@ async def setup_test_data() -> tuple[Author, Shout, Author]:
             session.flush()
 
         # Создаем опубликованную публикацию
-        test_shout = session.query(Shout).filter(Shout.slug == "test-shout-published").first()
+        test_shout = session.query(Shout).where(Shout.slug == "test-shout-published").first()
         if not test_shout:
             test_shout = Shout(
                 title="Test Published Shout",
@@ -122,7 +122,7 @@ async def test_successful_unpublish_by_author() -> None:
 
         # Проверяем, что published_at теперь None
         with local_session() as session:
-            updated_shout = session.query(Shout).filter(Shout.id == test_shout.id).first()
+            updated_shout = session.query(Shout).where(Shout.id == test_shout.id).first()
             if updated_shout and updated_shout.published_at is None:
                 logger.info("   ✅ published_at корректно установлен в None")
             else:
@@ -146,7 +146,7 @@ async def test_unpublish_by_editor() -> None:
 
     # Восстанавливаем публикацию для теста
     with local_session() as session:
-        shout = session.query(Shout).filter(Shout.id == test_shout.id).first()
+        shout = session.query(Shout).where(Shout.id == test_shout.id).first()
         if shout:
             shout.published_at = int(time.time())
             session.add(shout)
@@ -166,7 +166,7 @@ async def test_unpublish_by_editor() -> None:
         logger.info("   ✅ Редактор успешно снял публикацию")
 
         with local_session() as session:
-            updated_shout = session.query(Shout).filter(Shout.id == test_shout.id).first()
+            updated_shout = session.query(Shout).where(Shout.id == test_shout.id).first()
             if updated_shout and updated_shout.published_at is None:
                 logger.info("   ✅ published_at корректно установлен в None редактором")
             else:
@@ -185,7 +185,7 @@ async def test_access_denied_scenarios() -> None:
 
     # Восстанавливаем публикацию для теста
     with local_session() as session:
-        shout = session.query(Shout).filter(Shout.id == test_shout.id).first()
+        shout = session.query(Shout).where(Shout.id == test_shout.id).first()
         if shout:
             shout.published_at = int(time.time())
             session.add(shout)
@@ -246,7 +246,7 @@ async def test_already_unpublished_shout() -> None:
 
     # Убеждаемся что публикация не опубликована
     with local_session() as session:
-        shout = session.query(Shout).filter(Shout.id == test_shout.id).first()
+        shout = session.query(Shout).where(Shout.id == test_shout.id).first()
         if shout:
             shout.published_at = None
             session.add(shout)
@@ -262,7 +262,7 @@ async def test_already_unpublished_shout() -> None:
         logger.info("   ✅ Операция с уже неопубликованной публикацией прошла успешно")
 
         with local_session() as session:
-            updated_shout = session.query(Shout).filter(Shout.id == test_shout.id).first()
+            updated_shout = session.query(Shout).where(Shout.id == test_shout.id).first()
             if updated_shout and updated_shout.published_at is None:
                 logger.info("   ✅ published_at остался None")
             else:
@@ -280,7 +280,7 @@ async def cleanup_test_data() -> None:
     try:
         with local_session() as session:
             # Удаляем тестовую публикацию
-            test_shout = session.query(Shout).filter(Shout.slug == "test-shout-published").first()
+            test_shout = session.query(Shout).where(Shout.slug == "test-shout-published").first()
             if test_shout:
                 session.delete(test_shout)
 

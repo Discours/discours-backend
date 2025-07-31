@@ -78,7 +78,7 @@ This ensures fresh data is fetched from database on next request.
 ## Error Handling
 
 ### Enhanced Error Handling (UPDATED)
-- Unauthorized access check
+- UnauthorizedError access check
 - Entity existence validation
 - Duplicate follow prevention
 - **Graceful handling of "following not found" errors**

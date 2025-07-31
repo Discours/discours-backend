@@ -1,12 +1,21 @@
 from dataclasses import dataclass
 from typing import Any
 
+from graphql.error import GraphQLError
+
 from auth.orm import Author
 from orm.community import Community
 from orm.draft import Draft
 from orm.reaction import Reaction
 from orm.shout import Shout
 from orm.topic import Topic
+from utils.logger import root_logger as logger
+
+
+def handle_error(operation: str, error: Exception) -> GraphQLError:
+    """Обрабатывает ошибки в резолверах"""
+    logger.error(f"Ошибка при {operation}: {error}")
+    return GraphQLError(f"Не удалось {operation}: {error}")
 
 
 @dataclass

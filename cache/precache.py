@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 from sqlalchemy import and_, join, select
 
@@ -51,7 +52,7 @@ async def precache_topics_authors(topic_id: int, session) -> None:
         select(ShoutAuthor.author)
         .select_from(join(ShoutTopic, Shout, ShoutTopic.shout == Shout.id))
         .join(ShoutAuthor, ShoutAuthor.shout == Shout.id)
-        .filter(
+        .where(
             and_(
                 ShoutTopic.topic == topic_id,
                 Shout.published_at.is_not(None),
@@ -189,7 +190,5 @@ async def precache_data() -> None:
                     logger.error(f"fail caching {author}")
             logger.info(f"{len(authors)} authors and their followings precached")
     except Exception as exc:
-        import traceback
-
         traceback.print_exc()
         logger.error(f"Error in precache_data: {exc}")

@@ -9,6 +9,8 @@ from ariadne import (
     load_schema_from_path,
 )
 
+from auth.orm import Author, AuthorBookmark, AuthorFollower, AuthorRating
+from orm import collection, community, draft, invite, notification, reaction, shout, topic
 from services.db import create_table_if_not_exists, local_session
 
 # Создаем основные типы
@@ -35,9 +37,6 @@ resolvers: SchemaBindable | type[Enum] | list[SchemaBindable | type[Enum]] = [
 
 def create_all_tables() -> None:
     """Create all database tables in the correct order."""
-    from auth.orm import Author, AuthorBookmark, AuthorFollower, AuthorRating
-    from orm import collection, community, draft, invite, notification, reaction, shout, topic
-
     # Порядок важен - сначала таблицы без внешних ключей, затем зависимые таблицы
     models_in_order = [
         # user.User,  # Базовая таблица auth
@@ -72,7 +71,12 @@ def create_all_tables() -> None:
     with local_session() as session:
         for model in models_in_order:
             try:
-                create_table_if_not_exists(session.get_bind(), model)
+                # Ensure model is a type[DeclarativeBase]
+                if not hasattr(model, "__tablename__"):
+                    logger.warning(f"Skipping {model} - not a DeclarativeBase model")
+                    continue
+
+                create_table_if_not_exists(session.get_bind(), model)  # type: ignore[arg-type]
                 # logger.info(f"Created or verified table: {model.__tablename__}")
             except Exception as e:
                 table_name = getattr(model, "__tablename__", str(model))

@@ -10,7 +10,7 @@ def ensure_test_user_with_roles(db_session):
     """Создает тестового пользователя с ID 1 и назначает ему роли через CommunityAuthor"""
 
     # Создаем пользователя с ID 1 если его нет
-    test_user = db_session.query(Author).filter(Author.id == 1).first()
+    test_user = db_session.query(Author).where(Author.id == 1).first()
     if not test_user:
         test_user = Author(id=1, email="test@example.com", name="Test User", slug="test-user")
         test_user.set_password("password123")
@@ -20,7 +20,7 @@ def ensure_test_user_with_roles(db_session):
     # Удаляем старые роли
     existing_community_author = (
         db_session.query(CommunityAuthor)
-        .filter(CommunityAuthor.author_id == test_user.id, CommunityAuthor.community_id == 1)
+        .where(CommunityAuthor.author_id == test_user.id, CommunityAuthor.community_id == 1)
         .first()
     )
 
@@ -62,10 +62,24 @@ def test_shout(db_session):
     """Create test shout with required fields."""
     author = ensure_test_user_with_roles(db_session)
 
+    # Создаем тестовое сообщество если его нет
+    from orm.community import Community
+    community = db_session.query(Community).where(Community.id == 1).first()
+    if not community:
+        community = Community(
+            name="Test Community",
+            slug="test-community",
+            desc="Test community description",
+            created_by=author.id
+        )
+        db_session.add(community)
+        db_session.flush()
+
     shout = Shout(
         title="Test Shout",
         slug="test-shout-drafts",
         created_by=author.id,  # Обязательное поле
+        community=community.id,  # Обязательное поле
         body="Test body",
         layout="article",
         lang="ru",
@@ -78,23 +92,27 @@ def test_shout(db_session):
 @pytest.mark.asyncio
 async def test_create_shout(db_session, test_author):
     """Test creating a new draft using direct resolver call."""
-    # Создаем мок info
-    info = MockInfo(test_author.id)
 
-    # Вызываем резолвер напрямую
-    result = await create_draft(
-        None,
-        info,
-        draft_input={
-            "title": "Test Shout",
-            "body": "This is a test shout",
-        },
-    )
+    # Мокаем local_session чтобы использовать тестовую сессию
+    from unittest.mock import patch
+    from services.db import local_session
 
-    # Проверяем результат
-    assert "error" not in result or result["error"] is None
-    assert result["draft"].title == "Test Shout"
-    assert result["draft"].body == "This is a test shout"
+    with patch('services.db.local_session') as mock_local_session:
+        mock_local_session.return_value = db_session
+
+        result = await create_draft(
+            None,
+            MockInfo(test_author.id),
+            draft_input={
+                "title": "Test Shout",
+                "body": "This is a test shout",
+            },
+        )
+
+        # Проверяем результат
+        assert "error" not in result or result["error"] is None
+        assert result["draft"].title == "Test Shout"
+        assert result["draft"].body == "This is a test shout"
 
 
 @pytest.mark.asyncio
@@ -106,18 +124,25 @@ async def test_load_drafts(db_session):
     # Создаем мок info
     info = MockInfo(test_user.id)
 
-    # Вызываем резолвер напрямую
-    result = await load_drafts(None, info)
+    # Мокаем local_session чтобы использовать тестовую сессию
+    from unittest.mock import patch
+    from services.db import local_session
 
-    # Проверяем результат (должен быть список, может быть не пустой из-за предыдущих тестов)
-    assert "error" not in result or result["error"] is None
-    assert isinstance(result["drafts"], list)
+    with patch('services.db.local_session') as mock_local_session:
+        mock_local_session.return_value = db_session
 
-    # Если есть черновики, проверим что они правильной структуры
-    if result["drafts"]:
-        draft = result["drafts"][0]
-        assert "id" in draft
-        assert "title" in draft
-        assert "body" in draft
-        assert "authors" in draft
-        assert "topics" in draft
+        # Вызываем резолвер напрямую
+        result = await load_drafts(None, info)
+
+        # Проверяем результат (должен быть список, может быть не пустой из-за предыдущих тестов)
+        assert "error" not in result or result["error"] is None
+        assert isinstance(result["drafts"], list)
+
+        # Если есть черновики, проверим что они правильной структуры
+        if result["drafts"]:
+            draft = result["drafts"][0]
+            assert "id" in draft
+            assert "title" in draft
+            assert "body" in draft
+            assert "authors" in draft
+            assert "topics" in draft

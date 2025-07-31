@@ -103,11 +103,11 @@ async def rate_author(_: None, info: GraphQLResolveInfo, rated_slug: str, value:
     rater_id = info.context.get("author", {}).get("id")
     with local_session() as session:
         rater_id = int(rater_id)
-        rated_author = session.query(Author).filter(Author.slug == rated_slug).first()
+        rated_author = session.query(Author).where(Author.slug == rated_slug).first()
         if rater_id and rated_author:
             rating = (
                 session.query(AuthorRating)
-                .filter(
+                .where(
                     and_(
                         AuthorRating.rater == rater_id,
                         AuthorRating.author == rated_author.id,
@@ -140,7 +140,7 @@ def count_author_comments_rating(session: Session, author_id: int) -> int:
                 replied_alias.kind == ReactionKind.COMMENT.value,
             )
         )
-        .filter(replied_alias.kind == ReactionKind.LIKE.value)
+        .where(replied_alias.kind == ReactionKind.LIKE.value)
         .count()
     ) or 0
     replies_dislikes = (
@@ -152,7 +152,7 @@ def count_author_comments_rating(session: Session, author_id: int) -> int:
                 replied_alias.kind == ReactionKind.COMMENT.value,
             )
         )
-        .filter(replied_alias.kind == ReactionKind.DISLIKE.value)
+        .where(replied_alias.kind == ReactionKind.DISLIKE.value)
         .count()
     ) or 0
 
@@ -170,7 +170,7 @@ def count_author_replies_rating(session: Session, author_id: int) -> int:
                 replied_alias.kind == ReactionKind.COMMENT.value,
             )
         )
-        .filter(replied_alias.kind == ReactionKind.LIKE.value)
+        .where(replied_alias.kind == ReactionKind.LIKE.value)
         .count()
     ) or 0
     replies_dislikes = (
@@ -182,7 +182,7 @@ def count_author_replies_rating(session: Session, author_id: int) -> int:
                 replied_alias.kind == ReactionKind.COMMENT.value,
             )
         )
-        .filter(replied_alias.kind == ReactionKind.DISLIKE.value)
+        .where(replied_alias.kind == ReactionKind.DISLIKE.value)
         .count()
     ) or 0
 
@@ -193,7 +193,7 @@ def count_author_shouts_rating(session: Session, author_id: int) -> int:
     shouts_likes = (
         session.query(Reaction, Shout)
         .join(Shout, Shout.id == Reaction.shout)
-        .filter(
+        .where(
             and_(
                 Shout.authors.any(id=author_id),
                 Reaction.kind == ReactionKind.LIKE.value,
@@ -205,7 +205,7 @@ def count_author_shouts_rating(session: Session, author_id: int) -> int:
     shouts_dislikes = (
         session.query(Reaction, Shout)
         .join(Shout, Shout.id == Reaction.shout)
-        .filter(
+        .where(
             and_(
                 Shout.authors.any(id=author_id),
                 Reaction.kind == ReactionKind.DISLIKE.value,
@@ -219,10 +219,10 @@ def count_author_shouts_rating(session: Session, author_id: int) -> int:
 
 def get_author_rating_old(session: Session, author: Author) -> dict[str, int]:
     likes_count = (
-        session.query(AuthorRating).filter(and_(AuthorRating.author == author.id, AuthorRating.plus.is_(True))).count()
+        session.query(AuthorRating).where(and_(AuthorRating.author == author.id, AuthorRating.plus.is_(True))).count()
     )
     dislikes_count = (
-        session.query(AuthorRating).filter(and_(AuthorRating.author == author.id, AuthorRating.plus.is_(False))).count()
+        session.query(AuthorRating).where(and_(AuthorRating.author == author.id, AuthorRating.plus.is_(False))).count()
     )
     rating = likes_count - dislikes_count
     return {"rating": rating, "likes": likes_count, "dislikes": dislikes_count}
@@ -232,14 +232,18 @@ def get_author_rating_shouts(session: Session, author: Author) -> int:
     q = (
         select(
             Reaction.shout,
-            Reaction.plus,
+            case(
+                (Reaction.kind == ReactionKind.LIKE.value, 1),
+                (Reaction.kind == ReactionKind.DISLIKE.value, -1),
+                else_=0,
+            ).label("rating_value"),
         )
         .select_from(Reaction)
         .join(ShoutAuthor, Reaction.shout == ShoutAuthor.shout)
         .where(
             and_(
                 ShoutAuthor.author == author.id,
-                Reaction.kind == "RATING",
+                Reaction.kind.in_([ReactionKind.LIKE.value, ReactionKind.DISLIKE.value]),
                 Reaction.deleted_at.is_(None),
             )
         )
@@ -248,7 +252,7 @@ def get_author_rating_shouts(session: Session, author: Author) -> int:
     results = session.execute(q)
     rating = 0
     for row in results:
-        rating += 1 if row[1] else -1
+        rating += row[1]
 
     return rating
 
@@ -258,7 +262,11 @@ def get_author_rating_comments(session: Session, author: Author) -> int:
     q = (
         select(
             Reaction.id,
-            Reaction.plus,
+            case(
+                (Reaction.kind == ReactionKind.LIKE.value, 1),
+                (Reaction.kind == ReactionKind.DISLIKE.value, -1),
+                else_=0,
+            ).label("rating_value"),
         )
         .select_from(Reaction)
         .outerjoin(replied_comment, Reaction.reply_to == replied_comment.id)
@@ -267,7 +275,7 @@ def get_author_rating_comments(session: Session, author: Author) -> int:
         .where(
             and_(
                 ShoutAuthor.author == author.id,
-                Reaction.kind == "RATING",
+                Reaction.kind.in_([ReactionKind.LIKE.value, ReactionKind.DISLIKE.value]),
                 Reaction.created_by != author.id,
                 Reaction.deleted_at.is_(None),
             )
@@ -277,7 +285,7 @@ def get_author_rating_comments(session: Session, author: Author) -> int:
     results = session.execute(q)
     rating = 0
     for row in results:
-        rating += 1 if row[1] else -1
+        rating += row[1]
 
     return rating
 

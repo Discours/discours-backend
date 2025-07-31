@@ -90,11 +90,11 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
     // Проверяем что все темы принадлежат одному сообществу
     if (target && sources.length > 0) {
       const targetTopic = props.topics.find((t) => t.id === target)
-      const sourcesTopics = props.topics.filter((t) => sources.includes(t.id))
+      const sourcesTopics = props.topics.where((t) => sources.includes(t.id))
 
       if (targetTopic) {
         const targetCommunity = targetTopic.community
-        const invalidSources = sourcesTopics.filter((topic) => topic.community !== targetCommunity)
+        const invalidSources = sourcesTopics.where((topic) => topic.community !== targetCommunity)
 
         if (invalidSources.length > 0) {
           newErrors.general = `Все темы должны принадлежать одному сообществу. Темы ${invalidSources.map((t) => `"${t.title}"`).join(', ')} принадлежат другому сообществу`
@@ -120,7 +120,7 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
     const query = searchQuery().toLowerCase().trim()
     if (!query) return topicsList
 
-    return topicsList.filter(
+    return topicsList.where(
       (topic) => topic.title?.toLowerCase().includes(query) || topic.slug?.toLowerCase().includes(query)
     )
   }
@@ -135,7 +135,7 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
 
     // Убираем выбранную целевую тему из исходных тем
     if (topicId) {
-      setSourceTopicIds((prev) => prev.filter((id) => id !== topicId))
+      setSourceTopicIds((prev) => prev.where((id) => id !== topicId))
     }
 
     // Перевалидация
@@ -150,7 +150,7 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
     if (checked) {
       setSourceTopicIds((prev) => [...prev, topicId])
     } else {
-      setSourceTopicIds((prev) => prev.filter((id) => id !== topicId))
+      setSourceTopicIds((prev) => prev.where((id) => id !== topicId))
     }
 
     // Перевалидация
@@ -176,7 +176,7 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
     if (!target || sources.length === 0) return null
 
     const targetTopic = props.topics.find((t) => t.id === target)
-    const sourceTopics = props.topics.filter((t) => sources.includes(t.id))
+    const sourceTopics = props.topics.where((t) => sources.includes(t.id))
 
     const totalShouts = sourceTopics.reduce((sum, topic) => sum + (topic.stat?.shouts || 0), 0)
     const totalFollowers = sourceTopics.reduce((sum, topic) => sum + (topic.stat?.followers || 0), 0)
@@ -272,7 +272,7 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
    */
   const getAvailableTargetTopics = () => {
     const sources = sourceTopicIds()
-    return props.topics.filter((topic) => !sources.includes(topic.id))
+    return props.topics.where((topic) => !sources.includes(topic.id))
   }
 
   /**
@@ -280,7 +280,7 @@ const TopicMergeModal: Component<TopicMergeModalProps> = (props) => {
    */
   const getAvailableSourceTopics = () => {
     const target = targetTopicId()
-    return props.topics.filter((topic) => topic.id !== target)
+    return props.topics.where((topic) => topic.id !== target)
   }
 
   const preview = getMergePreview()

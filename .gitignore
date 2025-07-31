@@ -169,3 +169,9 @@ panel/types.gen.ts
 
 .cursorrules
 .cursor/
+
+# YoYo AI version control directory
+.yoyo/
+.autopilot.json
+.cursor
+tmp

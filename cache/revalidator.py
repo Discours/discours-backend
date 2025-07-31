@@ -1,14 +1,6 @@
 import asyncio
 import contextlib
 
-from cache.cache import (
-    cache_author,
-    cache_topic,
-    get_cached_author,
-    get_cached_topic,
-    invalidate_cache_by_prefix,
-)
-from resolvers.stat import get_with_stat
 from services.redis import redis
 from utils.logger import root_logger as logger
 
@@ -55,6 +47,16 @@ class CacheRevalidationManager:
 
     async def process_revalidation(self) -> None:
         """Обновление кэша для всех сущностей, требующих ревалидации."""
+        # Поздние импорты для избежания циклических зависимостей
+        from cache.cache import (
+            cache_author,
+            cache_topic,
+            get_cached_author,
+            get_cached_topic,
+            invalidate_cache_by_prefix,
+        )
+        from resolvers.stat import get_with_stat
+
         # Проверяем соединение с Redis
         if not self._redis._client:
             return  # Выходим из метода, если не удалось подключиться

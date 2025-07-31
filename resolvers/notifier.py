@@ -32,13 +32,13 @@ def query_notifications(author_id: int, after: int = 0) -> tuple[int, int, list[
         ),
     )
     if after:
-        q = q.filter(Notification.created_at > after)
+        q = q.where(Notification.created_at > after)
     q = q.group_by(NotificationSeen.notification, Notification.created_at)
 
     with local_session() as session:
         total = (
             session.query(Notification)
-            .filter(
+            .where(
                 and_(
                     Notification.action == NotificationAction.CREATE.value,
                     Notification.created_at > after,
@@ -49,7 +49,7 @@ def query_notifications(author_id: int, after: int = 0) -> tuple[int, int, list[
 
         unread = (
             session.query(Notification)
-            .filter(
+            .where(
                 and_(
                     Notification.action == NotificationAction.CREATE.value,
                     Notification.created_at > after,
@@ -131,8 +131,8 @@ def get_notifications_grouped(author_id: int, after: int = 0, limit: int = 10, o
             author_id = shout.get("created_by")
             thread_id = f"shout-{shout_id}"
             with local_session() as session:
-                author = session.query(Author).filter(Author.id == author_id).first()
-                shout = session.query(Shout).filter(Shout.id == shout_id).first()
+                author = session.query(Author).where(Author.id == author_id).first()
+                shout = session.query(Shout).where(Shout.id == shout_id).first()
                 if author and shout:
                     author_dict = author.dict()
                     shout_dict = shout.dict()
@@ -155,8 +155,8 @@ def get_notifications_grouped(author_id: int, after: int = 0, limit: int = 10, o
             author_id = reaction.get("created_by", 0)
             if shout_id and author_id:
                 with local_session() as session:
-                    author = session.query(Author).filter(Author.id == author_id).first()
-                    shout = session.query(Shout).filter(Shout.id == shout_id).first()
+                    author = session.query(Author).where(Author.id == author_id).first()
+                    shout = session.query(Shout).where(Shout.id == shout_id).first()
                     if shout and author:
                         author_dict = author.dict()
                         shout_dict = shout.dict()
@@ -260,7 +260,7 @@ async def notifications_seen_after(_: None, info: GraphQLResolveInfo, after: int
         author_id = info.context.get("author", {}).get("id")
         if author_id:
             with local_session() as session:
-                nnn = session.query(Notification).filter(and_(Notification.created_at > after)).all()
+                nnn = session.query(Notification).where(and_(Notification.created_at > after)).all()
                 for notification in nnn:
                     ns = NotificationSeen(notification=notification.id, author=author_id)
                     session.add(ns)
@@ -282,7 +282,7 @@ async def notifications_seen_thread(_: None, info: GraphQLResolveInfo, thread: s
             # TODO: handle new follower and new shout notifications
             new_reaction_notifications = (
                 session.query(Notification)
-                .filter(
+                .where(
                     Notification.action == "create",
                     Notification.entity == "reaction",
                     Notification.created_at > after,
@@ -291,7 +291,7 @@ async def notifications_seen_thread(_: None, info: GraphQLResolveInfo, thread: s
             )
             removed_reaction_notifications = (
                 session.query(Notification)
-                .filter(
+                .where(
                     Notification.action == "delete",
                     Notification.entity == "reaction",
                     Notification.created_at > after,

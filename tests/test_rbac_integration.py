@@ -1,24 +1,32 @@
 """
-Упрощенные тесты интеграции RBAC системы с новой архитектурой сервисов.
+Интеграционные тесты для системы RBAC.
 
-Проверяет работу AdminService и AuthService с RBAC системой.
+Проверяет работу системы ролей и разрешений в реальных сценариях
+с учетом наследования ролей.
 """
-import logging
+
 import pytest
+import time
+from unittest.mock import patch, MagicMock
+import json
 
 from auth.orm import Author
 from orm.community import Community, CommunityAuthor
-from services.admin import admin_service
-from services.auth import auth_service
-
-logger = logging.getLogger(__name__)
+from services.rbac import (
+    initialize_community_permissions,
+    get_permissions_for_role,
+    user_has_permission,
+    roles_have_permission
+)
+from services.db import local_session
+from services.redis import redis
 
 
 @pytest.fixture
 def simple_user(db_session):
     """Создает простого тестового пользователя"""
     # Очищаем любые существующие записи с этим ID/email
-    db_session.query(Author).filter(
+    db_session.query(Author).where(
         (Author.id == 200) | (Author.email == "simple_user@example.com")
     ).delete()
     db_session.commit()
@@ -38,518 +46,331 @@ def simple_user(db_session):
     # Очистка после теста
     try:
         # Удаляем связанные записи CommunityAuthor
-        db_session.query(CommunityAuthor).filter(CommunityAuthor.author_id == user.id).delete(synchronize_session=False)
+        db_session.query(CommunityAuthor).where(CommunityAuthor.author_id == user.id).delete(synchronize_session=False)
         # Удаляем самого пользователя
-        db_session.query(Author).filter(Author.id == user.id).delete()
+        db_session.query(Author).where(Author.id == user.id).delete()
         db_session.commit()
-    except Exception:
-        db_session.rollback()
-
-
-@pytest.fixture
-def simple_community(db_session, simple_user):
-    """Создает простое тестовое сообщество"""
-    # Очищаем любые существующие записи с этим ID/slug
-    db_session.query(Community).filter(Community.slug == "simple-test-community").delete()
-    db_session.commit()
-
-    community = Community(
-        name="Simple Test Community",
-        slug="simple-test-community",
-        desc="Simple community for tests",
-        created_by=simple_user.id,
-        settings={
-            "default_roles": ["reader", "author"],
-            "available_roles": ["reader", "author", "editor"]
-        }
-    )
-    db_session.add(community)
-    db_session.commit()
-
-    yield community
-
-    # Очистка после теста
-    try:
-        # Удаляем связанные записи CommunityAuthor
-        db_session.query(CommunityAuthor).filter(CommunityAuthor.community_id == community.id).delete()
-        # Удаляем само сообщество
-        db_session.query(Community).filter(Community.id == community.id).delete()
-        db_session.commit()
-    except Exception:
-        db_session.rollback()
+    except Exception as e:
+        print(f"Ошибка при очистке тестового пользователя: {e}")
 
 
 @pytest.fixture
 def test_community(db_session, simple_user):
-    """
-    Создает тестовое сообщество с ожидаемыми ролями по умолчанию
-
-    Args:
-        db_session: Сессия базы данных для теста
-        simple_user: Пользователь для создания сообщества
-
-    Returns:
-        Community: Созданное тестовое сообщество
-    """
+    """Создает тестовое сообщество"""
     # Очищаем существующие записи
-    db_session.query(Community).filter(Community.slug == "test-rbac-community").delete()
+    db_session.query(Community).where(Community.id == 999).delete()
     db_session.commit()
 
     community = Community(
-        name="Test RBAC Community",
-        slug="test-rbac-community",
-        desc="Community for RBAC tests",
+        id=999,
+        name="Integration Test Community",
+        slug="integration-test-community",
+        desc="Community for integration RBAC tests",
         created_by=simple_user.id,
-        settings={
-            "default_roles": ["reader", "author"],
-            "available_roles": ["reader", "author", "editor"]
-        }
+        created_at=int(time.time())
     )
     db_session.add(community)
-    db_session.flush()  # Получаем ID без коммита
-
-    logger.info(f"DEBUG: Создание Community с айди {community.id}")
-
     db_session.commit()
 
     yield community
 
     # Очистка после теста
     try:
-        # Удаляем связанные записи CommunityAuthor
-        db_session.query(CommunityAuthor).filter(CommunityAuthor.community_id == community.id).delete()
-        # Удаляем сообщество
-        db_session.query(Community).filter(Community.id == community.id).delete()
+        db_session.query(Community).where(Community.id == community.id).delete()
         db_session.commit()
-    except Exception:
-        db_session.rollback()
+    except Exception as e:
+        print(f"Ошибка при очистке тестового сообщества: {e}")
 
 
 @pytest.fixture(autouse=True)
-def cleanup_test_users(db_session):
-    """Автоматически очищает тестовые записи пользователей перед каждым тестом"""
-    # Очищаем тестовые email'ы перед тестом
-    test_emails = [
-        "test_create@example.com",
-        "test_community@example.com",
-        "simple_user@example.com",
-        "test_create_unique@example.com",
-        "test_community_unique@example.com"
-    ]
+async def setup_redis():
+    """Настройка Redis для каждого теста"""
+    # Подключаемся к Redis
+    await redis.connect()
 
-    # Очищаем также тестовые ID
-    test_ids = [200, 201, 202, 203, 204, 205]
+    yield
 
-    for email in test_emails:
-        try:
-            existing_user = db_session.query(Author).filter(Author.email == email).first()
-            if existing_user:
-                # Удаляем связанные записи CommunityAuthor
-                db_session.query(CommunityAuthor).filter(CommunityAuthor.author_id == existing_user.id).delete(synchronize_session=False)
-                # Удаляем пользователя
-                db_session.delete(existing_user)
-            db_session.commit()
-        except Exception:
-            db_session.rollback()
+    # Очищаем данные тестового сообщества из Redis
+    try:
+        await redis.delete("community:roles:999")
+    except Exception:
+        pass
 
-    # Дополнительная очистка по ID
-    for user_id in test_ids:
-        try:
-            # Удаляем записи CommunityAuthor
-            db_session.query(CommunityAuthor).filter(CommunityAuthor.author_id == user_id).delete()
-            # Удаляем пользователя
-            db_session.query(Author).filter(Author.id == user_id).delete()
-            db_session.commit()
-        except Exception:
-            db_session.rollback()
-
-    yield  # Тест выполняется
-
-    # Дополнительная очистка после теста
-    for email in test_emails:
-        try:
-            existing_user = db_session.query(Author).filter(Author.email == email).first()
-            if existing_user:
-                db_session.query(CommunityAuthor).filter(CommunityAuthor.author_id == existing_user.id).delete()
-                db_session.delete(existing_user)
-            db_session.commit()
-        except Exception:
-            db_session.rollback()
-
-    for user_id in test_ids:
-        try:
-            db_session.query(CommunityAuthor).filter(CommunityAuthor.author_id == user_id).delete()
-            db_session.query(Author).filter(Author.id == user_id).delete()
-            db_session.commit()
-        except Exception:
-            db_session.rollback()
+    # Отключаемся от Redis
+    try:
+        await redis.disconnect()
+    except Exception:
+        pass
 
 
-class TestSimpleAdminService:
-    """Простые тесты для AdminService"""
+class TestRBACIntegrationWithInheritance:
+    """Интеграционные тесты с учетом наследования ролей"""
 
-    def test_get_user_roles_empty(self, db_session, simple_user, simple_community):
-        """Тест получения пустых ролей пользователя"""
-        # Очищаем любые существующие роли
-        db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.author_id == simple_user.id,
-            CommunityAuthor.community_id == simple_community.id
-        ).delete()
-        db_session.commit()
-
-        # Проверяем что ролей нет
-        roles = admin_service.get_user_roles(simple_user, simple_community.id)
-        assert isinstance(roles, list)
-        # Может быть пустой список или содержать системную роль админа
-        assert len(roles) >= 0
-
-    def test_get_user_roles_with_roles(self, db_session, simple_user, test_community):
-        """Тест получения ролей пользователя"""
-        # Используем тестовое сообщество
-        community_id = test_community.id
-
-        # Отладочная информация о тестовом сообществе
-        logger.info(f"DEBUG: Тестовое сообщество ID: {community_id}")
-        logger.info(f"DEBUG: Тестовое сообщество slug: {test_community.slug}")
-        logger.info(f"DEBUG: Тестовое сообщество settings: {test_community.settings}")
-
-        # Полностью очищаем все существующие CommunityAuthor для пользователя
-        existing_community_authors = db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.author_id == simple_user.id
-        ).all()
-
-        # Отладочная информация
-        logger.info(f"DEBUG: Найдено существующих CommunityAuthor: {len(existing_community_authors)}")
-        for ca in existing_community_authors:
-            logger.info(f"DEBUG: Существующий CA - community_id: {ca.community_id}, roles: {ca.roles}")
-            db_session.delete(ca)
-
-        db_session.commit()
-
-        # Создаем CommunityAuthor с ролями в тестовом сообществе
+    @pytest.mark.asyncio
+    async def test_author_role_inheritance_integration(self, db_session, simple_user, test_community):
+        """Интеграционный тест наследования ролей для author"""
+        # Создаем запись CommunityAuthor с ролью author
         ca = CommunityAuthor(
-            community_id=community_id,
+            community_id=test_community.id,
             author_id=simple_user.id,
+            roles="author"
         )
-
-        # Расширенная отладка перед set_roles
-        logger.info(f"DEBUG: Перед set_roles")
-        logger.info(f"DEBUG: ca.roles до set_roles: {ca.roles}")
-        logger.info(f"DEBUG: ca.role_list до set_roles: {ca.role_list}")
-
-        ca.set_roles(["reader", "author"])
-
-        # Расширенная отладка после set_roles
-        logger.info(f"DEBUG: После set_roles")
-        logger.info(f"DEBUG: ca.roles после set_roles: {ca.roles}")
-        logger.info(f"DEBUG: ca.role_list после set_roles: {ca.role_list}")
-
         db_session.add(ca)
         db_session.commit()
 
-        # Явная проверка сохранения CommunityAuthor
-        check_ca = db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.author_id == simple_user.id,
-            CommunityAuthor.community_id == community_id
-        ).first()
+        # Инициализируем разрешения для сообщества
+        await initialize_community_permissions(test_community.id)
 
-        logger.info(f"DEBUG: Проверка сохраненной записи CommunityAuthor")
-        logger.info(f"DEBUG: Найденная запись: {check_ca}")
-        logger.info(f"DEBUG: Роли в найденной записи: {check_ca.roles}")
-        logger.info(f"DEBUG: role_list найденной записи: {check_ca.role_list}")
+        # Проверяем что author имеет разрешения reader через наследование
+        reader_permissions = ["shout:read", "topic:read", "collection:read", "chat:read", "message:read"]
+        for perm in reader_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Author должен наследовать разрешение {perm} от reader"
 
-        assert check_ca is not None, "CommunityAuthor должен быть сохранен в базе данных"
-        assert check_ca.roles is not None, "Роли CommunityAuthor не должны быть None"
-        assert "reader" in check_ca.role_list, "Роль 'reader' должна быть в role_list"
-        assert "author" in check_ca.role_list, "Роль 'author' должна быть в role_list"
+        # Проверяем специфичные разрешения author
+        author_permissions = ["draft:create", "shout:create", "collection:create", "invite:create"]
+        for perm in author_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Author должен иметь разрешение {perm}"
 
-        # Проверяем роли через AdminService
-        from services.admin import admin_service
-        from services.db import local_session
+        # Проверяем что author НЕ имеет разрешения более высоких ролей
+        higher_permissions = ["shout:delete_any", "author:delete_any", "community:create"]
+        for perm in higher_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert not has_permission, f"Author НЕ должен иметь разрешение {perm}"
 
-        # Используем ту же сессию для проверки
-        fresh_user = db_session.query(Author).filter(Author.id == simple_user.id).first()
-        roles = admin_service.get_user_roles(fresh_user, community_id)
-
-        # Проверяем роли
-        assert isinstance(roles, list), "Роли должны быть списком"
-        assert "reader" in roles, "Роль 'reader' должна присутствовать"
-        assert "author" in roles, "Роль 'author' должна присутствовать"
-        assert len(roles) == 2, f"Должно быть 2 роли, а не {len(roles)}"
-
-    def test_update_user_success(self, db_session, simple_user):
-        """Тест успешного обновления пользователя"""
-        from services.admin import admin_service
-
-        # Обновляем пользователя
-        result = admin_service.update_user({
-            "id": simple_user.id,
-            "name": "Updated Name",
-            "email": simple_user.email
-        })
-
-        # Проверяем обновленного пользователя
-        assert result is not None, "Пользователь должен быть обновлен"
-        assert result.get("name") == "Updated Name", "Имя пользователя должно быть обновлено"
-
-        # Восстанавливаем исходное имя
-        admin_service.update_user({
-            "id": simple_user.id,
-            "name": "Simple User",
-            "email": simple_user.email
-        })
-
-
-class TestSimpleAuthService:
-    """Простые тесты для AuthService"""
-
-    def test_create_user_basic(self, db_session):
-        """Тест базового создания пользователя"""
-        test_email = "test_create_unique@example.com"
-
-        # Найдем существующих пользователей с таким email
-        existing_users = db_session.query(Author).filter(Author.email == test_email).all()
-
-        # Удаляем связанные записи CommunityAuthor для существующих пользователей
-        for user in existing_users:
-            db_session.query(CommunityAuthor).filter(CommunityAuthor.author_id == user.id).delete(synchronize_session=False)
-            db_session.delete(user)
-
-        db_session.commit()
-
-        user_dict = {
-            "email": test_email,
-            "name": "Test Create User",
-            "slug": "test-create-user-unique",
-        }
-
-        user = auth_service.create_user(user_dict)
-
-        assert user is not None
-        assert user.email == test_email
-        assert user.name == "Test Create User"
-
-        # Очистка
-        try:
-            db_session.query(CommunityAuthor).filter(CommunityAuthor.author_id == user.id).delete(synchronize_session=False)
-            db_session.delete(user)
-            db_session.commit()
-        except Exception as e:
-            # Если возникла ошибка при удалении, просто логируем ее
-            print(f"Ошибка при очистке: {e}")
-            db_session.rollback()
-
-    def test_create_user_with_community(self, db_session):
-        """Проверяем создание пользователя в конкретном сообществе"""
-        from services.auth import auth_service
-        from services.rbac import initialize_community_permissions
-        from auth.orm import Author
-        import asyncio
-        import uuid
-
-        # Создаем тестового пользователя
-        system_author = db_session.query(Author).filter(Author.slug == "system").first()
-        if not system_author:
-            system_author = Author(
-                name="System",
-                slug="system",
-                email="system@test.local"
-            )
-            db_session.add(system_author)
-            db_session.flush()
-
-        # Создаем тестовое сообщество
-        unique_slug = f"simple-test-community-{uuid.uuid4()}"
-        community = Community(
-            name="Simple Test Community",
-            slug=unique_slug,
-            desc="Simple community for tests",
-            created_by=system_author.id,
-            settings={
-                "default_roles": ["reader", "author"],
-                "available_roles": ["reader", "author", "editor"]
-            }
-        )
-        db_session.add(community)
-        db_session.flush()
-
-        # Инициализируем права сообщества
-        async def init_community_permissions():
-            await initialize_community_permissions(community.id)
-
-        # Запускаем инициализацию в текущем event loop
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(init_community_permissions())
-
-        # Генерируем уникальные данные для каждого теста
-        unique_email = f"test_community_unique_{uuid.uuid4()}@example.com"
-        unique_name = f"Test Community User {uuid.uuid4()}"
-        unique_slug = f"test-community-user-{uuid.uuid4()}"
-
-        user_dict = {
-            "name": unique_name,
-            "email": unique_email,
-            "slug": unique_slug
-        }
-
-        # Создаем пользователя в конкретном сообществе
-        user = auth_service.create_user(user_dict, community_id=community.id)
-
-        # Проверяем созданного пользователя
-        assert user is not None, "Пользователь должен быть создан"
-        assert user.email == unique_email.lower(), "Email должен быть в нижнем регистре"
-        assert user.name == unique_name, "Имя пользователя должно совпадать"
-        assert user.slug == unique_slug, "Slug пользователя должен совпадать"
-
-        # Проверяем роли
-        from orm.community import get_user_roles_in_community
-
-        # Получаем роли
-        roles = get_user_roles_in_community(user.id, community_id=community.id)
-
-        # Проверяем роли
-        assert "reader" in roles, f"У нового пользователя должна быть роль 'reader' в сообществе {community.id}. Текущие роли: {roles}"
-        assert "author" in roles, f"У нового пользователя должна быть роль 'author' в сообществе {community.id}. Текущие роли: {roles}"
-
-        # Коммитим изменения
-        db_session.commit()
-
-        # Очищаем созданные объекты
-        try:
-            # Удаляем связанные записи CommunityAuthor
-            db_session.query(CommunityAuthor).filter(CommunityAuthor.author_id == user.id).delete()
-            # Удаляем пользователя
-            db_session.query(Author).filter(Author.id == user.id).delete()
-            # Удаляем сообщество
-            db_session.query(Community).filter(Community.id == community.id).delete()
-            db_session.commit()
-        except Exception:
-            db_session.rollback()
-
-
-class TestCommunityAuthorMethods:
-    """Тесты методов CommunityAuthor"""
-
-    def test_set_get_roles(self, db_session, simple_user, simple_community):
-        """Тест установки и получения ролей"""
-        # Очищаем существующие записи
-        db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.author_id == simple_user.id,
-            CommunityAuthor.community_id == simple_community.id
-        ).delete()
-        db_session.commit()
-
+    @pytest.mark.asyncio
+    async def test_editor_role_inheritance_integration(self, db_session, simple_user, test_community):
+        """Интеграционный тест наследования ролей для editor"""
+        # Создаем запись CommunityAuthor с ролью editor
         ca = CommunityAuthor(
-            community_id=simple_community.id,
+            community_id=test_community.id,
             author_id=simple_user.id,
+            roles="editor"
         )
-
-        # Тестируем установку ролей
-        ca.set_roles(["reader", "author"])
-        assert ca.role_list == ["reader", "author"]
-
-        # Тестируем пустые роли
-        ca.set_roles([])
-        assert ca.role_list == []
-
-    def test_has_role(self, db_session, simple_user, simple_community):
-        """Тест проверки наличия роли"""
-        # Очищаем существующие записи
-        db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.author_id == simple_user.id,
-            CommunityAuthor.community_id == simple_community.id
-        ).delete()
-        db_session.commit()
-
-        ca = CommunityAuthor(
-            community_id=simple_community.id,
-            author_id=simple_user.id,
-        )
-        ca.set_roles(["reader", "author"])
         db_session.add(ca)
         db_session.commit()
 
-        assert ca.has_role("reader") is True
-        assert ca.has_role("author") is True
-        assert ca.has_role("admin") is False
+        await initialize_community_permissions(test_community.id)
 
-    def test_add_remove_role(self, db_session, simple_user, simple_community):
-        """Тест добавления и удаления ролей"""
-        # Очищаем существующие записи
-        db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.author_id == simple_user.id,
-            CommunityAuthor.community_id == simple_community.id
-        ).delete()
-        db_session.commit()
+        # Проверяем что editor имеет разрешения reader через наследование
+        reader_permissions = ["shout:read", "topic:read", "collection:read"]
+        for perm in reader_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Editor должен наследовать разрешение {perm} от reader"
 
+        # Проверяем что editor имеет разрешения author через наследование
+        author_permissions = ["draft:create", "shout:create", "collection:create"]
+        for perm in author_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Editor должен наследовать разрешение {perm} от author"
+
+        # Проверяем специфичные разрешения editor
+        editor_permissions = ["shout:delete_any", "shout:update_any", "topic:create", "community:create"]
+        for perm in editor_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Editor должен иметь разрешение {perm}"
+
+        # Проверяем что editor НЕ имеет разрешения admin
+        admin_permissions = ["author:delete_any", "author:update_any"]
+        for perm in admin_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert not has_permission, f"Editor НЕ должен иметь разрешение {perm}"
+
+    @pytest.mark.asyncio
+    async def test_admin_role_inheritance_integration(self, db_session, simple_user, test_community):
+        """Интеграционный тест наследования ролей для admin"""
+        # Создаем запись CommunityAuthor с ролью admin
         ca = CommunityAuthor(
-            community_id=simple_community.id,
+            community_id=test_community.id,
             author_id=simple_user.id,
+            roles="admin"
         )
-        ca.set_roles(["reader"])
         db_session.add(ca)
         db_session.commit()
 
-        # Добавляем роль
-        ca.add_role("author")
-        assert ca.has_role("author") is True
+        await initialize_community_permissions(test_community.id)
 
-        # Удаляем роль
-        ca.remove_role("reader")
-        assert ca.has_role("reader") is False
-        assert ca.has_role("author") is True
+        # Проверяем что admin имеет разрешения всех ролей через наследование
+        all_role_permissions = [
+            "shout:read",        # reader
+            "draft:create",      # author
+            "shout:delete_any",  # editor
+            "author:delete_any"  # admin
+        ]
 
+        for perm in all_role_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Admin должен иметь разрешение {perm} через наследование"
 
-class TestDataIntegrity:
-    """Простые тесты целостности данных"""
-
-    def test_unique_community_author(self, db_session, simple_user, simple_community):
-        """Тест уникальности записей CommunityAuthor"""
-        # Очищаем существующие записи
-        db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.author_id == simple_user.id,
-            CommunityAuthor.community_id == simple_community.id
-        ).delete()
-        db_session.commit()
-
-        # Создаем первую запись
-        ca1 = CommunityAuthor(
-            community_id=simple_community.id,
-            author_id=simple_user.id,
-        )
-        ca1.set_roles(["reader"])
-        db_session.add(ca1)
-        db_session.commit()
-
-        # Проверяем что запись создалась
-        found = db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.community_id == simple_community.id,
-            CommunityAuthor.author_id == simple_user.id
-        ).first()
-
-        assert found is not None
-        assert found.id == ca1.id
-
-    def test_roles_validation(self, db_session, simple_user, simple_community):
-        """Тест валидации ролей"""
-        # Очищаем существующие записи
-        db_session.query(CommunityAuthor).filter(
-            CommunityAuthor.author_id == simple_user.id,
-            CommunityAuthor.community_id == simple_community.id
-        ).delete()
-        db_session.commit()
-
+    @pytest.mark.asyncio
+    async def test_expert_role_inheritance_integration(self, db_session, simple_user, test_community):
+        """Интеграционный тест наследования ролей для expert"""
+        # Создаем запись CommunityAuthor с ролью expert
         ca = CommunityAuthor(
-            community_id=simple_community.id,
+            community_id=test_community.id,
             author_id=simple_user.id,
+            roles="expert"
         )
+        db_session.add(ca)
+        db_session.commit()
 
-        # Тестируем различные форматы
-        ca.set_roles(["reader", "author", "expert"])
-        assert set(ca.role_list) == {"reader", "author", "expert"}
+        await initialize_community_permissions(test_community.id)
 
-        ca.set_roles([])
-        assert ca.role_list == []
+        # Проверяем что expert имеет разрешения reader через наследование
+        reader_permissions = ["shout:read", "topic:read", "collection:read"]
+        for perm in reader_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Expert должен наследовать разрешение {perm} от reader"
 
-        ca.set_roles(["admin"])
-        assert ca.role_list == ["admin"]
+        # Проверяем специфичные разрешения expert
+        expert_permissions = ["reaction:create:PROOF", "reaction:create:DISPROOF", "reaction:create:AGREE"]
+        for perm in expert_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Expert должен иметь разрешение {perm}"
+
+        # Проверяем что expert НЕ имеет разрешения author
+        author_permissions = ["draft:create", "shout:create"]
+        for perm in author_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert not has_permission, f"Expert НЕ должен иметь разрешение {perm}"
+
+    @pytest.mark.asyncio
+    async def test_artist_role_inheritance_integration(self, db_session, simple_user, test_community):
+        """Интеграционный тест наследования ролей для artist"""
+        # Создаем запись CommunityAuthor с ролью artist
+        ca = CommunityAuthor(
+            community_id=test_community.id,
+            author_id=simple_user.id,
+            roles="artist"
+        )
+        db_session.add(ca)
+        db_session.commit()
+
+        await initialize_community_permissions(test_community.id)
+
+        # Проверяем что artist имеет разрешения author через наследование
+        author_permissions = ["draft:create", "shout:create", "collection:create"]
+        for perm in author_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Artist должен наследовать разрешение {perm} от author"
+
+        # Проверяем что artist имеет разрешения reader через наследование от author
+        reader_permissions = ["shout:read", "topic:read", "collection:read"]
+        for perm in reader_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Artist должен наследовать разрешение {perm} от reader через author"
+
+        # Проверяем специфичные разрешения artist
+        artist_permissions = ["reaction:create:CREDIT", "reaction:read:CREDIT", "reaction:update_own:CREDIT"]
+        for perm in artist_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Artist должен иметь разрешение {perm}"
+
+    @pytest.mark.asyncio
+    async def test_multiple_roles_inheritance_integration(self, db_session, simple_user, test_community):
+        """Интеграционный тест множественных ролей с наследованием"""
+        # Создаем запись CommunityAuthor с несколькими ролями
+        ca = CommunityAuthor(
+            community_id=test_community.id,
+            author_id=simple_user.id,
+            roles="author,expert"
+        )
+        db_session.add(ca)
+        db_session.commit()
+
+        await initialize_community_permissions(test_community.id)
+
+        # Проверяем разрешения от роли author
+        author_permissions = ["draft:create", "shout:create", "collection:create"]
+        for perm in author_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Пользователь с ролями author,expert должен иметь разрешение {perm} от author"
+
+        # Проверяем разрешения от роли expert
+        expert_permissions = ["reaction:create:PROOF", "reaction:create:DISPROOF", "reaction:create:AGREE"]
+        for perm in expert_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Пользователь с ролями author,expert должен иметь разрешение {perm} от expert"
+
+        # Проверяем общие разрешения от reader (наследуются обеими ролями)
+        reader_permissions = ["shout:read", "topic:read", "collection:read"]
+        for perm in reader_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Пользователь с ролями author,expert должен иметь разрешение {perm} от reader"
+
+    @pytest.mark.asyncio
+    async def test_roles_have_permission_inheritance_integration(self, db_session, test_community):
+        """Интеграционный тест функции roles_have_permission с наследованием"""
+        await initialize_community_permissions(test_community.id)
+
+        # Проверяем что editor имеет разрешения author через наследование
+        has_author_permission = await roles_have_permission(["editor"], "draft:create", test_community.id)
+        assert has_author_permission, "Editor должен иметь разрешение draft:create через наследование от author"
+
+        # Проверяем что admin имеет разрешения reader через наследование
+        has_reader_permission = await roles_have_permission(["admin"], "shout:read", test_community.id)
+        assert has_reader_permission, "Admin должен иметь разрешение shout:read через наследование от reader"
+
+        # Проверяем что artist имеет разрешения author через наследование
+        has_artist_author_permission = await roles_have_permission(["artist"], "shout:create", test_community.id)
+        assert has_artist_author_permission, "Artist должен иметь разрешение shout:create через наследование от author"
+
+        # Проверяем что expert НЕ имеет разрешения author
+        has_expert_author_permission = await roles_have_permission(["expert"], "draft:create", test_community.id)
+        assert not has_expert_author_permission, "Expert НЕ должен иметь разрешение draft:create"
+
+    @pytest.mark.asyncio
+    async def test_permission_denial_inheritance_integration(self, db_session, simple_user, test_community):
+        """Интеграционный тест отказа в разрешениях с учетом наследования"""
+        # Создаем запись CommunityAuthor с ролью reader
+        ca = CommunityAuthor(
+            community_id=test_community.id,
+            author_id=simple_user.id,
+            roles="reader"
+        )
+        db_session.add(ca)
+        db_session.commit()
+
+        await initialize_community_permissions(test_community.id)
+
+        # Проверяем что reader НЕ имеет разрешения более высоких ролей
+        denied_permissions = [
+            "draft:create",      # author
+            "shout:create",      # author
+            "shout:delete_any",  # editor
+            "author:delete_any", # admin
+            "reaction:create:PROOF", # expert
+            "reaction:create:CREDIT" # artist
+        ]
+
+        for perm in denied_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert not has_permission, f"Reader НЕ должен иметь разрешение {perm}"
+
+    @pytest.mark.asyncio
+    async def test_deep_inheritance_chain_integration(self, db_session, simple_user, test_community):
+        """Интеграционный тест глубокой цепочки наследования"""
+        # Создаем запись CommunityAuthor с ролью admin
+        ca = CommunityAuthor(
+            community_id=test_community.id,
+            author_id=simple_user.id,
+            roles="admin"
+        )
+        db_session.add(ca)
+        db_session.commit()
+
+        await initialize_community_permissions(test_community.id)
+
+        # Проверяем что admin имеет разрешения через всю цепочку наследования
+        # admin -> editor -> author -> reader
+        inheritance_chain_permissions = [
+            "shout:read",        # reader
+            "draft:create",      # author
+            "shout:delete_any",  # editor
+            "author:delete_any"  # admin
+        ]
+
+        for perm in inheritance_chain_permissions:
+            has_permission = await user_has_permission(simple_user.id, perm, test_community.id, db_session)
+            assert has_permission, f"Admin должен иметь разрешение {perm} через цепочку наследования"

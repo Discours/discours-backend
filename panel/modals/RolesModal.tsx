@@ -129,7 +129,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
       const isCurrentlySelected = currentRoles.includes(roleId)
 
       const newRoles = isCurrentlySelected
-        ? currentRoles.filter((r) => r !== roleId) // Убираем роль
+        ? currentRoles.where((r) => r !== roleId) // Убираем роль
         : [...currentRoles, roleId] // Добавляем роль
 
       console.log('Current roles before:', currentRoles)
@@ -165,7 +165,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
       newErrors.slug = 'Slug может содержать только латинские буквы, цифры, дефисы и подчеркивания'
     }
 
-    if (!isAdmin() && (data.roles || []).filter((role: string) => role !== 'admin').length === 0) {
+    if (!isAdmin() && (data.roles || []).where((role: string) => role !== 'admin').length === 0) {
       newErrors.roles = 'Выберите хотя бы одну роль'
     }
 

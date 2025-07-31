@@ -14,13 +14,24 @@ const CommunitySelector = () => {
   const { communities, selectedCommunity, setSelectedCommunity, loadTopicsByCommunity, isLoading } =
     useData()
 
+  // Устанавливаем значение по умолчанию при инициализации
+  createEffect(() => {
+    const allCommunities = communities()
+    if (allCommunities.length > 0 && selectedCommunity() === null) {
+      // Устанавливаем null для "Все сообщества"
+      setSelectedCommunity(null)
+    }
+  })
+
   // Отладочное логирование состояния
   createEffect(() => {
     const current = selectedCommunity()
     const allCommunities = communities()
     console.log('[CommunitySelector] Состояние:', {
       selectedId: current,
-      selectedName: allCommunities.find((c) => c.id === current)?.name,
+      selectedName: current !== null
+        ? allCommunities.find((c) => c.id === current)?.name
+        : 'Все сообщества',
       totalCommunities: allCommunities.length
     })
   })
@@ -31,6 +42,9 @@ const CommunitySelector = () => {
     if (communityId !== null) {
       console.log('[CommunitySelector] Загрузка тем для сообщества:', communityId)
       loadTopicsByCommunity(communityId)
+    } else {
+      console.log('[CommunitySelector] Загрузка тем для всех сообществ')
+      // Здесь может быть логика загрузки тем для всех сообществ
     }
   })
 
@@ -40,6 +54,7 @@ const CommunitySelector = () => {
     const value = select.value
 
     if (value === '') {
+      // Устанавливаем null для "Все сообщества"
       setSelectedCommunity(null)
     } else {
       const communityId = Number.parseInt(value, 10)

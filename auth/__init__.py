@@ -134,7 +134,7 @@ async def refresh_token(request: Request) -> JSONResponse:
 
         # Получаем пользователя из базы данных
         with local_session() as session:
-            author = session.query(Author).filter(Author.id == user_id).first()
+            author = session.query(Author).where(Author.id == user_id).first()
 
             if not author:
                 logger.warning(f"[auth] refresh_token: Пользователь с ID {user_id} не найден")

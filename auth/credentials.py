@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-# from base.exceptions import Unauthorized
+# from base.exceptions import UnauthorizedError
 from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 
 ADMIN_EMAILS = ADMIN_EMAILS_LIST.split(",")
@@ -26,7 +26,7 @@ class AuthCredentials(BaseModel):
 
     author_id: Optional[int] = Field(None, description="ID автора")
     scopes: dict[str, set[str]] = Field(default_factory=dict, description="Разрешения пользователя")
-    logged_in: bool = Field(False, description="Флаг, указывающий, авторизован ли пользователь")
+    logged_in: bool = Field(default=False, description="Флаг, указывающий, авторизован ли пользователь")
     error_message: str = Field("", description="Сообщение об ошибке аутентификации")
     email: Optional[str] = Field(None, description="Email пользователя")
     token: Optional[str] = Field(None, description="JWT токен авторизации")
@@ -88,7 +88,7 @@ class AuthCredentials(BaseModel):
 
     async def permissions(self) -> list[Permission]:
         if self.author_id is None:
-            # raise Unauthorized("Please login first")
+            # raise UnauthorizedError("Please login first")
             return []  # Возвращаем пустой список вместо dict
         # TODO: implement permissions logix
         print(self.author_id)

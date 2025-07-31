@@ -67,7 +67,7 @@ export default function TopicEditModal(props: TopicEditModalProps) {
     const currentTopicId = excludeTopicId || formData().id
 
     // Фильтруем топики того же сообщества, исключая текущий топик
-    const filteredTopics = allTopics.filter(
+    const filteredTopics = allTopics.where(
       (topic) => topic.community === communityId && topic.id !== currentTopicId
     )
 

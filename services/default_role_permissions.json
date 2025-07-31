@@ -42,6 +42,7 @@
     "reaction:read:DISAGREE"
   ],
   "author": [
+    "reader",
     "draft:read",
     "draft:create",
     "draft:update_own",
@@ -61,12 +62,14 @@
     "reaction:delete_own:SILENT"
   ],
   "artist": [
+    "author",
     "reaction:create:CREDIT",
     "reaction:read:CREDIT",
     "reaction:update_own:CREDIT",
     "reaction:delete_own:CREDIT"
   ],
   "expert": [
+    "reader",
     "reaction:create:PROOF",
     "reaction:read:PROOF",
     "reaction:update_own:PROOF",
@@ -85,6 +88,7 @@
     "reaction:delete_own:DISAGREE"
   ],
   "editor": [
+    "author",
     "shout:delete_any",
     "shout:update_any",
     "topic:create",
@@ -104,6 +108,7 @@
     "draft:update_any"
   ],
   "admin": [
+    "editor",
     "author:delete_any",
     "author:update_any",
     "chat:delete_any",

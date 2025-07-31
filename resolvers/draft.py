@@ -96,7 +96,7 @@ async def load_drafts(_: None, info: GraphQLResolveInfo) -> dict[str, Any]:
                     joinedload(Draft.topics),
                     joinedload(Draft.authors),
                 )
-                .filter(Draft.authors.any(Author.id == author_id))
+                .where(Draft.authors.any(Author.id == author_id))
             )
             drafts = drafts_query.all()
 
@@ -168,12 +168,41 @@ async def create_draft(_: None, info: GraphQLResolveInfo, draft_input: dict[str,
             # Добавляем текущее время создания и ID автора
             draft_input["created_at"] = int(time.time())
             draft_input["created_by"] = author_id
-            draft = Draft(**draft_input)
+
+            # Исключаем поле shout из создания draft (оно добавляется только при публикации)
+            draft_input.pop("shout", None)
+
+            # Создаем draft вручную, исключая проблемные поля
+            draft = Draft()
+            draft.created_at = draft_input["created_at"]
+            draft.created_by = draft_input["created_by"]
+            draft.community = draft_input.get("community", 1)
+            draft.layout = draft_input.get("layout", "article")
+            draft.title = draft_input.get("title", "")
+            draft.body = draft_input.get("body", "")
+            draft.lang = draft_input.get("lang", "ru")
+
+            # Опциональные поля
+            if "slug" in draft_input:
+                draft.slug = draft_input["slug"]
+            if "subtitle" in draft_input:
+                draft.subtitle = draft_input["subtitle"]
+            if "lead" in draft_input:
+                draft.lead = draft_input["lead"]
+            if "cover" in draft_input:
+                draft.cover = draft_input["cover"]
+            if "cover_caption" in draft_input:
+                draft.cover_caption = draft_input["cover_caption"]
+            if "seo" in draft_input:
+                draft.seo = draft_input["seo"]
+            if "media" in draft_input:
+                draft.media = draft_input["media"]
+
             session.add(draft)
             session.flush()
 
             # Добавляем создателя как автора
-            da = DraftAuthor(shout=draft.id, author=author_id)
+            da = DraftAuthor(draft=draft.id, author=author_id)
             session.add(da)
 
             session.commit()
@@ -222,7 +251,7 @@ async def update_draft(_: None, info: GraphQLResolveInfo, draft_id: int, draft_i
 
     try:
         with local_session() as session:
-            draft = session.query(Draft).filter(Draft.id == draft_id).first()
+            draft = session.query(Draft).where(Draft.id == draft_id).first()
             if not draft:
                 return {"error": "Draft not found"}
 
@@ -254,10 +283,10 @@ async def update_draft(_: None, info: GraphQLResolveInfo, draft_id: int, draft_i
                 author_ids = filtered_input.pop("author_ids")
                 if author_ids:
                     # Очищаем текущие связи
-                    session.query(DraftAuthor).filter(DraftAuthor.shout == draft_id).delete()
+                    session.query(DraftAuthor).where(DraftAuthor.draft == draft_id).delete()
                     # Добавляем новые связи
                     for aid in author_ids:
-                        da = DraftAuthor(shout=draft_id, author=aid)
+                        da = DraftAuthor(draft=draft_id, author=aid)
                         session.add(da)
 
             # Обновляем связи с темами если переданы
@@ -266,11 +295,11 @@ async def update_draft(_: None, info: GraphQLResolveInfo, draft_id: int, draft_i
                 main_topic_id = filtered_input.pop("main_topic_id", None)
                 if topic_ids:
                     # Очищаем текущие связи
-                    session.query(DraftTopic).filter(DraftTopic.shout == draft_id).delete()
+                    session.query(DraftTopic).where(DraftTopic.draft == draft_id).delete()
                     # Добавляем новые связи
                     for tid in topic_ids:
                         dt = DraftTopic(
-                            shout=draft_id,
+                            draft=draft_id,
                             topic=tid,
                             main=(tid == main_topic_id) if main_topic_id else False,
                         )
@@ -320,10 +349,10 @@ async def delete_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> dict
     author_id = author_dict.get("id")
 
     with local_session() as session:
-        draft = session.query(Draft).filter(Draft.id == draft_id).first()
+        draft = session.query(Draft).where(Draft.id == draft_id).first()
         if not draft:
             return {"error": "Draft not found"}
-        if author_id != draft.created_by and draft.authors.filter(Author.id == author_id).count() == 0:
+        if author_id != draft.created_by and draft.authors.where(Author.id == author_id).count() == 0:
             return {"error": "You are not allowed to delete this draft"}
         session.delete(draft)
         session.commit()
@@ -386,8 +415,8 @@ async def publish_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> dic
             # Загружаем черновик со всеми связями
             draft = (
                 session.query(Draft)
-                .options(joinedload(Draft.topics), joinedload(Draft.authors), joinedload(Draft.publication))
-                .filter(Draft.id == draft_id)
+                .options(joinedload(Draft.topics), joinedload(Draft.authors))
+                .where(Draft.id == draft_id)
                 .first()
             )
 
@@ -401,7 +430,8 @@ async def publish_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> dic
                 return {"error": f"Cannot publish draft: {error}"}
 
             # Проверяем, есть ли уже публикация для этого черновика
-            if draft.publication:
+            shout = None
+            if hasattr(draft, "publication") and draft.publication:
                 shout = draft.publication
                 # Обновляем существующую публикацию
                 if hasattr(draft, "body"):
@@ -428,14 +458,14 @@ async def publish_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> dic
                 # Создаем новую публикацию
                 shout = create_shout_from_draft(session, draft, author_id)
                 now = int(time.time())
-                shout.created_at = now
-                shout.published_at = now
+                shout.created_at = int(now)
+                shout.published_at = int(now)
                 session.add(shout)
                 session.flush()  # Получаем ID нового шаута
 
             # Очищаем существующие связи
-            session.query(ShoutAuthor).filter(ShoutAuthor.shout == shout.id).delete()
-            session.query(ShoutTopic).filter(ShoutTopic.shout == shout.id).delete()
+            session.query(ShoutAuthor).where(ShoutAuthor.shout == shout.id).delete()
+            session.query(ShoutTopic).where(ShoutTopic.shout == shout.id).delete()
 
             # Добавляем авторов
             for author in draft.authors or []:
@@ -457,7 +487,7 @@ async def publish_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> dic
             await invalidate_shout_related_cache(shout, author_id)
 
             # Уведомляем о публикации
-            await notify_shout(shout.id)
+            await notify_shout(shout.dict(), "published")
 
             # Обновляем поисковый индекс
             await search_service.perform_index(shout)
@@ -495,8 +525,8 @@ async def unpublish_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> d
             # Загружаем черновик со связанной публикацией
             draft = (
                 session.query(Draft)
-                .options(joinedload(Draft.publication), joinedload(Draft.authors), joinedload(Draft.topics))
-                .filter(Draft.id == draft_id)
+                .options(joinedload(Draft.authors), joinedload(Draft.topics))
+                .where(Draft.id == draft_id)
                 .first()
             )
 
@@ -504,10 +534,11 @@ async def unpublish_draft(_: None, info: GraphQLResolveInfo, draft_id: int) -> d
                 return {"error": "Draft not found"}
 
             # Проверяем, есть ли публикация
-            if not draft.publication:
+            shout = None
+            if hasattr(draft, "publication") and draft.publication:
+                shout = draft.publication
+            else:
                 return {"error": "This draft is not published yet"}
-
-            shout = draft.publication
 
             # Снимаем с публикации
             shout.published_at = None

@@ -95,5 +95,5 @@ if __name__ == "__main__":
         print("✅ Тест пройден успешно!")
     else:
         print("❌ Тест не пройден")
-        print("\nПримечание: Ошибка 'Unauthorized' ожидаема, так как мы не передаём токен авторизации.")
+        print("\nПримечание: Ошибка 'UnauthorizedError' ожидаема, так как мы не передаём токен авторизации.")
         print("Главное - что исчезла ошибка 'Cannot return null for non-nullable field SessionInfo.token'")

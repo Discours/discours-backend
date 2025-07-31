@@ -1,5 +1,6 @@
 """Настройки приложения"""
 
+import datetime
 import os
 from os import environ
 from pathlib import Path
@@ -18,6 +19,7 @@ DB_URL = (
     or environ.get("DB_URL", "").replace("postgres://", "postgresql://")
     or "sqlite:///discoursio.db"
 )
+DATABASE_URL = DB_URL
 REDIS_URL = environ.get("REDIS_URL") or "redis://127.0.0.1"
 
 # debug
@@ -32,7 +34,9 @@ ONETIME_TOKEN_LIFE_SPAN = 60 * 15  # 15 минут
 SESSION_TOKEN_LIFE_SPAN = 60 * 60 * 24 * 30  # 30 дней
 SESSION_TOKEN_HEADER = "Authorization"
 JWT_ALGORITHM = "HS256"
-JWT_SECRET_KEY = environ.get("JWT_SECRET") or "nothing-else-jwt-secret-matters"
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "default_secret_key_change_in_production-ok?")
+JWT_ISSUER = "discours"
+JWT_EXPIRATION_DELTA = datetime.timedelta(days=30)  # Токен действителен 30 дней
 
 # URL фронтенда
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -69,13 +73,10 @@ OAUTH_CLIENTS = {
     },
 }
 
-# Настройки базы данных
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/discours")
-
 # Настройки JWT
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
-JWT_REFRESH_TOKEN_EXPIRE_DAYS = 30
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(environ.get("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "30"))
 
 # Настройки для HTTP cookies (используется в auth middleware)
 SESSION_COOKIE_NAME = "session_token"

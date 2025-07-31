@@ -12,6 +12,7 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.append(str(Path(__file__).parent))
 
@@ -41,10 +42,13 @@ async def test_password_change() -> None:
     # Создаем тестового пользователя
     with local_session() as session:
         # Проверяем, есть ли тестовый пользователь
-        test_user = session.query(Author).filter(Author.email == "test@example.com").first()
+        test_user = session.query(Author).where(Author.email == "test@example.com").first()
 
         if not test_user:
-            test_user = Author(email="test@example.com", name="Test User", slug="test-user")
+            # Используем уникальный slug для избежания конфликтов
+            import uuid
+            unique_slug = f"test-user-{uuid.uuid4().hex[:8]}"
+            test_user = Author(email="test@example.com", name="Test User", slug=unique_slug)
             test_user.set_password("old_password123")
             session.add(test_user)
             session.commit()
@@ -72,7 +76,7 @@ async def test_password_change() -> None:
 
         # Проверяем, что новый пароль работает
         with local_session() as session:
-            updated_user = session.query(Author).filter(Author.id == test_user.id).first()
+            updated_user = session.query(Author).where(Author.id == test_user.id).first()
             if updated_user.verify_password("new_password456"):
                 logger.info("   ✅ Новый пароль работает")
             else:
@@ -118,7 +122,7 @@ async def test_email_change() -> None:
     logger.info("📧 Тестирование смены email")
 
     with local_session() as session:
-        test_user = session.query(Author).filter(Author.email == "test@example.com").first()
+        test_user = session.query(Author).where(Author.email == "test@example.com").first()
         if not test_user:
             logger.error("   ❌ Тестовый пользователь не найден")
             return
@@ -145,7 +149,7 @@ async def test_email_change() -> None:
 
     # Создаем другого пользователя с новым email
     with local_session() as session:
-        existing_user = session.query(Author).filter(Author.email == "existing@example.com").first()
+        existing_user = session.query(Author).where(Author.email == "existing@example.com").first()
         if not existing_user:
             existing_user = Author(email="existing@example.com", name="Existing User", slug="existing-user")
             existing_user.set_password("password123")
@@ -171,7 +175,7 @@ async def test_combined_changes() -> None:
     logger.info("🔄 Тестирование одновременной смены пароля и email")
 
     with local_session() as session:
-        test_user = session.query(Author).filter(Author.email == "test@example.com").first()
+        test_user = session.query(Author).where(Author.email == "test@example.com").first()
         if not test_user:
             logger.error("   ❌ Тестовый пользователь не найден")
             return
@@ -191,7 +195,7 @@ async def test_combined_changes() -> None:
 
         # Проверяем изменения
         with local_session() as session:
-            updated_user = session.query(Author).filter(Author.id == test_user.id).first()
+            updated_user = session.query(Author).where(Author.id == test_user.id).first()
 
             # Проверяем пароль
             if updated_user.verify_password("combined_password789"):
@@ -207,7 +211,7 @@ async def test_validation_errors() -> None:
     logger.info("⚠️ Тестирование ошибок валидации")
 
     with local_session() as session:
-        test_user = session.query(Author).filter(Author.email == "test@example.com").first()
+        test_user = session.query(Author).where(Author.email == "test@example.com").first()
         if not test_user:
             logger.error("   ❌ Тестовый пользователь не найден")
             return
@@ -256,7 +260,7 @@ async def cleanup_test_data() -> None:
         # Удаляем тестовых пользователей
         test_emails = ["test@example.com", "existing@example.com"]
         for email in test_emails:
-            user = session.query(Author).filter(Author.email == email).first()
+            user = session.query(Author).where(Author.email == email).first()
             if user:
                 session.delete(user)
 

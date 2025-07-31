@@ -50,7 +50,7 @@ class SessionTokenManager(BaseTokenManager):
             }
         )
 
-        session_token = jwt_token
+        session_token = jwt_token.decode("utf-8") if isinstance(jwt_token, bytes) else str(jwt_token)
         token_key = self._make_token_key("session", user_id, session_token)
         user_tokens_key = self._make_user_tokens_key(user_id, "session")
         ttl = DEFAULT_TTL["session"]
@@ -81,7 +81,7 @@ class SessionTokenManager(BaseTokenManager):
             # Извлекаем user_id из JWT
             payload = JWTCodec.decode(token)
             if payload:
-                user_id = payload.user_id
+                user_id = payload.get("user_id")
             else:
                 return None
 
@@ -107,7 +107,7 @@ class SessionTokenManager(BaseTokenManager):
             if not payload:
                 return False, None
 
-            user_id = payload.user_id
+            user_id = payload.get("user_id")
             token_key = self._make_token_key("session", user_id, token)
 
             # Проверяем существование и получаем данные
@@ -129,7 +129,7 @@ class SessionTokenManager(BaseTokenManager):
         if not payload:
             return False
 
-        user_id = payload.user_id
+        user_id = payload.get("user_id")
 
         # Используем новый метод execute_pipeline для избежания deprecated warnings
         token_key = self._make_token_key("session", user_id, token)
@@ -243,18 +243,19 @@ class SessionTokenManager(BaseTokenManager):
                 logger.error("Не удалось декодировать токен")
                 return None
 
-            if not hasattr(payload, "user_id"):
+            user_id = payload.get("user_id")
+            if not user_id:
                 logger.error("В токене отсутствует user_id")
                 return None
 
-            logger.debug(f"Успешно декодирован токен, user_id={payload.user_id}")
+            logger.debug(f"Успешно декодирован токен, user_id={user_id}")
 
             # Проверяем наличие сессии в Redis
-            token_key = self._make_token_key("session", str(payload.user_id), token)
+            token_key = self._make_token_key("session", str(user_id), token)
             session_exists = await redis_adapter.exists(token_key)
 
             if not session_exists:
-                logger.warning(f"Сессия не найдена в Redis для user_id={payload.user_id}")
+                logger.warning(f"Сессия не найдена в Redis для user_id={user_id}")
                 return None
 
             # Обновляем last_activity

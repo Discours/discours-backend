@@ -37,6 +37,7 @@ from sqlalchemy import and_, join, select
 from auth.orm import Author, AuthorFollower
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
+from resolvers.stat import get_with_stat
 from services.db import local_session
 from services.redis import redis
 from utils.encoders import fast_json_dumps
@@ -246,7 +247,7 @@ async def get_cached_topic_followers(topic_id: int):
                 f[0]
                 for f in session.query(Author.id)
                 .join(TopicFollower, TopicFollower.follower == Author.id)
-                .filter(TopicFollower.topic == topic_id)
+                .where(TopicFollower.topic == topic_id)
                 .all()
             ]
 
@@ -276,7 +277,7 @@ async def get_cached_author_followers(author_id: int):
             f[0]
             for f in session.query(Author.id)
             .join(AuthorFollower, AuthorFollower.follower == Author.id)
-            .filter(AuthorFollower.author == author_id, Author.id != author_id)
+            .where(AuthorFollower.author == author_id, Author.id != author_id)
             .all()
         ]
         await redis.execute("SET", f"author:followers:{author_id}", fast_json_dumps(followers_ids))
@@ -529,9 +530,8 @@ async def cache_by_id(entity, entity_id: int, cache_method):
         entity_id: ID сущности
         cache_method: функция кэширования
     """
-    from resolvers.stat import get_with_stat
 
-    caching_query = select(entity).filter(entity.id == entity_id)
+    caching_query = select(entity).where(entity.id == entity_id)
     result = get_with_stat(caching_query)
     if not result or not result[0]:
         logger.warning(f"{entity.__name__} with id {entity_id} not found")
@@ -875,7 +875,7 @@ async def invalidate_topic_followers_cache(topic_id: int) -> None:
 
         # Получаем список всех подписчиков топика из БД
         with local_session() as session:
-            followers_query = session.query(TopicFollower.follower).filter(TopicFollower.topic == topic_id)
+            followers_query = session.query(TopicFollower.follower).where(TopicFollower.topic == topic_id)
             follower_ids = [row[0] for row in followers_query.all()]
 
         logger.debug(f"Найдено {len(follower_ids)} подписчиков топика {topic_id}")

@@ -233,7 +233,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
   const deleteSelectedInvites = async () => {
     try {
       const selected = selectedInvites()
-      const invitesToDelete = invites().filter((invite) => {
+      const invitesToDelete = invites().where((invite) => {
         const key = `${invite.inviter_id}-${invite.author_id}-${invite.shout_id}`
         return selected[key]
       })
@@ -324,7 +324,7 @@ const InvitesRoute: Component<InvitesRouteProps> = (props) => {
    * Получает количество выбранных приглашений
    */
   const getSelectedCount = () => {
-    return Object.values(selectedInvites()).filter(Boolean).length
+    return Object.values(selectedInvites()).where(Boolean).length
   }
 
   /**

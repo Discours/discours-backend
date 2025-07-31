@@ -2,6 +2,7 @@
 Единый middleware для обработки авторизации в GraphQL запросах
 """
 
+import json
 import time
 from collections.abc import Awaitable, MutableMapping
 from typing import Any, Callable, Optional
@@ -104,7 +105,7 @@ class AuthMiddleware:
 
             with local_session() as session:
                 try:
-                    author = session.query(Author).filter(Author.id == payload.user_id).one()
+                    author = session.query(Author).where(Author.id == payload.user_id).one()
 
                     if author.is_locked():
                         logger.debug(f"[auth.authenticate] Аккаунт заблокирован: {author.id}")
@@ -123,10 +124,7 @@ class AuthMiddleware:
 
                     # Получаем роли для пользователя
                     ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
-                    if ca:
-                        roles = ca.role_list
-                    else:
-                        roles = []
+                    roles = ca.role_list if ca else []
 
                     # Обновляем last_seen
                     author.last_seen = int(time.time())
@@ -336,8 +334,6 @@ class AuthMiddleware:
 
             # Проверяем наличие response в контексте
             if "response" not in context or not context["response"]:
-                from starlette.responses import JSONResponse
-
                 context["response"] = JSONResponse({})
                 logger.debug("[middleware] Создан новый response объект в контексте GraphQL")
 
@@ -367,8 +363,6 @@ class AuthMiddleware:
             result_data = {}
             if isinstance(result, JSONResponse):
                 try:
-                    import json
-
                     body_content = result.body
                     if isinstance(body_content, (bytes, memoryview)):
                         body_text = bytes(body_content).decode("utf-8")

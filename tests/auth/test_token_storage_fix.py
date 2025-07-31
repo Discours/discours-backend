@@ -4,7 +4,9 @@
 """
 
 import pytest
+import jwt  # Явный импорт JWT
 
+from auth.jwtcodec import JWTCodec
 from auth.tokens.monitoring import TokenMonitoring
 from auth.tokens.sessions import SessionTokenManager
 from auth.tokens.storage import TokenStorage
@@ -26,7 +28,7 @@ async def test_token_storage(redis_client):
         print("2. Проверка сессии...")
         session_data = await TokenStorage.verify_session(token)
         if session_data:
-            print(f"   Сессия найдена для user_id: {session_data.user_id}")
+            print(f"   Сессия найдена для user_id: {session_data.get('user_id', 'unknown')}")
         else:
             print("   ❌ Сессия не найдена")
             return False

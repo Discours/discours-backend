@@ -1,5 +1,5 @@
 from collections.abc import Collection
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 import orjson
 
@@ -11,16 +11,14 @@ from services.redis import redis
 from utils.logger import root_logger as logger
 
 
-def save_notification(action: str, entity: str, payload: Union[Dict[Any, Any], str, int, None]) -> None:
+def save_notification(action: str, entity: str, payload: Union[dict[Any, Any], str, int, None]) -> None:
     """Save notification with proper payload handling"""
     if payload is None:
-        payload = ""
-    elif isinstance(payload, (Reaction, Shout)):
+        return
+
+    if isinstance(payload, (Reaction, Shout)):
         # Convert ORM objects to dict representation
         payload = {"id": payload.id}
-    elif isinstance(payload, Collection) and not isinstance(payload, (str, bytes)):
-        # Convert collections to string representation
-        payload = str(payload)
 
     with local_session() as session:
         n = Notification(action=action, entity=entity, payload=payload)
@@ -53,7 +51,7 @@ async def notify_reaction(reaction: Union[Reaction, int], action: str = "create"
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
 
 
-async def notify_shout(shout: Dict[str, Any], action: str = "update") -> None:
+async def notify_shout(shout: dict[str, Any], action: str = "update") -> None:
     channel_name = "shout"
     data = {"payload": shout, "action": action}
     try:
@@ -66,7 +64,7 @@ async def notify_shout(shout: Dict[str, Any], action: str = "update") -> None:
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
 
 
-async def notify_follower(follower: Dict[str, Any], author_id: int, action: str = "follow") -> None:
+async def notify_follower(follower: dict[str, Any], author_id: int, action: str = "follow") -> None:
     channel_name = f"follower:{author_id}"
     try:
         # Simplify dictionary before publishing
@@ -91,7 +89,7 @@ async def notify_follower(follower: Dict[str, Any], author_id: int, action: str 
         logger.error(f"Failed to publish to channel {channel_name}: {e}")
 
 
-async def notify_draft(draft_data: Dict[str, Any], action: str = "publish") -> None:
+async def notify_draft(draft_data: dict[str, Any], action: str = "publish") -> None:
     """
     Отправляет уведомление о публикации или обновлении черновика.
 

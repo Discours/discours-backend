@@ -70,7 +70,7 @@ async def test_unfollow_logic_directly():
 
         # Пытаемся отписаться от темы, если она существует
         with local_session() as session:
-            test_topic = session.query(Topic).filter(Topic.slug == "moda").first()
+            test_topic = session.query(Topic).where(Topic.slug == "moda").first()
             if not test_topic:
                 logger.info("Тема 'moda' не найдена, создаём тестовую")
                 # Можем протестировать с любой существующей темой
@@ -154,7 +154,7 @@ async def cleanup_test_data():
 
     with local_session() as session:
         # Удаляем тестовые подписки
-        session.query(TopicFollower).filter(TopicFollower.follower == 999).delete()
+        session.query(TopicFollower).where(TopicFollower.follower == 999).delete()
         session.commit()
 
     # Очищаем кэш

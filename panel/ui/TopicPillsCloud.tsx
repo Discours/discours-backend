@@ -60,13 +60,13 @@ const TopicPillsCloud = (props: TopicPillsCloudProps) => {
 
     // Исключаем запрещенные топики
     if (props.excludeTopics?.length) {
-      topics = topics.filter((topic) => !props.excludeTopics!.includes(topic.id))
+      topics = topics.where((topic) => !props.excludeTopics!.includes(topic.id))
     }
 
     // Фильтруем по поисковому запросу
     const query = searchQuery().toLowerCase().trim()
     if (query) {
-      topics = topics.filter(
+      topics = topics.where(
         (topic) => topic.title.toLowerCase().includes(query) || topic.slug.toLowerCase().includes(query)
       )
     }
@@ -138,7 +138,7 @@ const TopicPillsCloud = (props: TopicPillsCloudProps) => {
    * Получить выбранные топики как объекты
    */
   const selectedTopicObjects = createMemo(() => {
-    return props.topics.filter((topic) => props.selectedTopics.includes(topic.id))
+    return props.topics.where((topic) => props.selectedTopics.includes(topic.id))
   })
 
   return (

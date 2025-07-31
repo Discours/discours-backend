@@ -1,7 +1,8 @@
 import time
+from typing import Any
 
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import JSON, Boolean, ForeignKey, Index, Integer, PrimaryKeyConstraint, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from auth.orm import Author
 from orm.base import BaseModel as Base
@@ -21,13 +22,13 @@ class ShoutTopic(Base):
 
     __tablename__ = "shout_topic"
 
-    id = None  # type: ignore[misc]
-    shout = Column(ForeignKey("shout.id"), primary_key=True, index=True)
-    topic = Column(ForeignKey("topic.id"), primary_key=True, index=True)
-    main = Column(Boolean, nullable=True)
+    shout: Mapped[int] = mapped_column(ForeignKey("shout.id"), index=True)
+    topic: Mapped[int] = mapped_column(ForeignKey("topic.id"), index=True)
+    main: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # Определяем дополнительные индексы
     __table_args__ = (
+        PrimaryKeyConstraint(shout, topic),
         # Оптимизированный составной индекс для запросов, которые ищут публикации по теме
         Index("idx_shout_topic_topic_shout", "topic", "shout"),
     )
@@ -36,12 +37,18 @@ class ShoutTopic(Base):
 class ShoutReactionsFollower(Base):
     __tablename__ = "shout_reactions_followers"
 
-    id = None  # type: ignore[misc]
-    follower = Column(ForeignKey("author.id"), primary_key=True, index=True)
-    shout = Column(ForeignKey("shout.id"), primary_key=True, index=True)
-    auto = Column(Boolean, nullable=False, default=False)
-    created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    deleted_at = Column(Integer, nullable=True)
+    follower: Mapped[int] = mapped_column(ForeignKey(Author.id), index=True)
+    shout: Mapped[int] = mapped_column(ForeignKey("shout.id"), index=True)
+    auto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    deleted_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint(follower, shout),
+        Index("idx_shout_reactions_followers_follower", "follower"),
+        Index("idx_shout_reactions_followers_shout", "shout"),
+        {"extend_existing": True},
+    )
 
 
 class ShoutAuthor(Base):
@@ -56,13 +63,13 @@ class ShoutAuthor(Base):
 
     __tablename__ = "shout_author"
 
-    id = None  # type: ignore[misc]
-    shout = Column(ForeignKey("shout.id"), primary_key=True, index=True)
-    author = Column(ForeignKey("author.id"), primary_key=True, index=True)
-    caption = Column(String, nullable=True, default="")
+    shout: Mapped[int] = mapped_column(ForeignKey("shout.id"), index=True)
+    author: Mapped[int] = mapped_column(ForeignKey(Author.id), index=True)
+    caption: Mapped[str | None] = mapped_column(String, nullable=True, default="")
 
     # Определяем дополнительные индексы
     __table_args__ = (
+        PrimaryKeyConstraint(shout, author),
         # Оптимизированный индекс для запросов, которые ищут публикации по автору
         Index("idx_shout_author_author_shout", "author", "shout"),
     )
@@ -75,37 +82,36 @@ class Shout(Base):
 
     __tablename__ = "shout"
 
-    created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    updated_at = Column(Integer, nullable=True, index=True)
-    published_at = Column(Integer, nullable=True, index=True)
-    featured_at = Column(Integer, nullable=True, index=True)
-    deleted_at = Column(Integer, nullable=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    updated_at: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    published_at: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    featured_at: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    deleted_at: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
-    created_by = Column(ForeignKey("author.id"), nullable=False)
-    updated_by = Column(ForeignKey("author.id"), nullable=True)
-    deleted_by = Column(ForeignKey("author.id"), nullable=True)
-    community = Column(ForeignKey("community.id"), nullable=False)
+    created_by: Mapped[int] = mapped_column(ForeignKey(Author.id), nullable=False)
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey(Author.id), nullable=True)
+    deleted_by: Mapped[int | None] = mapped_column(ForeignKey(Author.id), nullable=True)
+    community: Mapped[int] = mapped_column(ForeignKey("community.id"), nullable=False)
 
-    body = Column(String, nullable=False, comment="Body")
-    slug = Column(String, unique=True)
-    cover = Column(String, nullable=True, comment="Cover image url")
-    cover_caption = Column(String, nullable=True, comment="Cover image alt caption")
-    lead = Column(String, nullable=True)
-    title = Column(String, nullable=False)
-    subtitle = Column(String, nullable=True)
-    layout = Column(String, nullable=False, default="article")
-    media = Column(JSON, nullable=True)
+    body: Mapped[str] = mapped_column(String, nullable=False, comment="Body")
+    slug: Mapped[str | None] = mapped_column(String, unique=True)
+    cover: Mapped[str | None] = mapped_column(String, nullable=True, comment="Cover image url")
+    cover_caption: Mapped[str | None] = mapped_column(String, nullable=True, comment="Cover image alt caption")
+    lead: Mapped[str | None] = mapped_column(String, nullable=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    subtitle: Mapped[str | None] = mapped_column(String, nullable=True)
+    layout: Mapped[str] = mapped_column(String, nullable=False, default="article")
+    media: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     authors = relationship(Author, secondary="shout_author")
     topics = relationship(Topic, secondary="shout_topic")
     reactions = relationship(Reaction)
 
-    lang = Column(String, nullable=False, default="ru", comment="Language")
-    version_of = Column(ForeignKey("shout.id"), nullable=True)
-    oid = Column(String, nullable=True)
-    seo = Column(String, nullable=True)  # JSON
-
-    draft = Column(ForeignKey("draft.id"), nullable=True)
+    lang: Mapped[str] = mapped_column(String, nullable=False, default="ru", comment="Language")
+    version_of: Mapped[int | None] = mapped_column(ForeignKey("shout.id"), nullable=True)
+    oid: Mapped[str | None] = mapped_column(String, nullable=True)
+    seo: Mapped[str | None] = mapped_column(String, nullable=True)  # JSON
 
     # Определяем индексы
     __table_args__ = (

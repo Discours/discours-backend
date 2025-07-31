@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import traceback
 from typing import Any, Optional
 
 from sqlalchemy import and_, distinct, func, join, select
@@ -7,7 +8,6 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import Select
 
 from auth.orm import Author, AuthorFollower
-from cache.cache import cache_author
 from orm.community import Community, CommunityFollower
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
@@ -99,7 +99,7 @@ def get_topic_shouts_stat(topic_id: int) -> int:
     q = (
         select(func.count(distinct(ShoutTopic.shout)))
         .select_from(join(ShoutTopic, Shout, ShoutTopic.shout == Shout.id))
-        .filter(
+        .where(
             and_(
                 ShoutTopic.topic == topic_id,
                 Shout.published_at.is_not(None),
@@ -124,7 +124,7 @@ def get_topic_authors_stat(topic_id: int) -> int:
         select(func.count(distinct(ShoutAuthor.author)))
         .select_from(join(ShoutTopic, Shout, ShoutTopic.shout == Shout.id))
         .join(ShoutAuthor, ShoutAuthor.shout == Shout.id)
-        .filter(
+        .where(
             and_(
                 ShoutTopic.topic == topic_id,
                 Shout.published_at.is_not(None),
@@ -147,7 +147,7 @@ def get_topic_followers_stat(topic_id: int) -> int:
     :return: Количество уникальных подписчиков темы.
     """
     aliased_followers = aliased(TopicFollower)
-    q = select(func.count(distinct(aliased_followers.follower))).filter(aliased_followers.topic == topic_id)
+    q = select(func.count(distinct(aliased_followers.follower))).where(aliased_followers.topic == topic_id)
     with local_session() as session:
         result = session.execute(q).scalar()
         return int(result) if result else 0
@@ -180,7 +180,7 @@ def get_topic_comments_stat(topic_id: int) -> int:
         .subquery()
     )
     # Запрос для суммирования количества комментариев по теме
-    q = select(func.coalesce(func.sum(sub_comments.c.comments_count), 0)).filter(ShoutTopic.topic == topic_id)
+    q = select(func.coalesce(func.sum(sub_comments.c.comments_count), 0)).where(ShoutTopic.topic == topic_id)
     q = q.outerjoin(sub_comments, ShoutTopic.shout == sub_comments.c.shout_id)
     with local_session() as session:
         result = session.execute(q).scalar()
@@ -198,7 +198,7 @@ def get_author_shouts_stat(author_id: int) -> int:
         select(func.count(distinct(aliased_shout.id)))
         .select_from(aliased_shout)
         .join(aliased_shout_author, aliased_shout.id == aliased_shout_author.shout)
-        .filter(
+        .where(
             and_(
                 aliased_shout_author.author == author_id,
                 aliased_shout.published_at.is_not(None),
@@ -221,7 +221,7 @@ def get_author_authors_stat(author_id: int) -> int:
         .select_from(ShoutAuthor)
         .join(Shout, ShoutAuthor.shout == Shout.id)
         .join(Reaction, Reaction.shout == Shout.id)
-        .filter(
+        .where(
             and_(
                 Reaction.created_by == author_id,
                 Shout.published_at.is_not(None),
@@ -240,7 +240,7 @@ def get_author_followers_stat(author_id: int) -> int:
     """
     Получает количество подписчиков для указанного автора
     """
-    q = select(func.count(AuthorFollower.follower)).filter(AuthorFollower.author == author_id)
+    q = select(func.count(AuthorFollower.follower)).where(AuthorFollower.author == author_id)
 
     with local_session() as session:
         result = session.execute(q).scalar()
@@ -320,8 +320,6 @@ def get_with_stat(q: QueryType) -> list[Any]:
                 entity.stat = stat
                 records.append(entity)
     except Exception as exc:
-        import traceback
-
         logger.debug(q)
         traceback.print_exc()
         logger.error(exc, exc_info=True)
@@ -363,6 +361,9 @@ def update_author_stat(author_id: int) -> None:
 
     :param author_id: Идентификатор автора.
     """
+    # Поздний импорт для избежания циклических зависимостей
+    from cache.cache import cache_author
+
     author_query = select(Author).where(Author.id == author_id)
     try:
         result = get_with_stat(author_query)
@@ -373,10 +374,10 @@ def update_author_stat(author_id: int) -> None:
                 # Асинхронное кэширование данных автора
                 task = asyncio.create_task(cache_author(author_dict))
                 # Store task reference to prevent garbage collection
-                if not hasattr(update_author_stat, "_background_tasks"):
-                    update_author_stat._background_tasks = set()  # type: ignore[attr-defined]
-                update_author_stat._background_tasks.add(task)  # type: ignore[attr-defined]
-                task.add_done_callback(update_author_stat._background_tasks.discard)  # type: ignore[attr-defined]
+                if not hasattr(update_author_stat, "stat_tasks"):
+                    update_author_stat.stat_tasks = set()  # type: ignore[attr-defined]
+                update_author_stat.stat_tasks.add(task)  # type: ignore[attr-defined]
+                task.add_done_callback(update_author_stat.stat_tasks.discard)  # type: ignore[attr-defined]
     except Exception as exc:
         logger.error(exc, exc_info=True)
 
@@ -387,19 +388,19 @@ def get_followers_count(entity_type: str, entity_id: int) -> int:
         with local_session() as session:
             if entity_type == "topic":
                 result = (
-                    session.query(func.count(TopicFollower.follower)).filter(TopicFollower.topic == entity_id).scalar()
+                    session.query(func.count(TopicFollower.follower)).where(TopicFollower.topic == entity_id).scalar()
                 )
             elif entity_type == "author":
                 # Count followers of this author
                 result = (
                     session.query(func.count(AuthorFollower.follower))
-                    .filter(AuthorFollower.author == entity_id)
+                    .where(AuthorFollower.author == entity_id)
                     .scalar()
                 )
             elif entity_type == "community":
                 result = (
                     session.query(func.count(CommunityFollower.follower))
-                    .filter(CommunityFollower.community == entity_id)
+                    .where(CommunityFollower.community == entity_id)
                     .scalar()
                 )
             else:
@@ -418,12 +419,12 @@ def get_following_count(entity_type: str, entity_id: int) -> int:
             if entity_type == "author":
                 # Count what this author follows
                 topic_follows = (
-                    session.query(func.count(TopicFollower.topic)).filter(TopicFollower.follower == entity_id).scalar()
+                    session.query(func.count(TopicFollower.topic)).where(TopicFollower.follower == entity_id).scalar()
                     or 0
                 )
                 community_follows = (
                     session.query(func.count(CommunityFollower.community))
-                    .filter(CommunityFollower.follower == entity_id)
+                    .where(CommunityFollower.follower == entity_id)
                     .scalar()
                     or 0
                 )
@@ -440,15 +441,15 @@ def get_shouts_count(
     """Получает количество публикаций"""
     try:
         with local_session() as session:
-            query = session.query(func.count(Shout.id)).filter(Shout.published_at.isnot(None))
+            query = session.query(func.count(Shout.id)).where(Shout.published_at.isnot(None))
 
             if author_id:
-                query = query.filter(Shout.created_by == author_id)
+                query = query.where(Shout.created_by == author_id)
             if topic_id:
                 # This would need ShoutTopic association table
                 pass
             if community_id:
-                query = query.filter(Shout.community == community_id)
+                query = query.where(Shout.community == community_id)
 
             result = query.scalar()
             return int(result) if result else 0
@@ -465,12 +466,12 @@ def get_authors_count(community_id: Optional[int] = None) -> int:
                 # Count authors in specific community
                 result = (
                     session.query(func.count(distinct(CommunityFollower.follower)))
-                    .filter(CommunityFollower.community == community_id)
+                    .where(CommunityFollower.community == community_id)
                     .scalar()
                 )
             else:
                 # Count all authors
-                result = session.query(func.count(Author.id)).filter(Author.deleted == False).scalar()
+                result = session.query(func.count(Author.id)).where(Author.deleted_at.is_(None)).scalar()
 
             return int(result) if result else 0
     except Exception as e:
@@ -485,7 +486,7 @@ def get_topics_count(author_id: Optional[int] = None) -> int:
             if author_id:
                 # Count topics followed by author
                 result = (
-                    session.query(func.count(TopicFollower.topic)).filter(TopicFollower.follower == author_id).scalar()
+                    session.query(func.count(TopicFollower.topic)).where(TopicFollower.follower == author_id).scalar()
                 )
             else:
                 # Count all topics
@@ -511,15 +512,13 @@ def get_communities_count() -> int:
 def get_reactions_count(shout_id: Optional[int] = None, author_id: Optional[int] = None) -> int:
     """Получает количество реакций"""
     try:
-        from orm.reaction import Reaction
-
         with local_session() as session:
             query = session.query(func.count(Reaction.id))
 
             if shout_id:
-                query = query.filter(Reaction.shout == shout_id)
+                query = query.where(Reaction.shout == shout_id)
             if author_id:
-                query = query.filter(Reaction.created_by == author_id)
+                query = query.where(Reaction.created_by == author_id)
 
             result = query.scalar()
             return int(result) if result else 0
@@ -531,13 +530,11 @@ def get_reactions_count(shout_id: Optional[int] = None, author_id: Optional[int]
 def get_comments_count_by_shout(shout_id: int) -> int:
     """Получает количество комментариев к статье"""
     try:
-        from orm.reaction import Reaction
-
         with local_session() as session:
             # Using text() to access 'kind' column which might be enum
             result = (
                 session.query(func.count(Reaction.id))
-                .filter(
+                .where(
                     and_(
                         Reaction.shout == shout_id,
                         Reaction.kind == "comment",  # Assuming 'comment' is a valid enum value
@@ -555,8 +552,8 @@ def get_comments_count_by_shout(shout_id: int) -> int:
 async def get_stat_background_task() -> None:
     """Фоновая задача для обновления статистики"""
     try:
-        if not hasattr(sys.modules[__name__], "_background_tasks"):
-            sys.modules[__name__]._background_tasks = set()  # type: ignore[attr-defined]
+        if not hasattr(sys.modules[__name__], "stat_tasks"):
+            sys.modules[__name__].stat_tasks = set()  # type: ignore[attr-defined]
 
         # Perform background statistics calculations
         logger.info("Running background statistics update")

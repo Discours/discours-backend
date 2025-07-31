@@ -12,30 +12,23 @@ import asyncio
 import json
 from functools import wraps
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable
 
+from auth.orm import Author
+from services.db import local_session
 from services.redis import redis
+from settings import ADMIN_EMAILS
 from utils.logger import root_logger as logger
 
 # --- Загрузка каталога сущностей и дефолтных прав ---
 
-with Path("permissions_catalog.json").open() as f:
+with Path("services/permissions_catalog.json").open() as f:
     PERMISSIONS_CATALOG = json.load(f)
 
-with Path("default_role_permissions.json").open() as f:
+with Path("services/default_role_permissions.json").open() as f:
     DEFAULT_ROLE_PERMISSIONS = json.load(f)
 
-DEFAULT_ROLES_HIERARCHY: dict[str, list[str]] = {
-    "reader": [],  # Базовая роль, ничего не наследует
-    "author": ["reader"],  # Наследует от reader
-    "artist": ["reader", "author"],  # Наследует от reader и author
-    "expert": ["reader", "author", "artist"],  # Наследует от reader и author
-    "editor": ["reader", "author", "artist", "expert"],  # Наследует от reader и author
-    "admin": ["reader", "author", "artist", "expert", "editor"],  # Наследует от всех
-}
-
-
-# --- Инициализация и управление правами сообщества ---
+role_names = list(DEFAULT_ROLE_PERMISSIONS.keys())
 
 
 async def initialize_community_permissions(community_id: int) -> None:
@@ -48,7 +41,7 @@ async def initialize_community_permissions(community_id: int) -> None:
     key = f"community:roles:{community_id}"
 
     # Проверяем, не инициализировано ли уже
-    existing = await redis.get(key)
+    existing = await redis.execute("GET", key)
     if existing:
         logger.debug(f"Права для сообщества {community_id} уже инициализированы")
         return
@@ -56,20 +49,43 @@ async def initialize_community_permissions(community_id: int) -> None:
     # Создаем полные списки разрешений с учетом иерархии
     expanded_permissions = {}
 
-    for role, direct_permissions in DEFAULT_ROLE_PERMISSIONS.items():
-        # Начинаем с прямых разрешений роли
-        all_permissions = set(direct_permissions)
+    def get_role_permissions(role: str, processed_roles: set[str] | None = None) -> set[str]:
+        """
+        Рекурсивно получает все разрешения для роли, включая наследованные
 
-        # Добавляем наследуемые разрешения
-        inherited_roles = DEFAULT_ROLES_HIERARCHY.get(role, [])
-        for inherited_role in inherited_roles:
-            inherited_permissions = DEFAULT_ROLE_PERMISSIONS.get(inherited_role, [])
-            all_permissions.update(inherited_permissions)
+        Args:
+            role: Название роли
+            processed_roles: Список уже обработанных ролей для предотвращения зацикливания
 
-        expanded_permissions[role] = list(all_permissions)
+        Returns:
+            Множество разрешений
+        """
+        if processed_roles is None:
+            processed_roles = set()
+
+        if role in processed_roles:
+            return set()
+
+        processed_roles.add(role)
+
+        # Получаем прямые разрешения роли
+        direct_permissions = set(DEFAULT_ROLE_PERMISSIONS.get(role, []))
+
+        # Проверяем, есть ли наследование роли
+        for perm in list(direct_permissions):
+            if perm in role_names:
+                # Если пермишен - это название роли, добавляем все её разрешения
+                direct_permissions.remove(perm)
+                direct_permissions.update(get_role_permissions(perm, processed_roles))
+
+        return direct_permissions
+
+    # Формируем расширенные разрешения для каждой роли
+    for role in role_names:
+        expanded_permissions[role] = list(get_role_permissions(role))
 
     # Сохраняем в Redis уже развернутые списки с учетом иерархии
-    await redis.set(key, json.dumps(expanded_permissions))
+    await redis.execute("SET", key, json.dumps(expanded_permissions))
     logger.info(f"Инициализированы права с иерархией для сообщества {community_id}")
 
 
@@ -85,13 +101,20 @@ async def get_role_permissions_for_community(community_id: int) -> dict:
         Словарь прав ролей для сообщества
     """
     key = f"community:roles:{community_id}"
-    data = await redis.get(key)
+    data = await redis.execute("GET", key)
 
     if data:
         return json.loads(data)
 
     # Автоматически инициализируем, если не найдено
     await initialize_community_permissions(community_id)
+
+    # Получаем инициализированные разрешения
+    data = await redis.execute("GET", key)
+    if data:
+        return json.loads(data)
+
+    # Fallback на дефолтные разрешения если что-то пошло не так
     return DEFAULT_ROLE_PERMISSIONS
 
 
@@ -104,7 +127,7 @@ async def set_role_permissions_for_community(community_id: int, role_permissions
         role_permissions: Словарь прав ролей
     """
     key = f"community:roles:{community_id}"
-    await redis.set(key, json.dumps(role_permissions))
+    await redis.execute("SET", key, json.dumps(role_permissions))
     logger.info(f"Обновлены права ролей для сообщества {community_id}")
 
 
@@ -127,35 +150,34 @@ async def get_permissions_for_role(role: str, community_id: int) -> list[str]:
 # --- Получение ролей пользователя ---
 
 
-def get_user_roles_in_community(author_id: int, community_id: int) -> list[str]:
+def get_user_roles_in_community(author_id: int, community_id: int = 1, session=None) -> list[str]:
     """
-    Получает роли пользователя в конкретном сообществе из CommunityAuthor.
-
-    Args:
-        author_id: ID автора
-        community_id: ID сообщества
-
-    Returns:
-        Список ролей пользователя в сообществе
+    Получает роли пользователя в сообществе через новую систему CommunityAuthor
     """
+    # Поздний импорт для избежания циклических зависимостей
+    from orm.community import CommunityAuthor
+
     try:
-        from orm.community import CommunityAuthor
-        from services.db import local_session
-
-        with local_session() as session:
+        if session:
             ca = (
                 session.query(CommunityAuthor)
-                .filter(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .where(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
                 .first()
             )
-
             return ca.role_list if ca else []
-    except ImportError:
-        # Если есть циклический импорт, возвращаем пустой список
+        # Используем local_session для продакшена
+        with local_session() as db_session:
+            ca = (
+                db_session.query(CommunityAuthor)
+                .where(CommunityAuthor.author_id == author_id, CommunityAuthor.community_id == community_id)
+                .first()
+            )
+            return ca.role_list if ca else []
+    except Exception:
         return []
 
 
-async def user_has_permission(author_id: int, permission: str, community_id: int) -> bool:
+async def user_has_permission(author_id: int, permission: str, community_id: int, session=None) -> bool:
     """
     Проверяет, есть ли у пользователя конкретное разрешение в сообществе.
 
@@ -163,11 +185,12 @@ async def user_has_permission(author_id: int, permission: str, community_id: int
         author_id: ID автора
         permission: Разрешение для проверки
         community_id: ID сообщества
+        session: Опциональная сессия БД (для тестов)
 
     Returns:
         True если разрешение есть, False если нет
     """
-    user_roles = get_user_roles_in_community(author_id, community_id)
+    user_roles = get_user_roles_in_community(author_id, community_id, session)
     return await roles_have_permission(user_roles, permission, community_id)
 
 
@@ -215,21 +238,15 @@ def get_user_roles_from_context(info) -> tuple[list[str], int]:
 
     # Проверяем, является ли пользователь системным администратором
     try:
-        from auth.orm import Author
-        from services.db import local_session
-        from settings import ADMIN_EMAILS
-
         admin_emails = ADMIN_EMAILS.split(",") if ADMIN_EMAILS else []
 
         with local_session() as session:
-            author = session.query(Author).filter(Author.id == author_id).first()
-            if author and author.email and author.email in admin_emails:
+            author = session.query(Author).where(Author.id == author_id).first()
+            if author and author.email and author.email in admin_emails and "admin" not in user_roles:
                 # Системный администратор автоматически получает роль admin в любом сообществе
-                if "admin" not in user_roles:
-                    user_roles = [*user_roles, "admin"]
-    except Exception:
-        # Если не удалось проверить email (включая циклические импорты), продолжаем с существующими ролями
-        pass
+                user_roles = [*user_roles, "admin"]
+    except Exception as e:
+        logger.error(f"Error getting user roles from context: {e}")
 
     return user_roles, community_id
 
@@ -262,7 +279,7 @@ def get_community_id_from_context(info) -> int:
     return 1
 
 
-def require_permission(permission: str):
+def require_permission(permission: str) -> Callable:
     """
     Декоратор для проверки конкретного разрешения у пользователя в сообществе.
 
@@ -288,7 +305,7 @@ def require_permission(permission: str):
     return decorator
 
 
-def require_role(role: str):
+def require_role(role: str) -> Callable:
     """
     Декоратор для проверки конкретной роли у пользователя в сообществе.
 
@@ -314,7 +331,7 @@ def require_role(role: str):
     return decorator
 
 
-def require_any_permission(permissions: List[str]):
+def require_any_permission(permissions: list[str]) -> Callable:
     """
     Декоратор для проверки любого из списка разрешений.
 
@@ -341,7 +358,7 @@ def require_any_permission(permissions: List[str]):
     return decorator
 
 
-def require_all_permissions(permissions: List[str]):
+def require_all_permissions(permissions: list[str]) -> Callable:
     """
     Декоратор для проверки всех разрешений из списка.
 

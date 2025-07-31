@@ -382,7 +382,7 @@ def create_admin(email: str, password: str):
     """Создание администратора"""
 
     # Получаем роль админа
-    admin_role = db.query(Role).filter(Role.id == 'admin').first()
+    admin_role = db.query(Role).where(Role.id == 'admin').first()
 
     # Создаем пользователя
     admin = Author(

@@ -1,13 +1,31 @@
+import asyncio
 import time
 from typing import Any, Dict
 
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String, UniqueConstraint, distinct, func
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    ForeignKey,
+    Index,
+    Integer,
+    PrimaryKeyConstraint,
+    String,
+    UniqueConstraint,
+    distinct,
+    func,
+)
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from auth.orm import Author
 from orm.base import BaseModel
-from services.rbac import get_permissions_for_role
+from orm.shout import Shout
+from services.db import local_session
+from services.rbac import (
+    get_permissions_for_role,
+    initialize_community_permissions,
+    user_has_permission,
+)
 
 # Словарь названий ролей
 role_names = {
@@ -40,38 +58,35 @@ class CommunityFollower(BaseModel):
 
     __tablename__ = "community_follower"
 
-    # Простые поля - стандартный подход
-    community = Column(ForeignKey("community.id"), nullable=False, index=True)
-    follower = Column(ForeignKey("author.id"), nullable=False, index=True)
-    created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
+    community: Mapped[int] = mapped_column(Integer, ForeignKey("community.id"), nullable=False, index=True)
+    follower: Mapped[int] = mapped_column(Integer, ForeignKey(Author.id), nullable=False, index=True)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
 
     # Уникальность по паре сообщество-подписчик
     __table_args__ = (
-        UniqueConstraint("community", "follower", name="uq_community_follower"),
+        PrimaryKeyConstraint("community", "follower"),
         {"extend_existing": True},
     )
 
     def __init__(self, community: int, follower: int) -> None:
-        self.community = community  # type: ignore[assignment]
-        self.follower = follower  # type: ignore[assignment]
+        self.community = community
+        self.follower = follower
 
 
 class Community(BaseModel):
     __tablename__ = "community"
 
-    name = Column(String, nullable=False)
-    slug = Column(String, nullable=False, unique=True)
-    desc = Column(String, nullable=False, default="")
-    pic = Column(String, nullable=False, default="")
-    created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    created_by = Column(ForeignKey("author.id"), nullable=False)
-    settings = Column(JSON, nullable=True)
-    updated_at = Column(Integer, nullable=True)
-    deleted_at = Column(Integer, nullable=True)
-    private = Column(Boolean, default=False)
-
-    followers = relationship("Author", secondary="community_follower")
-    created_by_author = relationship("Author", foreign_keys=[created_by])
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    slug: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    desc: Mapped[str] = mapped_column(String, nullable=False, default="")
+    pic: Mapped[str | None] = mapped_column(String, nullable=False, default="")
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    created_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    settings: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    updated_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    deleted_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    private: Mapped[bool] = mapped_column(Boolean, default=False)
 
     @hybrid_property
     def stat(self):
@@ -79,12 +94,10 @@ class Community(BaseModel):
 
     def is_followed_by(self, author_id: int) -> bool:
         """Проверяет, подписан ли пользователь на сообщество"""
-        from services.db import local_session
-
         with local_session() as session:
             follower = (
                 session.query(CommunityFollower)
-                .filter(CommunityFollower.community == self.id, CommunityFollower.follower == author_id)
+                .where(CommunityFollower.community == self.id, CommunityFollower.follower == author_id)
                 .first()
             )
             return follower is not None
@@ -99,12 +112,10 @@ class Community(BaseModel):
         Returns:
             Список ролей пользователя в сообществе
         """
-        from services.db import local_session
-
         with local_session() as session:
             community_author = (
                 session.query(CommunityAuthor)
-                .filter(CommunityAuthor.community_id == self.id, CommunityAuthor.author_id == user_id)
+                .where(CommunityAuthor.community_id == self.id, CommunityAuthor.author_id == user_id)
                 .first()
             )
 
@@ -132,13 +143,11 @@ class Community(BaseModel):
             user_id: ID пользователя
             role: Название роли
         """
-        from services.db import local_session
-
         with local_session() as session:
             # Ищем существующую запись
             community_author = (
                 session.query(CommunityAuthor)
-                .filter(CommunityAuthor.community_id == self.id, CommunityAuthor.author_id == user_id)
+                .where(CommunityAuthor.community_id == self.id, CommunityAuthor.author_id == user_id)
                 .first()
             )
 
@@ -160,12 +169,10 @@ class Community(BaseModel):
             user_id: ID пользователя
             role: Название роли
         """
-        from services.db import local_session
-
         with local_session() as session:
             community_author = (
                 session.query(CommunityAuthor)
-                .filter(CommunityAuthor.community_id == self.id, CommunityAuthor.author_id == user_id)
+                .where(CommunityAuthor.community_id == self.id, CommunityAuthor.author_id == user_id)
                 .first()
             )
 
@@ -186,13 +193,11 @@ class Community(BaseModel):
             user_id: ID пользователя
             roles: Список ролей для установки
         """
-        from services.db import local_session
-
         with local_session() as session:
             # Ищем существующую запись
             community_author = (
                 session.query(CommunityAuthor)
-                .filter(CommunityAuthor.community_id == self.id, CommunityAuthor.author_id == user_id)
+                .where(CommunityAuthor.community_id == self.id, CommunityAuthor.author_id == user_id)
                 .first()
             )
 
@@ -221,10 +226,8 @@ class Community(BaseModel):
         Returns:
             Список участников с информацией о ролях
         """
-        from services.db import local_session
-
         with local_session() as session:
-            community_authors = session.query(CommunityAuthor).filter(CommunityAuthor.community_id == self.id).all()
+            community_authors = session.query(CommunityAuthor).where(CommunityAuthor.community_id == self.id).all()
 
             members = []
             for ca in community_authors:
@@ -237,8 +240,6 @@ class Community(BaseModel):
                     member_info["roles"] = ca.role_list  # type: ignore[assignment]
                     # Получаем разрешения синхронно
                     try:
-                        import asyncio
-
                         member_info["permissions"] = asyncio.run(ca.get_permissions())  # type: ignore[assignment]
                     except Exception:
                         # Если не удается получить разрешения асинхронно, используем пустой список
@@ -287,8 +288,6 @@ class Community(BaseModel):
         Инициализирует права ролей для сообщества из дефолтных настроек.
         Вызывается при создании нового сообщества.
         """
-        from services.rbac import initialize_community_permissions
-
         await initialize_community_permissions(int(self.id))
 
     def get_available_roles(self) -> list[str]:
@@ -319,34 +318,63 @@ class Community(BaseModel):
         """Устанавливает slug сообщества"""
         self.slug = slug  # type: ignore[assignment]
 
+    def get_followers(self):
+        """
+        Получает список подписчиков сообщества.
+
+        Returns:
+            list: Список ID авторов, подписанных на сообщество
+        """
+        with local_session() as session:
+            return [
+                follower.id
+                for follower in session.query(Author)
+                .join(CommunityFollower, Author.id == CommunityFollower.follower)
+                .where(CommunityFollower.community == self.id)
+                .all()
+            ]
+
+    def add_community_creator(self, author_id: int) -> None:
+        """
+        Создатель сообщества
+
+        Args:
+            author_id: ID пользователя, которому назначаются права
+        """
+        with local_session() as session:
+            # Проверяем существование связи
+            existing = CommunityAuthor.find_author_in_community(author_id, self.id, session)
+
+            if not existing:
+                # Создаем нового CommunityAuthor с ролью редактора
+                community_author = CommunityAuthor(community_id=self.id, author_id=author_id, roles="editor")
+                session.add(community_author)
+                session.commit()
+
 
 class CommunityStats:
     def __init__(self, community) -> None:
         self.community = community
 
     @property
-    def shouts(self):
-        from orm.shout import Shout
-
-        return self.community.session.query(func.count(Shout.id)).filter(Shout.community == self.community.id).scalar()
+    def shouts(self) -> int:
+        return self.community.session.query(func.count(Shout.id)).where(Shout.community == self.community.id).scalar()
 
     @property
-    def followers(self):
+    def followers(self) -> int:
         return (
             self.community.session.query(func.count(CommunityFollower.follower))
-            .filter(CommunityFollower.community == self.community.id)
+            .where(CommunityFollower.community == self.community.id)
             .scalar()
         )
 
     @property
-    def authors(self):
-        from orm.shout import Shout
-
+    def authors(self) -> int:
         # author has a shout with community id and its featured_at is not null
         return (
             self.community.session.query(func.count(distinct(Author.id)))
             .join(Shout)
-            .filter(
+            .where(
                 Shout.community == self.community.id,
                 Shout.featured_at.is_not(None),
                 Author.id.in_(Shout.authors),
@@ -369,15 +397,11 @@ class CommunityAuthor(BaseModel):
 
     __tablename__ = "community_author"
 
-    id = Column(Integer, primary_key=True)
-    community_id = Column(Integer, ForeignKey("community.id"), nullable=False)
-    author_id = Column(Integer, ForeignKey("author.id"), nullable=False)
-    roles = Column(String, nullable=True, comment="Roles (comma-separated)")
-    joined_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
-
-    # Связи
-    community = relationship("Community", foreign_keys=[community_id])
-    author = relationship("Author", foreign_keys=[author_id])
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    community_id: Mapped[int] = mapped_column(Integer, ForeignKey("community.id"), nullable=False)
+    author_id: Mapped[int] = mapped_column(Integer, ForeignKey(Author.id), nullable=False)
+    roles: Mapped[str | None] = mapped_column(String, nullable=True, comment="Roles (comma-separated)")
+    joined_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
 
     # Уникальность по сообществу и автору
     __table_args__ = (
@@ -397,41 +421,40 @@ class CommunityAuthor(BaseModel):
         """Устанавливает список ролей из списка строк"""
         self.roles = ",".join(value) if value else None  # type: ignore[assignment]
 
-    def has_role(self, role: str) -> bool:
-        """
-        Проверяет наличие роли у автора в сообществе
-
-        Args:
-            role: Название роли для проверки
-
-        Returns:
-            True если роль есть, False если нет
-        """
-        return role in self.role_list
-
     def add_role(self, role: str) -> None:
         """
-        Добавляет роль автору (если её ещё нет)
+        Добавляет роль в список ролей.
 
         Args:
-            role: Название роли для добавления
+            role (str): Название роли
         """
-        roles = self.role_list
-        if role not in roles:
-            roles.append(role)
-            self.role_list = roles
+        if not self.roles:
+            self.roles = role
+        elif role not in self.role_list:
+            self.roles += f",{role}"
 
     def remove_role(self, role: str) -> None:
         """
-        Удаляет роль у автора
+        Удаляет роль из списка ролей.
 
         Args:
-            role: Название роли для удаления
+            role (str): Название роли
         """
-        roles = self.role_list
-        if role in roles:
-            roles.remove(role)
-            self.role_list = roles
+        if self.roles and role in self.role_list:
+            roles_list = [r for r in self.role_list if r != role]
+            self.roles = ",".join(roles_list) if roles_list else None
+
+    def has_role(self, role: str) -> bool:
+        """
+        Проверяет наличие роли.
+
+        Args:
+            role (str): Название роли
+
+        Returns:
+            bool: True, если роль есть, иначе False
+        """
+        return bool(self.roles and role in self.role_list)
 
     def set_roles(self, roles: list[str]) -> None:
         """
@@ -443,7 +466,7 @@ class CommunityAuthor(BaseModel):
         # Фильтруем и очищаем роли
         valid_roles = [role.strip() for role in roles if role and role.strip()]
 
-        # Если список пустой, устанавливаем None
+        # Если список пустой, устанавливаем пустую строку
         self.roles = ",".join(valid_roles) if valid_roles else ""
 
     async def get_permissions(self) -> list[str]:
@@ -461,17 +484,30 @@ class CommunityAuthor(BaseModel):
 
         return list(all_permissions)
 
-    def has_permission(self, permission: str) -> bool:
+    def has_permission(
+        self, permission: str | None = None, resource: str | None = None, operation: str | None = None
+    ) -> bool:
         """
         Проверяет наличие разрешения у автора
 
         Args:
             permission: Разрешение для проверки (например: "shout:create")
+            resource: Опциональный ресурс (для обратной совместимости)
+            operation: Опциональная операция (для обратной совместимости)
 
         Returns:
             True если разрешение есть, False если нет
         """
-        return permission in self.role_list
+        # Если передан полный permission, используем его
+        if permission and ":" in permission:
+            return any(permission == role for role in self.role_list)
+
+        # Если переданы resource и operation, формируем permission
+        if resource and operation:
+            full_permission = f"{resource}:{operation}"
+            return any(full_permission == role for role in self.role_list)
+
+        return False
 
     def dict(self, access: bool = False) -> dict[str, Any]:
         """
@@ -510,13 +546,11 @@ class CommunityAuthor(BaseModel):
         Returns:
             Список словарей с информацией о сообществах и ролях
         """
-        from services.db import local_session
-
         if session is None:
             with local_session() as ssession:
                 return cls.get_user_communities_with_roles(author_id, ssession)
 
-        community_authors = session.query(cls).filter(cls.author_id == author_id).all()
+        community_authors = session.query(cls).where(cls.author_id == author_id).all()
 
         return [
             {
@@ -529,7 +563,7 @@ class CommunityAuthor(BaseModel):
         ]
 
     @classmethod
-    def find_by_user_and_community(cls, author_id: int, community_id: int, session=None) -> "CommunityAuthor | None":
+    def find_author_in_community(cls, author_id: int, community_id: int, session=None) -> "CommunityAuthor | None":
         """
         Находит запись CommunityAuthor по ID автора и сообщества
 
@@ -541,13 +575,11 @@ class CommunityAuthor(BaseModel):
         Returns:
             CommunityAuthor или None
         """
-        from services.db import local_session
-
         if session is None:
             with local_session() as ssession:
-                return cls.find_by_user_and_community(author_id, community_id, ssession)
+                return ssession.query(cls).where(cls.author_id == author_id, cls.community_id == community_id).first()
 
-        return session.query(cls).filter(cls.author_id == author_id, cls.community_id == community_id).first()
+        return session.query(cls).where(cls.author_id == author_id, cls.community_id == community_id).first()
 
     @classmethod
     def get_users_with_role(cls, community_id: int, role: str, session=None) -> list[int]:
@@ -562,13 +594,11 @@ class CommunityAuthor(BaseModel):
         Returns:
             Список ID пользователей
         """
-        from services.db import local_session
-
         if session is None:
             with local_session() as ssession:
                 return cls.get_users_with_role(community_id, role, ssession)
 
-        community_authors = session.query(cls).filter(cls.community_id == community_id).all()
+        community_authors = session.query(cls).where(cls.community_id == community_id).all()
 
         return [ca.author_id for ca in community_authors if ca.has_role(role)]
 
@@ -584,13 +614,11 @@ class CommunityAuthor(BaseModel):
         Returns:
             Словарь со статистикой ролей
         """
-        from services.db import local_session
-
         if session is None:
             with local_session() as s:
                 return cls.get_community_stats(community_id, s)
 
-        community_authors = session.query(cls).filter(cls.community_id == community_id).all()
+        community_authors = session.query(cls).where(cls.community_id == community_id).all()
 
         role_counts: dict[str, int] = {}
         total_members = len(community_authors)
@@ -622,10 +650,8 @@ def get_user_roles_in_community(author_id: int, community_id: int = 1) -> list[s
     Returns:
         Список ролей пользователя
     """
-    from services.db import local_session
-
     with local_session() as session:
-        ca = CommunityAuthor.find_by_user_and_community(author_id, community_id, session)
+        ca = CommunityAuthor.find_author_in_community(author_id, community_id, session)
         return ca.role_list if ca else []
 
 
@@ -641,9 +667,6 @@ async def check_user_permission_in_community(author_id: int, permission: str, co
     Returns:
         True если разрешение есть, False если нет
     """
-    # Используем новую систему RBAC с иерархией
-    from services.rbac import user_has_permission
-
     return await user_has_permission(author_id, permission, community_id)
 
 
@@ -659,10 +682,8 @@ def assign_role_to_user(author_id: int, role: str, community_id: int = 1) -> boo
     Returns:
         True если роль была добавлена, False если уже была
     """
-    from services.db import local_session
-
     with local_session() as session:
-        ca = CommunityAuthor.find_by_user_and_community(author_id, community_id, session)
+        ca = CommunityAuthor.find_author_in_community(author_id, community_id, session)
 
         if ca:
             if ca.has_role(role):
@@ -689,10 +710,8 @@ def remove_role_from_user(author_id: int, role: str, community_id: int = 1) -> b
     Returns:
         True если роль была удалена, False если её не было
     """
-    from services.db import local_session
-
     with local_session() as session:
-        ca = CommunityAuthor.find_by_user_and_community(author_id, community_id, session)
+        ca = CommunityAuthor.find_author_in_community(author_id, community_id, session)
 
         if ca and ca.has_role(role):
             ca.remove_role(role)
@@ -713,9 +732,6 @@ def migrate_old_roles_to_community_author():
 
     [непроверенное] Предполагает, что старые роли хранились в auth.orm.AuthorRole
     """
-    from auth.orm import AuthorRole
-    from services.db import local_session
-
     with local_session() as session:
         # Получаем все старые роли
         old_roles = session.query(AuthorRole).all()
@@ -732,10 +748,7 @@ def migrate_old_roles_to_community_author():
 
             # Извлекаем базовое имя роли (убираем суффикс сообщества если есть)
             role_name = role.role
-            if isinstance(role_name, str) and "-" in role_name:
-                base_role = role_name.split("-")[0]
-            else:
-                base_role = role_name
+            base_role = role_name.split("-")[0] if (isinstance(role_name, str) and "-" in role_name) else role_name
 
             if base_role not in user_community_roles[key]:
                 user_community_roles[key].append(base_role)
@@ -744,7 +757,7 @@ def migrate_old_roles_to_community_author():
         migrated_count = 0
         for (author_id, community_id), roles in user_community_roles.items():
             # Проверяем, есть ли уже запись
-            existing = CommunityAuthor.find_by_user_and_community(author_id, community_id, session)
+            existing = CommunityAuthor.find_author_in_community(author_id, community_id, session)
 
             if not existing:
                 ca = CommunityAuthor(community_id=community_id, author_id=author_id)
@@ -772,10 +785,8 @@ def get_all_community_members_with_roles(community_id: int = 1) -> list[dict[str
     Returns:
         Список участников с полной информацией
     """
-    from services.db import local_session
-
     with local_session() as session:
-        community = session.query(Community).filter(Community.id == community_id).first()
+        community = session.query(Community).where(Community.id == community_id).first()
 
         if not community:
             return []

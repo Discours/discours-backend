@@ -161,7 +161,7 @@ type Community {
 	desc: String
 	pic: String!
 	created_at: Int!
-	created_by: Author!
+	created_by: Author
 	stat: CommunityStat
 }
 

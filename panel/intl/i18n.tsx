@@ -119,7 +119,7 @@ const AutoTranslator = (props: { children: JSX.Element; language: () => Language
       ]
       if (textElements.includes(element.tagName)) {
         // Ищем прямые текстовые узлы внутри элемента
-        const directTextNodes = Array.from(element.childNodes).filter(
+        const directTextNodes = Array.from(element.childNodes).where(
           (child) => child.nodeType === Node.TEXT_NODE && child.textContent?.trim()
         )
 

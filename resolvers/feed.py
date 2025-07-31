@@ -1,5 +1,7 @@
+from typing import Any
+
 from graphql import GraphQLResolveInfo
-from sqlalchemy import and_, select
+from sqlalchemy import Select, and_, select
 
 from auth.orm import Author, AuthorFollower
 from orm.shout import Shout, ShoutAuthor, ShoutReactionsFollower, ShoutTopic
@@ -30,7 +32,7 @@ async def load_shouts_coauthored(_: None, info: GraphQLResolveInfo, options: dic
     if not author_id:
         return []
     q = query_with_stat(info)
-    q = q.filter(Shout.authors.any(id=author_id))
+    q = q.where(Shout.authors.any(id=author_id))
     q, limit, offset = apply_options(q, options)
     return get_shouts_with_links(info, q, limit, offset=offset)
 
@@ -54,7 +56,7 @@ async def load_shouts_discussed(_: None, info: GraphQLResolveInfo, options: dict
     return get_shouts_with_links(info, q, limit, offset=offset)
 
 
-def shouts_by_follower(info: GraphQLResolveInfo, follower_id: int, options: dict) -> list[Shout]:
+def shouts_by_follower(info: GraphQLResolveInfo, follower_id: int, options: dict[str, Any]) -> list[Shout]:
     """
     Загружает публикации, на которые подписан автор.
 
@@ -68,9 +70,11 @@ def shouts_by_follower(info: GraphQLResolveInfo, follower_id: int, options: dict
     :return: Список публикаций.
     """
     q = query_with_stat(info)
-    reader_followed_authors = select(AuthorFollower.author).where(AuthorFollower.follower == follower_id)
-    reader_followed_topics = select(TopicFollower.topic).where(TopicFollower.follower == follower_id)
-    reader_followed_shouts = select(ShoutReactionsFollower.shout).where(ShoutReactionsFollower.follower == follower_id)
+    reader_followed_authors: Select = select(AuthorFollower.author).where(AuthorFollower.follower == follower_id)
+    reader_followed_topics: Select = select(TopicFollower.topic).where(TopicFollower.follower == follower_id)
+    reader_followed_shouts: Select = select(ShoutReactionsFollower.shout).where(
+        ShoutReactionsFollower.follower == follower_id
+    )
     followed_subquery = (
         select(Shout.id)
         .join(ShoutAuthor, ShoutAuthor.shout == Shout.id)
@@ -82,7 +86,7 @@ def shouts_by_follower(info: GraphQLResolveInfo, follower_id: int, options: dict
         )
         .scalar_subquery()
     )
-    q = q.filter(Shout.id.in_(followed_subquery))
+    q = q.where(Shout.id.in_(followed_subquery))
     q, limit, offset = apply_options(q, options)
     return get_shouts_with_links(info, q, limit, offset=offset)
 
@@ -98,7 +102,7 @@ async def load_shouts_followed_by(_: None, info: GraphQLResolveInfo, slug: str, 
     :return: Список публикаций.
     """
     with local_session() as session:
-        author = session.query(Author).filter(Author.slug == slug).first()
+        author = session.query(Author).where(Author.slug == slug).first()
         if author:
             follower_id = author.dict()["id"]
             return shouts_by_follower(info, follower_id, options)
@@ -120,7 +124,7 @@ async def load_shouts_feed(_: None, info: GraphQLResolveInfo, options: dict) -> 
 
 
 @query.field("load_shouts_authored_by")
-async def load_shouts_authored_by(_: None, info: GraphQLResolveInfo, slug: str, options: dict) -> list[Shout]:
+async def load_shouts_authored_by(_: None, info: GraphQLResolveInfo, slug: str, options: dict[str, Any]) -> list[Shout]:
     """
     Загружает публикации, написанные автором по slug.
 
@@ -130,16 +134,16 @@ async def load_shouts_authored_by(_: None, info: GraphQLResolveInfo, slug: str, 
     :return: Список публикаций.
     """
     with local_session() as session:
-        author = session.query(Author).filter(Author.slug == slug).first()
+        author = session.query(Author).where(Author.slug == slug).first()
         if author:
             try:
                 author_id: int = author.dict()["id"]
-                q = (
+                q: Select = (
                     query_with_stat(info)
                     if has_field(info, "stat")
-                    else select(Shout).filter(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
+                    else select(Shout).where(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
                 )
-                q = q.filter(Shout.authors.any(id=author_id))
+                q = q.where(Shout.authors.any(id=author_id))
                 q, limit, offset = apply_options(q, options, author_id)
                 return get_shouts_with_links(info, q, limit, offset=offset)
             except Exception as error:
@@ -148,7 +152,7 @@ async def load_shouts_authored_by(_: None, info: GraphQLResolveInfo, slug: str, 
 
 
 @query.field("load_shouts_with_topic")
-async def load_shouts_with_topic(_: None, info: GraphQLResolveInfo, slug: str, options: dict) -> list[Shout]:
+async def load_shouts_with_topic(_: None, info: GraphQLResolveInfo, slug: str, options: dict[str, Any]) -> list[Shout]:
     """
     Загружает публикации, связанные с темой по slug.
 
@@ -158,16 +162,16 @@ async def load_shouts_with_topic(_: None, info: GraphQLResolveInfo, slug: str, o
     :return: Список публикаций.
     """
     with local_session() as session:
-        topic = session.query(Topic).filter(Topic.slug == slug).first()
+        topic = session.query(Topic).where(Topic.slug == slug).first()
         if topic:
             try:
                 topic_id: int = topic.dict()["id"]
-                q = (
+                q: Select = (
                     query_with_stat(info)
                     if has_field(info, "stat")
-                    else select(Shout).filter(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
+                    else select(Shout).where(and_(Shout.published_at.is_not(None), Shout.deleted_at.is_(None)))
                 )
-                q = q.filter(Shout.topics.any(id=topic_id))
+                q = q.where(Shout.topics.any(id=topic_id))
                 q, limit, offset = apply_options(q, options)
                 return get_shouts_with_links(info, q, limit, offset=offset)
             except Exception as error:

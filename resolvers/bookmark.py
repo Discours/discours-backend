@@ -14,7 +14,7 @@ from services.schema import mutation, query
 
 @query.field("load_shouts_bookmarked")
 @login_required
-def load_shouts_bookmarked(_: None, info, options):
+def load_shouts_bookmarked(_: None, info, options) -> list[Shout]:
     """
     Load bookmarked shouts for the authenticated user.
 
@@ -33,14 +33,15 @@ def load_shouts_bookmarked(_: None, info, options):
 
     q = query_with_stat(info)
     q = q.join(AuthorBookmark)
-    q = q.filter(
+    q = q.where(
         and_(
             Shout.id == AuthorBookmark.shout,
             AuthorBookmark.author == author_id,
         )
     )
     q, limit, offset = apply_options(q, options, author_id)
-    return get_shouts_with_links(info, q, limit, offset)
+    shouts = get_shouts_with_links(info, q, limit, offset)
+    return shouts
 
 
 @mutation.field("toggle_bookmark_shout")
@@ -61,15 +62,13 @@ def toggle_bookmark_shout(_: None, info, slug: str) -> CommonResult:
         raise GraphQLError(msg)
 
     with local_session() as db:
-        shout = db.query(Shout).filter(Shout.slug == slug).first()
+        shout = db.query(Shout).where(Shout.slug == slug).first()
         if not shout:
             msg = "Shout not found"
             raise GraphQLError(msg)
 
         existing_bookmark = (
-            db.query(AuthorBookmark)
-            .filter(AuthorBookmark.author == author_id, AuthorBookmark.shout == shout.id)
-            .first()
+            db.query(AuthorBookmark).where(AuthorBookmark.author == author_id, AuthorBookmark.shout == shout.id).first()
         )
 
         if existing_bookmark:

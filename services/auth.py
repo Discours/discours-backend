@@ -9,17 +9,25 @@ import time
 from functools import wraps
 from typing import Any, Callable, Optional
 
+from graphql.error import GraphQLError
 from starlette.requests import Request
 
 from auth.email import send_auth_email
-from auth.exceptions import InvalidPassword, InvalidToken, ObjectNotExist
-from auth.identity import Identity, Password
+from auth.exceptions import InvalidPasswordError, InvalidTokenError, ObjectNotExistError
+from auth.identity import Identity
 from auth.internal import verify_internal_auth
 from auth.jwtcodec import JWTCodec
 from auth.orm import Author
+from auth.password import Password
 from auth.tokens.storage import TokenStorage
-from cache.cache import get_cached_author_by_id
-from orm.community import Community, CommunityAuthor, CommunityFollower
+from auth.tokens.verification import VerificationTokenManager
+from orm.community import (
+    Community,
+    CommunityAuthor,
+    CommunityFollower,
+    assign_role_to_user,
+    get_user_roles_in_community,
+)
 from services.db import local_session
 from services.redis import redis
 from settings import (
@@ -37,7 +45,7 @@ ALLOWED_HEADERS = ["Authorization", "Content-Type"]
 class AuthService:
     """Сервис аутентификации с бизнес-логикой"""
 
-    async def check_auth(self, req: Request) -> tuple[int, list[str], bool]:
+    async def check_auth(self, req: Request) -> tuple[int | None, list[str], bool]:
         """
         Проверка авторизации пользователя.
 
@@ -84,16 +92,10 @@ class AuthService:
             try:
                 # Преобразуем user_id в число
                 try:
-                    if isinstance(user_id, str):
-                        user_id_int = int(user_id.strip())
-                    else:
-                        user_id_int = int(user_id)
+                    user_id_int = int(str(user_id).strip())
                 except (ValueError, TypeError):
                     logger.error(f"Невозможно преобразовать user_id {user_id} в число")
                     return 0, [], False
-
-                # Получаем роли через новую систему CommunityAuthor
-                from orm.community import get_user_roles_in_community
 
                 user_roles_in_community = get_user_roles_in_community(user_id_int, community_id=1)
                 logger.debug(f"[check_auth] Роли из CommunityAuthor: {user_roles_in_community}")
@@ -105,7 +107,7 @@ class AuthService:
                 # Проверяем админские права через email если нет роли админа
                 if not is_admin:
                     with local_session() as session:
-                        author = session.query(Author).filter(Author.id == user_id_int).first()
+                        author = session.query(Author).where(Author.id == user_id_int).first()
                         if author and author.email in ADMIN_EMAILS.split(","):
                             is_admin = True
                             logger.debug(
@@ -114,6 +116,7 @@ class AuthService:
 
             except Exception as e:
                 logger.error(f"Ошибка при проверке прав администратора: {e}")
+                return 0, [], False
 
         return user_id, user_roles, is_admin
 
@@ -131,8 +134,6 @@ class AuthService:
         except (ValueError, TypeError):
             logger.error(f"Невозможно преобразовать user_id {user_id} в число")
             return None
-
-        from orm.community import assign_role_to_user, get_user_roles_in_community
 
         # Проверяем существующие роли
         existing_roles = get_user_roles_in_community(user_id_int, community_id=1)
@@ -159,7 +160,7 @@ class AuthService:
 
         # Проверяем уникальность email
         with local_session() as session:
-            existing_user = session.query(Author).filter(Author.email == user_dict["email"]).first()
+            existing_user = session.query(Author).where(Author.email == user_dict["email"]).first()
             if existing_user:
                 # Если пользователь с таким email уже существует, возвращаем его
                 logger.warning(f"Пользователь с email {user_dict['email']} уже существует")
@@ -173,7 +174,7 @@ class AuthService:
             # Добавляем суффикс, если slug уже существует
             counter = 1
             unique_slug = base_slug
-            while session.query(Author).filter(Author.slug == unique_slug).first():
+            while session.query(Author).where(Author.slug == unique_slug).first():
                 unique_slug = f"{base_slug}-{counter}"
                 counter += 1
 
@@ -188,7 +189,7 @@ class AuthService:
 
             # Получаем сообщество для назначения ролей
             logger.debug(f"Ищем сообщество с ID {target_community_id}")
-            community = session.query(Community).filter(Community.id == target_community_id).first()
+            community = session.query(Community).where(Community.id == target_community_id).first()
 
             # Отладочная информация
             all_communities = session.query(Community).all()
@@ -197,7 +198,7 @@ class AuthService:
             if not community:
                 logger.warning(f"Сообщество {target_community_id} не найдено, используем ID=1")
                 target_community_id = 1
-                community = session.query(Community).filter(Community.id == target_community_id).first()
+                community = session.query(Community).where(Community.id == target_community_id).first()
 
             if community:
                 default_roles = community.get_default_roles() or ["reader", "author"]
@@ -226,6 +227,9 @@ class AuthService:
 
     async def get_session(self, token: str) -> dict[str, Any]:
         """Получает информацию о текущей сессии по токену"""
+        # Поздний импорт для избежания циклических зависимостей
+        from cache.cache import get_cached_author_by_id
+
         try:
             # Проверяем токен
             payload = JWTCodec.decode(token)
@@ -236,7 +240,9 @@ class AuthService:
             if not token_verification:
                 return {"success": False, "token": None, "author": None, "error": "Токен истек"}
 
-            user_id = payload.user_id
+            user_id = payload.get("user_id")
+            if user_id is None:
+                return {"success": False, "token": None, "author": None, "error": "Отсутствует user_id в токене"}
 
             # Получаем автора
             author = await get_cached_author_by_id(int(user_id), lambda x: x)
@@ -255,7 +261,7 @@ class AuthService:
         logger.info(f"Попытка регистрации для {email}")
 
         with local_session() as session:
-            user = session.query(Author).filter(Author.email == email).first()
+            user = session.query(Author).where(Author.email == email).first()
             if user:
                 logger.warning(f"Пользователь {email} уже существует")
                 return {"success": False, "token": None, "author": None, "error": "Пользователь уже существует"}
@@ -294,13 +300,11 @@ class AuthService:
         """Отправляет ссылку подтверждения на email"""
         email = email.lower()
         with local_session() as session:
-            user = session.query(Author).filter(Author.email == email).first()
+            user = session.query(Author).where(Author.email == email).first()
             if not user:
-                raise ObjectNotExist("User not found")
+                raise ObjectNotExistError("User not found")
 
             try:
-                from auth.tokens.verification import VerificationTokenManager
-
                 verification_manager = VerificationTokenManager()
                 token = await verification_manager.create_verification_token(
                     str(user.id), "email_confirmation", {"email": user.email, "template": template}
@@ -329,8 +333,8 @@ class AuthService:
                 logger.warning("Токен не найден в системе или истек")
                 return {"success": False, "token": None, "author": None, "error": "Токен не найден или истек"}
 
-            user_id = payload.user_id
-            username = payload.username
+            user_id = payload.get("user_id")
+            username = payload.get("username")
 
             with local_session() as session:
                 user = session.query(Author).where(Author.id == user_id).first()
@@ -353,7 +357,7 @@ class AuthService:
                 logger.info(f"Email для пользователя {user_id} подтвержден")
                 return {"success": True, "token": session_token, "author": user, "error": None}
 
-        except InvalidToken as e:
+        except InvalidTokenError as e:
             logger.warning(f"Невалидный токен - {e.message}")
             return {"success": False, "token": None, "author": None, "error": f"Невалидный токен: {e.message}"}
         except Exception as e:
@@ -367,14 +371,10 @@ class AuthService:
 
         try:
             with local_session() as session:
-                author = session.query(Author).filter(Author.email == email).first()
+                author = session.query(Author).where(Author.email == email).first()
                 if not author:
                     logger.warning(f"Пользователь {email} не найден")
                     return {"success": False, "token": None, "author": None, "error": "Пользователь не найден"}
-
-                # Проверяем роли через новую систему CommunityAuthor
-                from orm.community import get_user_roles_in_community
-
                 user_roles = get_user_roles_in_community(int(author.id), community_id=1)
                 has_reader_role = "reader" in user_roles
 
@@ -392,7 +392,7 @@ class AuthService:
                 # Проверяем пароль
                 try:
                     valid_author = Identity.password(author, password)
-                except (InvalidPassword, Exception) as e:
+                except (InvalidPasswordError, Exception) as e:
                     logger.warning(f"Неверный пароль для {email}: {e}")
                     return {"success": False, "token": None, "author": None, "error": str(e)}
 
@@ -413,7 +413,7 @@ class AuthService:
                     self._set_auth_cookie(request, token)
 
                 try:
-                    author_dict = valid_author.dict(True)
+                    author_dict = valid_author.dict()
                 except Exception:
                     author_dict = {
                         "id": valid_author.id,
@@ -440,7 +440,7 @@ class AuthService:
             logger.error(f"Ошибка установки cookie: {e}")
         return False
 
-    async def logout(self, user_id: str, token: str = None) -> dict[str, Any]:
+    async def logout(self, user_id: str, token: str | None = None) -> dict[str, Any]:
         """Выход из системы"""
         try:
             if token:
@@ -451,7 +451,7 @@ class AuthService:
             logger.error(f"Ошибка выхода для {user_id}: {e}")
             return {"success": False, "message": f"Ошибка выхода: {e}"}
 
-    async def refresh_token(self, user_id: str, old_token: str, device_info: dict = None) -> dict[str, Any]:
+    async def refresh_token(self, user_id: str, old_token: str, device_info: dict | None = None) -> dict[str, Any]:
         """Обновление токена"""
         try:
             new_token = await TokenStorage.refresh_session(int(user_id), old_token, device_info or {})
@@ -460,12 +460,12 @@ class AuthService:
 
             # Получаем данные пользователя
             with local_session() as session:
-                author = session.query(Author).filter(Author.id == int(user_id)).first()
+                author = session.query(Author).where(Author.id == int(user_id)).first()
                 if not author:
                     return {"success": False, "token": None, "author": None, "error": "Пользователь не найден"}
 
                 try:
-                    author_dict = author.dict(True)
+                    author_dict = author.dict()
                 except Exception:
                     author_dict = {
                         "id": author.id,
@@ -487,14 +487,12 @@ class AuthService:
             logger.info(f"Запрос сброса пароля для {email}")
 
             with local_session() as session:
-                author = session.query(Author).filter(Author.email == email).first()
+                author = session.query(Author).where(Author.email == email).first()
                 if not author:
                     logger.warning(f"Пользователь {email} не найден")
                     return {"success": True}  # Для безопасности
 
                 try:
-                    from auth.tokens.verification import VerificationTokenManager
-
                     verification_manager = VerificationTokenManager()
                     token = await verification_manager.create_verification_token(
                         str(author.id), "password_reset", {"email": author.email}
@@ -519,16 +517,16 @@ class AuthService:
         """Проверяет, используется ли email"""
         email = email.lower()
         with local_session() as session:
-            user = session.query(Author).filter(Author.email == email).first()
+            user = session.query(Author).where(Author.email == email).first()
         return user is not None
 
     async def update_security(
-        self, user_id: int, old_password: str, new_password: str = None, email: str = None
+        self, user_id: int, old_password: str, new_password: str | None = None, email: str | None = None
     ) -> dict[str, Any]:
         """Обновление пароля и email"""
         try:
             with local_session() as session:
-                author = session.query(Author).filter(Author.id == user_id).first()
+                author = session.query(Author).where(Author.id == user_id).first()
                 if not author:
                     return {"success": False, "error": "NOT_AUTHENTICATED", "author": None}
 
@@ -536,7 +534,7 @@ class AuthService:
                     return {"success": False, "error": "incorrect old password", "author": None}
 
                 if email and email != author.email:
-                    existing_user = session.query(Author).filter(Author.email == email).first()
+                    existing_user = session.query(Author).where(Author.email == email).first()
                     if existing_user:
                         return {"success": False, "error": "email already exists", "author": None}
 
@@ -602,12 +600,12 @@ class AuthService:
                 return {"success": False, "error": "INVALID_TOKEN", "author": None}
 
             with local_session() as session:
-                author = session.query(Author).filter(Author.id == user_id).first()
+                author = session.query(Author).where(Author.id == user_id).first()
                 if not author:
                     return {"success": False, "error": "NOT_AUTHENTICATED", "author": None}
 
                 # Проверяем, что новый email не занят
-                existing_user = session.query(Author).filter(Author.email == new_email).first()
+                existing_user = session.query(Author).where(Author.email == new_email).first()
                 if existing_user and existing_user.id != author.id:
                     await redis.execute("DEL", redis_key)
                     return {"success": False, "error": "email already exists", "author": None}
@@ -644,7 +642,7 @@ class AuthService:
 
             # Получаем текущие данные пользователя
             with local_session() as session:
-                author = session.query(Author).filter(Author.id == user_id).first()
+                author = session.query(Author).where(Author.id == user_id).first()
                 if not author:
                     return {"success": False, "error": "NOT_AUTHENTICATED", "author": None}
 
@@ -666,7 +664,6 @@ class AuthService:
         Returns:
             True если роль была добавлена или уже существует
         """
-        from orm.community import assign_role_to_user, get_user_roles_in_community
 
         existing_roles = get_user_roles_in_community(user_id, community_id=1)
 
@@ -714,8 +711,6 @@ class AuthService:
 
         @wraps(f)
         async def decorated_function(*args: Any, **kwargs: Any) -> Any:
-            from graphql.error import GraphQLError
-
             info = args[1]
             req = info.context.get("request")
 
@@ -765,6 +760,9 @@ class AuthService:
 
             # Получаем автора если его нет в контексте
             if not info.context.get("author") or not isinstance(info.context["author"], dict):
+                # Поздний импорт для избежания циклических зависимостей
+                from cache.cache import get_cached_author_by_id
+
                 author = await get_cached_author_by_id(int(user_id), lambda x: x)
                 if not author:
                     logger.error(f"Профиль автора не найден для пользователя {user_id}")
@@ -789,6 +787,9 @@ class AuthService:
                 logger.info(f"login_accepted: Пользователь авторизован: {user_id} с ролями {user_roles}")
                 info.context["roles"] = user_roles
                 info.context["is_admin"] = is_admin
+
+                # Поздний импорт для избежания циклических зависимостей
+                from cache.cache import get_cached_author_by_id
 
                 author = await get_cached_author_by_id(int(user_id), lambda x: x)
                 if author:

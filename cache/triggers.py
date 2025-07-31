@@ -88,7 +88,7 @@ def after_reaction_handler(mapper, connection, target) -> None:
         with local_session() as session:
             shout = (
                 session.query(Shout)
-                .filter(
+                .where(
                     Shout.id == shout_id,
                     Shout.published_at.is_not(None),
                     Shout.deleted_at.is_(None),

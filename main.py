@@ -1,5 +1,6 @@
 import asyncio
 import os
+import traceback
 from contextlib import asynccontextmanager
 from importlib import import_module
 from pathlib import Path
@@ -50,6 +51,7 @@ middleware = [
             "https://session-daily.vercel.app",
             "https://coretest.discours.io",
             "https://new.discours.io",
+            "https://localhost:3000",
         ],
         allow_methods=["GET", "POST", "OPTIONS"],  # Явно указываем OPTIONS
         allow_headers=["*"],
@@ -103,9 +105,6 @@ async def graphql_handler(request: Request) -> Response:
         return JSONResponse({"error": str(e)}, status_code=403)
     except Exception as e:
         logger.error(f"Unexpected GraphQL error: {e!s}")
-        # Логируем более подробную информацию для отладки только для неожиданных ошибок
-        import traceback
-
         logger.debug(f"Unexpected GraphQL error traceback: {traceback.format_exc()}")
         return JSONResponse({"error": "Internal server error"}, status_code=500)
 
@@ -138,9 +137,6 @@ async def shutdown() -> None:
 
     # Останавливаем поисковый сервис
     await search_service.close()
-
-    # Удаляем PID-файл, если он существует
-    from settings import DEV_SERVER_PID_FILE_NAME
 
     pid_file = Path(DEV_SERVER_PID_FILE_NAME)
     if pid_file.exists():

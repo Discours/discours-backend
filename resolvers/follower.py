@@ -1,20 +1,14 @@
 from __future__ import annotations
 
+from typing import Any
+
 from graphql import GraphQLResolveInfo
-from sqlalchemy import select
 from sqlalchemy.sql import and_
 
 from auth.orm import Author, AuthorFollower
-from cache.cache import (
-    cache_author,
-    cache_topic,
-    get_cached_follower_authors,
-    get_cached_follower_topics,
-)
 from orm.community import Community, CommunityFollower
 from orm.shout import Shout, ShoutReactionsFollower
 from orm.topic import Topic, TopicFollower
-from resolvers.stat import get_with_stat
 from services.auth import login_required
 from services.db import local_session
 from services.notify import notify_follower
@@ -25,17 +19,30 @@ from utils.logger import root_logger as logger
 
 @mutation.field("follow")
 @login_required
-async def follow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "", entity_id: int = 0) -> dict:
+async def follow(
+    _: None, info: GraphQLResolveInfo, what: str, slug: str = "", entity_id: int | None = None
+) -> dict[str, Any]:
     logger.debug("Начало выполнения функции 'follow'")
     viewer_id = info.context.get("author", {}).get("id")
+    if not viewer_id:
+        return {"error": "Access denied"}
     follower_dict = info.context.get("author") or {}
     logger.debug(f"follower: {follower_dict}")
 
     if not viewer_id or not follower_dict:
-        return {"error": "Access denied"}
+        logger.warning("Неавторизованный доступ при попытке подписаться")
+        return {"error": "UnauthorizedError"}
 
     follower_id = follower_dict.get("id")
     logger.debug(f"follower_id: {follower_id}")
+
+    # Поздние импорты для избежания циклических зависимостей
+    from cache.cache import (
+        cache_author,
+        cache_topic,
+        get_cached_follower_authors,
+        get_cached_follower_topics,
+    )
 
     entity_classes = {
         "AUTHOR": (Author, AuthorFollower, get_cached_follower_authors, cache_author),
@@ -50,33 +57,42 @@ async def follow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "", e
 
     entity_class, follower_class, get_cached_follows_method, cache_method = entity_classes[what]
     entity_type = what.lower()
-    entity_dict = None
-    follows = []
-    error = None
+    follows: list[dict[str, Any]] = []
+    error: str | None = None
 
     try:
         logger.debug("Попытка получить сущность из базы данных")
         with local_session() as session:
-            entity_query = select(entity_class).filter(entity_class.slug == slug)
-            entities = get_with_stat(entity_query)
-            [entity] = entities
+            # Используем query для получения сущности
+            entity_query = session.query(entity_class)
+
+            # Проверяем наличие slug перед фильтрацией
+            if hasattr(entity_class, "slug"):
+                entity_query = entity_query.where(entity_class.slug == slug)
+
+            entity = entity_query.first()
+
             if not entity:
                 logger.warning(f"{what.lower()} не найден по slug: {slug}")
                 return {"error": f"{what.lower()} not found"}
-            if not entity_id and entity:
-                entity_id = entity.id
+
+            # Получаем ID сущности
+            if entity_id is None:
+                entity_id = getattr(entity, "id", None)
+
+            if not entity_id:
+                logger.warning(f"Не удалось получить ID для {what.lower()}")
+                return {"error": f"Cannot get ID for {what.lower()}"}
 
             # Если это автор, учитываем фильтрацию данных
-            entity_dict = entity.dict(True) if what == "AUTHOR" else entity.dict()
+            entity_dict = entity.dict() if hasattr(entity, "dict") else {}
 
             logger.debug(f"entity_id: {entity_id}, entity_dict: {entity_dict}")
 
-        if entity_id:
-            logger.debug("Проверка существующей подписки")
-            with local_session() as session:
+            if entity_id is not None and isinstance(entity_id, int):
                 existing_sub = (
                     session.query(follower_class)
-                    .filter(
+                    .where(
                         follower_class.follower == follower_id,  # type: ignore[attr-defined]
                         getattr(follower_class, entity_type) == entity_id,  # type: ignore[attr-defined]
                     )
@@ -123,7 +139,7 @@ async def follow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "", e
                         if hasattr(temp_author, key):
                             setattr(temp_author, key, value)
                     # Добавляем отфильтрованную версию
-                    follows_filtered.append(temp_author.dict(False))
+                    follows_filtered.append(temp_author.dict())
 
                 follows = follows_filtered
             else:
@@ -131,17 +147,18 @@ async def follow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "", e
 
             logger.debug(f"Актуальный список подписок получен: {len(follows)} элементов")
 
+        return {f"{entity_type}s": follows, "error": error}
+
     except Exception as exc:
         logger.exception("Произошла ошибка в функции 'follow'")
         return {"error": str(exc)}
 
-    logger.debug(f"Функция 'follow' завершена: {entity_type}s={len(follows)}, error={error}")
-    return {f"{entity_type}s": follows, "error": error}
-
 
 @mutation.field("unfollow")
 @login_required
-async def unfollow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "", entity_id: int = 0) -> dict:
+async def unfollow(
+    _: None, info: GraphQLResolveInfo, what: str, slug: str = "", entity_id: int | None = None
+) -> dict[str, Any]:
     logger.debug("Начало выполнения функции 'unfollow'")
     viewer_id = info.context.get("author", {}).get("id")
     if not viewer_id:
@@ -151,10 +168,18 @@ async def unfollow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "",
 
     if not viewer_id or not follower_dict:
         logger.warning("Неавторизованный доступ при попытке отписаться")
-        return {"error": "Unauthorized"}
+        return {"error": "UnauthorizedError"}
 
     follower_id = follower_dict.get("id")
     logger.debug(f"follower_id: {follower_id}")
+
+    # Поздние импорты для избежания циклических зависимостей
+    from cache.cache import (
+        cache_author,
+        cache_topic,
+        get_cached_follower_authors,
+        get_cached_follower_topics,
+    )
 
     entity_classes = {
         "AUTHOR": (Author, AuthorFollower, get_cached_follower_authors, cache_author),
@@ -169,24 +194,32 @@ async def unfollow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "",
 
     entity_class, follower_class, get_cached_follows_method, cache_method = entity_classes[what]
     entity_type = what.lower()
-    follows = []
-    error = None
+    follows: list[dict[str, Any]] = []
 
     try:
         logger.debug("Попытка получить сущность из базы данных")
         with local_session() as session:
-            entity = session.query(entity_class).filter(entity_class.slug == slug).first()
+            # Используем query для получения сущности
+            entity_query = session.query(entity_class)
+            if hasattr(entity_class, "slug"):
+                entity_query = entity_query.where(entity_class.slug == slug)
+
+            entity = entity_query.first()
             logger.debug(f"Полученная сущность: {entity}")
             if not entity:
                 logger.warning(f"{what.lower()} не найден по slug: {slug}")
                 return {"error": f"{what.lower()} not found"}
-            if entity and not entity_id:
-                entity_id = int(entity.id)  # Convert Column to int
-                logger.debug(f"entity_id: {entity_id}")
 
+            if not entity_id:
+                entity_id = getattr(entity, "id", None)
+                if not entity_id:
+                    logger.warning(f"Не удалось получить ID для {what.lower()}")
+                    return {"error": f"Cannot get ID for {what.lower()}"}
+
+            logger.debug(f"entity_id: {entity_id}")
             sub = (
                 session.query(follower_class)
-                .filter(
+                .where(
                     and_(
                         follower_class.follower == follower_id,  # type: ignore[attr-defined]
                         getattr(follower_class, entity_type) == entity_id,  # type: ignore[attr-defined]
@@ -194,105 +227,75 @@ async def unfollow(_: None, info: GraphQLResolveInfo, what: str, slug: str = "",
                 )
                 .first()
             )
+            if not sub:
+                logger.warning(f"Подписка не найдена для {what.lower()} с ID {entity_id}")
+                return {"error": "Not following"}
+
             logger.debug(f"Найдена подписка для удаления: {sub}")
-            if sub:
-                session.delete(sub)
-                session.commit()
-                logger.info(f"Пользователь {follower_id} отписался от {what.lower()} с ID {entity_id}")
+            session.delete(sub)
+            session.commit()
+            logger.info(f"Пользователь {follower_id} отписался от {what.lower()} с ID {entity_id}")
 
-                # Инвалидируем кэш подписок пользователя после успешной отписки
-                cache_key_pattern = f"author:follows-{entity_type}s:{follower_id}"
-                await redis.execute("DEL", cache_key_pattern)
-                logger.debug(f"Инвалидирован кэш подписок: {cache_key_pattern}")
+            # Инвалидируем кэш подписок пользователя
+            cache_key_pattern = f"author:follows-{entity_type}s:{follower_id}"
+            await redis.execute("DEL", cache_key_pattern)
+            logger.debug(f"Инвалидирован кэш подписок: {cache_key_pattern}")
 
-                if cache_method:
-                    logger.debug("Обновление кэша после отписки")
-                    # Если это автор, кэшируем полную версию
-                    if what == "AUTHOR":
-                        await cache_method(entity.dict(True))
-                    else:
-                        await cache_method(entity.dict())
-
-                if what == "AUTHOR":
-                    logger.debug("Отправка уведомления автору об отписке")
-                    if isinstance(follower_dict, dict) and isinstance(entity_id, int):
-                        await notify_follower(follower=follower_dict, author_id=entity_id, action="unfollow")
+            if get_cached_follows_method and isinstance(follower_id, int):
+                logger.debug("Получение актуального списка подписок из кэша")
+                follows = await get_cached_follows_method(follower_id)
+                logger.debug(f"Актуальный список подписок получен: {len(follows)} элементов")
             else:
-                # Подписка не найдена, но это не критическая ошибка
-                logger.warning(f"Подписка не найдена: follower_id={follower_id}, {entity_type}_id={entity_id}")
-                error = "following was not found"
+                follows = []
 
-        # Всегда получаем актуальный список подписок для возврата клиенту
-        if get_cached_follows_method and isinstance(follower_id, int):
-            logger.debug("Получение актуального списка подписок из кэша")
-            existing_follows = await get_cached_follows_method(follower_id)
+            if what == "AUTHOR" and isinstance(follower_dict, dict):
+                await notify_follower(follower=follower_dict, author_id=entity_id, action="unfollow")
 
-            # Если это авторы, получаем безопасную версию
-            if what == "AUTHOR":
-                follows_filtered = []
-
-                for author_data in existing_follows:
-                    # Создаем объект автора для использования метода dict
-                    temp_author = Author()
-                    for key, value in author_data.items():
-                        if hasattr(temp_author, key):
-                            setattr(temp_author, key, value)
-                    # Добавляем отфильтрованную версию
-                    follows_filtered.append(temp_author.dict(False))
-
-                follows = follows_filtered
-            else:
-                follows = existing_follows
-
-            logger.debug(f"Актуальный список подписок получен: {len(follows)} элементов")
+            return {f"{entity_type}s": follows, "error": None}
 
     except Exception as exc:
         logger.exception("Произошла ошибка в функции 'unfollow'")
-        import traceback
-
-        traceback.print_exc()
         return {"error": str(exc)}
-
-    logger.debug(f"Функция 'unfollow' завершена: {entity_type}s={len(follows)}, error={error}")
-    return {f"{entity_type}s": follows, "error": error}
 
 
 @query.field("get_shout_followers")
-def get_shout_followers(_: None, _info: GraphQLResolveInfo, slug: str = "", shout_id: int | None = None) -> list[dict]:
-    logger.debug("Начало выполнения функции 'get_shout_followers'")
-    followers = []
-    try:
-        with local_session() as session:
-            shout = None
-            if slug:
-                shout = session.query(Shout).filter(Shout.slug == slug).first()
-                logger.debug(f"Найден shout по slug: {slug} -> {shout}")
-            elif shout_id:
-                shout = session.query(Shout).filter(Shout.id == shout_id).first()
-                logger.debug(f"Найден shout по ID: {shout_id} -> {shout}")
+def get_shout_followers(
+    _: None, _info: GraphQLResolveInfo, slug: str = "", shout_id: int | None = None
+) -> list[dict[str, Any]]:
+    """
+    Получает список подписчиков для шаута по slug или ID
 
-            if shout:
-                shout_id = int(shout.id)  # Convert Column to int
-                logger.debug(f"shout_id для получения подписчиков: {shout_id}")
+    Args:
+        _: GraphQL root
+        _info: GraphQL context info
+        slug: Slug шаута (опционально)
+        shout_id: ID шаута (опционально)
 
-                # Получение подписчиков из таблицы ShoutReactionsFollower
-                shout_followers = (
-                    session.query(Author)
-                    .join(ShoutReactionsFollower, Author.id == ShoutReactionsFollower.follower)
-                    .filter(ShoutReactionsFollower.shout == shout_id)
-                    .all()
-                )
-
-                # Convert Author objects to dicts
-                followers = [author.dict() for author in shout_followers]
-                logger.debug(f"Найдено {len(followers)} подписчиков для shout {shout_id}")
-
-    except Exception as _exc:
-        import traceback
-
-        traceback.print_exc()
-        logger.exception("Произошла ошибка в функции 'get_shout_followers'")
+    Returns:
+        Список подписчиков шаута
+    """
+    if not slug and not shout_id:
         return []
 
-    # logger.debug(f"Функция 'get_shout_followers' завершена с {len(followers)} подписчиками")
-    return followers
+    with local_session() as session:
+        # Если slug не указан, ищем шаут по ID
+        if not slug and shout_id is not None:
+            shout = session.query(Shout).where(Shout.id == shout_id).first()
+        else:
+            # Ищем шаут по slug
+            shout = session.query(Shout).where(Shout.slug == slug).first()
+
+        if not shout:
+            return []
+
+        # Получаем подписчиков шаута
+        followers_query = (
+            session.query(Author)
+            .join(ShoutReactionsFollower, Author.id == ShoutReactionsFollower.follower)
+            .where(ShoutReactionsFollower.shout == shout.id)
+        )
+
+        followers = followers_query.all()
+
+        # Возвращаем безопасную версию данных
+        return [follower.dict() for follower in followers]

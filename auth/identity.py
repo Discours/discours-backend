@@ -1,11 +1,8 @@
-from binascii import hexlify
-from hashlib import sha256
 from typing import TYPE_CHECKING, Any, TypeVar
 
-import bcrypt
-
-from auth.exceptions import ExpiredToken, InvalidPassword, InvalidToken
+from auth.exceptions import ExpiredTokenError, InvalidPasswordError, InvalidTokenError
 from auth.jwtcodec import JWTCodec
+from auth.password import Password
 from services.db import local_session
 from services.redis import redis
 from utils.logger import root_logger as logger
@@ -15,54 +12,6 @@ if TYPE_CHECKING:
     from auth.orm import Author
 
 AuthorType = TypeVar("AuthorType", bound="Author")
-
-
-class Password:
-    @staticmethod
-    def _to_bytes(data: str) -> bytes:
-        return bytes(data.encode())
-
-    @classmethod
-    def _get_sha256(cls, password: str) -> bytes:
-        bytes_password = cls._to_bytes(password)
-        return hexlify(sha256(bytes_password).digest())
-
-    @staticmethod
-    def encode(password: str) -> str:
-        """
-        Кодирует пароль пользователя
-
-        Args:
-            password (str): Пароль пользователя
-
-        Returns:
-            str: Закодированный пароль
-        """
-        password_sha256 = Password._get_sha256(password)
-        salt = bcrypt.gensalt(rounds=10)
-        return bcrypt.hashpw(password_sha256, salt).decode("utf-8")
-
-    @staticmethod
-    def verify(password: str, hashed: str) -> bool:
-        r"""
-        Verify that password hash is equal to specified hash. Hash format:
-
-        $2a$10$Ro0CUfOqk6cXEKf3dyaM7OhSCvnwM9s4wIX9JeLapehKK5YdLxKcm
-        \__/\/ \____________________/\_____________________________/
-        |   |        Salt                     Hash
-        |  Cost
-        Version
-
-        More info: https://passlib.readthedocs.io/en/stable/lib/passlib.hash.bcrypt.html
-
-        :param password: clear text password
-        :param hashed: hash of the password
-        :return: True if clear text password matches specified hash
-        """
-        hashed_bytes = Password._to_bytes(hashed)
-        password_sha256 = Password._get_sha256(password)
-
-        return bcrypt.checkpw(password_sha256, hashed_bytes)  # Изменил verify на checkpw
 
 
 class Identity:
@@ -79,23 +28,20 @@ class Identity:
             Author: Объект автора при успешной проверке
 
         Raises:
-            InvalidPassword: Если пароль не соответствует хешу или отсутствует
+            InvalidPasswordError: Если пароль не соответствует хешу или отсутствует
         """
-        # Импортируем внутри функции для избежания циклических импортов
-        from utils.logger import root_logger as logger
-
         # Проверим исходный пароль в orm_author
         if not orm_author.password:
             logger.warning(f"[auth.identity] Пароль в исходном объекте автора пуст: email={orm_author.email}")
             msg = "Пароль не установлен для данного пользователя"
-            raise InvalidPassword(msg)
+            raise InvalidPasswordError(msg)
 
         # Проверяем пароль напрямую, не используя dict()
         password_hash = str(orm_author.password) if orm_author.password else ""
         if not password_hash or not Password.verify(password, password_hash):
             logger.warning(f"[auth.identity] Неверный пароль для {orm_author.email}")
             msg = "Неверный пароль пользователя"
-            raise InvalidPassword(msg)
+            raise InvalidPasswordError(msg)
 
         # Возвращаем исходный объект, чтобы сохранить все связи
         return orm_author
@@ -111,11 +57,11 @@ class Identity:
         Returns:
             Author: Объект пользователя
         """
-        # Импортируем внутри функции для избежания циклических импортов
+        # Поздний импорт для избежания циклических зависимостей
         from auth.orm import Author
 
         with local_session() as session:
-            author = session.query(Author).filter(Author.email == inp["email"]).first()
+            author = session.query(Author).where(Author.email == inp["email"]).first()
             if not author:
                 author = Author(**inp)
                 author.email_verified = True  # type: ignore[assignment]
@@ -135,9 +81,6 @@ class Identity:
         Returns:
             Author: Объект пользователя
         """
-        # Импортируем внутри функции для избежания циклических импортов
-        from auth.orm import Author
-
         try:
             print("[auth.identity] using one time token")
             payload = JWTCodec.decode(token)
@@ -146,23 +89,32 @@ class Identity:
                 return {"error": "Invalid token"}
 
             # Проверяем существование токена в хранилище
-            token_key = f"{payload.user_id}-{payload.username}-{token}"
+            user_id = payload.get("user_id")
+            username = payload.get("username")
+            if not user_id or not username:
+                logger.warning("[Identity.token] Нет user_id или username в токене")
+                return {"error": "Invalid token"}
+
+            token_key = f"{user_id}-{username}-{token}"
             if not await redis.exists(token_key):
                 logger.warning(f"[Identity.token] Токен не найден в хранилище: {token_key}")
                 return {"error": "Token not found"}
 
             # Если все проверки пройдены, ищем автора в базе данных
+            # Поздний импорт для избежания циклических зависимостей
+            from auth.orm import Author
+
             with local_session() as session:
-                author = session.query(Author).filter_by(id=payload.user_id).first()
+                author = session.query(Author).filter_by(id=user_id).first()
                 if not author:
-                    logger.warning(f"[Identity.token] Автор с ID {payload.user_id} не найден")
+                    logger.warning(f"[Identity.token] Автор с ID {user_id} не найден")
                     return {"error": "User not found"}
 
                 logger.info(f"[Identity.token] Токен валиден для автора {author.id}")
                 return author
-        except ExpiredToken:
-            # raise InvalidToken("Login token has expired, please try again")
+        except ExpiredTokenError:
+            # raise InvalidTokenError("Login token has expired, please try again")
             return {"error": "Token has expired"}
-        except InvalidToken:
-            # raise InvalidToken("token format error") from e
+        except InvalidTokenError:
+            # raise InvalidTokenError("token format error") from e
             return {"error": "Token format error"}

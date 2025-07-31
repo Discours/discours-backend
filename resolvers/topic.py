@@ -14,6 +14,7 @@ from cache.cache import (
     invalidate_cache_by_prefix,
     invalidate_topic_followers_cache,
 )
+from orm.draft import DraftTopic
 from orm.reaction import Reaction, ReactionKind
 from orm.shout import Shout, ShoutAuthor, ShoutTopic
 from orm.topic import Topic, TopicFollower
@@ -100,10 +101,7 @@ async def get_topics_with_stats(
 
             # Вычисляем информацию о пагинации
             per_page = limit
-            if total_count is None or per_page in (None, 0):
-                total_pages = 1
-            else:
-                total_pages = ceil(total_count / per_page)
+            total_pages = 1 if total_count is None or per_page in (None, 0) else ceil(total_count / per_page)
             current_page = (offset // per_page) + 1 if per_page > 0 else 1
 
             # Применяем сортировку на основе параметра by
@@ -263,7 +261,7 @@ async def get_topics_with_stats(
                 WHERE st.topic IN ({placeholders})
                 GROUP BY st.topic
                 """
-                params["comment_kind"] = ReactionKind.COMMENT.value
+                params["comment_kind"] = int(ReactionKind.COMMENT.value)
                 comments_stats = {row[0]: row[1] for row in session.execute(text(comments_stats_query), params)}
 
             # Формируем результат с добавлением статистики
@@ -314,7 +312,7 @@ async def invalidate_topics_cache(topic_id: Optional[int] = None) -> None:
 
         # Получаем slug темы, если есть
         with local_session() as session:
-            topic = session.query(Topic).filter(Topic.id == topic_id).first()
+            topic = session.query(Topic).where(Topic.id == topic_id).first()
             if topic and topic.slug:
                 specific_keys.append(f"topic:slug:{topic.slug}")
 
@@ -418,7 +416,7 @@ async def create_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str
 async def update_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str, Any]) -> dict[str, Any]:
     slug = topic_input["slug"]
     with local_session() as session:
-        topic = session.query(Topic).filter(Topic.slug == slug).first()
+        topic = session.query(Topic).where(Topic.slug == slug).first()
         if not topic:
             return {"error": "topic not found"}
         old_slug = str(getattr(topic, "slug", ""))
@@ -443,10 +441,10 @@ async def update_topic(_: None, _info: GraphQLResolveInfo, topic_input: dict[str
 async def delete_topic(_: None, info: GraphQLResolveInfo, slug: str) -> dict[str, Any]:
     viewer_id = info.context.get("author", {}).get("id")
     with local_session() as session:
-        topic = session.query(Topic).filter(Topic.slug == slug).first()
+        topic = session.query(Topic).where(Topic.slug == slug).first()
         if not topic:
             return {"error": "invalid topic slug"}
-        author = session.query(Author).filter(Author.id == viewer_id).first()
+        author = session.query(Author).where(Author.id == viewer_id).first()
         if author:
             if getattr(topic, "created_by", None) != author.id:
                 return {"error": "access denied"}
@@ -496,11 +494,11 @@ async def delete_topic_by_id(_: None, info: GraphQLResolveInfo, topic_id: int) -
     """
     viewer_id = info.context.get("author", {}).get("id")
     with local_session() as session:
-        topic = session.query(Topic).filter(Topic.id == topic_id).first()
+        topic = session.query(Topic).where(Topic.id == topic_id).first()
         if not topic:
             return {"success": False, "message": "Топик не найден"}
 
-        author = session.query(Author).filter(Author.id == viewer_id).first()
+        author = session.query(Author).where(Author.id == viewer_id).first()
         if not author:
             return {"success": False, "message": "Не авторизован"}
 
@@ -512,8 +510,8 @@ async def delete_topic_by_id(_: None, info: GraphQLResolveInfo, topic_id: int) -
             await invalidate_topic_followers_cache(topic_id)
 
             # Удаляем связанные данные (подписчики, связи с публикациями)
-            session.query(TopicFollower).filter(TopicFollower.topic == topic_id).delete()
-            session.query(ShoutTopic).filter(ShoutTopic.topic == topic_id).delete()
+            session.query(TopicFollower).where(TopicFollower.topic == topic_id).delete()
+            session.query(ShoutTopic).where(ShoutTopic.topic == topic_id).delete()
 
             # Удаляем сам топик
             session.delete(topic)
@@ -573,12 +571,12 @@ async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str,
     with local_session() as session:
         try:
             # Получаем целевую тему
-            target_topic = session.query(Topic).filter(Topic.id == target_topic_id).first()
+            target_topic = session.query(Topic).where(Topic.id == target_topic_id).first()
             if not target_topic:
                 return {"error": f"Целевая тема с ID {target_topic_id} не найдена"}
 
             # Получаем исходные темы
-            source_topics = session.query(Topic).filter(Topic.id.in_(source_topic_ids)).all()
+            source_topics = session.query(Topic).where(Topic.id.in_(source_topic_ids)).all()
             if len(source_topics) != len(source_topic_ids):
                 found_ids = [t.id for t in source_topics]
                 missing_ids = [topic_id for topic_id in source_topic_ids if topic_id not in found_ids]
@@ -591,7 +589,7 @@ async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str,
                     return {"error": f"Тема '{source_topic.title}' принадлежит другому сообществу"}
 
             # Получаем автора для проверки прав
-            author = session.query(Author).filter(Author.id == viewer_id).first()
+            author = session.query(Author).where(Author.id == viewer_id).first()
             if not author:
                 return {"error": "Автор не найден"}
 
@@ -604,17 +602,17 @@ async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str,
             # Переносим подписчиков из исходных тем в целевую
             for source_topic in source_topics:
                 # Получаем подписчиков исходной темы
-                source_followers = session.query(TopicFollower).filter(TopicFollower.topic == source_topic.id).all()
+                source_followers = session.query(TopicFollower).where(TopicFollower.topic == source_topic.id).all()
 
                 for follower in source_followers:
                     # Проверяем, не подписан ли уже пользователь на целевую тему
-                    existing = (
+                    existing_follower = (
                         session.query(TopicFollower)
-                        .filter(TopicFollower.topic == target_topic_id, TopicFollower.follower == follower.follower)
+                        .where(TopicFollower.topic == target_topic_id, TopicFollower.follower == follower.follower)
                         .first()
                     )
 
-                    if not existing:
+                    if not existing_follower:
                         # Создаем новую подписку на целевую тему
                         new_follower = TopicFollower(
                             topic=target_topic_id,
@@ -629,21 +627,20 @@ async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str,
                     session.delete(follower)
 
             # Переносим публикации из исходных тем в целевую
-            from orm.shout import ShoutTopic
-
             for source_topic in source_topics:
                 # Получаем связи публикаций с исходной темой
-                shout_topics = session.query(ShoutTopic).filter(ShoutTopic.topic == source_topic.id).all()
+                shout_topics = session.query(ShoutTopic).where(ShoutTopic.topic == source_topic.id).all()
 
                 for shout_topic in shout_topics:
                     # Проверяем, не связана ли уже публикация с целевой темой
-                    existing = (
+                    existing_shout_topic: ShoutTopic | None = (
                         session.query(ShoutTopic)
-                        .filter(ShoutTopic.topic == target_topic_id, ShoutTopic.shout == shout_topic.shout)
+                        .where(ShoutTopic.topic == target_topic_id)
+                        .where(ShoutTopic.shout == shout_topic.shout)
                         .first()
                     )
 
-                    if not existing:
+                    if not existing_shout_topic:
                         # Создаем новую связь с целевой темой
                         new_shout_topic = ShoutTopic(
                             topic=target_topic_id, shout=shout_topic.shout, main=shout_topic.main
@@ -654,25 +651,23 @@ async def merge_topics(_: None, info: GraphQLResolveInfo, merge_input: dict[str,
                     # Удаляем старую связь
                     session.delete(shout_topic)
 
-            # Переносим черновики из исходных тем в целевую
-            from orm.draft import DraftTopic
-
             for source_topic in source_topics:
                 # Получаем связи черновиков с исходной темой
-                draft_topics = session.query(DraftTopic).filter(DraftTopic.topic == source_topic.id).all()
+                draft_topics = session.query(DraftTopic).where(DraftTopic.topic == source_topic.id).all()
 
                 for draft_topic in draft_topics:
                     # Проверяем, не связан ли уже черновик с целевой темой
-                    existing = (
+                    existing_draft_topic: DraftTopic | None = (
                         session.query(DraftTopic)
-                        .filter(DraftTopic.topic == target_topic_id, DraftTopic.shout == draft_topic.shout)
+                        .where(DraftTopic.topic == target_topic_id)
+                        .where(DraftTopic.draft == draft_topic.draft)
                         .first()
                     )
 
-                    if not existing:
+                    if not existing_draft_topic:
                         # Создаем новую связь с целевой темой
                         new_draft_topic = DraftTopic(
-                            topic=target_topic_id, shout=draft_topic.shout, main=draft_topic.main
+                            topic=target_topic_id, draft=draft_topic.draft, main=draft_topic.main
                         )
                         session.add(new_draft_topic)
                         merge_stats["drafts_moved"] += 1
@@ -760,7 +755,7 @@ async def set_topic_parent(
     with local_session() as session:
         try:
             # Получаем тему
-            topic = session.query(Topic).filter(Topic.id == topic_id).first()
+            topic = session.query(Topic).where(Topic.id == topic_id).first()
             if not topic:
                 return {"error": f"Тема с ID {topic_id} не найдена"}
 
@@ -778,7 +773,7 @@ async def set_topic_parent(
                 }
 
             # Получаем родительскую тему
-            parent_topic = session.query(Topic).filter(Topic.id == parent_id).first()
+            parent_topic = session.query(Topic).where(Topic.id == parent_id).first()
             if not parent_topic:
                 return {"error": f"Родительская тема с ID {parent_id} не найдена"}
 

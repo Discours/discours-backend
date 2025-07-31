@@ -1,7 +1,6 @@
 import os
-import re
 from dataclasses import dataclass
-from typing import Dict, List, Literal, Optional
+from typing import ClassVar, Optional
 
 from services.redis import redis
 from utils.logger import root_logger as logger
@@ -9,31 +8,30 @@ from utils.logger import root_logger as logger
 
 @dataclass
 class EnvVariable:
-    """Представление переменной окружения"""
+    """Переменная окружения"""
 
     key: str
-    value: str = ""
-    description: str = ""
-    type: Literal["string", "integer", "boolean", "json"] = "string"  # string, integer, boolean, json
+    value: str
+    description: str
     is_secret: bool = False
 
 
 @dataclass
 class EnvSection:
-    """Группа переменных окружения"""
+    """Секция переменных окружения"""
 
     name: str
     description: str
-    variables: List[EnvVariable]
+    variables: list[EnvVariable]
 
 
-class EnvManager:
-    """
-    Менеджер переменных окружения с поддержкой Redis кеширования
-    """
+class EnvService:
+    """Сервис для работы с переменными окружения"""
+
+    redis_prefix = "env:"
 
     # Определение секций с их описаниями
-    SECTIONS = {
+    SECTIONS: ClassVar[dict[str, str]] = {
         "database": "Настройки базы данных",
         "auth": "Настройки аутентификации",
         "redis": "Настройки Redis",
@@ -46,7 +44,7 @@ class EnvManager:
     }
 
     # Маппинг переменных на секции
-    VARIABLE_SECTIONS = {
+    VARIABLE_SECTIONS: ClassVar[dict[str, str]] = {
         # Database
         "DB_URL": "database",
         "DATABASE_URL": "database",
@@ -102,7 +100,7 @@ class EnvManager:
     }
 
     # Секретные переменные (не показываем их значения в UI)
-    SECRET_VARIABLES = {
+    SECRET_VARIABLES: ClassVar[set[str]] = {
         "JWT_SECRET",
         "SECRET_KEY",
         "AUTH_SECRET",
@@ -116,194 +114,165 @@ class EnvManager:
     }
 
     def __init__(self) -> None:
-        self.redis_prefix = "env_vars:"
+        """Инициализация сервиса"""
 
-    def _get_variable_type(self, key: str, value: str) -> Literal["string", "integer", "boolean", "json"]:
-        """Определяет тип переменной на основе ключа и значения"""
-
-        # Boolean переменные
-        if value.lower() in ("true", "false", "1", "0", "yes", "no"):
-            return "boolean"
-
-        # Integer переменные
-        if key.endswith(("_PORT", "_TIMEOUT", "_LIMIT", "_SIZE")) or value.isdigit():
-            return "integer"
-
-        # JSON переменные
-        if value.startswith(("{", "[")) and value.endswith(("}", "]")):
-            return "json"
-
-        return "string"
-
-    def _get_variable_description(self, key: str) -> str:
-        """Генерирует описание для переменной на основе её ключа"""
-
+    def get_variable_description(self, key: str) -> str:
+        """Получает описание переменной окружения"""
         descriptions = {
             "DB_URL": "URL подключения к базе данных",
+            "DATABASE_URL": "URL подключения к базе данных",
+            "POSTGRES_USER": "Пользователь PostgreSQL",
+            "POSTGRES_PASSWORD": "Пароль PostgreSQL",
+            "POSTGRES_DB": "Имя базы данных PostgreSQL",
+            "POSTGRES_HOST": "Хост PostgreSQL",
+            "POSTGRES_PORT": "Порт PostgreSQL",
+            "JWT_SECRET": "Секретный ключ для JWT токенов",
+            "JWT_ALGORITHM": "Алгоритм подписи JWT",
+            "JWT_EXPIRATION": "Время жизни JWT токенов",
+            "SECRET_KEY": "Секретный ключ приложения",
+            "AUTH_SECRET": "Секретный ключ аутентификации",
+            "OAUTH_GOOGLE_CLIENT_ID": "Google OAuth Client ID",
+            "OAUTH_GOOGLE_CLIENT_SECRET": "Google OAuth Client Secret",
+            "OAUTH_GITHUB_CLIENT_ID": "GitHub OAuth Client ID",
+            "OAUTH_GITHUB_CLIENT_SECRET": "GitHub OAuth Client Secret",
             "REDIS_URL": "URL подключения к Redis",
-            "JWT_SECRET": "Секретный ключ для подписи JWT токенов",
-            "CORS_ORIGINS": "Разрешенные CORS домены",
-            "DEBUG": "Режим отладки (true/false)",
-            "LOG_LEVEL": "Уровень логирования (DEBUG, INFO, WARNING, ERROR)",
-            "SENTRY_DSN": "DSN для интеграции с Sentry",
-            "GOOGLE_ANALYTICS_ID": "ID для Google Analytics",
-            "OAUTH_GOOGLE_CLIENT_ID": "Client ID для OAuth Google",
-            "OAUTH_GOOGLE_CLIENT_SECRET": "Client Secret для OAuth Google",
-            "OAUTH_GITHUB_CLIENT_ID": "Client ID для OAuth GitHub",
-            "OAUTH_GITHUB_CLIENT_SECRET": "Client Secret для OAuth GitHub",
-            "SMTP_HOST": "SMTP сервер для отправки email",
-            "SMTP_PORT": "Порт SMTP сервера",
+            "REDIS_HOST": "Хост Redis",
+            "REDIS_PORT": "Порт Redis",
+            "REDIS_PASSWORD": "Пароль Redis",
+            "REDIS_DB": "Номер базы данных Redis",
+            "SEARCH_API_KEY": "API ключ для поиска",
+            "ELASTICSEARCH_URL": "URL Elasticsearch",
+            "SEARCH_INDEX": "Индекс поиска",
+            "GOOGLE_ANALYTICS_ID": "Google Analytics ID",
+            "SENTRY_DSN": "Sentry DSN",
+            "SMTP_HOST": "SMTP сервер",
+            "SMTP_PORT": "Порт SMTP",
             "SMTP_USER": "Пользователь SMTP",
             "SMTP_PASSWORD": "Пароль SMTP",
-            "EMAIL_FROM": "Email отправителя по умолчанию",
+            "EMAIL_FROM": "Email отправителя",
+            "CORS_ORIGINS": "Разрешенные CORS источники",
+            "ALLOWED_HOSTS": "Разрешенные хосты",
+            "SECURE_SSL_REDIRECT": "Принудительное SSL перенаправление",
+            "SESSION_COOKIE_SECURE": "Безопасные cookies сессий",
+            "CSRF_COOKIE_SECURE": "Безопасные CSRF cookies",
+            "LOG_LEVEL": "Уровень логирования",
+            "LOG_FORMAT": "Формат логов",
+            "LOG_FILE": "Файл логов",
+            "DEBUG": "Режим отладки",
+            "FEATURE_REGISTRATION": "Включить регистрацию",
+            "FEATURE_COMMENTS": "Включить комментарии",
+            "FEATURE_ANALYTICS": "Включить аналитику",
+            "FEATURE_SEARCH": "Включить поиск",
         }
-
         return descriptions.get(key, f"Переменная окружения {key}")
 
-    async def get_variables_from_redis(self) -> Dict[str, str]:
+    async def get_variables_from_redis(self) -> dict[str, str]:
         """Получает переменные из Redis"""
-
         try:
-            # Get all keys matching our prefix
-            pattern = f"{self.redis_prefix}*"
-            keys = await redis.execute("KEYS", pattern)
-
+            keys = await redis.keys(f"{self.redis_prefix}*")
             if not keys:
                 return {}
 
-            redis_vars: Dict[str, str] = {}
+            redis_vars: dict[str, str] = {}
             for key in keys:
                 var_key = key.replace(self.redis_prefix, "")
                 value = await redis.get(key)
                 if value:
-                    if isinstance(value, bytes):
-                        redis_vars[var_key] = value.decode("utf-8")
-                    else:
-                        redis_vars[var_key] = str(value)
+                    redis_vars[var_key] = str(value)
 
             return redis_vars
-
-        except Exception as e:
-            logger.error(f"Ошибка при получении переменных из Redis: {e}")
+        except Exception:
             return {}
 
-    async def set_variables_to_redis(self, variables: Dict[str, str]) -> bool:
+    async def set_variables_to_redis(self, variables: dict[str, str]) -> bool:
         """Сохраняет переменные в Redis"""
-
         try:
             for key, value in variables.items():
-                redis_key = f"{self.redis_prefix}{key}"
-                await redis.set(redis_key, value)
-
-            logger.info(f"Сохранено {len(variables)} переменных в Redis")
+                await redis.set(f"{self.redis_prefix}{key}", value)
             return True
-
-        except Exception as e:
-            logger.error(f"Ошибка при сохранении переменных в Redis: {e}")
+        except Exception:
             return False
 
-    def get_variables_from_env(self) -> Dict[str, str]:
+    def get_variables_from_env(self) -> dict[str, str]:
         """Получает переменные из системного окружения"""
-
         env_vars = {}
 
         # Получаем все переменные известные системе
-        for key in self.VARIABLE_SECTIONS.keys():
+        for key in self.VARIABLE_SECTIONS:
             value = os.getenv(key)
             if value is not None:
                 env_vars[key] = value
 
-        # Также ищем переменные по паттернам
-        for env_key, env_value in os.environ.items():
-            # Переменные проекта обычно начинаются с определенных префиксов
-            if any(env_key.startswith(prefix) for prefix in ["APP_", "SITE_", "FEATURE_", "OAUTH_"]):
-                env_vars[env_key] = env_value
+        # Получаем дополнительные переменные окружения
+        env_vars.update(
+            {
+                env_key: env_value
+                for env_key, env_value in os.environ.items()
+                if any(env_key.startswith(prefix) for prefix in ["APP_", "SITE_", "FEATURE_", "OAUTH_"])
+            }
+        )
 
         return env_vars
 
-    async def get_all_variables(self) -> List[EnvSection]:
+    async def get_all_variables(self) -> list[EnvSection]:
         """Получает все переменные окружения, сгруппированные по секциям"""
-
-        # Получаем переменные из разных источников
-        env_vars = self.get_variables_from_env()
+        # Получаем переменные из Redis и системного окружения
         redis_vars = await self.get_variables_from_redis()
+        env_vars = self.get_variables_from_env()
 
-        # Объединяем переменные (приоритет у Redis)
+        # Объединяем переменные (Redis имеет приоритет)
         all_vars = {**env_vars, **redis_vars}
 
         # Группируем по секциям
-        sections_dict: Dict[str, List[EnvVariable]] = {section: [] for section in self.SECTIONS}
-        other_variables: List[EnvVariable] = []  # Для переменных, которые не попали ни в одну секцию
+        sections_dict: dict[str, list[EnvVariable]] = {section: [] for section in self.SECTIONS}
+        other_variables: list[EnvVariable] = []  # Для переменных, которые не попали ни в одну секцию
 
         for key, value in all_vars.items():
-            section_name = self.VARIABLE_SECTIONS.get(key, "other")
             is_secret = key in self.SECRET_VARIABLES
+            description = self.get_variable_description(key)
 
-            var = EnvVariable(
+            # Скрываем значение секретных переменных
+            display_value = "***" if is_secret else value
+
+            env_var = EnvVariable(
                 key=key,
-                value=value if not is_secret else "***",  # Скрываем секретные значения
-                description=self._get_variable_description(key),
-                type=self._get_variable_type(key, value),
+                value=display_value,
+                description=description,
                 is_secret=is_secret,
             )
 
-            if section_name in sections_dict:
-                sections_dict[section_name].append(var)
+            # Определяем секцию для переменной
+            section = self.VARIABLE_SECTIONS.get(key, "other")
+            if section in sections_dict:
+                sections_dict[section].append(env_var)
             else:
-                other_variables.append(var)
-
-        # Добавляем переменные без секции в раздел "other"
-        if other_variables:
-            sections_dict["other"].extend(other_variables)
+                other_variables.append(env_var)
 
         # Создаем объекты секций
         sections = []
-        for section_key, variables in sections_dict.items():
-            if variables:  # Добавляем только секции с переменными
-                sections.append(
-                    EnvSection(
-                        name=section_key,
-                        description=self.SECTIONS[section_key],
-                        variables=sorted(variables, key=lambda x: x.key),
-                    )
-                )
+        for section_name, section_description in self.SECTIONS.items():
+            variables = sections_dict.get(section_name, [])
+            if variables:  # Добавляем только непустые секции
+                sections.append(EnvSection(name=section_name, description=section_description, variables=variables))
+
+        # Добавляем секцию "other" если есть переменные
+        if other_variables:
+            sections.append(EnvSection(name="other", description="Прочие настройки", variables=other_variables))
 
         return sorted(sections, key=lambda x: x.name)
 
-    async def update_variables(self, variables: List[EnvVariable]) -> bool:
+    async def update_variables(self, variables: list[EnvVariable]) -> bool:
         """Обновляет переменные окружения"""
-
         try:
-            # Подготавливаем данные для сохранения
-            vars_to_save = {}
-
+            # Подготавливаем переменные для сохранения
+            vars_dict = {}
             for var in variables:
-                # Валидация
-                if not var.key or not isinstance(var.key, str):
-                    logger.error(f"Неверный ключ переменной: {var.key}")
-                    continue
-
-                # Проверяем формат ключа (только буквы, цифры и подчеркивания)
-                if not re.match(r"^[A-Z_][A-Z0-9_]*$", var.key):
-                    logger.error(f"Неверный формат ключа: {var.key}")
-                    continue
-
-                vars_to_save[var.key] = var.value
-
-            if not vars_to_save:
-                logger.warning("Нет переменных для сохранения")
-                return False
+                if not var.is_secret or var.value != "***":
+                    vars_dict[var.key] = var.value
 
             # Сохраняем в Redis
-            success = await self.set_variables_to_redis(vars_to_save)
-
-            if success:
-                logger.info(f"Обновлено {len(vars_to_save)} переменных окружения")
-
-            return success
-
-        except Exception as e:
-            logger.error(f"Ошибка при обновлении переменных: {e}")
+            return await self.set_variables_to_redis(vars_dict)
+        except Exception:
             return False
 
     async def delete_variable(self, key: str) -> bool:
@@ -352,4 +321,4 @@ class EnvManager:
             return False
 
 
-env_manager = EnvManager()
+env_manager = EnvService()

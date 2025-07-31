@@ -1,85 +1,24 @@
 import time
 from typing import Any, Dict, Optional
 
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import Session
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    ForeignKey,
+    Index,
+    Integer,
+    PrimaryKeyConstraint,
+    String,
+)
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from auth.identity import Password
-from services.db import BaseModel as Base
+from auth.password import Password
+from orm.base import BaseModel as Base
 
 # Общие table_args для всех моделей
 DEFAULT_TABLE_ARGS = {"extend_existing": True}
 
-
-"""
-Модель закладок автора
-"""
-
-
-class AuthorBookmark(Base):
-    """
-    Закладка автора на публикацию.
-
-    Attributes:
-        author (int): ID автора
-        shout (int): ID публикации
-    """
-
-    __tablename__ = "author_bookmark"
-    __table_args__ = (
-        Index("idx_author_bookmark_author", "author"),
-        Index("idx_author_bookmark_shout", "shout"),
-        {"extend_existing": True},
-    )
-
-    author = Column(ForeignKey("author.id"), primary_key=True)
-    shout = Column(ForeignKey("shout.id"), primary_key=True)
-
-
-class AuthorRating(Base):
-    """
-    Рейтинг автора от другого автора.
-
-    Attributes:
-        rater (int): ID оценивающего автора
-        author (int): ID оцениваемого автора
-        plus (bool): Положительная/отрицательная оценка
-    """
-
-    __tablename__ = "author_rating"
-    __table_args__ = (
-        Index("idx_author_rating_author", "author"),
-        Index("idx_author_rating_rater", "rater"),
-        {"extend_existing": True},
-    )
-
-    rater = Column(ForeignKey("author.id"), primary_key=True)
-    author = Column(ForeignKey("author.id"), primary_key=True)
-    plus = Column(Boolean)
-
-
-class AuthorFollower(Base):
-    """
-    Подписка одного автора на другого.
-
-    Attributes:
-        follower (int): ID подписчика
-        author (int): ID автора, на которого подписываются
-        created_at (int): Время создания подписки
-        auto (bool): Признак автоматической подписки
-    """
-
-    __tablename__ = "author_follower"
-    __table_args__ = (
-        Index("idx_author_follower_author", "author"),
-        Index("idx_author_follower_follower", "follower"),
-        {"extend_existing": True},
-    )
-    id = None  # type: ignore[assignment]
-    follower = Column(ForeignKey("author.id"), primary_key=True)
-    author = Column(ForeignKey("author.id"), primary_key=True)
-    created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    auto = Column(Boolean, nullable=False, default=False)
+PROTECTED_FIELDS = ["email", "password", "provider_access_token", "provider_refresh_token"]
 
 
 class Author(Base):
@@ -96,37 +35,42 @@ class Author(Base):
     )
 
     # Базовые поля автора
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=True, comment="Display name")
-    slug = Column(String, unique=True, comment="Author's slug")
-    bio = Column(String, nullable=True, comment="Bio")  # короткое описание
-    about = Column(String, nullable=True, comment="About")  # длинное форматированное описание
-    pic = Column(String, nullable=True, comment="Picture")
-    links = Column(JSON, nullable=True, comment="Links")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True, comment="Display name")
+    slug: Mapped[str] = mapped_column(String, unique=True, comment="Author's slug")
+    bio: Mapped[str | None] = mapped_column(String, nullable=True, comment="Bio")  # короткое описание
+    about: Mapped[str | None] = mapped_column(
+        String, nullable=True, comment="About"
+    )  # длинное форматированное описание
+    pic: Mapped[str | None] = mapped_column(String, nullable=True, comment="Picture")
+    links: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True, comment="Links")
 
     # OAuth аккаунты - JSON с данными всех провайдеров
     # Формат: {"google": {"id": "123", "email": "user@gmail.com"}, "github": {"id": "456"}}
-    oauth = Column(JSON, nullable=True, default=dict, comment="OAuth accounts data")
+    oauth: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True, default=dict, comment="OAuth accounts data"
+    )
 
     # Поля аутентификации
-    email = Column(String, unique=True, nullable=True, comment="Email")
-    phone = Column(String, unique=True, nullable=True, comment="Phone")
-    password = Column(String, nullable=True, comment="Password hash")
-    email_verified = Column(Boolean, default=False)
-    phone_verified = Column(Boolean, default=False)
-    failed_login_attempts = Column(Integer, default=0)
-    account_locked_until = Column(Integer, nullable=True)
+    email: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, comment="Email")
+    phone: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, comment="Phone")
+    password: Mapped[str | None] = mapped_column(String, nullable=True, comment="Password hash")
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    account_locked_until: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Временные метки
-    created_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    updated_at = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    last_seen = Column(Integer, nullable=False, default=lambda: int(time.time()))
-    deleted_at = Column(Integer, nullable=True)
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    updated_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    last_seen: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    deleted_at: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    oid = Column(String, nullable=True)
+    oid: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    # Список защищенных полей, которые видны только владельцу и администраторам
-    _protected_fields = ["email", "password", "provider_access_token", "provider_refresh_token"]
+    @property
+    def protected_fields(self) -> list[str]:
+        return PROTECTED_FIELDS
 
     @property
     def is_authenticated(self) -> bool:
@@ -214,7 +158,7 @@ class Author(Base):
             Author или None: Найденный автор или None если не найден
         """
         # Ищем авторов, у которых есть данный провайдер с данным ID
-        authors = session.query(cls).filter(cls.oauth.isnot(None)).all()
+        authors = session.query(cls).where(cls.oauth.isnot(None)).all()
         for author in authors:
             if author.oauth and provider in author.oauth:
                 oauth_data = author.oauth[provider]  # type: ignore[index]
@@ -266,3 +210,73 @@ class Author(Base):
         """
         if self.oauth and provider in self.oauth:
             del self.oauth[provider]
+
+
+class AuthorBookmark(Base):
+    """
+    Закладка автора на публикацию.
+
+    Attributes:
+        author (int): ID автора
+        shout (int): ID публикации
+    """
+
+    __tablename__ = "author_bookmark"
+    author: Mapped[int] = mapped_column(ForeignKey(Author.id))
+    shout: Mapped[int] = mapped_column(ForeignKey("shout.id"))
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+
+    __table_args__ = (
+        PrimaryKeyConstraint(author, shout),
+        Index("idx_author_bookmark_author", "author"),
+        Index("idx_author_bookmark_shout", "shout"),
+        {"extend_existing": True},
+    )
+
+
+class AuthorRating(Base):
+    """
+    Рейтинг автора от другого автора.
+
+    Attributes:
+        rater (int): ID оценивающего автора
+        author (int): ID оцениваемого автора
+        plus (bool): Положительная/отрицательная оценка
+    """
+
+    __tablename__ = "author_rating"
+    rater: Mapped[int] = mapped_column(ForeignKey(Author.id))
+    author: Mapped[int] = mapped_column(ForeignKey(Author.id))
+    plus: Mapped[bool] = mapped_column(Boolean)
+
+    __table_args__ = (
+        PrimaryKeyConstraint(rater, author),
+        Index("idx_author_rating_author", "author"),
+        Index("idx_author_rating_rater", "rater"),
+        {"extend_existing": True},
+    )
+
+
+class AuthorFollower(Base):
+    """
+    Подписка одного автора на другого.
+
+    Attributes:
+        follower (int): ID подписчика
+        author (int): ID автора, на которого подписываются
+        created_at (int): Время создания подписки
+        auto (bool): Признак автоматической подписки
+    """
+
+    __tablename__ = "author_follower"
+    follower: Mapped[int] = mapped_column(ForeignKey(Author.id))
+    author: Mapped[int] = mapped_column(ForeignKey(Author.id))
+    created_at: Mapped[int] = mapped_column(Integer, nullable=False, default=lambda: int(time.time()))
+    auto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        PrimaryKeyConstraint(follower, author),
+        Index("idx_author_follower_author", "author"),
+        Index("idx_author_follower_follower", "follower"),
+        {"extend_existing": True},
+    )

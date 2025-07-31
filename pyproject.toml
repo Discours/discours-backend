@@ -114,6 +114,11 @@ ignore = [
     "RUF006", #
     "TD002",  # TODO без автора - не критично
     "TD003",  # TODO без ссылки на issue - не критично
+    "SLF001", # _private members access
+    "F821",   # use Set as type
+    "UP006",  # use Set as type
+    "UP035",  # use Set as type
+    "ANN201", # Missing return type annotation for private function `wrapper` - иногда нужно
 ]
 
 # Настройки для отдельных директорий
@@ -171,6 +176,7 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 
 [tool.pytest.ini_options]
 # Конфигурация pytest
+pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
@@ -180,6 +186,10 @@ addopts = [
     "--strict-markers",  # Требовать регистрации всех маркеров
     "--tb=short",  # Короткий traceback
     "-v",          # Verbose output
+    # "--cov=services,utils,orm,resolvers",  # Измерять покрытие для папок
+    # "--cov-report=term-missing",  # Показывать непокрытые строки
+    # "--cov-report=html",  # Генерировать HTML отчет
+    # "--cov-fail-under=90",  # Ошибка если покрытие меньше 90%
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -189,3 +199,39 @@ markers = [
 # Настройки для pytest-asyncio
 asyncio_mode = "auto"  # Автоматическое обнаружение async тестов
 asyncio_default_fixture_loop_scope = "function"  # Область видимости event loop для фикстур
+
+[tool.coverage.run]
+# Конфигурация покрытия тестами
+source = ["services", "utils", "orm", "resolvers"]
+omit = [
+    "main.py",
+    "dev.py",
+    "tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/alembic/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "*/env/*",
+    "*/build/*",
+    "*/dist/*",
+    "*/node_modules/*",
+    "*/panel/*",
+    "*/schema/*",
+]
+
+[tool.coverage.report]
+# Настройки отчета покрытия
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

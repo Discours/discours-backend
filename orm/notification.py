@@ -1,9 +1,9 @@
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy import Enum as SQLAlchemyEnum
-from sqlalchemy.orm import relationship
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, PrimaryKeyConstraint, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from auth.orm import Author
 from orm.base import BaseModel as Base
@@ -21,6 +21,7 @@ class NotificationEntity(Enum):
     SHOUT = "shout"
     AUTHOR = "author"
     COMMUNITY = "community"
+    REACTION = "reaction"
 
     @classmethod
     def from_string(cls, value: str) -> "NotificationEntity":
@@ -80,27 +81,41 @@ NotificationKind = NotificationAction  # Для совместимости со 
 class NotificationSeen(Base):
     __tablename__ = "notification_seen"
 
-    viewer = Column(ForeignKey("author.id"), primary_key=True)
-    notification = Column(ForeignKey("notification.id"), primary_key=True)
+    viewer: Mapped[int] = mapped_column(ForeignKey("author.id"))
+    notification: Mapped[int] = mapped_column(ForeignKey("notification.id"))
+
+    __table_args__ = (
+        PrimaryKeyConstraint(viewer, notification),
+        Index("idx_notification_seen_viewer", "viewer"),
+        Index("idx_notification_seen_notification", "notification"),
+        {"extend_existing": True},
+    )
 
 
 class Notification(Base):
     __tablename__ = "notification"
 
-    id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    entity = Column(String, nullable=False)
-    action = Column(String, nullable=False)
-    payload = Column(JSON, nullable=True)
+    entity: Mapped[str] = mapped_column(String, nullable=False)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
-    status = Column(SQLAlchemyEnum(NotificationStatus), default=NotificationStatus.UNREAD)
-    kind = Column(SQLAlchemyEnum(NotificationKind), nullable=False)
+    status: Mapped[NotificationStatus] = mapped_column(default=NotificationStatus.UNREAD)
+    kind: Mapped[NotificationKind] = mapped_column(nullable=False)
 
     seen = relationship(Author, secondary="notification_seen")
 
-    def set_entity(self, entity: NotificationEntity):
+    __table_args__ = (
+        Index("idx_notification_created_at", "created_at"),
+        Index("idx_notification_status", "status"),
+        Index("idx_notification_kind", "kind"),
+        {"extend_existing": True},
+    )
+
+    def set_entity(self, entity: NotificationEntity) -> None:
         """Устанавливает сущность уведомления."""
         self.entity = entity.value
 
@@ -108,7 +123,7 @@ class Notification(Base):
         """Возвращает сущность уведомления."""
         return NotificationEntity.from_string(self.entity)
 
-    def set_action(self, action: NotificationAction):
+    def set_action(self, action: NotificationAction) -> None:
         """Устанавливает действие уведомления."""
         self.action = action.value
 

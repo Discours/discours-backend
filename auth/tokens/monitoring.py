@@ -9,6 +9,8 @@ from services.redis import redis as redis_adapter
 from utils.logger import root_logger as logger
 
 from .base import BaseTokenManager
+from .batch import BatchTokenOperations
+from .sessions import SessionTokenManager
 from .types import SCAN_BATCH_SIZE
 
 
@@ -83,8 +85,6 @@ class TokenMonitoring(BaseTokenManager):
 
         try:
             # Очищаем истекшие токены
-            from .batch import BatchTokenOperations
-
             batch_ops = BatchTokenOperations()
             cleaned = await batch_ops.cleanup_expired_tokens()
             results["cleaned_expired"] = cleaned
@@ -158,8 +158,6 @@ class TokenMonitoring(BaseTokenManager):
             health["redis_connected"] = True
 
             # Тестируем основные операции с токенами
-            from .sessions import SessionTokenManager
-
             session_manager = SessionTokenManager()
 
             test_user_id = "health_check_user"

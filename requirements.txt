@@ -1,5 +1,5 @@
 bcrypt
-PyJWT
+PyJWT>=2.10
 authlib
 google-analytics-data
 colorlog
@@ -11,20 +11,15 @@ starlette
 gql
 ariadne
 granian
-bcrypt
-
-# NLP and search
-httpx
+sqlalchemy>=2.0.0
 
 orjson
 pydantic
-trafilatura
 
 types-requests
 types-Authlib
 types-orjson
 types-PyYAML
 types-python-dateutil
-types-sqlalchemy
 types-redis
 types-PyJWT

@@ -1,112 +1,90 @@
-log_format custom '$remote_addr - $remote_user [$time_local] "$request" '
-                  'origin=$http_origin status=$status '
-                  '"$http_referer" "$http_user_agent"';
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=discoursio_cache:10m max_size=1g inactive=60m use_temp_path=off;
 
-{{ $proxy_settings := "proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $http_connection; proxy_set_header Host $http_host; proxy_set_header X-Request-Start $msec;" }}
-{{ $gzip_settings := "gzip on; gzip_min_length  1100; gzip_buffers  4 32k; gzip_types text/css text/javascript text/xml text/plain text/x-component application/javascript application/x-javascript application/json application/xml application/rss+xml font/truetype application/x-font-ttf font/opentype application/vnd.ms-fontobject image/svg+xml; gzip_vary on; gzip_comp_level  6;" }}
-
-proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=1g
-                 inactive=60m use_temp_path=off;
 limit_conn_zone $binary_remote_addr zone=addr:10m;
 limit_req_zone $binary_remote_addr zone=req_zone:10m rate=20r/s;
 
-{{ range $port_map := .PROXY_PORT_MAP | split " " }}
-{{ $port_map_list := $port_map | split ":" }}
-{{ $scheme := index $port_map_list 0 }}
-{{ $listen_port := index $port_map_list 1 }}
-{{ $upstream_port := index $port_map_list 2 }}
+server {
+    listen 80;
+    server_name {{ $.NOSSL_SERVER_NAME }};
+    return 301 https://$host$request_uri;
+}
 
 server {
-    {{ if eq $scheme "http" }}
-        listen [::]:{{ $listen_port }};
-        listen {{ $listen_port }};
-        server_name {{ $.NOSSL_SERVER_NAME }};
-        access_log  /var/log/nginx/{{ $.APP }}-access.log custom;
-        error_log   /var/log/nginx/{{ $.APP }}-error.log;
-        client_max_body_size 100M;
+    listen 443 ssl http2;
+    server_name {{ $.SSL_SERVER_NAME }};
 
-    {{ else if eq $scheme "https" }}
-        listen [::]:{{ $listen_port }} ssl http2;
-        listen {{ $listen_port }} ssl http2;
-        server_name {{ $.NOSSL_SERVER_NAME }};
-        access_log  /var/log/nginx/{{ $.APP }}-access.log custom;
-        error_log   /var/log/nginx/{{ $.APP }}-error.log;
-        ssl_certificate {{ $.APP_SSL_PATH }}/server.crt;
-        ssl_certificate_key {{ $.APP_SSL_PATH }}/server.key;
-        ssl_protocols             TLSv1.2 TLSv1.3;
-        ssl_prefer_server_ciphers off;
+    ssl_certificate {{ $.APP_SSL_PATH }}/server.crt;
+    ssl_certificate_key {{ $.APP_SSL_PATH }}/server.key;
 
-        keepalive_timeout   70;
-        keepalive_requests 500;
-        proxy_read_timeout 3600;
-        limit_conn addr 10000;
-        client_max_body_size 100M;
-    {{ end }}
+    # Secure SSL protocols and ciphers
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
 
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options SAMEORIGIN;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options nosniff;
 
-    location / {
-        proxy_pass http://{{ $.APP }}-{{ $upstream_port }};
-        {{ $proxy_settings }}
-        {{ $gzip_settings }}
+    # Logging
+    access_log /var/log/nginx/{{ $.APP }}-access.log;
+    error_log /var/log/nginx/{{ $.APP }}-error.log;
 
-        proxy_cache my_cache;
+    # Performance and security settings
+    client_max_body_size 100M;
+    client_header_timeout 10s;
+    client_body_timeout 10s;
+    send_timeout 10s;
+    keepalive_timeout 70;
+    keepalive_requests 500;
+    proxy_read_timeout 3600;
+
+    location ~* ^/(?:graphql)?$ {
+        proxy_pass http://{{ $.APP }}-8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $http_connection;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Request-Start $msec;
+
+        # Cache settings
+        proxy_cache discoursio_cache;
         proxy_cache_revalidate on;
         proxy_cache_min_uses 2;
         proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
         proxy_cache_background_update on;
         proxy_cache_lock on;
-
-        # Connections and request limits increase (bad for DDos)
-        limit_req zone=req_zone burst=10 nodelay;
     }
 
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js)$ {
-        proxy_pass  http://{{ $.APP }}-{{ $upstream_port }};
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|eot|svg)$ {
+        proxy_pass http://{{ $.APP }}-8000;
+        proxy_set_header Host $http_host;
         expires 30d;
         add_header Cache-Control "public, no-transform";
+
+        # Gzip settings for static files
+        gzip on;
+        gzip_min_length 1100;
+        gzip_buffers 4 32k;
+        gzip_types text/css text/javascript text/xml text/plain text/x-component application/javascript application/x-javascript application/json application/xml application/rss+xml font/truetype application/x-font-ttf font/opentype application/vnd.ms-fontobject image/svg+xml;
+        gzip_vary on;
+        gzip_comp_level 6;
     }
 
-    location ~* \.(mp3|wav|ogg|flac|aac|aif|webm)$ {
-        proxy_pass  http://{{ $.APP }}-{{ $upstream_port }};
-    }
-
-
-    error_page 400 401 402 403 405 406 407 408 409 410 411 412 413 414 415 416 417 418 420 422 423 424 426 428 429 431 444 449 450 451 /400-error.html;
-  location /400-error.html {
-    root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
-    internal;
-  }
-
-  error_page 404 /404-error.html;
-  location /404-error.html {
-    root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
-    internal;
-  }
-
-  error_page 500 501 503 504 505 506 507 508 509 510 511 /500-error.html;
-  location /500-error.html {
-    root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
-    internal;
-  }
-
-  error_page 502 /502-error.html;
-  location /502-error.html {
-    root /var/lib/dokku/data/nginx-vhosts/dokku-errors;
-    internal;
-  }
-
-  include {{ $.DOKKU_ROOT }}/{{ $.APP }}/nginx.conf.d/*.conf;
+    include {{ $.DOKKU_ROOT }}/{{ $.APP }}/nginx.conf.d/*.conf;
 }
-{{ end }}
-
 
 {{ range $upstream_port := $.PROXY_UPSTREAM_PORTS | split " " }}
 upstream {{ $.APP }}-{{ $upstream_port }} {
-{{ range $listeners := $.DOKKU_APP_WEB_LISTENERS | split " " }}
-{{ $listener_list := $listeners | split ":" }}
-{{ $listener_ip := index $listener_list 0 }}
-{{ $listener_port := index $listener_list 1 }}
-  server {{ $listener_ip }}:{{ $upstream_port }};
-{{ end }}
+    {{ range $listeners := $.DOKKU_APP_WEB_LISTENERS | split " " }}
+        {{ $listener_list := $listeners | split ":" }}
+        {{ $listener_ip := index $listener_list 0 }}
+        {{ $listener_port := index $listener_list 1 }}
+        server {{ $listener_ip }}:{{ $upstream_port }};
+    {{ end }}
 }
 {{ end }}

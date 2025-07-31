@@ -10,21 +10,14 @@ PROPOSAL_REACTIONS = [
 ]
 
 PROOF_REACTIONS = [ReactionKind.PROOF.value, ReactionKind.DISPROOF.value]
-
 RATING_REACTIONS = [ReactionKind.LIKE.value, ReactionKind.DISLIKE.value]
+POSITIVE_REACTIONS = [ReactionKind.ACCEPT.value, ReactionKind.LIKE.value, ReactionKind.PROOF.value]
+NEGATIVE_REACTIONS = [ReactionKind.REJECT.value, ReactionKind.DISLIKE.value, ReactionKind.DISPROOF.value]
 
 
-def is_negative(x):
-    return x in [
-        ReactionKind.DISLIKE.value,
-        ReactionKind.DISPROOF.value,
-        ReactionKind.REJECT.value,
-    ]
+def is_negative(x: ReactionKind) -> bool:
+    return x.value in NEGATIVE_REACTIONS
 
 
-def is_positive(x):
-    return x in [
-        ReactionKind.ACCEPT.value,
-        ReactionKind.LIKE.value,
-        ReactionKind.PROOF.value,
-    ]
+def is_positive(x: ReactionKind) -> bool:
+    return x.value in POSITIVE_REACTIONS

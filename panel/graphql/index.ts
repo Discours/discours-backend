@@ -98,7 +98,7 @@ export async function query<T = unknown>(
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.log('[GraphQL] Unauthorized response, clearing auth tokens')
+          console.log('[GraphQL] UnauthorizedError response, clearing auth tokens')
           clearAuthTokens()
           // Перенаправляем на страницу входа только если мы не на ней
           if (!window.location.pathname.includes('/login')) {
@@ -114,14 +114,14 @@ export async function query<T = unknown>(
 
       if (result.errors) {
         // Проверяем ошибки авторизации
-        const hasUnauthorized = result.errors.some(
+        const hasUnauthorizedError = result.errors.some(
           (error: { message?: string }) =>
             error.message?.toLowerCase().includes('unauthorized') ||
             error.message?.toLowerCase().includes('please login')
         )
 
-        if (hasUnauthorized) {
-          console.log('[GraphQL] Unauthorized error in response, clearing auth tokens')
+        if (hasUnauthorizedError) {
+          console.log('[GraphQL] UnauthorizedError error in response, clearing auth tokens')
           clearAuthTokens()
           // Перенаправляем на страницу входа только если мы не на ней
           if (!window.location.pathname.includes('/login')) {

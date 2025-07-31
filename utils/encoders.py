@@ -2,8 +2,8 @@
 JSON encoders and utilities
 """
 
-import datetime
-import decimal
+import json
+from datetime import date, datetime
 from typing import Any, Union
 
 import orjson
@@ -11,56 +11,76 @@ import orjson
 
 def default_json_encoder(obj: Any) -> Any:
     """
-    Default JSON encoder для объектов, которые не поддерживаются стандартным JSON
+    Кастомный JSON энкодер для сериализации нестандартных типов.
 
     Args:
         obj: Объект для сериализации
 
     Returns:
-        Сериализуемое представление объекта
+        Сериализованное представление объекта
 
     Raises:
         TypeError: Если объект не может быть сериализован
     """
-    if hasattr(obj, "dict") and callable(obj.dict):
-        return obj.dict()
-    if hasattr(obj, "__dict__"):
-        return obj.__dict__
-    if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
+    # Обработка datetime
+    if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    if isinstance(obj, decimal.Decimal):
-        return float(obj)
+
+    serialized = False
+
+    # Обработка объектов с методом __json__
     if hasattr(obj, "__json__"):
-        return obj.__json__()
-    msg = f"Object of type {type(obj)} is not JSON serializable"
-    raise TypeError(msg)
+        try:
+            result = obj.__json__()
+            serialized = True
+            return result
+        except Exception as _e:
+            serialized = False
+
+    # Обработка объектов с методом to_dict
+    if hasattr(obj, "to_dict"):
+        try:
+            result = obj.to_dict()
+            serialized = True
+            return result
+        except Exception as _e:
+            serialized = False
+
+    # Обработка объектов с методом dict
+    if hasattr(obj, "dict"):
+        try:
+            result = obj.dict()
+            serialized = True
+            return result
+        except Exception as _e:
+            serialized = False
+
+    # Если ни один из методов не сработал, вызываем TypeError
+    if not serialized:
+        error_text = f"Object of type {type(obj).__name__} is not JSON serializable"
+        raise TypeError(error_text)
 
 
 def orjson_dumps(obj: Any, **kwargs: Any) -> bytes:
     """
-    Сериализует объект в JSON с помощью orjson
+    Сериализация объекта с помощью orjson.
 
     Args:
         obj: Объект для сериализации
-        **kwargs: Дополнительные параметры для orjson.dumps
+        **kwargs: Дополнительные параметры
 
     Returns:
-        bytes: JSON в виде байтов
+        bytes: Сериализованный объект
     """
-    # Используем правильную константу для orjson
-    option_flags = orjson.OPT_SERIALIZE_DATACLASS
-    if kwargs.get("indent"):
-        option_flags |= orjson.OPT_INDENT_2
-
-    return orjson.dumps(obj, default=default_json_encoder, option=option_flags)
+    return orjson.dumps(obj, default=default_json_encoder, **kwargs)
 
 
 def orjson_loads(data: Union[str, bytes]) -> Any:
     """
-    Десериализует JSON с помощью orjson
+    Десериализация объекта с помощью orjson.
 
     Args:
-        data: JSON данные в виде строки или байтов
+        data: Строка или байты для десериализации
 
     Returns:
         Десериализованный объект
@@ -68,51 +88,50 @@ def orjson_loads(data: Union[str, bytes]) -> Any:
     return orjson.loads(data)
 
 
-class JSONEncoder:
-    """Кастомный JSON кодировщик на основе orjson"""
-
-    @staticmethod
-    def encode(obj: Any) -> str:
-        """Encode object to JSON string"""
-        return orjson_dumps(obj).decode("utf-8")
-
-    @staticmethod
-    def decode(data: Union[str, bytes]) -> Any:
-        """Decode JSON string to object"""
-        return orjson_loads(data)
-
-
-# Создаем экземпляр для обратной совместимости
-CustomJSONEncoder = JSONEncoder()
-
-
-def fast_json_dumps(obj: Any, indent: bool = False) -> str:
+class JSONEncoder(json.JSONEncoder):
     """
-    Быстрая сериализация JSON
+    Расширенный JSON энкодер с поддержкой кастомной сериализации.
+    """
+
+    def default(self, obj: Any) -> Any:
+        """
+        Метод для сериализации нестандартных типов.
+
+        Args:
+            obj: Объект для сериализации
+
+        Returns:
+            Сериализованное представление объекта
+        """
+        try:
+            return default_json_encoder(obj)
+        except TypeError:
+            return super().default(obj)
+
+
+def fast_json_dumps(obj: Any, **kwargs: Any) -> str:
+    """
+    Быстрая сериализация объекта в JSON-строку.
 
     Args:
         obj: Объект для сериализации
-        indent: Форматировать с отступами
+        **kwargs: Дополнительные параметры
 
     Returns:
-        JSON строка
+        str: JSON-строка
     """
-    return orjson_dumps(obj, indent=indent).decode("utf-8")
+    return json.dumps(obj, cls=JSONEncoder, **kwargs)
 
 
-def fast_json_loads(data: Union[str, bytes]) -> Any:
+def fast_json_loads(data: str, **kwargs: Any) -> Any:
     """
-    Быстрая десериализация JSON
+    Быстрая десериализация JSON-строки.
 
     Args:
-        data: JSON данные
+        data: JSON-строка
+        **kwargs: Дополнительные параметры
 
     Returns:
         Десериализованный объект
     """
-    return orjson_loads(data)
-
-
-# Экспортируем для удобства
-dumps = fast_json_dumps
-loads = fast_json_loads
+    return json.loads(data, **kwargs)
