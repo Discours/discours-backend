@@ -379,27 +379,3 @@ export const DELETE_CUSTOM_ROLE_MUTATION: string =
     }
   }
 `.loc?.source.body || ''
-
-export const ADMIN_UPDATE_USER_MUTATION = `
-  mutation UpdateUser(
-    $id: Int!
-    $email: String
-    $name: String
-    $slug: String
-    $roles: String!
-  ) {
-    updateUser(
-      id: $id
-      email: $email
-      name: $name
-      slug: $slug
-      roles: $roles
-    ) {
-      id
-      email
-      name
-      slug
-      roles
-    }
-  }
-`

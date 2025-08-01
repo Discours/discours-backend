@@ -38,6 +38,11 @@ function getRequestHeaders(): Record<string, string> {
   if (token && token.length > 10) {
     headers['Authorization'] = `Bearer ${token}`
     console.debug('Отправка запроса с токеном авторизации')
+    console.debug(`[Frontend] Authorization header: Bearer ${token.substring(0, 20)}...`)
+  } else {
+    console.warn('[Frontend] Токен не найден или слишком короткий')
+    console.debug(`[Frontend] Local token: ${localToken ? 'present' : 'missing'}`)
+    console.debug(`[Frontend] Cookie token: ${cookieToken ? 'present' : 'missing'}`)
   }
 
   // Добавляем CSRF-токен, если он есть
@@ -47,6 +52,7 @@ function getRequestHeaders(): Record<string, string> {
     console.debug('Добавлен CSRF-токен в запрос')
   }
 
+  console.debug(`[Frontend] Все заголовки: ${Object.keys(headers).join(', ')}`)
   return headers
 }
 
@@ -75,6 +81,12 @@ export async function query<T = unknown>(
       console.log(
         `[GraphQL] Заголовки установлены, Authorization: ${headers['Authorization'] ? 'присутствует' : 'отсутствует'}`
       )
+
+      // Дополнительное логирование заголовков
+      console.log(`[GraphQL] Все заголовки: ${Object.keys(headers).join(', ')}`)
+      if (headers['Authorization']) {
+        console.log(`[GraphQL] Authorization header: ${headers['Authorization'].substring(0, 30)}...`)
+      }
 
       const response = await fetch(endpoint, {
         method: 'POST',

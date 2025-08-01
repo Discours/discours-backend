@@ -36,6 +36,7 @@ def get_safe_headers(request: Any) -> dict[str, str]:
             if scope_headers:
                 headers.update({k.decode("utf-8").lower(): v.decode("utf-8") for k, v in scope_headers})
                 logger.debug(f"[decorators] Получены заголовки из request.scope: {len(headers)}")
+                logger.debug(f"[decorators] Заголовки из request.scope: {list(headers.keys())}")
 
         # Второй приоритет: метод headers() или атрибут headers
         if hasattr(request, "headers"):
@@ -64,7 +65,7 @@ def get_safe_headers(request: Any) -> dict[str, str]:
     return headers
 
 
-def get_auth_token(request: Any) -> Optional[str]:
+async def get_auth_token(request: Any) -> Optional[str]:
     """
     Извлекает токен авторизации из запроса.
     Порядок проверки:
@@ -84,18 +85,74 @@ def get_auth_token(request: Any) -> Optional[str]:
         if hasattr(request, "auth") and request.auth:
             token = getattr(request.auth, "token", None)
             if token:
-                logger.debug(f"[decorators] Токен получен из request.auth: {len(token)}")
+                token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                logger.debug(f"[decorators] Токен получен из request.auth: {token_len}")
                 return token
+            logger.debug("[decorators] request.auth есть, но token НЕ найден")
+        else:
+            logger.debug("[decorators] request.auth НЕ найден")
 
-        # 2. Проверяем наличие auth в scope
+        # 2. Проверяем наличие auth_token в scope (приоритет)
+        if hasattr(request, "scope") and isinstance(request.scope, dict) and "auth_token" in request.scope:
+            token = request.scope.get("auth_token")
+            token_len = len(token) if hasattr(token, "__len__") else "unknown"
+            logger.debug(f"[decorators] Токен получен из request.scope['auth_token']: {token_len}")
+            return token
+        logger.debug("[decorators] request.scope['auth_token'] НЕ найден")
+
+        # Стандартная система сессий уже обрабатывает кэширование
+        # Дополнительной проверки Redis кэша не требуется
+
+        # Отладка: детальная информация о запросе без токена в декораторе
+        if not token:
+            logger.warning(f"[decorators] ДЕКОРАТОР: ЗАПРОС БЕЗ ТОКЕНА: {request.method} {request.url.path}")
+            logger.warning(f"[decorators] User-Agent: {request.headers.get('user-agent', 'НЕ НАЙДЕН')}")
+            logger.warning(f"[decorators] Referer: {request.headers.get('referer', 'НЕ НАЙДЕН')}")
+            logger.warning(f"[decorators] Origin: {request.headers.get('origin', 'НЕ НАЙДЕН')}")
+            logger.warning(f"[decorators] Content-Type: {request.headers.get('content-type', 'НЕ НАЙДЕН')}")
+            logger.warning(f"[decorators] Все заголовки: {list(request.headers.keys())}")
+
+            # Проверяем, есть ли активные сессии в Redis
+            try:
+                from services.redis import redis as redis_adapter
+
+                # Получаем все активные сессии
+                session_keys = await redis_adapter.keys("session:*")
+                logger.debug(f"[decorators] Найдено активных сессий в Redis: {len(session_keys)}")
+
+                if session_keys:
+                    # Пытаемся найти токен через активные сессии
+                    for session_key in session_keys[:3]:  # Проверяем первые 3 сессии
+                        try:
+                            session_data = await redis_adapter.hgetall(session_key)
+                            if session_data:
+                                logger.debug(f"[decorators] Найдена активная сессия: {session_key}")
+                                # Извлекаем user_id из ключа сессии
+                                user_id = (
+                                    session_key.decode("utf-8").split(":")[1]
+                                    if isinstance(session_key, bytes)
+                                    else session_key.split(":")[1]
+                                )
+                                logger.debug(f"[decorators] User ID из сессии: {user_id}")
+                                break
+                        except Exception as e:
+                            logger.debug(f"[decorators] Ошибка чтения сессии {session_key}: {e}")
+                else:
+                    logger.debug("[decorators] Активных сессий в Redis не найдено")
+
+            except Exception as e:
+                logger.debug(f"[decorators] Ошибка проверки сессий: {e}")
+
+        # 3. Проверяем наличие auth в scope
         if hasattr(request, "scope") and isinstance(request.scope, dict) and "auth" in request.scope:
             auth_info = request.scope.get("auth", {})
             if isinstance(auth_info, dict) and "token" in auth_info:
                 token = auth_info["token"]
-                logger.debug(f"[decorators] Токен получен из request.scope['auth']: {len(token)}")
+                token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                logger.debug(f"[decorators] Токен получен из request.scope['auth']: {token_len}")
                 return token
 
-        # 3. Проверяем заголовок Authorization
+        # 4. Проверяем заголовок Authorization
         headers = get_safe_headers(request)
 
         # Сначала проверяем основной заголовок авторизации
@@ -103,10 +160,12 @@ def get_auth_token(request: Any) -> Optional[str]:
         if auth_header:
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:].strip()
-                logger.debug(f"[decorators] Токен получен из заголовка {SESSION_TOKEN_HEADER}: {len(token)}")
+                token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                logger.debug(f"[decorators] Токен получен из заголовка {SESSION_TOKEN_HEADER}: {token_len}")
                 return token
             token = auth_header.strip()
-            logger.debug(f"[decorators] Прямой токен получен из заголовка {SESSION_TOKEN_HEADER}: {len(token)}")
+            token_len = len(token) if hasattr(token, "__len__") else "unknown"
+            logger.debug(f"[decorators] Прямой токен получен из заголовка {SESSION_TOKEN_HEADER}: {token_len}")
             return token
 
         # Затем проверяем стандартный заголовок Authorization, если основной не определен
@@ -114,14 +173,16 @@ def get_auth_token(request: Any) -> Optional[str]:
             auth_header = headers.get("authorization", "")
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header[7:].strip()
-                logger.debug(f"[decorators] Токен получен из заголовка Authorization: {len(token)}")
+                token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                logger.debug(f"[decorators] Токен получен из заголовка Authorization: {token_len}")
                 return token
 
-        # 4. Проверяем cookie
+        # 5. Проверяем cookie
         if hasattr(request, "cookies") and request.cookies:
             token = request.cookies.get(SESSION_COOKIE_NAME)
             if token:
-                logger.debug(f"[decorators] Токен получен из cookie {SESSION_COOKIE_NAME}: {len(token)}")
+                token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                logger.debug(f"[decorators] Токен получен из cookie {SESSION_COOKIE_NAME}: {token_len}")
                 return token
 
         # Если токен не найден ни в одном из мест
@@ -177,8 +238,8 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
             logger.debug(f"[validate_graphql_context] Пользователь авторизован через scope: {auth_cred.author_id}")
             return
 
-    # Если авторизации нет ни в auth, ни в scope, пробуем получить и проверить токен
-    token = get_auth_token(request)
+            # Если авторизации нет ни в auth, ни в scope, пробуем получить и проверить токен
+            token = await get_auth_token(request)
     if not token:
         # Если токен не найден, логируем как предупреждение, но не бросаем GraphQLError
         client_info = {
@@ -289,7 +350,7 @@ def admin_auth_required(resolver: Callable) -> Callable:
         logger.debug(f"[admin_auth_required] Детали запроса: {client_info}")
 
         # Проверяем наличие токена до validate_graphql_context
-        token = get_auth_token(request)
+        token = await get_auth_token(request)
         logger.debug(f"[admin_auth_required] Токен найден: {bool(token)}, длина: {len(token) if token else 0}")
 
         try:

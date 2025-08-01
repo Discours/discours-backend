@@ -114,7 +114,7 @@ async def spa_handler(request: Request) -> Response:
     Обработчик для SPA (Single Page Application) fallback.
 
     Возвращает index.html для всех маршрутов, которые не найдены,
-    чтобы клиентский роутер (SolidJS) мог обработать маршрутинг.
+    чтобы клиентский роутер (SolidJS) мог обработать маршрутизацию.
 
     Args:
         request: Starlette Request объект
@@ -122,6 +122,11 @@ async def spa_handler(request: Request) -> Response:
     Returns:
         FileResponse: ответ с содержимым index.html
     """
+    # Исключаем API маршруты из SPA fallback
+    path = request.url.path
+    if path.startswith(("/graphql", "/oauth", "/assets")):
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
     index_path = DIST_DIR / "index.html"
     if index_path.exists():
         return FileResponse(index_path, media_type="text/html")

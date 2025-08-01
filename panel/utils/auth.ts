@@ -95,5 +95,15 @@ export function checkAuthStatus(): boolean {
   console.log(`[Auth] Local token: ${hasLocalToken ? 'present' : 'missing'}`)
   console.log(`[Auth] Authentication status: ${isAuth ? 'authenticated' : 'not authenticated'}`)
 
+  // Дополнительное логирование для диагностики
+  if (cookieToken) {
+    console.log(`[Auth] Cookie token length: ${cookieToken.length}`)
+    console.log(`[Auth] Cookie token preview: ${cookieToken.substring(0, 20)}...`)
+  }
+  if (localToken) {
+    console.log(`[Auth] Local token length: ${localToken.length}`)
+    console.log(`[Auth] Local token preview: ${localToken.substring(0, 20)}...`)
+  }
+
   return isAuth
 }

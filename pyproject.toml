@@ -118,6 +118,7 @@ ignore = [
     "F821",   # use Set as type
     "UP006",  # use Set as type
     "UP035",  # use Set as type
+    "PERF401", # list comprehension - иногда нужно
     "ANN201", # Missing return type annotation for private function `wrapper` - иногда нужно
 ]
 

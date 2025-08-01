@@ -3,7 +3,8 @@ import type { AuthorsSortField } from '../context/sort'
 import { AUTHORS_SORT_CONFIG } from '../context/sortConfig'
 import { query } from '../graphql'
 import type { Query, AdminUserInfo as User } from '../graphql/generated/schema'
-import { ADMIN_GET_USERS_QUERY, ADMIN_UPDATE_USER_MUTATION } from '../graphql/queries'
+import { ADMIN_GET_USERS_QUERY } from '../graphql/queries'
+import { ADMIN_UPDATE_USER_MUTATION } from '../graphql/mutations'
 import UserEditModal from '../modals/RolesModal'
 import styles from '../styles/Admin.module.css'
 import Pagination from '../ui/Pagination'
@@ -76,19 +77,25 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
   }) => {
     try {
       const result = await query<{
-        updateUser: User
+        adminUpdateUser: { success: boolean; error?: string }
       }>(`${location.origin}/graphql`, ADMIN_UPDATE_USER_MUTATION, {
-        ...userData,
-        roles: userData.roles
+        user: {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          slug: userData.slug,
+          roles: userData.roles.split(',').map(role => role.trim()).filter(role => role.length > 0)
+        }
       })
 
-      if (result.updateUser) {
-        // Обновляем локальный список пользователей
-        setUsers((prevUsers) =>
-          prevUsers.map((user) => (user.id === result.updateUser.id ? result.updateUser : user))
-        )
+      if (result.adminUpdateUser.success) {
+        // Перезагружаем список пользователей
+        await loadUsers()
         // Закрываем модальное окно
         setShowEditModal(false)
+        props.onSuccess?.('Пользователь успешно обновлен')
+      } else {
+        props.onError?.(result.adminUpdateUser.error || 'Не удалось обновить пользователя')
       }
     } catch (error) {
       console.error('Ошибка при обновлении пользователя:', error)
@@ -129,6 +136,8 @@ const AuthorsRoute: Component<AuthorsRouteProps> = (props) => {
           return '✒️'
         case 'expert':
           return '🔬'
+        case 'artist':
+          return '🎨'
         case 'author':
           return '📝'
         case 'reader':

@@ -16,20 +16,12 @@ type Query {
 	# community
 	get_community: Community
 	get_communities_all: [Community]
-	get_communities_by_author(
-		slug: String
-		user: String
-		author_id: Int
-	): [Community]
+	get_communities_by_author(slug: String, author_id: Int): [Community]
 
 	# collection
 	get_collection(slug: String!): Collection
 	get_collections_all: [Collection]
-	get_collections_by_author(
-		slug: String
-		user: String
-		author_id: Int
-	): [Collection]
+	get_collections_by_author(slug: String, user: String, author_id: Int): [Collection]
 
 	# follower
 	get_shout_followers(slug: String, shout_id: Int): [Author]
@@ -38,11 +30,7 @@ type Query {
 	get_author_followers(slug: String, user: String, author_id: Int): [Author]
 	get_author_follows(slug: String, user: String, author_id: Int): CommonResult!
 	get_author_follows_topics(slug: String, user: String, author_id: Int): [Topic]
-	get_author_follows_authors(
-		slug: String
-		user: String
-		author_id: Int
-	): [Author]
+	get_author_follows_authors(slug: String, user: String, author_id: Int): [Author]
 
 	# reaction
 	load_reactions_by(by: ReactionBy!, limit: Int, offset: Int): [Reaction]

@@ -20,7 +20,7 @@ const Button: Component<ButtonProps> = (props) => {
     const customClass = local.class || ''
 
     return [baseClass, variantClass, sizeClass, loadingClass, fullWidthClass, customClass]
-      .where(Boolean)
+              .filter(Boolean)
       .join(' ')
   }
 

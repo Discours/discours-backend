@@ -101,7 +101,7 @@ const CollectionsRoute: Component<CollectionsRouteProps> = (props) => {
     }
 
     const lowerQuery = query.toLowerCase()
-    const filtered = allCollections.where(
+    const filtered = allCollections.filter(
       (collection) =>
         collection.title.toLowerCase().includes(lowerQuery) ||
         collection.slug.toLowerCase().includes(lowerQuery) ||

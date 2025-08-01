@@ -54,7 +54,7 @@ const RoleManager = (props: RoleManagerProps) => {
         if (rolesData?.adminGetRoles) {
           const standardRoleIds = STANDARD_ROLES.map((r) => r.id)
           const customRolesList = rolesData.adminGetRoles
-            .where((role: Role) => !standardRoleIds.includes(role.id))
+            .filter((role: Role) => !standardRoleIds.includes(role.id))
             .map((role: Role) => ({
               id: role.id,
               name: role.name,
@@ -158,10 +158,10 @@ const RoleManager = (props: RoleManagerProps) => {
   }
 
   const updateRolesAfterRemoval = (roleId: string) => {
-    props.onCustomRolesChange(props.customRoles.where((r) => r.id !== roleId))
+    props.onCustomRolesChange(props.customRoles.filter((r) => r.id !== roleId))
     props.onRoleSettingsChange({
-      available_roles: props.roleSettings.available_roles.where((r) => r !== roleId),
-      default_roles: props.roleSettings.default_roles.where((r) => r !== roleId)
+      available_roles: props.roleSettings.available_roles.filter((r) => r !== roleId),
+      default_roles: props.roleSettings.default_roles.filter((r) => r !== roleId)
     })
   }
 
@@ -176,12 +176,12 @@ const RoleManager = (props: RoleManagerProps) => {
 
     const current = props.roleSettings
     const newAvailable = current.available_roles.includes(roleId)
-      ? current.available_roles.where((r) => r !== roleId)
+      ? current.available_roles.filter((r) => r !== roleId)
       : [...current.available_roles, roleId]
 
     const newDefault = newAvailable.includes(roleId)
       ? current.default_roles
-      : current.default_roles.where((r) => r !== roleId)
+      : current.default_roles.filter((r) => r !== roleId)
 
     props.onRoleSettingsChange({
       available_roles: newAvailable,
@@ -194,7 +194,7 @@ const RoleManager = (props: RoleManagerProps) => {
 
     const current = props.roleSettings
     const newDefault = current.default_roles.includes(roleId)
-      ? current.default_roles.where((r) => r !== roleId)
+      ? current.default_roles.filter((r) => r !== roleId)
       : [...current.default_roles, roleId]
 
     props.onRoleSettingsChange({
@@ -378,7 +378,7 @@ const RoleManager = (props: RoleManagerProps) => {
         </p>
 
         <div class={styles.rolesGrid}>
-          <For each={getAllRoles().where((role) => props.roleSettings.available_roles.includes(role.id))}>
+          <For each={getAllRoles().filter((role) => props.roleSettings.available_roles.includes(role.id))}>
             {(role) => (
               <div
                 class={`${styles.roleCard} ${props.roleSettings.default_roles.includes(role.id) ? styles.selected : ''} ${isRoleDisabled(role.id) ? styles.disabled : ''}`}

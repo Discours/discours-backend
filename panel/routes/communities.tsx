@@ -7,6 +7,7 @@ import {
   UPDATE_COMMUNITY_MUTATION
 } from '../graphql/mutations'
 import { GET_COMMUNITIES_QUERY } from '../graphql/queries'
+import { query } from '../graphql'
 import CommunityEditModal from '../modals/CommunityEditModal'
 import styles from '../styles/Table.module.css'
 import Button from '../ui/Button'
@@ -74,24 +75,10 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
     try {
       // Загружаем все сообщества без параметров сортировки
       // Сортировка будет выполнена на клиенте
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: GET_COMMUNITIES_QUERY
-        })
-      })
-
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
+      const result = await query('/graphql', GET_COMMUNITIES_QUERY)
 
       // Получаем данные и сортируем их на клиенте
-      const communitiesData = result.data.get_communities_all || []
+      const communitiesData = (result as any)?.get_communities_all || []
       const sortedCommunities = sortCommunities(communitiesData)
       setCommunities(sortedCommunities)
     } catch (error) {
@@ -180,24 +167,9 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
         delete communityData.created_by
       }
 
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: mutation,
-          variables: { community_input: communityData }
-        })
-      })
+      const result = await query('/graphql', mutation, { community_input: communityData })
 
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
-      }
-
-      const resultData = isCreating ? result.data.create_community : result.data.update_community
+      const resultData = isCreating ? (result as any).create_community : (result as any).update_community
       if (resultData.error) {
         throw new Error(resultData.error)
       }
@@ -218,25 +190,15 @@ const CommunitiesRoute: Component<CommunitiesRouteProps> = (props) => {
    */
   const deleteCommunity = async (slug: string) => {
     try {
-      const response = await fetch('/graphql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: DELETE_COMMUNITY_MUTATION,
-          variables: { slug }
-        })
-      })
+      const result = await query('/graphql', DELETE_COMMUNITY_MUTATION, { slug })
+      const deleteResult = (result as any).delete_community
 
-      const result = await response.json()
-
-      if (result.errors) {
-        throw new Error(result.errors[0].message)
+      if (deleteResult.error) {
+        throw new Error(deleteResult.error)
       }
 
-      if (result.data.delete_community.error) {
-        throw new Error(result.data.delete_community.error)
+      if (!deleteResult.success) {
+        throw new Error('Не удалось удалить сообщество')
       }
 
       props.onSuccess('Сообщество успешно удалено')

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from graphql import GraphQLResolveInfo
 from sqlalchemy.orm import joinedload
@@ -6,8 +6,8 @@ from sqlalchemy.orm import joinedload
 from auth.decorators import editor_or_admin_required
 from auth.orm import Author
 from orm.collection import Collection, ShoutCollection
-from orm.community import CommunityAuthor
 from services.db import local_session
+from services.rbac import require_any_permission
 from services.schema import mutation, query, type_collection
 from utils.logger import root_logger as logger
 
@@ -94,142 +94,71 @@ async def create_collection(_: None, info: GraphQLResolveInfo, collection_input:
             author_id = auth_info.author_id
 
     if not author_id:
-        return {"error": "Не удалось определить автора"}
+        return {"error": "Не удалось определить автора", "success": False}
 
     try:
         with local_session() as session:
             # Исключаем created_by из входных данных - он всегда из токена
             filtered_input = {k: v for k, v in collection_input.items() if k != "created_by"}
 
-            # Создаем новую коллекцию с обязательным created_by из токена
-            new_collection = Collection(created_by=author_id, **filtered_input)
+            # Создаем новую коллекцию
+            new_collection = Collection(**filtered_input, created_by=author_id)
             session.add(new_collection)
             session.commit()
-            return {"error": None}
+
+            return {"error": None, "success": True}
     except Exception as e:
-        return {"error": f"Ошибка создания коллекции: {e!s}"}
+        return {"error": f"Ошибка создания коллекции: {e!s}", "success": False}
 
 
 @mutation.field("update_collection")
-@editor_or_admin_required
+@require_any_permission(["collection:update", "collection:update_any"])
 async def update_collection(_: None, info: GraphQLResolveInfo, collection_input: dict[str, Any]) -> dict[str, Any]:
-    """Обновляет существующую коллекцию"""
-    # Получаем author_id из контекста через декоратор авторизации
-    request = info.context.get("request")
-    author_id = None
-
-    if hasattr(request, "auth") and request.auth and hasattr(request.auth, "author_id"):
-        author_id = request.auth.author_id
-    elif hasattr(request, "scope") and "auth" in request.scope:
-        auth_info = request.scope.get("auth", {})
-        if isinstance(auth_info, dict):
-            author_id = auth_info.get("author_id")
-        elif hasattr(auth_info, "author_id"):
-            author_id = auth_info.author_id
-
-    if not author_id:
-        return {"error": "Не удалось определить автора"}
-
-    slug = collection_input.get("slug")
-    if not slug:
-        return {"error": "Не указан slug коллекции"}
+    if not collection_input.get("slug"):
+        return {"error": "Не указан slug коллекции", "success": False}
 
     try:
         with local_session() as session:
-            # Находим коллекцию для обновления
-            collection = session.query(Collection).where(Collection.slug == slug).first()
+            # Находим коллекцию по slug
+            collection = session.query(Collection).where(Collection.slug == collection_input["slug"]).first()
+
             if not collection:
-                return {"error": "Коллекция не найдена"}
-
-            # Проверяем права на редактирование (создатель или админ/редактор)
-            with local_session() as auth_session:
-                # Получаем роли пользователя в сообществе
-                community_author = (
-                    auth_session.query(CommunityAuthor)
-                    .where(
-                        CommunityAuthor.author_id == author_id,
-                        CommunityAuthor.community_id == 1,  # Используем сообщество по умолчанию
-                    )
-                    .first()
-                )
-
-                user_roles = community_author.role_list if community_author else []
-
-                # Разрешаем редактирование если пользователь - создатель или имеет роль admin/editor
-                if collection.created_by != author_id and "admin" not in user_roles and "editor" not in user_roles:
-                    return {"error": "Недостаточно прав для редактирования этой коллекции"}
+                return {"error": "Коллекция не найдена", "success": False}
 
             # Обновляем поля коллекции
             for key, value in collection_input.items():
-                # Исключаем изменение created_by - создатель не может быть изменен
                 if hasattr(collection, key) and key not in ["slug", "created_by"]:
                     setattr(collection, key, value)
 
             session.commit()
-            return {"error": None}
+            return {"error": None, "success": True}
     except Exception as e:
-        return {"error": f"Ошибка обновления коллекции: {e!s}"}
+        return {"error": f"Ошибка обновления коллекции: {e!s}", "success": False}
 
 
 @mutation.field("delete_collection")
-@editor_or_admin_required
+@require_any_permission(["collection:delete", "collection:delete_any"])
 async def delete_collection(_: None, info: GraphQLResolveInfo, slug: str) -> dict[str, Any]:
-    """Удаляет коллекцию"""
-    # Получаем author_id из контекста через декоратор авторизации
-    request = info.context.get("request")
-    author_id = None
-
-    if hasattr(request, "auth") and request.auth and hasattr(request.auth, "author_id"):
-        author_id = request.auth.author_id
-    elif hasattr(request, "scope") and "auth" in request.scope:
-        auth_info = request.scope.get("auth", {})
-        if isinstance(auth_info, dict):
-            author_id = auth_info.get("author_id")
-        elif hasattr(auth_info, "author_id"):
-            author_id = auth_info.author_id
-
-    if not author_id:
-        return {"error": "Не удалось определить автора"}
-
     try:
         with local_session() as session:
-            # Находим коллекцию для удаления
+            # Находим коллекцию по slug
             collection = session.query(Collection).where(Collection.slug == slug).first()
+
             if not collection:
-                return {"error": "Коллекция не найдена"}
-
-            # Проверяем права на удаление (создатель или админ/редактор)
-            with local_session() as auth_session:
-                # Получаем роли пользователя в сообществе
-                community_author = (
-                    auth_session.query(CommunityAuthor)
-                    .where(
-                        CommunityAuthor.author_id == author_id,
-                        CommunityAuthor.community_id == 1,  # Используем сообщество по умолчанию
-                    )
-                    .first()
-                )
-
-                user_roles = community_author.role_list if community_author else []
-
-                # Разрешаем удаление если пользователь - создатель или имеет роль admin/editor
-                if collection.created_by != author_id and "admin" not in user_roles and "editor" not in user_roles:
-                    return {"error": "Недостаточно прав для удаления этой коллекции"}
-
-            # Удаляем связи с публикациями
-            session.query(ShoutCollection).where(ShoutCollection.collection == collection.id).delete()
+                return {"error": "Коллекция не найдена", "success": False}
 
             # Удаляем коллекцию
             session.delete(collection)
             session.commit()
-            return {"error": None}
+
+            return {"error": None, "success": True}
     except Exception as e:
-        return {"error": f"Ошибка удаления коллекции: {e!s}"}
+        return {"error": f"Ошибка удаления коллекции: {e!s}", "success": False}
 
 
 @type_collection.field("created_by")
-def resolve_collection_created_by(obj: Collection, *_: Any) -> Optional[Author]:
-    """Резолвер для поля created_by коллекции (может вернуть None)"""
+def resolve_collection_created_by(obj: Collection, *_: Any) -> Author:
+    """Резолвер для поля created_by коллекции"""
     with local_session() as session:
         if hasattr(obj, "created_by_author") and obj.created_by_author:
             return obj.created_by_author
@@ -237,6 +166,13 @@ def resolve_collection_created_by(obj: Collection, *_: Any) -> Optional[Author]:
         author = session.query(Author).where(Author.id == obj.created_by).first()
         if not author:
             logger.warning(f"Автор с ID {obj.created_by} не найден для коллекции {obj.id}")
+            # Возвращаем заглушку вместо None
+            return Author(
+                id=obj.created_by or 0,
+                name=f"Unknown User {obj.created_by or 0}",
+                slug=f"user-{obj.created_by or 0}",
+                email="unknown@example.com",
+            )
 
         return author
 

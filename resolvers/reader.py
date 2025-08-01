@@ -219,15 +219,34 @@ def get_shouts_with_links(info: GraphQLResolveInfo, q: Select, limit: int = 20, 
                         shout_dict = shout.dict()
 
                         # Обработка поля created_by
-                        if has_field(info, "created_by") and shout_dict.get("created_by"):
+                        if has_field(info, "created_by"):
                             main_author_id = shout_dict.get("created_by")
-                            a = session.query(Author).where(Author.id == main_author_id).first()
-                            if a:
+                            if main_author_id:
+                                a = session.query(Author).where(Author.id == main_author_id).first()
+                                if a:
+                                    shout_dict["created_by"] = {
+                                        "id": main_author_id,
+                                        "name": a.name,
+                                        "slug": a.slug or f"user-{main_author_id}",
+                                        "pic": a.pic,
+                                    }
+                                else:
+                                    # Если автор не найден, создаем заглушку
+                                    logger.warning(f"Автор с ID {main_author_id} не найден для shout {shout_id}")
+                                    shout_dict["created_by"] = {
+                                        "id": main_author_id,
+                                        "name": f"Unknown User {main_author_id}",
+                                        "slug": f"user-{main_author_id}",
+                                        "pic": None,
+                                    }
+                            else:
+                                # Если created_by не указан, создаем заглушку
+                                logger.warning(f"created_by не указан для shout {shout_id}")
                                 shout_dict["created_by"] = {
-                                    "id": main_author_id,
-                                    "name": a.name,
-                                    "slug": a.slug or f"user-{main_author_id}",
-                                    "pic": a.pic,
+                                    "id": 0,
+                                    "name": "Unknown User",
+                                    "slug": "unknown",
+                                    "pic": None,
                                 }
 
                         # Обработка поля updated_by

@@ -32,6 +32,22 @@ class EnhancedGraphQLHTTPHandler(GraphQLHTTPHandler):
         Returns:
             dict: контекст с дополнительными данными для авторизации и cookie
         """
+        # Безопасно получаем заголовки для диагностики
+        headers = {}
+        if hasattr(request, "headers"):
+            try:
+                # Используем безопасный способ получения заголовков
+                for key, value in request.headers.items():
+                    headers[key.lower()] = value
+            except Exception as e:
+                logger.debug(f"[graphql] Ошибка при получении заголовков: {e}")
+
+        logger.debug(f"[graphql] Заголовки в get_context_for_request: {list(headers.keys())}")
+        if "authorization" in headers:
+            logger.debug(f"[graphql] Authorization header найден: {headers['authorization'][:50]}...")
+        else:
+            logger.debug("[graphql] Authorization header НЕ найден")
+
         # Получаем стандартный контекст от базового класса
         context = await super().get_context_for_request(request, data)
 
@@ -50,6 +66,34 @@ class EnhancedGraphQLHTTPHandler(GraphQLHTTPHandler):
             context["auth"] = auth_cred
             # Безопасно логируем информацию о типе объекта auth
             logger.debug(f"[graphql] Добавлены данные авторизации в контекст из scope: {type(auth_cred).__name__}")
+
+            # Проверяем, есть ли токен в auth_cred
+            if hasattr(auth_cred, "token") and auth_cred.token:
+                logger.debug(f"[graphql] Токен найден в auth_cred: {len(auth_cred.token)}")
+            else:
+                logger.debug("[graphql] Токен НЕ найден в auth_cred")
+
+            # Добавляем author_id в контекст для RBAC
+            author_id = None
+            if hasattr(auth_cred, "author_id") and auth_cred.author_id:
+                author_id = auth_cred.author_id
+            elif isinstance(auth_cred, dict) and "author_id" in auth_cred:
+                author_id = auth_cred["author_id"]
+
+            if author_id:
+                # Преобразуем author_id в число для совместимости с RBAC
+                try:
+                    author_id_int = int(str(author_id).strip())
+                    context["author"] = {"id": author_id_int}
+                    logger.debug(f"[graphql] Добавлен author_id в контекст: {author_id_int}")
+                except (ValueError, TypeError) as e:
+                    logger.error(f"[graphql] Ошибка преобразования author_id {author_id}: {e}")
+                    context["author"] = {"id": author_id}
+                    logger.debug(f"[graphql] Добавлен author_id как строка: {author_id}")
+            else:
+                logger.debug("[graphql] author_id не найден в auth_cred")
+        else:
+            logger.debug("[graphql] Данные авторизации НЕ найдены в scope")
 
         logger.debug("[graphql] Подготовлен расширенный контекст для запроса")
 

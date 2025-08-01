@@ -41,6 +41,12 @@ const AVAILABLE_ROLES = [
     emoji: '🔬'
   },
   {
+    id: 'artist',
+    name: 'Художник',
+    description: 'Может быть credited artist и управлять медиафайлами',
+    emoji: '🎨'
+  },
+  {
     id: 'author',
     name: 'Автор',
     description: 'Создание и редактирование своих публикаций',
@@ -57,7 +63,11 @@ const AVAILABLE_ROLES = [
 // Создаем маппинги для конвертации между ID и названиями
 const ROLE_ID_TO_NAME = Object.fromEntries(AVAILABLE_ROLES.map((role) => [role.id, role.name]))
 
+// Маппинг для конвертации русских названий в ID (для обратной совместимости)
 const ROLE_NAME_TO_ID = Object.fromEntries(AVAILABLE_ROLES.map((role) => [role.name, role.id]))
+
+// Маппинг для конвертации английских названий в ID (для ролей с сервера)
+const ROLE_EN_NAME_TO_ID = Object.fromEntries(AVAILABLE_ROLES.map((role) => [role.id, role.id]))
 
 const UserEditModal: Component<UserEditModalProps> = (props) => {
   // Инициализируем форму с использованием ID ролей
@@ -66,7 +76,18 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
     email: props.user.email || '',
     name: props.user.name || '',
     slug: props.user.slug || '',
-    roles: (props.user.roles || []).map((roleName) => ROLE_NAME_TO_ID[roleName] || roleName)
+    roles: (props.user.roles || []).map((roleName) => {
+      // Сначала пробуем найти по русскому названию (для обратной совместимости)
+      const russianId = ROLE_NAME_TO_ID[roleName]
+      if (russianId) return russianId
+
+      // Затем пробуем найти по английскому названию (для ролей с сервера)
+      const englishId = ROLE_EN_NAME_TO_ID[roleName]
+      if (englishId) return englishId
+
+      // Если не найдено, возвращаем как есть
+      return roleName
+    })
   })
 
   const [errors, setErrors] = createSignal<Record<string, string>>({})
@@ -98,7 +119,18 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
         email: props.user.email || '',
         name: props.user.name || '',
         slug: props.user.slug || '',
-        roles: (props.user.roles || []).map((roleName) => ROLE_NAME_TO_ID[roleName] || roleName)
+        roles: (props.user.roles || []).map((roleName) => {
+          // Сначала пробуем найти по русскому названию (для обратной совместимости)
+          const russianId = ROLE_NAME_TO_ID[roleName]
+          if (russianId) return russianId
+
+          // Затем пробуем найти по английскому названию (для ролей с сервера)
+          const englishId = ROLE_EN_NAME_TO_ID[roleName]
+          if (englishId) return englishId
+
+          // Если не найдено, возвращаем как есть
+          return roleName
+        })
       })
       setErrors({})
     }
@@ -129,7 +161,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
       const isCurrentlySelected = currentRoles.includes(roleId)
 
       const newRoles = isCurrentlySelected
-        ? currentRoles.where((r) => r !== roleId) // Убираем роль
+        ? currentRoles.filter((r) => r !== roleId) // Убираем роль
         : [...currentRoles, roleId] // Добавляем роль
 
       console.log('Current roles before:', currentRoles)
@@ -165,7 +197,7 @@ const UserEditModal: Component<UserEditModalProps> = (props) => {
       newErrors.slug = 'Slug может содержать только латинские буквы, цифры, дефисы и подчеркивания'
     }
 
-    if (!isAdmin() && (data.roles || []).where((role: string) => role !== 'admin').length === 0) {
+    if (!isAdmin() && (data.roles || []).filter((role: string) => role !== 'admin').length === 0) {
       newErrors.roles = 'Выберите хотя бы одну роль'
     }
 

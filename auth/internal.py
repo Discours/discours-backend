@@ -11,7 +11,6 @@ from sqlalchemy.orm.exc import NoResultFound
 from auth.orm import Author
 from auth.state import AuthState
 from auth.tokens.storage import TokenStorage as TokenManager
-from orm.community import CommunityAuthor
 from services.db import local_session
 from settings import ADMIN_EMAILS as ADMIN_EMAILS_LIST
 from utils.logger import root_logger as logger
@@ -42,13 +41,21 @@ async def verify_internal_auth(token: str) -> tuple[int, list, bool]:
         logger.warning("[verify_internal_auth] Недействительный токен: payload не получен")
         return 0, [], False
 
-    logger.debug(f"[verify_internal_auth] Токен действителен, user_id={payload.user_id}")
+    # payload может быть словарем или объектом, обрабатываем оба случая
+    user_id = payload.user_id if hasattr(payload, "user_id") else payload.get("user_id")
+    if not user_id:
+        logger.warning("[verify_internal_auth] user_id не найден в payload")
+        return 0, [], False
+
+    logger.debug(f"[verify_internal_auth] Токен действителен, user_id={user_id}")
 
     with local_session() as session:
         try:
-            author = session.query(Author).where(Author.id == payload.user_id).one()
+            author = session.query(Author).where(Author.id == user_id).one()
 
             # Получаем роли
+            from orm.community import CommunityAuthor
+
             ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
             roles = ca.role_list if ca else []
             logger.debug(f"[verify_internal_auth] Роли пользователя: {roles}")
@@ -61,7 +68,7 @@ async def verify_internal_auth(token: str) -> tuple[int, list, bool]:
 
             return int(author.id), roles, is_admin
         except NoResultFound:
-            logger.warning(f"[verify_internal_auth] Пользователь с ID {payload.user_id} не найден в БД или не активен")
+            logger.warning(f"[verify_internal_auth] Пользователь с ID {user_id} не найден в БД или не активен")
             return 0, [], False
 
 
@@ -109,8 +116,10 @@ async def authenticate(request) -> AuthState:
     auth_state.error = None
     auth_state.token = None
 
-    # Получаем токен из запроса
-    token = request.headers.get("Authorization")
+    # Получаем токен из запроса используя безопасный метод
+    from auth.decorators import get_auth_token
+
+    token = await get_auth_token(request)
     if not token:
         logger.info("[authenticate] Токен не найден в запросе")
         auth_state.error = "No authentication token"

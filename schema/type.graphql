@@ -200,6 +200,7 @@ type Topic {
 # output type
 
 type CommonResult {
+	success: Boolean
 	error: String
 	message: String
 	stats: String

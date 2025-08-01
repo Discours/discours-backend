@@ -344,4 +344,7 @@ extend type Mutation {
 	adminUpdateReaction(reaction: AdminReactionUpdateInput!): OperationResult!
 	adminDeleteReaction(reaction_id: Int!): OperationResult!
 	adminRestoreReaction(reaction_id: Int!): OperationResult!
+
+	# Admin mutations для управления правами
+	adminUpdatePermissions: OperationResult!
 }

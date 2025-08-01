@@ -81,6 +81,7 @@ export const UPDATE_COMMUNITY_MUTATION = `
 export const DELETE_COMMUNITY_MUTATION = `
   mutation DeleteCommunity($slug: String!) {
     delete_community(slug: $slug) {
+      success
       error
     }
   }
@@ -233,6 +234,16 @@ export const ADMIN_CREATE_TOPIC_MUTATION = `
         community
         parent_ids
       }
+    }
+  }
+`
+
+export const ADMIN_UPDATE_PERMISSIONS_MUTATION = `
+  mutation AdminUpdatePermissions {
+    adminUpdatePermissions {
+      success
+      error
+      message
     }
   }
 `

@@ -10,7 +10,6 @@ from typing import Any, Callable, Optional
 from graphql import GraphQLResolveInfo
 from sqlalchemy.orm import exc
 from starlette.authentication import UnauthenticatedUser
-from starlette.datastructures import Headers
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
@@ -18,7 +17,6 @@ from starlette.types import ASGIApp
 from auth.credentials import AuthCredentials
 from auth.orm import Author
 from auth.tokens.storage import TokenStorage as TokenManager
-from orm.community import CommunityAuthor
 from services.db import local_session
 from settings import (
     ADMIN_EMAILS as ADMIN_EMAILS_LIST,
@@ -105,7 +103,20 @@ class AuthMiddleware:
 
             with local_session() as session:
                 try:
-                    author = session.query(Author).where(Author.id == payload.user_id).one()
+                    # payload может быть словарем или объектом, обрабатываем оба случая
+                    user_id = payload.user_id if hasattr(payload, "user_id") else payload.get("user_id")
+                    if not user_id:
+                        logger.debug("[auth.authenticate] user_id не найден в payload")
+                        return AuthCredentials(
+                            author_id=None,
+                            scopes={},
+                            logged_in=False,
+                            error_message="Invalid token payload",
+                            email=None,
+                            token=None,
+                        ), UnauthenticatedUser()
+
+                    author = session.query(Author).where(Author.id == user_id).one()
 
                     if author.is_locked():
                         logger.debug(f"[auth.authenticate] Аккаунт заблокирован: {author.id}")
@@ -122,9 +133,9 @@ class AuthMiddleware:
                     # Разрешения будут проверяться через RBAC систему по требованию
                     scopes: dict[str, Any] = {}
 
-                    # Получаем роли для пользователя
-                    ca = session.query(CommunityAuthor).filter_by(author_id=author.id, community_id=1).first()
-                    roles = ca.role_list if ca else []
+                    # Роли пользователя будут определяться в контексте конкретной операции
+                    # через RBAC систему, а не здесь
+                    roles = []
 
                     # Обновляем last_seen
                     author.last_seen = int(time.time())
@@ -183,47 +194,134 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Извлекаем заголовки
-        headers = Headers(scope=scope)
+        # Извлекаем заголовки используя тот же механизм, что и get_safe_headers
+        headers = {}
+
+        # Первый приоритет: scope из ASGI (самый надежный источник)
+        if "headers" in scope:
+            scope_headers = scope.get("headers", [])
+            if scope_headers:
+                headers.update({k.decode("utf-8").lower(): v.decode("utf-8") for k, v in scope_headers})
+                logger.debug(f"[middleware] Получены заголовки из scope: {len(headers)}")
+
+                # Логируем все заголовки из scope для диагностики
+                logger.debug(f"[middleware] Заголовки из scope: {list(headers.keys())}")
+
+                # Логируем raw заголовки из scope
+                logger.debug(f"[middleware] Raw scope headers: {scope_headers}")
+
+                # Проверяем наличие authorization заголовка
+                if "authorization" in headers:
+                    logger.debug(f"[middleware] Authorization заголовок найден: {headers['authorization'][:50]}...")
+                else:
+                    logger.debug("[middleware] Authorization заголовок НЕ найден в scope headers")
+        else:
+            logger.debug("[middleware] Заголовки scope отсутствуют")
+
+        # Логируем все заголовки для диагностики
+        logger.debug(f"[middleware] Все заголовки: {list(headers.keys())}")
+
+        # Логируем конкретные заголовки для диагностики
+        auth_header_value = headers.get("authorization", "")
+        logger.debug(f"[middleware] Authorization header: {auth_header_value[:50]}...")
+
+        session_token_value = headers.get(SESSION_TOKEN_HEADER.lower(), "")
+        logger.debug(f"[middleware] {SESSION_TOKEN_HEADER} header: {session_token_value[:50]}...")
+
+        # Используем тот же механизм получения токена, что и в декораторе
         token = None
 
-        # Сначала пробуем получить токен из заголовка авторизации
-        auth_header = headers.get(SESSION_TOKEN_HEADER)
-        if auth_header:
-            if auth_header.startswith("Bearer "):
-                token = auth_header.replace("Bearer ", "", 1).strip()
-                logger.debug(
-                    f"[middleware] Извлечен Bearer токен из заголовка {SESSION_TOKEN_HEADER}, длина: {len(token) if token else 0}"
-                )
-            else:
-                # Если заголовок не начинается с Bearer, предполагаем, что это чистый токен
-                token = auth_header.strip()
-                logger.debug(
-                    f"[middleware] Извлечен прямой токен из заголовка {SESSION_TOKEN_HEADER}, длина: {len(token) if token else 0}"
-                )
+        # 0. Проверяем сохраненный токен в scope (приоритет)
+        if "auth_token" in scope:
+            token = scope["auth_token"]
+            logger.debug(f"[middleware] Токен получен из scope.auth_token: {len(token)}")
+        else:
+            logger.debug("[middleware] scope.auth_token НЕ найден")
 
-        # Если токен не получен из основного заголовка и это не Authorization, проверяем заголовок Authorization
-        if not token and SESSION_TOKEN_HEADER.lower() != "authorization":
-            auth_header = headers.get("Authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                token = auth_header.replace("Bearer ", "", 1).strip()
-                logger.debug(
-                    f"[middleware] Извлечен Bearer токен из заголовка Authorization, длина: {len(token) if token else 0}"
-                )
+            # Стандартная система сессий уже обрабатывает кэширование
+            # Дополнительной проверки Redis кэша не требуется
 
-        # Если токен не получен из заголовка, пробуем взять из cookie
+            # Отладка: детальная информация о запросе без Authorization
+        if not token:
+            method = scope.get("method", "UNKNOWN")
+            path = scope.get("path", "UNKNOWN")
+            logger.warning(f"[middleware] ЗАПРОС БЕЗ AUTHORIZATION: {method} {path}")
+            logger.warning(f"[middleware] User-Agent: {headers.get('user-agent', 'НЕ НАЙДЕН')}")
+            logger.warning(f"[middleware] Referer: {headers.get('referer', 'НЕ НАЙДЕН')}")
+            logger.warning(f"[middleware] Origin: {headers.get('origin', 'НЕ НАЙДЕН')}")
+            logger.warning(f"[middleware] Content-Type: {headers.get('content-type', 'НЕ НАЙДЕН')}")
+            logger.warning(f"[middleware] Все заголовки: {list(headers.keys())}")
+
+            # Проверяем, есть ли активные сессии в Redis
+            try:
+                from services.redis import redis as redis_adapter
+
+                # Получаем все активные сессии
+                session_keys = await redis_adapter.keys("session:*")
+                logger.debug(f"[middleware] Найдено активных сессий в Redis: {len(session_keys)}")
+
+                if session_keys:
+                    # Пытаемся найти токен через активные сессии
+                    for session_key in session_keys[:3]:  # Проверяем первые 3 сессии
+                        try:
+                            session_data = await redis_adapter.hgetall(session_key)
+                            if session_data:
+                                logger.debug(f"[middleware] Найдена активная сессия: {session_key}")
+                                # Извлекаем user_id из ключа сессии
+                                user_id = (
+                                    session_key.decode("utf-8").split(":")[1]
+                                    if isinstance(session_key, bytes)
+                                    else session_key.split(":")[1]
+                                )
+                                logger.debug(f"[middleware] User ID из сессии: {user_id}")
+                                break
+                        except Exception as e:
+                            logger.debug(f"[middleware] Ошибка чтения сессии {session_key}: {e}")
+                else:
+                    logger.debug("[middleware] Активных сессий в Redis не найдено")
+
+            except Exception as e:
+                logger.debug(f"[middleware] Ошибка проверки сессий: {e}")
+
+        # 1. Проверяем заголовок Authorization
+        if not token:
+            auth_header = headers.get("authorization", "")
+            if auth_header:
+                if auth_header.startswith("Bearer "):
+                    token = auth_header[7:].strip()
+                    logger.debug(f"[middleware] Токен получен из заголовка Authorization: {len(token)}")
+                else:
+                    token = auth_header.strip()
+                    logger.debug(f"[middleware] Прямой токен получен из заголовка Authorization: {len(token)}")
+
+        # 2. Проверяем основной заголовок авторизации, если Authorization не найден
+        if not token:
+            auth_header = headers.get(SESSION_TOKEN_HEADER.lower(), "")
+            if auth_header:
+                if auth_header.startswith("Bearer "):
+                    token = auth_header[7:].strip()
+                    logger.debug(f"[middleware] Токен получен из заголовка {SESSION_TOKEN_HEADER}: {len(token)}")
+                else:
+                    token = auth_header.strip()
+                    logger.debug(f"[middleware] Прямой токен получен из заголовка {SESSION_TOKEN_HEADER}: {len(token)}")
+
+        # 3. Проверяем cookie
         if not token:
             cookies = headers.get("cookie", "")
+            logger.debug(f"[middleware] Проверяем cookies: {cookies[:100]}...")
             cookie_items = cookies.split(";")
             for item in cookie_items:
                 if "=" in item:
                     name, value = item.split("=", 1)
                     if name.strip() == SESSION_COOKIE_NAME:
                         token = value.strip()
-                        logger.debug(
-                            f"[middleware] Извлечен токен из cookie {SESSION_COOKIE_NAME}, длина: {len(token) if token else 0}"
-                        )
+                        logger.debug(f"[middleware] Токен получен из cookie {SESSION_COOKIE_NAME}: {len(token)}")
                         break
+
+        if token:
+            logger.debug(f"[middleware] Токен найден: {len(token)} символов")
+        else:
+            logger.debug("[middleware] Токен не найден")
 
         # Аутентифицируем пользователя
         auth, user = await self.authenticate_user(token or "")
@@ -232,20 +330,15 @@ class AuthMiddleware:
         scope["auth"] = auth
         scope["user"] = user
 
+        # Сохраняем токен в scope для использования в последующих запросах
         if token:
-            # Обновляем заголовки в scope для совместимости
-            new_headers: list[tuple[bytes, bytes]] = []
-            for name, value in scope["headers"]:
-                header_name = name.decode("latin1") if isinstance(name, bytes) else str(name)
-                if header_name.lower() != SESSION_TOKEN_HEADER.lower():
-                    # Ensure both name and value are bytes
-                    name_bytes = name if isinstance(name, bytes) else str(name).encode("latin1")
-                    value_bytes = value if isinstance(value, bytes) else str(value).encode("latin1")
-                    new_headers.append((name_bytes, value_bytes))
-            new_headers.append((SESSION_TOKEN_HEADER.encode("latin1"), token.encode("latin1")))
-            scope["headers"] = new_headers
-
+            scope["auth_token"] = token
+            logger.debug(f"[middleware] Токен сохранен в scope.auth_token: {len(token)}")
             logger.debug(f"[middleware] Пользователь аутентифицирован: {user.is_authenticated}")
+
+            # Токен уже сохранен в стандартной системе сессий через SessionTokenManager
+            # Дополнительного кэширования не требуется
+            logger.debug("[middleware] Токен обработан стандартной системой сессий")
         else:
             logger.debug("[middleware] Токен не найден, пользователь неаутентифицирован")
 
