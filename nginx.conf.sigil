@@ -15,7 +15,7 @@ server {
 # Main HTTPS server
 server {
     listen 443 ssl http2;
-    server_name {{ $.SSL_SERVER_NAME }};
+    server_name {{ $.NOSSL_SERVER_NAME }};
 
     # SSL configuration
     ssl_certificate {{ $.APP_SSL_PATH }}/server.crt;
