@@ -28,7 +28,6 @@ server {
         keepalive_timeout   70;
         keepalive_requests 500;
         proxy_read_timeout 3600;
-        limit_conn addr 10000;
         client_max_body_size 100M;
     {{ end }}
 
