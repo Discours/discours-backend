@@ -75,7 +75,12 @@ class ViewedStorage:
         self = ViewedStorage
 
         # Подключаемся к Redis если соединение не установлено
-        if not await redis.ping():
+        try:
+            if not await redis.ping():
+                await redis.connect()
+        except Exception as e:
+            logger.warning(f"Redis connection check failed: {e}")
+            # Try to connect anyway
             await redis.connect()
 
         # Логируем настройки Redis соединения
@@ -83,6 +88,9 @@ class ViewedStorage:
 
         # Получаем список всех ключей migrated_views_* и находим самый последний
         keys = await redis.execute("KEYS", "migrated_views_*")
+        if keys is None:
+            keys = []
+            logger.warning("Redis KEYS command returned None, treating as empty list")
         logger.info("Raw Redis result for 'KEYS migrated_views_*': %d", len(keys))
 
         # Декодируем байтовые строки, если есть

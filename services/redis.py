@@ -4,6 +4,7 @@ from typing import Any, Optional, Set, Union
 
 import redis.asyncio as aioredis
 
+from settings import REDIS_URL
 from utils.logger import root_logger as logger
 
 # Set redis logging level to suppress DEBUG messages
@@ -18,7 +19,7 @@ class RedisService:
     Provides connection pooling and proper error handling for Redis operations.
     """
 
-    def __init__(self, redis_url: str = "redis://localhost:6379/0") -> None:
+    def __init__(self, redis_url: str = REDIS_URL) -> None:
         self._client: Optional[aioredis.Redis] = None
         self._redis_url = redis_url  # Исправлено на _redis_url
         self._is_available = aioredis is not None
