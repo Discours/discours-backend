@@ -358,13 +358,13 @@ class CommunityStats:
 
     @property
     def shouts(self) -> int:
-        return self.community.session.query(func.count(Shout.id)).where(Shout.community == self.community.id).scalar()
+        return self.community.session.query(func.count(Shout.id)).filter(Shout.community == self.community.id).scalar()
 
     @property
     def followers(self) -> int:
         return (
             self.community.session.query(func.count(CommunityFollower.follower))
-            .where(CommunityFollower.community == self.community.id)
+            .filter(CommunityFollower.community == self.community.id)
             .scalar()
         )
 
@@ -374,7 +374,7 @@ class CommunityStats:
         return (
             self.community.session.query(func.count(distinct(Author.id)))
             .join(Shout)
-            .where(
+            .filter(
                 Shout.community == self.community.id,
                 Shout.featured_at.is_not(None),
                 Author.id.in_(Shout.authors),

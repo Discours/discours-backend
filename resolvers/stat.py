@@ -147,7 +147,7 @@ def get_topic_followers_stat(topic_id: int) -> int:
     :return: Количество уникальных подписчиков темы.
     """
     aliased_followers = aliased(TopicFollower)
-    q = select(func.count(distinct(aliased_followers.follower))).where(aliased_followers.topic == topic_id)
+    q = select(func.count(distinct(aliased_followers.follower))).filter(aliased_followers.topic == topic_id)
     with local_session() as session:
         result = session.execute(q).scalar()
         return int(result) if result else 0
@@ -240,7 +240,7 @@ def get_author_followers_stat(author_id: int) -> int:
     """
     Получает количество подписчиков для указанного автора
     """
-    q = select(func.count(AuthorFollower.follower)).where(AuthorFollower.author == author_id)
+    q = select(func.count(AuthorFollower.follower)).filter(AuthorFollower.author == author_id)
 
     with local_session() as session:
         result = session.execute(q).scalar()
@@ -388,19 +388,19 @@ def get_followers_count(entity_type: str, entity_id: int) -> int:
         with local_session() as session:
             if entity_type == "topic":
                 result = (
-                    session.query(func.count(TopicFollower.follower)).where(TopicFollower.topic == entity_id).scalar()
+                    session.query(func.count(TopicFollower.follower)).filter(TopicFollower.topic == entity_id).scalar()
                 )
             elif entity_type == "author":
                 # Count followers of this author
                 result = (
                     session.query(func.count(AuthorFollower.follower))
-                    .where(AuthorFollower.author == entity_id)
+                    .filter(AuthorFollower.author == entity_id)
                     .scalar()
                 )
             elif entity_type == "community":
                 result = (
                     session.query(func.count(CommunityFollower.follower))
-                    .where(CommunityFollower.community == entity_id)
+                    .filter(CommunityFollower.community == entity_id)
                     .scalar()
                 )
             else:
@@ -419,12 +419,12 @@ def get_following_count(entity_type: str, entity_id: int) -> int:
             if entity_type == "author":
                 # Count what this author follows
                 topic_follows = (
-                    session.query(func.count(TopicFollower.topic)).where(TopicFollower.follower == entity_id).scalar()
+                    session.query(func.count(TopicFollower.topic)).filter(TopicFollower.follower == entity_id).scalar()
                     or 0
                 )
                 community_follows = (
                     session.query(func.count(CommunityFollower.community))
-                    .where(CommunityFollower.follower == entity_id)
+                    .filter(CommunityFollower.follower == entity_id)
                     .scalar()
                     or 0
                 )
@@ -441,7 +441,7 @@ def get_shouts_count(
     """Получает количество публикаций"""
     try:
         with local_session() as session:
-            query = session.query(func.count(Shout.id)).where(Shout.published_at.isnot(None))
+            query = session.query(func.count(Shout.id)).filter(Shout.published_at.isnot(None))
 
             if author_id:
                 query = query.where(Shout.created_by == author_id)
@@ -466,12 +466,12 @@ def get_authors_count(community_id: Optional[int] = None) -> int:
                 # Count authors in specific community
                 result = (
                     session.query(func.count(distinct(CommunityFollower.follower)))
-                    .where(CommunityFollower.community == community_id)
+                    .filter(CommunityFollower.community == community_id)
                     .scalar()
                 )
             else:
                 # Count all authors
-                result = session.query(func.count(Author.id)).where(Author.deleted_at.is_(None)).scalar()
+                result = session.query(func.count(Author.id)).filter(Author.deleted_at.is_(None)).scalar()
 
             return int(result) if result else 0
     except Exception as e:
