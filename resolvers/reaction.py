@@ -63,7 +63,7 @@ def add_reaction_stat_columns(q: Select) -> Select:
     ).add_columns(
         # Count unique comments
         func.coalesce(
-            func.count(aliased_reaction.id).where(aliased_reaction.kind == ReactionKind.COMMENT.value), 0
+            func.count(case((aliased_reaction.kind == ReactionKind.COMMENT.value, aliased_reaction.id), else_=None)), 0
         ).label("comments_stat"),
         # Calculate rating as the difference between likes and dislikes
         func.sum(

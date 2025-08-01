@@ -157,23 +157,22 @@ def query_with_stat(info: GraphQLResolveInfo) -> Select:
         stats_subquery = (
             select(
                 Reaction.shout,
-                func.count(func.distinct(Reaction.id))
-                .where(Reaction.kind == ReactionKind.COMMENT.value)
-                .label("comments_count"),
+                func.count(case((Reaction.kind == ReactionKind.COMMENT.value, Reaction.id), else_=None)).label(
+                    "comments_count"
+                ),
                 func.sum(
                     case(
                         (Reaction.kind == ReactionKind.LIKE.value, 1),
                         (Reaction.kind == ReactionKind.DISLIKE.value, -1),
                         else_=0,
                     )
-                )
-                .where(Reaction.reply_to.is_(None))
-                .label("rating"),
-                func.max(Reaction.created_at)
-                .where(Reaction.kind == ReactionKind.COMMENT.value)
-                .label("last_commented_at"),
+                ).label("rating"),
+                func.max(case((Reaction.kind == ReactionKind.COMMENT.value, Reaction.created_at), else_=None)).label(
+                    "last_commented_at"
+                ),
             )
             .where(Reaction.deleted_at.is_(None))
+            .where(Reaction.reply_to.is_(None))
             .group_by(Reaction.shout)
             .subquery()
         )
