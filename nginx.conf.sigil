@@ -1,7 +1,5 @@
 {{ $proxy_settings := "proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $http_connection; proxy_set_header Host $http_host; proxy_set_header X-Request-Start $msec;" }}
 {{ $gzip_settings := "gzip on; gzip_min_length  1100; gzip_buffers  4 32k; gzip_types text/css text/javascript text/xml text/plain text/x-component application/javascript application/x-javascript application/json application/xml application/rss+xml font/truetype application/x-font-ttf font/opentype application/vnd.ms-fontobject image/svg+xml; gzip_vary on; gzip_comp_level  6;" }}
-limit_conn_zone $binary_remote_addr zone=addr:10m;
-limit_req_zone $binary_remote_addr zone=req_zone:10m rate=20r/s;
 
 {{ range $port_map := .PROXY_PORT_MAP | split " " }}
 {{ $port_map_list := $port_map | split ":" }}

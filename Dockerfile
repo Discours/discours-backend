@@ -1,6 +1,7 @@
 FROM python:slim
 
 RUN apt-get update && apt-get install -y \
+    nsolid \
     postgresql-client \
     curl \
     build-essential \
