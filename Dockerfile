@@ -13,6 +13,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
     apt-get install -y nsolid \
     && rm -rf /var/lib/apt/lists/*
 
+RUN npm upgrade -g npm
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
