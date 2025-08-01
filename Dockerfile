@@ -1,7 +1,6 @@
 FROM python:slim
 
 RUN apt-get update && apt-get install -y \
-    nsolid \
     postgresql-client \
     curl \
     build-essential \
@@ -11,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 
 # Установка Node.js LTS и npm
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
-    apt-get install -y nodejs \
+    apt-get install -y nsolid \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
