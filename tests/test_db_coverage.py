@@ -11,17 +11,13 @@ from services.db import create_table_if_not_exists, get_column_names_without_vir
 # Создаем базовую модель для тестирования
 Base = declarative_base()
 
-class TestModel(Base):
+class MockTestModel(Base):
     """Тестовая модель для проверки функций базы данных"""
     __tablename__ = 'test_model'
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
     description = Column(String, nullable=True)
-    
-    def __init__(self, name: str = None, description: str = None):
-        self.name = name
-        self.description = description
 
 class TestDatabaseFunctions:
     """Тесты для функций работы с базой данных"""
@@ -36,7 +32,7 @@ class TestDatabaseFunctions:
         Base.metadata.create_all(engine)
 
         # Создаем таблицу
-        create_table_if_not_exists(engine, TestModel)
+        create_table_if_not_exists(engine, MockTestModel)
 
         # Проверяем, что таблица создана
         inspector = inspect(engine)
@@ -46,7 +42,7 @@ class TestDatabaseFunctions:
         """
         Проверка получения имен колонок без виртуальных полей
         """
-        columns = get_column_names_without_virtual(TestModel)
+        columns = get_column_names_without_virtual(MockTestModel)
 
         # Ожидаем, что будут только реальные колонки
         assert set(columns) == {'id', 'name', 'description'}
