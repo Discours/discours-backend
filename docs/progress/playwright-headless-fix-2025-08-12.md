@@ -19,6 +19,14 @@
 cannot collect test class 'TestModel' because it has a __init__ constructor
 ```
 
+### 3. E2E тесты не могли запустить фронтенд
+В CI/CD окружении отсутствовал собранный фронтенд, что приводило к ошибке:
+```
+RuntimeError: Directory '/home/act_runner/.cache/act/.../dist/assets' does not exist
+```
+
+**Решение**: Добавлен шаг для запуска фронтенд сервера в CI/CD workflow
+
 ## 🔧 Решения
 
 ### 1. Playwright Headless режим

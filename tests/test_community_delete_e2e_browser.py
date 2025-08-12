@@ -104,7 +104,8 @@ class TestCommunityDeleteE2EBrowser:
                 frontend_running = False
 
             if not frontend_running:
-                # Запускаем фронтенд сервер в CI/CD среде
+                # В CI/CD фронтенд сервер запускается в workflow
+                # В локальной разработке запускаем фронтенд сервер
                 print("🔄 Запускаем фронтенд сервер...")
                 try:
                     frontend_process = subprocess.Popen(
@@ -142,20 +143,6 @@ class TestCommunityDeleteE2EBrowser:
                     print(f"⚠️ Не удалось запустить фронтенд сервер: {e}")
                     print("🔄 Продолжаем тест без фронтенда (только API тесты)")
                     frontend_process = None
-
-                # Ждем запуска фронтенда
-                print("⏳ Ждем запуска фронтенда...")
-                for i in range(60):  # Ждем максимум 60 секунд
-                    try:
-                        response = requests.get("http://localhost:3000", timeout=2)
-                        if response.status_code == 200:
-                            print("✅ Фронтенд сервер запущен")
-                            break
-                    except:
-                        pass
-                    await asyncio.sleep(1)
-                else:
-                    raise Exception("Фронтенд сервер не запустился за 60 секунд")
 
             # Запускаем браузер
             print("🔄 Запускаем браузер...")
@@ -252,9 +239,11 @@ class TestCommunityDeleteE2EBrowser:
         print(f"🔍 Будем тестировать удаление сообщества: {test_community_name}")
 
         try:
-            # 1. Открываем админ-панель на порту 3000
-            print("🌐 Открываем админ-панель...")
-            await page.goto("http://localhost:3000")
+            # 1. Открываем админ-панель
+            # В CI/CD фронтенд обслуживается бэкендом на порту 8000
+            frontend_url = "http://localhost:3000"
+            print(f"🌐 Открываем админ-панель на {frontend_url}...")
+            await page.goto(frontend_url)
 
             # Ждем загрузки страницы и JavaScript
             await page.wait_for_load_state("networkidle")
@@ -279,7 +268,7 @@ class TestCommunityDeleteE2EBrowser:
             await page.click('button[type="submit"]')
 
             # Ждем успешной авторизации (редирект на главную страницу админки)
-            await page.wait_for_url("http://localhost:3000/admin/**", timeout=10000)
+            await page.wait_for_url(f"{frontend_url}/admin/**", timeout=10000)
             print("✅ Авторизация успешна")
 
             # Проверяем что мы действительно в админ-панели
@@ -303,7 +292,7 @@ class TestCommunityDeleteE2EBrowser:
 
             if "/admin/communities" not in current_url:
                 print("⚠️ Не на странице управления сообществами, переходим...")
-                await page.goto("http://localhost:3000/admin/communities")
+                await page.goto(f"{frontend_url}/admin/communities")
                 await page.wait_for_load_state("networkidle")
                 print("✅ Перешли на страницу управления сообществами")
 

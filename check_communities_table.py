@@ -19,9 +19,10 @@ async def check_communities_table():
         page = await browser.new_page()
 
         try:
-            # Открываем админ-панель
-            print("🌐 Открываем админ-панель...")
-            await page.goto("http://localhost:3000")
+            # В CI/CD фронтенд обслуживается бэкендом на порту 8000
+            frontend_url = "http://localhost:3000"
+            print(f"🌐 Открываем админ-панель на {frontend_url}...")
+            await page.goto(frontend_url)
             await page.wait_for_load_state("networkidle")
             await page.wait_for_timeout(3000)
 
@@ -31,7 +32,7 @@ async def check_communities_table():
             await page.fill('input[type="email"]', "test_admin@discours.io")
             await page.fill('input[type="password"]', "password123")
             await page.click('button[type="submit"]')
-            await page.wait_for_url("http://localhost:3000/admin/**", timeout=10000)
+            await page.wait_for_url(f"{frontend_url}/admin/**", timeout=10000)
 
             # Переходим на страницу сообществ
             print("📋 Переходим на страницу сообществ...")
