@@ -758,16 +758,6 @@ class AuthService:
             if token:
                 info.context["token"] = token
 
-            # Получаем автора если его нет в контексте
-            if not info.context.get("author") or not isinstance(info.context["author"], dict):
-                # Поздний импорт для избежания циклических зависимостей
-                from cache.cache import get_cached_author_by_id
-
-                author = await get_cached_author_by_id(int(user_id), lambda x: x)
-                if not author:
-                    logger.error(f"Профиль автора не найден для пользователя {user_id}")
-                info.context["author"] = author
-
             return await f(*args, **kwargs)
 
         return decorated_function
@@ -788,19 +778,11 @@ class AuthService:
                 info.context["roles"] = user_roles
                 info.context["is_admin"] = is_admin
 
-                # Поздний импорт для избежания циклических зависимостей
-                from cache.cache import get_cached_author_by_id
-
-                author = await get_cached_author_by_id(int(user_id), lambda x: x)
-                if author:
-                    is_owner = True
-                    info.context["author"] = author.dict(is_owner or is_admin)
-                else:
-                    logger.error(f"login_accepted: Профиль автора не найден для пользователя {user_id}")
+                # Автор будет получен в резолвере при необходимости
+                pass
             else:
                 logger.debug("login_accepted: Пользователь не авторизован")
                 info.context["roles"] = None
-                info.context["author"] = None
                 info.context["is_admin"] = False
 
             return await f(*args, **kwargs)
