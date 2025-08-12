@@ -33,9 +33,12 @@ jobs:
           uv sync --frozen
           uv sync --group dev
       
-      - name: Install Playwright Browsers
+      - name: Setup Playwright (use pre-installed browsers)
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         run: |
-          uv run playwright install --with-deps chromium
+          # Используем предустановленные браузеры в системе
+          npx playwright --version
       
       - name: Run Tests
         env:
