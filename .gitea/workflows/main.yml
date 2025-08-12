@@ -26,9 +26,8 @@ jobs:
           git_remote_url: 'ssh://dokku@v2.discours.io:22/discoursio-api'
           ssh_private_key: ${{ secrets.PROD_PRIVATE_KEY }}
 
-      
       - name: Push to dokku for main branch
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/dev'
         run: |
           # Настройка Git
           git config --global user.email "ci@dev.discours.io"
@@ -39,4 +38,4 @@ jobs:
           
           # Push с отключением проверки хоста
           GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" \
-          git push -f dokku main --force
+          git push -f dokku dev:main --force
