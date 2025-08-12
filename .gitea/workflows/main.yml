@@ -10,6 +10,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install uv
+        run: |
+          # Try multiple installation methods for uv
+          if curl -LsSf https://astral.sh/uv/install.sh | sh; then
+            echo "uv installed successfully via install script"
+          elif curl -LsSf https://github.com/astral-sh/uv/releases/latest/download/uv-installer.sh | sh; then
+            echo "uv installed successfully via GitHub installer"
+          else
+            echo "uv installation failed, using pip fallback"
+            pip install uv
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      
+      - name: Prepare Environment
+        run: |
+          uv --version
+          python3 --version
+      
+      - name: Install Dependencies
+        run: |
+          uv sync --frozen
+      
+      - name: Run Tests
+        env:
+          TELEGRAM_BOT_TOKEN: dummy-token-for-tests
+          KB_REPO: ""  # Отключаем синхронизацию в тестах
+        run: |
+          uv run pytest tests/ -v
+
       - name: Get Repo Name
         id: repo_name
         run: echo "::set-output name=repo::$(echo ${GITHUB_REPOSITORY##*/})"
@@ -24,7 +53,7 @@ jobs:
         with:
           branch: 'main'
           git_remote_url: 'ssh://dokku@v2.discours.io:22/discoursio-api'
-          ssh_private_key: ${{ secrets.PROD_PRIVATE_KEY }}
+          ssh_private_key: ${{ secrets.V2_PRIVATE_KEY }}
 
       - name: Push to dokku for dev branch
         if: github.ref == 'refs/heads/dev'
