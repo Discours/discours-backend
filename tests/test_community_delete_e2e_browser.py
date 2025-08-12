@@ -160,8 +160,13 @@ class TestCommunityDeleteE2EBrowser:
             # Запускаем браузер
             print("🔄 Запускаем браузер...")
             playwright = await async_playwright().start()
+            
+            # Определяем headless режим из переменной окружения
+            headless_mode = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
+            print(f"🔧 Headless режим: {headless_mode}")
+            
             browser = await playwright.chromium.launch(
-                headless=False,  # Оставляем headless=False для отладки E2E тестов
+                headless=headless_mode,  # Используем переменную окружения для CI/CD
                 args=["--no-sandbox", "--disable-dev-shm-usage"]
             )
             context = await browser.new_context()

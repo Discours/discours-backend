@@ -1,6 +1,6 @@
 {
   "name": "publy-panel",
-  "version": "0.9.0",
+  "version": "0.9.5",
   "type": "module",
   "description": "Publy, a modern platform for collaborative text creation, offers a user-friendly interface for authors, editors, and readers, supporting real-time collaboration and structured feedback.",
   "scripts": {

@@ -5,13 +5,18 @@
 
 import asyncio
 import time
+import os
 
 from playwright.async_api import async_playwright
 
 
 async def test_login():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)  # headless=False для отладки
+        # Определяем headless режим из переменной окружения
+        headless_mode = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
+        print(f"🔧 Headless режим: {headless_mode}")
+        
+        browser = await p.chromium.launch(headless=headless_mode)  # Используем переменную окружения
         page = await browser.new_page()
 
         # Включаем детальное логирование сетевых запросов

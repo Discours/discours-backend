@@ -5,13 +5,18 @@
 
 import asyncio
 import time
+import os
 
 from playwright.async_api import async_playwright
 
 
 async def test_delete_button():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        # Определяем headless режим из переменной окружения
+        headless_mode = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
+        print(f"🔧 Headless режим: {headless_mode}")
+        
+        browser = await p.chromium.launch(headless=headless_mode)
         page = await browser.new_page()
 
         try:

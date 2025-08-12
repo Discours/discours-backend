@@ -33,6 +33,10 @@ jobs:
           uv sync --frozen
           uv sync --group dev
       
+      - name: Install Playwright Browsers
+        run: |
+          uv run playwright install --with-deps chromium
+      
       - name: Run Tests
         env:
           PLAYWRIGHT_HEADLESS: "true"

@@ -6,6 +6,13 @@
 
 Проект использует **pytest** для тестирования и **pytest-cov** для измерения покрытия кода. Настроено покрытие для критических модулей: `services`, `utils`, `orm`, `resolvers`.
 
+### 🎭 E2E тестирование с Playwright
+
+Проект включает E2E тесты с использованием **Playwright** для тестирования пользовательского интерфейса:
+- **Browser тесты**: Автоматизация браузера для тестирования админ-панели
+- **CI/CD совместимость**: Автоматическое переключение между headed/headless режимами
+- **Переменная окружения**: `PLAYWRIGHT_HEADLESS=true` для CI/CD, `false` для локальной разработки
+
 ### 🎯 Текущий статус тестирования
 
 - **Всего тестов**: 344 теста
@@ -27,6 +34,31 @@
 - **resolvers/reader.py**: Исправлен вызов несуществующего метода `search_shouts`
 
 ## Конфигурация покрытия
+
+### Playwright конфигурация
+
+#### Переменные окружения
+```bash
+# Локальная разработка - headed режим для отладки
+export PLAYWRIGHT_HEADLESS=false
+
+# CI/CD - headless режим без XServer
+export PLAYWRIGHT_HEADLESS=true
+```
+
+#### CI/CD настройки
+```yaml
+# .gitea/workflows/main.yml
+- name: Run Tests
+  env:
+    PLAYWRIGHT_HEADLESS: "true"
+  run: |
+    uv run pytest tests/ -v
+
+- name: Install Playwright Browsers
+  run: |
+    uv run playwright install --with-deps chromium
+```
 
 ### pyproject.toml
 
