@@ -14,6 +14,7 @@ import logging
 import sys
 import time
 from pathlib import Path
+import pytest
 
 sys.path.append(str(Path(__file__).parent))
 
@@ -47,69 +48,69 @@ class MockInfo:
             }
 
 
-async def setup_test_data() -> tuple[Author, Shout, Author]:
+async def setup_test_data(db_session) -> tuple[Author, Shout, Author]:
     """Создаем тестовые данные: автора, публикацию и другого автора"""
     logger.info("🔧 Настройка тестовых данных")
 
     current_time = int(time.time())
 
-    with local_session() as session:
-        # Создаем первого автора (владельца публикации)
-        test_author = session.query(Author).where(Author.email == "test_author@example.com").first()
-        if not test_author:
-            test_author = Author(email="test_author@example.com", name="Test Author", slug="test-author")
-            test_author.set_password("password123")
-            session.add(test_author)
-            session.flush()  # Получаем ID
+    # Создаем первого автора (владельца публикации)
+    test_author = db_session.query(Author).where(Author.email == "test_author@example.com").first()
+    if not test_author:
+        test_author = Author(email="test_author@example.com", name="Test Author", slug="test-author")
+        test_author.set_password("password123")
+        db_session.add(test_author)
+        db_session.flush()  # Получаем ID
 
-        # Создаем второго автора (не владельца)
-        other_author = session.query(Author).where(Author.email == "other_author@example.com").first()
-        if not other_author:
-            other_author = Author(email="other_author@example.com", name="Other Author", slug="other-author")
-            other_author.set_password("password456")
-            session.add(other_author)
-            session.flush()
+    # Создаем второго автора (не владельца)
+    other_author = db_session.query(Author).where(Author.email == "other_author@example.com").first()
+    if not other_author:
+        other_author = Author(email="other_author@example.com", name="Other Author", slug="other-author")
+        other_author.set_password("password456")
+        db_session.add(other_author)
+        db_session.flush()
 
-        # Создаем опубликованную публикацию
-        test_shout = session.query(Shout).where(Shout.slug == "test-shout-published").first()
-        if not test_shout:
-            test_shout = Shout(
-                title="Test Published Shout",
-                slug="test-shout-published",
-                body="This is a test published shout content",
-                layout="article",
-                created_by=test_author.id,
-                created_at=current_time,
-                published_at=current_time,  # Публикация опубликована
-                community=1,
-                seo="Test shout for unpublish testing",
-            )
-            session.add(test_shout)
-        else:
-            # Убедимся что публикация опубликована
-            test_shout.published_at = current_time
-            session.add(test_shout)
-
-        session.commit()
-
-        # Добавляем роли пользователям в БД
-        assign_role_to_user(test_author.id, "reader")
-        assign_role_to_user(test_author.id, "author")
-        assign_role_to_user(other_author.id, "reader")
-        assign_role_to_user(other_author.id, "author")
-
-        logger.info(
-            f"   ✅ Созданы: автор {test_author.id}, другой автор {other_author.id}, публикация {test_shout.id}"
+    # Создаем опубликованную публикацию
+    test_shout = db_session.query(Shout).where(Shout.slug == "test-shout-published").first()
+    if not test_shout:
+        test_shout = Shout(
+            title="Test Published Shout",
+            slug="test-shout-published",
+            body="This is a test published shout content",
+            layout="article",
+            created_by=test_author.id,
+            created_at=current_time,
+            published_at=current_time,  # Публикация опубликована
+            community=1,
+            seo="Test shout for unpublish testing",
         )
+        db_session.add(test_shout)
+    else:
+        # Убедимся что публикация опубликована
+        test_shout.published_at = current_time
+        db_session.add(test_shout)
 
-        return test_author, test_shout, other_author
+    db_session.commit()
+
+    # Добавляем роли пользователям в БД
+    assign_role_to_user(test_author.id, "reader")
+    assign_role_to_user(test_author.id, "author")
+    assign_role_to_user(other_author.id, "reader")
+    assign_role_to_user(other_author.id, "author")
+
+    logger.info(
+        f"   ✅ Созданы: автор {test_author.id}, другой автор {other_author.id}, публикация {test_shout.id}"
+    )
+
+    return test_author, test_shout, other_author
 
 
-async def test_successful_unpublish_by_author() -> None:
+@pytest.mark.asyncio
+async def test_successful_unpublish_by_author(db_session) -> None:
     """Тестируем успешное снятие публикации автором"""
     logger.info("📰 Тестирование успешного снятия публикации автором")
 
-    test_author, test_shout, _ = await setup_test_data()
+    test_author, test_shout, _ = await setup_test_data(db_session)
 
     # Тест 1: Успешное снятие публикации автором
     logger.info("   📝 Тест 1: Снятие публикации автором")
@@ -138,11 +139,12 @@ async def test_successful_unpublish_by_author() -> None:
         logger.error(f"   ❌ Ошибка снятия публикации: {result.error}")
 
 
-async def test_unpublish_by_editor() -> None:
+@pytest.mark.asyncio
+async def test_unpublish_by_editor(db_session) -> None:
     """Тестируем снятие публикации редактором"""
     logger.info("👨‍💼 Тестирование снятия публикации редактором")
 
-    test_author, test_shout, other_author = await setup_test_data()
+    test_author, test_shout, other_author = await setup_test_data(db_session)
 
     # Восстанавливаем публикацию для теста
     with local_session() as session:
@@ -177,11 +179,12 @@ async def test_unpublish_by_editor() -> None:
         logger.error(f"   ❌ Ошибка снятия публикации редактором: {result.error}")
 
 
-async def test_access_denied_scenarios() -> None:
+@pytest.mark.asyncio
+async def test_access_denied_scenarios(db_session) -> None:
     """Тестируем сценарии отказа в доступе"""
     logger.info("🚫 Тестирование отказа в доступе")
 
-    test_author, test_shout, other_author = await setup_test_data()
+    test_author, test_shout, other_author = await setup_test_data(db_session)
 
     # Восстанавливаем публикацию для теста
     with local_session() as session:
@@ -219,11 +222,12 @@ async def test_access_denied_scenarios() -> None:
         logger.error(f"   ❌ Неожиданный результат для не-автора: {result.error}")
 
 
-async def test_nonexistent_shout() -> None:
+@pytest.mark.asyncio
+async def test_nonexistent_shout(db_session) -> None:
     """Тестируем обработку несуществующих публикаций"""
     logger.info("👻 Тестирование несуществующих публикаций")
 
-    test_author, _, _ = await setup_test_data()
+    test_author, _, _ = await setup_test_data(db_session)
 
     logger.info("   📝 Тест: Несуществующая публикация")
     info = MockInfo(test_author.id)
@@ -238,11 +242,12 @@ async def test_nonexistent_shout() -> None:
         logger.error(f"   ❌ Неожиданный результат для несуществующей публикации: {result.error}")
 
 
-async def test_already_unpublished_shout() -> None:
+@pytest.mark.asyncio
+async def test_already_unpublished_shout(db_session) -> None:
     """Тестируем снятие публикации с уже неопубликованной публикации"""
     logger.info("📝 Тестирование уже неопубликованной публикации")
 
-    test_author, test_shout, _ = await setup_test_data()
+    test_author, test_shout, _ = await setup_test_data(db_session)
 
     # Убеждаемся что публикация не опубликована
     with local_session() as session:

@@ -247,14 +247,9 @@ with (
 from orm.community import Community, CommunityAuthor
 
 @pytest.fixture
-def oauth_db_session():
+def oauth_db_session(db_session):
     """Фикстура для сессии базы данных в OAuth тестах"""
-    from services.db import local_session
-    session = local_session()
-    try:
-        yield session
-    finally:
-        session.close()
+    return db_session
 
 @pytest.fixture
 def simple_user(oauth_db_session):
