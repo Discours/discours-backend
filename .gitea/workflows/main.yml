@@ -9,11 +9,28 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Install uv
+        run: |
+          # Try multiple installation methods for uv
+          if curl -LsSf https://astral.sh/uv/install.sh | sh; then
+            echo "uv installed successfully via install script"
+          elif curl -LsSf https://github.com/astral-sh/uv/releases/latest/download/uv-installer.sh | sh; then
+            echo "uv installed successfully via GitHub installer"
+          else
+            echo "uv installation failed, using pip fallback"
+            pip install uv
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      
+      - name: Prepare Environment
+        run: |
+          uv --version
+          python3 --version
       
       - name: Install Dependencies
         run: |
-          pip install -r requirements.txt
-          pip install -r requirements.dev.txt
+          uv sync --frozen
       
       - name: Run Tests
         run: |
