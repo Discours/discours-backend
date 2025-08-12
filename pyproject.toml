@@ -3,7 +3,7 @@ name = "discours-core"
 version = "0.9.5"
 description = "Core backend for Discours.io platform"
 authors = [
-    {name = "Discours Team", email = "team@discours.io"}
+    {name = "Tony Rewin", email = "tonyrewin@yandex.ru"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"
