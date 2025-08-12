@@ -60,8 +60,8 @@ class TestCommunityDeleteE2EBrowser:
                     # В CI/CD используем uv run python
                     backend_process = subprocess.Popen(
                         ["uv", "run", "python", "dev.py"],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                         cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     )
 
@@ -80,11 +80,7 @@ class TestCommunityDeleteE2EBrowser:
                         # Если сервер не запустился, выводим логи и завершаем тест
                         print("❌ Бэкенд сервер не запустился за 20 секунд")
                         
-                        # Получаем логи процесса
-                        if backend_process:
-                            stdout, stderr = backend_process.communicate()
-                            print(f"📋 STDOUT: {stdout.decode()}")
-                            print(f"📋 STDERR: {stderr.decode()}")
+                        # Логи процесса не собираем, чтобы не блокировать выполнение
                         
                         raise Exception("Бэкенд сервер не запустился за 20 секунд")
                         
@@ -128,8 +124,8 @@ class TestCommunityDeleteE2EBrowser:
                     try:
                         frontend_process = subprocess.Popen(
                             ["npm", "run", "dev"],
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
                             cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                         )
                         
@@ -149,11 +145,7 @@ class TestCommunityDeleteE2EBrowser:
                             # Если фронтенд не запустился, выводим логи
                             print("❌ Фронтенд сервер не запустился за 15 секунд")
                             
-                            # Получаем логи процесса
-                            if frontend_process:
-                                stdout, stderr = frontend_process.communicate()
-                                print(f"📋 STDOUT: {stdout.decode()}")
-                                print(f"📋 STDERR: {stderr.decode()}")
+                            # Логи процесса не собираем, чтобы не блокировать выполнение
                             
                             print("⚠️ Продолжаем тест без фронтенда (только API тесты)")
                             frontend_process = None

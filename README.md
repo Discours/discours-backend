@@ -68,10 +68,8 @@ uv run pytest --cov=services,utils,orm,resolvers
 
 ```bash
 # Run ruff linter
-uv run ruff check .
-
-# Run ruff formatter
-uv run ruff format .
+uv run ruff check . --select I
+uv run ruff format --line-length=120
 
 # Run mypy type checker
 uv run mypy .

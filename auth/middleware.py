@@ -135,7 +135,7 @@ class AuthMiddleware:
 
                     # Роли пользователя будут определяться в контексте конкретной операции
                     # через RBAC систему, а не здесь
-                    roles = []
+                    roles: list[str] = []
 
                     # Обновляем last_seen
                     author.last_seen = int(time.time())

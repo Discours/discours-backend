@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 import time
 import uuid
 from starlette.testclient import TestClient
+import requests
 
 from services.redis import redis
 from orm.base import BaseModel as Base
@@ -27,6 +28,22 @@ def get_test_client():
         return app
 
     return TestClient(_import_app())
+@pytest.fixture(autouse=True, scope="session")
+def _set_requests_default_timeout():
+    """Глобально задаем таймаут по умолчанию для requests в тестах, чтобы исключить зависания.
+
+    🪓 Упрощение: мокаем методы requests, добавляя timeout=10, если он не указан.
+    """
+    original_request = requests.sessions.Session.request
+
+    def request_with_default_timeout(self, method, url, **kwargs):  # type: ignore[override]
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = 10
+        return original_request(self, method, url, **kwargs)
+
+    requests.sessions.Session.request = request_with_default_timeout  # type: ignore[assignment]
+    yield
+    requests.sessions.Session.request = original_request  # type: ignore[assignment]
 
 
 @pytest.fixture(scope="session")

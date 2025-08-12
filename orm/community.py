@@ -652,26 +652,12 @@ class CommunityAuthor(BaseModel):
         Returns:
             Словарь со статистикой ролей
         """
+        # Загружаем список авторов сообщества (одним способом вне зависимости от сессии)
         if session is None:
             with local_session() as s:
                 community_authors = s.query(cls).where(cls.community_id == community_id).all()
-
-                role_counts: dict[str, int] = {}
-                total_members = len(community_authors)
-
-                for ca in community_authors:
-                    for role in ca.role_list:
-                        role_counts[role] = role_counts.get(role, 0) + 1
-
-                return {
-                    "total_members": total_members,
-                    "role_counts": role_counts,
-                    "roles_distribution": {
-                        role: count / total_members if total_members > 0 else 0 for role, count in role_counts.items()
-                    },
-                }
-
-        community_authors = session.query(cls).where(cls.community_id == community_id).all()
+        else:
+            community_authors = session.query(cls).where(cls.community_id == community_id).all()
 
         role_counts: dict[str, int] = {}
         total_members = len(community_authors)

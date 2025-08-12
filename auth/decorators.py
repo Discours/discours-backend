@@ -95,9 +95,10 @@ async def get_auth_token(request: Any) -> Optional[str]:
         # 2. Проверяем наличие auth_token в scope (приоритет)
         if hasattr(request, "scope") and isinstance(request.scope, dict) and "auth_token" in request.scope:
             token = request.scope.get("auth_token")
-            token_len = len(token) if hasattr(token, "__len__") else "unknown"
-            logger.debug(f"[decorators] Токен получен из request.scope['auth_token']: {token_len}")
-            return token
+            if token is not None:
+                token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                logger.debug(f"[decorators] Токен получен из request.scope['auth_token']: {token_len}")
+                return token
         logger.debug("[decorators] request.scope['auth_token'] НЕ найден")
 
         # Стандартная система сессий уже обрабатывает кэширование
@@ -147,10 +148,11 @@ async def get_auth_token(request: Any) -> Optional[str]:
         if hasattr(request, "scope") and isinstance(request.scope, dict) and "auth" in request.scope:
             auth_info = request.scope.get("auth", {})
             if isinstance(auth_info, dict) and "token" in auth_info:
-                token = auth_info["token"]
-                token_len = len(token) if hasattr(token, "__len__") else "unknown"
-                logger.debug(f"[decorators] Токен получен из request.scope['auth']: {token_len}")
-                return token
+                token = auth_info.get("token")
+                if token is not None:
+                    token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                    logger.debug(f"[decorators] Токен получен из request.scope['auth']: {token_len}")
+                    return token
 
         # 4. Проверяем заголовок Authorization
         headers = get_safe_headers(request)
@@ -164,18 +166,20 @@ async def get_auth_token(request: Any) -> Optional[str]:
                 logger.debug(f"[decorators] Токен получен из заголовка {SESSION_TOKEN_HEADER}: {token_len}")
                 return token
             token = auth_header.strip()
-            token_len = len(token) if hasattr(token, "__len__") else "unknown"
-            logger.debug(f"[decorators] Прямой токен получен из заголовка {SESSION_TOKEN_HEADER}: {token_len}")
-            return token
+            if token:
+                token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                logger.debug(f"[decorators] Прямой токен получен из заголовка {SESSION_TOKEN_HEADER}: {token_len}")
+                return token
 
         # Затем проверяем стандартный заголовок Authorization, если основной не определен
         if SESSION_TOKEN_HEADER.lower() != "authorization":
             auth_header = headers.get("authorization", "")
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header[7:].strip()
-                token_len = len(token) if hasattr(token, "__len__") else "unknown"
-                logger.debug(f"[decorators] Токен получен из заголовка Authorization: {token_len}")
-                return token
+                if token:
+                    token_len = len(token) if hasattr(token, "__len__") else "unknown"
+                    logger.debug(f"[decorators] Токен получен из заголовка Authorization: {token_len}")
+                    return token
 
         # 5. Проверяем cookie
         if hasattr(request, "cookies") and request.cookies:
@@ -232,14 +236,15 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
         return
 
     # Если аутентификации нет в request.auth, пробуем получить ее из scope
+    token: Optional[str] = None
     if hasattr(request, "scope") and "auth" in request.scope:
         auth_cred = request.scope.get("auth")
         if isinstance(auth_cred, AuthCredentials) and getattr(auth_cred, "logged_in", False):
             logger.debug(f"[validate_graphql_context] Пользователь авторизован через scope: {auth_cred.author_id}")
             return
 
-            # Если авторизации нет ни в auth, ни в scope, пробуем получить и проверить токен
-            token = await get_auth_token(request)
+    # Если авторизации нет ни в auth, ни в scope, пробуем получить и проверить токен
+    token = await get_auth_token(request)
     if not token:
         # Если токен не найден, логируем как предупреждение, но не бросаем GraphQLError
         client_info = {
@@ -261,7 +266,8 @@ async def validate_graphql_context(info: GraphQLResolveInfo) -> None:
         return
 
     # Логируем информацию о найденном токене
-    logger.debug(f"[validate_graphql_context] Токен найден, длина: {len(token)}")
+    token_len = len(token) if hasattr(token, "__len__") else 0
+    logger.debug(f"[validate_graphql_context] Токен найден, длина: {token_len}")
 
     # Используем единый механизм проверки токена из auth.internal
     auth_state = await authenticate(request)

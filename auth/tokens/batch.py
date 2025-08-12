@@ -55,12 +55,16 @@ class BatchTokenOperations(BaseTokenManager):
         valid_tokens = []
 
         for token, payload in zip(token_batch, decoded_payloads):
-            if isinstance(payload, Exception) or not payload:
+            if isinstance(payload, Exception) or payload is None:
                 results[token] = False
                 continue
 
             # payload может быть словарем или объектом, обрабатываем оба случая
-            user_id = payload.user_id if hasattr(payload, "user_id") else payload.get("user_id")
+            user_id = (
+                payload.user_id
+                if hasattr(payload, "user_id")
+                else (payload.get("user_id") if isinstance(payload, dict) else None)
+            )
             if not user_id:
                 results[token] = False
                 continue
@@ -119,10 +123,18 @@ class BatchTokenOperations(BaseTokenManager):
         # Декодируем токены и подготавливаем операции
         for token in token_batch:
             payload = await self._safe_decode_token(token)
-            if payload:
+            if payload is not None:
                 # payload может быть словарем или объектом, обрабатываем оба случая
-                user_id = payload.user_id if hasattr(payload, "user_id") else payload.get("user_id")
-                username = payload.username if hasattr(payload, "username") else payload.get("username")
+                user_id = (
+                    payload.user_id
+                    if hasattr(payload, "user_id")
+                    else (payload.get("user_id") if isinstance(payload, dict) else None)
+                )
+                username = (
+                    payload.username
+                    if hasattr(payload, "username")
+                    else (payload.get("username") if isinstance(payload, dict) else None)
+                )
 
                 if not user_id:
                     continue

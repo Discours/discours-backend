@@ -1,3 +1,5 @@
+from typing import Any
+
 from ariadne.asgi.handlers import GraphQLHTTPHandler
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -62,20 +64,22 @@ class EnhancedGraphQLHTTPHandler(GraphQLHTTPHandler):
         # Добавляем данные авторизации только если они доступны
         # Проверяем наличие данных авторизации в scope
         if hasattr(request, "scope") and isinstance(request.scope, dict) and "auth" in request.scope:
-            auth_cred = request.scope.get("auth")
+            auth_cred: Any | None = request.scope.get("auth")
             context["auth"] = auth_cred
             # Безопасно логируем информацию о типе объекта auth
             logger.debug(f"[graphql] Добавлены данные авторизации в контекст из scope: {type(auth_cred).__name__}")
 
             # Проверяем, есть ли токен в auth_cred
-            if hasattr(auth_cred, "token") and auth_cred.token:
-                logger.debug(f"[graphql] Токен найден в auth_cred: {len(auth_cred.token)}")
+            if auth_cred is not None and hasattr(auth_cred, "token") and getattr(auth_cred, "token"):
+                token_val = auth_cred.token
+                token_len = len(token_val) if hasattr(token_val, "__len__") else 0
+                logger.debug(f"[graphql] Токен найден в auth_cred: {token_len}")
             else:
                 logger.debug("[graphql] Токен НЕ найден в auth_cred")
 
             # Добавляем author_id в контекст для RBAC
             author_id = None
-            if hasattr(auth_cred, "author_id") and auth_cred.author_id:
+            if auth_cred is not None and hasattr(auth_cred, "author_id") and getattr(auth_cred, "author_id"):
                 author_id = auth_cred.author_id
             elif isinstance(auth_cred, dict) and "author_id" in auth_cred:
                 author_id = auth_cred["author_id"]
