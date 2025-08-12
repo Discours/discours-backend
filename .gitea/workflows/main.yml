@@ -30,12 +30,10 @@ jobs:
       
       - name: Install Dependencies
         run: |
-          uv sync --frozen
+          uv run pip install -r requirements.txt
+          uv run pip install -r requirements.dev.txt
       
       - name: Run Tests
-        env:
-          TELEGRAM_BOT_TOKEN: dummy-token-for-tests
-          KB_REPO: ""  # Отключаем синхронизацию в тестах
         run: |
           uv run pytest tests/ -v
 
