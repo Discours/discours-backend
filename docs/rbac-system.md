@@ -336,27 +336,6 @@ async def fix_all_users_reader_role() -> dict[str, int]:
     return stats
 ```
 
-#### 3. Миграция из старой системы
-
-```python
-def migrate_old_roles_to_community_author():
-    """Переносит роли из старой системы в CommunityAuthor"""
-
-    # Получаем все старые роли из Author.roles
-    old_roles = session.query(AuthorRole).all()
-
-    for role in old_roles:
-        # Создаем запись CommunityAuthor
-        ca = CommunityAuthor(
-            community_id=role.community,
-            author_id=role.author,
-            roles=role.role
-        )
-        session.add(ca)
-
-    session.commit()
-```
-
 ## API для работы с ролями
 
 ### GraphQL мутации

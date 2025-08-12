@@ -146,7 +146,6 @@ class TestOrmCommunity:
             check_user_permission_in_community,
             assign_role_to_user,
             remove_role_from_user,
-            migrate_old_roles_to_community_author,
             get_all_community_members_with_roles,
             bulk_assign_roles
         )
@@ -155,7 +154,6 @@ class TestOrmCommunity:
             check_user_permission_in_community,
             assign_role_to_user,
             remove_role_from_user,
-            migrate_old_roles_to_community_author,
             get_all_community_members_with_roles,
             bulk_assign_roles
         ])

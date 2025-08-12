@@ -580,15 +580,6 @@ mutation AdminUpdatePermissions {
 - Ограничения на размер выборки (max 100)
 - Оптимизированные SQL запросы с `joinedload`
 
-## Миграция данных
-
-При переходе на новую RBAC систему используется функция:
-
-```python
-from orm.community import migrate_old_roles_to_community_author
-migrate_old_roles_to_community_author()
-```
-
 Функция автоматически переносит роли из старых таблиц в новый формат CSV.
 
 ## Мониторинг и логирование
