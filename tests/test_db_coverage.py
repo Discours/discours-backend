@@ -18,6 +18,10 @@ class TestModel(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String)
     description = Column(String, nullable=True)
+    
+    def __init__(self, name: str = None, description: str = None):
+        self.name = name
+        self.description = description
 
 class TestDatabaseFunctions:
     """Тесты для функций работы с базой данных"""

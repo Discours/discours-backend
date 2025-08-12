@@ -247,6 +247,44 @@ with (
 from orm.community import Community, CommunityAuthor
 
 @pytest.fixture
+def oauth_db_session():
+    """Фикстура для сессии базы данных в OAuth тестах"""
+    from services.db import local_session
+    session = local_session()
+    try:
+        yield session
+    finally:
+        session.close()
+
+@pytest.fixture
+def simple_user(oauth_db_session):
+    """Фикстура для простого пользователя"""
+    from auth.orm import Author
+    import time
+    
+    # Создаем тестового пользователя
+    user = Author(
+        email="simple@test.com",
+        name="Simple User",
+        slug="simple-user",
+        email_verified=True,
+        created_at=int(time.time()),
+        updated_at=int(time.time()),
+        last_seen=int(time.time())
+    )
+    oauth_db_session.add(user)
+    oauth_db_session.commit()
+    
+    yield user
+    
+    # Очистка
+    try:
+        oauth_db_session.query(Author).where(Author.id == user.id).delete()
+        oauth_db_session.commit()
+    except Exception:
+        oauth_db_session.rollback()
+
+@pytest.fixture
 def test_community(oauth_db_session, simple_user):
     """
     Создает тестовое сообщество с ожидаемыми ролями по умолчанию
