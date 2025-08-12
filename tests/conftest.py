@@ -493,9 +493,19 @@ def cleanup_test_data(db_session, user_ids=None, community_ids=None):
 @pytest.fixture
 def frontend_url() -> str:
     """URL фронтенда для тестов"""
-    # В CI/CD используем порт 8000 (бэкенд), в локальной разработке - порт 3000
+    # В CI/CD используем порт 8000 (бэкенд), в локальной разработке - проверяем доступность фронтенда
     is_ci = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
     if is_ci:
         return "http://localhost:8000"
     else:
-        return FRONTEND_URL
+        # Проверяем доступность фронтенда на порту 3000
+        try:
+            import requests
+            response = requests.get("http://localhost:3000", timeout=2)
+            if response.status_code == 200:
+                return "http://localhost:3000"
+        except:
+            pass
+        
+        # Если фронтенд недоступен, используем бэкенд на порту 8000
+        return "http://localhost:8000"

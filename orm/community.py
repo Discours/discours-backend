@@ -575,7 +575,17 @@ class CommunityAuthor(BaseModel):
         """
         if session is None:
             with local_session() as ssession:
-                return cls.get_user_communities_with_roles(author_id, ssession)
+                community_authors = ssession.query(cls).where(cls.author_id == author_id).all()
+
+                return [
+                    {
+                        "community_id": ca.community_id,
+                        "roles": ca.role_list,
+                        "permissions": [],  # Нужно получить асинхронно
+                        "joined_at": ca.joined_at,
+                    }
+                    for ca in community_authors
+                ]
 
         community_authors = session.query(cls).where(cls.author_id == author_id).all()
 
@@ -623,7 +633,8 @@ class CommunityAuthor(BaseModel):
         """
         if session is None:
             with local_session() as ssession:
-                return cls.get_users_with_role(community_id, role, ssession)
+                community_authors = ssession.query(cls).where(cls.community_id == community_id).all()
+                return [ca.author_id for ca in community_authors if ca.has_role(role)]
 
         community_authors = session.query(cls).where(cls.community_id == community_id).all()
 
@@ -643,7 +654,22 @@ class CommunityAuthor(BaseModel):
         """
         if session is None:
             with local_session() as s:
-                return cls.get_community_stats(community_id, s)
+                community_authors = s.query(cls).where(cls.community_id == community_id).all()
+
+                role_counts: dict[str, int] = {}
+                total_members = len(community_authors)
+
+                for ca in community_authors:
+                    for role in ca.role_list:
+                        role_counts[role] = role_counts.get(role, 0) + 1
+
+                return {
+                    "total_members": total_members,
+                    "role_counts": role_counts,
+                    "roles_distribution": {
+                        role: count / total_members if total_members > 0 else 0 for role, count in role_counts.items()
+                    },
+                }
 
         community_authors = session.query(cls).where(cls.community_id == community_id).all()
 
