@@ -4,6 +4,5 @@ pytest-asyncio
 pytest-cov
 mypy
 ruff
-pre-commit
 playwright
 python-dotenv

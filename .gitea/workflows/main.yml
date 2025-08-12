@@ -26,11 +26,17 @@ jobs:
           git_remote_url: 'ssh://dokku@v2.discours.io:22/discoursio-api'
           ssh_private_key: ${{ secrets.PROD_PRIVATE_KEY }}
 
-      - name: Push to staging
-        if: github.ref == 'refs/heads/dev'
-        uses: dokku/github-action@master
-        with:
-          branch: 'dev'
-          git_remote_url: 'ssh://dokku@staging.discours.io:22/core'
-          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
-          git_push_flags: '--force'
+      
+      - name: Push to dokku for main branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Настройка Git
+          git config --global user.email "ci@dev.discours.io"
+          git config --global user.name "CI Bot"
+
+          # Добавление удаленного репозитория Dokku
+          git remote add dokku ssh://dokku@staging.discours.io:22/core
+          
+          # Push с отключением проверки хоста
+          GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" \
+          git push -f dokku main --force
