@@ -399,7 +399,7 @@ wheels = [
 
 [[package]]
 name = "discours-core"
-version = "0.1.0"
+version = "0.9.5"
 source = { editable = "." }
 dependencies = [
     { name = "ariadne" },
@@ -427,7 +427,7 @@ dependencies = [
     { name = "types-requests" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "fakeredis" },
     { name = "mypy" },
@@ -456,30 +456,15 @@ requires-dist = [
     { name = "authlib" },
     { name = "bcrypt" },
     { name = "colorlog" },
-    { name = "fakeredis", marker = "extra == 'dev'" },
-    { name = "fakeredis", marker = "extra == 'test'" },
     { name = "google-analytics-data" },
     { name = "gql" },
     { name = "granian" },
     { name = "httpx" },
-    { name = "mypy", marker = "extra == 'dev'" },
-    { name = "mypy", marker = "extra == 'lint'" },
     { name = "orjson" },
-    { name = "playwright", marker = "extra == 'dev'" },
-    { name = "playwright", marker = "extra == 'test'" },
     { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pyjwt", specifier = ">=2.10" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'test'" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'" },
-    { name = "pytest-asyncio", marker = "extra == 'test'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'test'" },
-    { name = "python-dotenv", marker = "extra == 'dev'" },
     { name = "redis", extras = ["hiredis"] },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'lint'" },
     { name = "sentry-sdk", extras = ["starlette", "sqlalchemy"] },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "starlette" },
@@ -491,7 +476,29 @@ requires-dist = [
     { name = "types-redis" },
     { name = "types-requests" },
 ]
-provides-extras = ["dev", "test", "lint"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "fakeredis" },
+    { name = "mypy" },
+    { name = "playwright" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "python-dotenv" },
+    { name = "ruff" },
+]
+lint = [
+    { name = "mypy" },
+    { name = "ruff" },
+]
+test = [
+    { name = "fakeredis" },
+    { name = "playwright" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+]
 
 [[package]]
 name = "fakeredis"
