@@ -10,7 +10,7 @@ import os
 from playwright.async_api import async_playwright
 
 
-async def test_login():
+async def test_login(frontend_url):
     async with async_playwright() as p:
         # Определяем headless режим из переменной окружения
         headless_mode = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
@@ -25,8 +25,8 @@ async def test_login():
         page.on("console", lambda msg: print(f"📝 CONSOLE: {msg.text}"))
 
         try:
-            print("🌐 Открываем страницу входа...")
-            await page.goto("http://localhost:3000/login")
+            print(f"🌐 Открываем страницу входа на {frontend_url}...")
+            await page.goto(f"{frontend_url}/login")
             await page.wait_for_load_state("networkidle")
 
             print("📸 Делаем скриншот страницы входа...")

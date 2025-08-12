@@ -94,7 +94,7 @@ class TestCommunityDeleteE2EBrowser:
 
             # Проверяем фронтенд
             try:
-                response = requests.get("http://localhost:3000", timeout=2)
+                response = requests.get("http://localhost:8000", timeout=2)
                 if response.status_code == 200:
                     print("✅ Фронтенд сервер уже запущен")
                     frontend_running = True
@@ -104,45 +104,64 @@ class TestCommunityDeleteE2EBrowser:
                 frontend_running = False
 
             if not frontend_running:
-                # В CI/CD фронтенд сервер запускается в workflow
-                # В локальной разработке запускаем фронтенд сервер
-                print("🔄 Запускаем фронтенд сервер...")
-                try:
-                    frontend_process = subprocess.Popen(
-                        ["npm", "run", "dev"],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    )
-                    
-                    # Ждем запуска фронтенда
-                    print("⏳ Ждем запуска фронтенда...")
-                    for i in range(15):  # Ждем максимум 15 секунд
-                        try:
-                            response = requests.get("http://localhost:3000", timeout=2)
-                            if response.status_code == 200:
-                                print("✅ Фронтенд сервер запущен")
-                                break
-                        except:
-                            pass
-                        await asyncio.sleep(1)
-                    else:
-                        # Если фронтенд не запустился, выводим логи
-                        print("❌ Фронтенд сервер не запустился за 15 секунд")
-                        
-                        # Получаем логи процесса
-                        if frontend_process:
-                            stdout, stderr = frontend_process.communicate()
-                            print(f"📋 STDOUT: {stdout.decode()}")
-                            print(f"📋 STDERR: {stderr.decode()}")
-                        
-                        print("⚠️ Продолжаем тест без фронтенда (только API тесты)")
+                # Проверяем, находимся ли мы в CI/CD окружении
+                is_ci = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
+                
+                if is_ci:
+                    print("🔧 CI/CD окружение - фронтенд собран и обслуживается бэкендом")
+                    # В CI/CD фронтенд уже собран и обслуживается бэкендом на порту 8000
+                    try:
+                        response = requests.get("http://localhost:8000/", timeout=2)
+                        if response.status_code == 200:
+                            print("✅ Бэкенд готов обслуживать фронтенд")
+                            frontend_running = True
+                            frontend_process = None
+                        else:
+                            print(f"⚠️ Бэкенд вернул статус {response.status_code}")
+                            frontend_process = None
+                    except Exception as e:
+                        print(f"⚠️ Не удалось проверить бэкенд: {e}")
                         frontend_process = None
+                else:
+                    # Локальная разработка - запускаем фронтенд сервер
+                    print("🔄 Запускаем фронтенд сервер...")
+                    try:
+                        frontend_process = subprocess.Popen(
+                            ["npm", "run", "dev"],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        )
                         
-                except Exception as e:
-                    print(f"⚠️ Не удалось запустить фронтенд сервер: {e}")
-                    print("🔄 Продолжаем тест без фронтенда (только API тесты)")
-                    frontend_process = None
+                        # Ждем запуска фронтенда
+                        print("⏳ Ждем запуска фронтенда...")
+                        for i in range(15):  # Ждем максимум 15 секунд
+                            try:
+                                # В локальной разработке фронтенд работает на порту 3000
+                                response = requests.get("http://localhost:3000", timeout=2)
+                                if response.status_code == 200:
+                                    print("✅ Фронтенд сервер запущен")
+                                    break
+                            except:
+                                pass
+                            await asyncio.sleep(1)
+                        else:
+                            # Если фронтенд не запустился, выводим логи
+                            print("❌ Фронтенд сервер не запустился за 15 секунд")
+                            
+                            # Получаем логи процесса
+                            if frontend_process:
+                                stdout, stderr = frontend_process.communicate()
+                                print(f"📋 STDOUT: {stdout.decode()}")
+                                print(f"📋 STDERR: {stderr.decode()}")
+                            
+                            print("⚠️ Продолжаем тест без фронтенда (только API тесты)")
+                            frontend_process = None
+                            
+                    except Exception as e:
+                        print(f"⚠️ Не удалось запустить фронтенд сервер: {e}")
+                        print("🔄 Продолжаем тест без фронтенда (только API тесты)")
+                        frontend_process = None
 
             # Запускаем браузер
             print("🔄 Запускаем браузер...")
@@ -223,7 +242,7 @@ class TestCommunityDeleteE2EBrowser:
 
         return user
 
-    async def test_community_delete_browser_workflow(self, browser_setup, test_users):
+    async def test_community_delete_browser_workflow(self, browser_setup, test_users, frontend_url):
         """Полный E2E тест удаления сообщества через браузер"""
 
         page = browser_setup["page"]
@@ -240,8 +259,6 @@ class TestCommunityDeleteE2EBrowser:
 
         try:
             # 1. Открываем админ-панель
-            # В CI/CD фронтенд обслуживается бэкендом на порту 8000
-            frontend_url = "http://localhost:3000"
             print(f"🌐 Открываем админ-панель на {frontend_url}...")
             await page.goto(frontend_url)
 
@@ -591,7 +608,7 @@ class TestCommunityDeleteE2EBrowser:
 
             raise
 
-    async def test_community_delete_without_permissions_browser(self, browser_setup, test_community_for_browser):
+    async def test_community_delete_without_permissions_browser(self, browser_setup, test_community_for_browser, frontend_url):
         """Тест попытки удаления без прав через браузер"""
 
         page = browser_setup["page"]
@@ -599,7 +616,7 @@ class TestCommunityDeleteE2EBrowser:
         try:
             # 1. Открываем админ-панель
             print("🔄 Открываем админ-панель...")
-            await page.goto("http://localhost:3000/admin")
+            await page.goto(f"{frontend_url}/admin")
             await page.wait_for_load_state("networkidle")
 
             # 2. Авторизуемся как обычный пользователь (без прав admin)
@@ -675,7 +692,7 @@ class TestCommunityDeleteE2EBrowser:
             print(f"❌ Ошибка в E2E тесте прав доступа: {e}")
             raise
 
-    async def test_community_delete_ui_validation(self, browser_setup, test_community_for_browser, admin_user_for_browser):
+    async def test_community_delete_ui_validation(self, browser_setup, test_community_for_browser, admin_user_for_browser, frontend_url):
         """Тест UI валидации при удалении сообщества"""
 
         page = browser_setup["page"]
@@ -683,7 +700,7 @@ class TestCommunityDeleteE2EBrowser:
         try:
             # 1. Авторизуемся как админ
             print("🔐 Авторизуемся как админ...")
-            await page.goto("http://localhost:3000/admin")
+            await page.goto(f"{frontend_url}/admin")
             await page.wait_for_load_state("networkidle")
 
             import os

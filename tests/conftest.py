@@ -1,4 +1,6 @@
 import pytest
+import os
+from settings import FRONTEND_URL
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -486,3 +488,14 @@ def cleanup_test_data(db_session, user_ids=None, community_ids=None):
         db_session.query(CommunityAuthor).where(CommunityAuthor.community_id.in_(community_ids)).delete(synchronize_session=False)
 
     db_session.commit()
+
+
+@pytest.fixture
+def frontend_url() -> str:
+    """URL фронтенда для тестов"""
+    # В CI/CD используем порт 8000 (бэкенд), в локальной разработке - порт 3000
+    is_ci = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
+    if is_ci:
+        return "http://localhost:8000"
+    else:
+        return FRONTEND_URL

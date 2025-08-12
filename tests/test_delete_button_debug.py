@@ -10,7 +10,7 @@ import os
 from playwright.async_api import async_playwright
 
 
-async def test_delete_button():
+async def test_delete_button(frontend_url):
     async with async_playwright() as p:
         # Определяем headless режим из переменной окружения
         headless_mode = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
@@ -20,8 +20,8 @@ async def test_delete_button():
         page = await browser.new_page()
 
         try:
-            print("🌐 Открываем админ-панель...")
-            await page.goto("http://localhost:3000/login")
+            print(f"🌐 Открываем админ-панель на {frontend_url}...")
+            await page.goto(f"{frontend_url}/login")
             await page.wait_for_load_state("networkidle")
 
             print("🔐 Авторизуемся...")
@@ -30,11 +30,11 @@ async def test_delete_button():
             await page.click('button[type="submit"]')
 
             # Ждем авторизации
-            await page.wait_for_url("http://localhost:3000/admin/**", timeout=10000)
+            await page.wait_for_url(f"{frontend_url}/admin/**", timeout=10000)
             print("✅ Авторизация успешна")
 
             print("📋 Переходим на страницу сообществ...")
-            await page.goto("http://localhost:3000/admin/communities")
+            await page.goto(f"{frontend_url}/admin/communities")
             await page.wait_for_load_state("networkidle")
 
             print("🔍 Ищем таблицу сообществ...")

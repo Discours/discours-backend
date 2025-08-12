@@ -41,15 +41,6 @@ jobs:
         run: |
           npm run build
       
-      - name: Start Frontend Server
-        run: |
-          # Запускаем фронтенд сервер в фоне
-          npm run dev &
-          # Ждем запуска сервера
-          sleep 10
-          # Проверяем что сервер запустился
-          curl -f http://localhost:3000 || exit 1
-      
       - name: Setup Playwright (use pre-installed browsers)
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1

@@ -20,7 +20,9 @@ async def check_communities_table():
 
         try:
             # В CI/CD фронтенд обслуживается бэкендом на порту 8000
-            frontend_url = "http://localhost:3000"
+            # В локальной разработке - на порту 3000
+            is_ci = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
+            frontend_url = "http://localhost:8000" if is_ci else "http://localhost:3000"
             print(f"🌐 Открываем админ-панель на {frontend_url}...")
             await page.goto(frontend_url)
             await page.wait_for_load_state("networkidle")

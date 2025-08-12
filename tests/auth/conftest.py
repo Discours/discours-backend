@@ -1,5 +1,6 @@
 import pytest
 
+PORT = 8000
 
 @pytest.fixture
 def oauth_settings() -> dict[str, dict[str, str]]:
@@ -14,7 +15,7 @@ def oauth_settings() -> dict[str, dict[str, str]]:
 @pytest.fixture
 def frontend_url() -> str:
     """URL фронтенда для тестов"""
-    return "https://localhost:3000"
+    return f"https://localhost:{PORT}"
 
 
 @pytest.fixture(autouse=True)
