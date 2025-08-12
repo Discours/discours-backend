@@ -753,52 +753,6 @@ def remove_role_from_user(author_id: int, role: str, community_id: int = 1) -> b
         return False
 
 
-def migrate_old_roles_to_community_author():
-    """
-    Функция миграции для переноса ролей из старой системы в CommunityAuthor
-
-    [непроверенное] Предполагает, что старые роли хранились в auth.orm.AuthorRole
-    """
-    with local_session() as session:
-        # Получаем все старые роли
-        old_roles = session.query(AuthorRole).all()
-
-        print(f"[миграция] Найдено {len(old_roles)} старых записей ролей")
-
-        # Группируем по автору и сообществу
-        user_community_roles = {}
-
-        for role in old_roles:
-            key = (role.author, role.community)
-            if key not in user_community_roles:
-                user_community_roles[key] = []
-
-            # Извлекаем базовое имя роли (убираем суффикс сообщества если есть)
-            role_name = role.role
-            base_role = role_name.split("-")[0] if (isinstance(role_name, str) and "-" in role_name) else role_name
-
-            if base_role not in user_community_roles[key]:
-                user_community_roles[key].append(base_role)
-
-        # Создаем новые записи CommunityAuthor
-        migrated_count = 0
-        for (author_id, community_id), roles in user_community_roles.items():
-            # Проверяем, есть ли уже запись
-            existing = CommunityAuthor.find_author_in_community(author_id, community_id, session)
-
-            if not existing:
-                ca = CommunityAuthor(community_id=community_id, author_id=author_id)
-                ca.set_roles(roles)
-                session.add(ca)
-                migrated_count += 1
-            else:
-                print(f"[миграция] Запись для автора {author_id} в сообществе {community_id} уже существует")
-
-        session.commit()
-        print(f"[миграция] Создано {migrated_count} новых записей CommunityAuthor")
-        print("[миграция] Миграция завершена. Проверьте результаты перед удалением старых таблиц.")
-
-
 # === CRUD ОПЕРАЦИИ ДЛЯ RBAC ===
 
 
